@@ -1,0 +1,13 @@
+
+# !!!
+src/secrets.ts
+
+# !!
+node_modules/
+bin/*
+build/*
+
+# !
+.DS_Store
+*.sublime-project
+*.sublime-workspace
