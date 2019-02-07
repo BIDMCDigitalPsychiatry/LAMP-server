@@ -1,4 +1,4 @@
-import { SQL, Encrypt, Decrypt } from '../index'
+import { SQL, Encrypt, Decrypt } from '../app'
 import { 
 	d, Schema, Property, Description, Retype, Route, Throws, 
 	Path, BadRequest, NotFound, AuthorizationFailed, Auth,
@@ -6,6 +6,7 @@ import {
 } from '../utils/OpenAPI'
 import { IResult } from 'mssql'
 
+import { Type } from './Type'
 import { Participant } from './Participant'
 import { Study } from './Study'
 import { Researcher } from './Researcher'
@@ -24,12 +25,6 @@ export class Activity {
 		The self-referencing identifier to this object.
 	`)
 	public id?: Identifier
-
-	@Property()
-	@Description(d`
-		External or out-of-line objects attached to this object.
-	`)
-	public attachments?: any
 
 	@Property()
 	@Description(d`
@@ -59,7 +54,7 @@ export class Activity {
 	@Description(d`
 		Create a new Activity under the given Study.
 	`)
-	@Auth(Ownership.Self, 'study_id')
+	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'study_id')
 	@Retype(Identifier, Activity)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async create(
@@ -79,7 +74,7 @@ export class Activity {
 	@Description(d`
 		Update an Activity's settings.
 	`)
-	@Auth(Ownership.Self, 'activity_id')
+	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'activity_id')
 	@Retype(Identifier, Activity)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async update(
@@ -99,7 +94,7 @@ export class Activity {
 	@Description(d`
 		Delete an Activity.
 	`)
-	@Auth(Ownership.Self, 'activity_id')
+	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'activity_id')
 	@Retype(Identifier, Activity)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async delete(
@@ -116,7 +111,7 @@ export class Activity {
 	@Description(d`
 		Get a single activity, by identifier.
 	`)
-	@Auth(Ownership.Self, 'activity_id')
+	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'activity_id')
 	@Retype(Array, Activity)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async view(
@@ -134,7 +129,7 @@ export class Activity {
 		Get the set of all activities available to a participant, 
 		by participant identifier.
 	`)
-	@Auth(Ownership.Sibling, 'participant_id')
+	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'participant_id')
 	@Retype(Array, Activity)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async all_by_participant(
@@ -152,7 +147,7 @@ export class Activity {
 		Get the set of all activities available to 
 		participants of a single study, by study identifier.
 	`)
-	@Auth(Ownership.Parent, 'study_id')
+	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'study_id')
 	@Retype(Array, Activity)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async all_by_study(
@@ -170,7 +165,7 @@ export class Activity {
 		Get the set of all activities available to participants 
 		of any study conducted by a researcher, by researcher identifier.
 	`)
-	@Auth(Ownership.Parent, 'researcher_id')
+	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'researcher_id')
 	@Retype(Array, Activity)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async all_by_researcher(
@@ -249,7 +244,7 @@ export class Activity {
 		let components = Identifier.unpack(id)
 		if (components[0] !== (<any>Activity).name)
 			throw new Error('invalid identifier')
-		let result = components.slice(1).map(parseInt)
+		let result = components.slice(1).map(x => parseInt(x))
 		return {
 			activity_spec_id: !isNaN(result[0]) ? result[0] : 0,
 			admin_id: !isNaN(result[1]) ? result[1] : 0,
@@ -300,8 +295,6 @@ export class Activity {
 
 	): Promise<Activity[]> {
 
-		console.dir(Identifier.unpack(id!))
-
 		// Get the correctly scoped identifier to search within.
 		let ctest_id: number | undefined
 		let survey_id: number | undefined
@@ -315,9 +308,12 @@ export class Activity {
 			ctest_id = c.activity_spec_id
 			survey_id = c.survey_id
 			admin_id = c.admin_id
-		} else if(!!id) throw new Error()
+		} 
+		else if (!!id && Identifier.unpack(id).length === 0 /* Participant */)
+			admin_id = Researcher._unpack_id((<any>await Type.parent(<string>id))['Researcher']).admin_id
+		else if(!!id) throw new Error()
 
-		let result: IResult<any> = await SQL!.request().query(`
+		let result = await SQL!.request().query(`
 		WITH A(value) AS (
 			SELECT 
 				AdminID AS aid,
@@ -435,6 +431,7 @@ export class Activity {
 				) AS schedule
 			FROM Survey
 			WHERE isDeleted = 0 
+				${ctest_id == 1 /* survey */ ? '' : `AND 1=0`}
 				${!survey_id ? '' : `AND SurveyID = '${survey_id}'`}
 				${!admin_id ? '' : `AND AdminID = '${admin_id}'`}
 			FOR JSON PATH, INCLUDE_NULL_VALUES, WITHOUT_ARRAY_WRAPPER
@@ -442,12 +439,12 @@ export class Activity {
 		SELECT CONCAT('[', A.value, CASE 
 			WHEN LEN(A.value) > 0 AND LEN(B.value) > 0 THEN ',' ELSE '' 
 		END, B.value, ']')
-		FROM A, B;`)
+		FROM A, B;
+		`)
 
-		if (result.recordsets.length === 0)
+		let result2 = JSON.parse(result.recordset[0][''])
+		if (result2.length === 0)
 			return []
-		let result2 = <any[]>JSON.parse(result.recordsets[0][0][''])
-
 		return result2.map((raw: any) => {
 			let obj = new Activity()
 			if (raw.type === 'ctest') {

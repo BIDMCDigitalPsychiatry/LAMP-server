@@ -1,3 +1,3 @@
 export * from './APIConverters'
 export * from './OpenAPI'
-export * from './ScriptRunner'
+export { default as ScriptRunner } from './ScriptRunner'

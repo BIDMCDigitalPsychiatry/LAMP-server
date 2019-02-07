@@ -1,4 +1,4 @@
-import { SQL, Encrypt, Decrypt } from '../index'
+import { SQL, Encrypt, Decrypt } from '../app'
 import { 
 	d, Schema, Property, Description, Retype, Route, Throws, 
 	Path, BadRequest, NotFound, AuthorizationFailed, Auth,
@@ -6,6 +6,7 @@ import {
 } from '../utils/OpenAPI'
 import { IResult } from 'mssql'
 
+import { Type } from './Type'
 import { Activity } from './Activity'
 import { Participant } from './Participant'
 import { Researcher } from './Researcher'
@@ -22,12 +23,6 @@ export class Study {
 		The self-referencing identifier to this object.
 	`)
 	public id?: Identifier
-
-	@Property()
-	@Description(d`
-		External or out-of-line objects attached to this object.
-	`)
-	public attachments?: any
 
 	@Property()
 	@Description(d`
@@ -53,7 +48,7 @@ export class Study {
 	@Description(d`
 		Create a new Study for the given Researcher.
 	`)
-	@Auth(Ownership.Parent, 'researcher_id')
+	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'researcher_id')
 	@Retype(Identifier, Study)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async create(
@@ -73,7 +68,7 @@ export class Study {
 	@Description(d`
 		Update the study.
 	`)
-	@Auth(Ownership.Self, 'study_id')
+	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'study_id')
 	@Retype(Identifier, Study)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async update(
@@ -93,7 +88,7 @@ export class Study {
 	@Description(d`
 		Delete a study.
 	`)
-	@Auth(Ownership.Self, 'study_id')
+	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'study_id')
 	@Retype(Identifier, Study)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async delete(
@@ -110,7 +105,7 @@ export class Study {
 	@Description(d`
 		Get a single study, by identifier.
 	`)
-	@Auth(Ownership.Self, 'study_id')
+	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'study_id')
 	@Retype(Array, Study)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async view(
@@ -127,7 +122,7 @@ export class Study {
 	@Description(d`
 		Get the set of studies for a single researcher.
 	`)
-	@Auth(Ownership.Self, 'researcher_id')
+	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'researcher_id')
 	@Retype(Array, Study)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async all_by_researcher(
@@ -184,7 +179,7 @@ export class Study {
 		let components = Identifier.unpack(id)
 		if (components[0] !== (<any>Study).name)
 			throw new Error('invalid identifier')
-		let result = components.slice(1).map(parseInt)
+		let result = components.slice(1).map(x => parseInt(x))
 		return {
 			admin_id: !isNaN(result[0]) ? result[0] : 0
 		}

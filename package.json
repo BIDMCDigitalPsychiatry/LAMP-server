@@ -1,15 +1,21 @@
 {
   "name": "lamp-server",
   "version": "1.0.0",
-  "bin": "build/index.js",
+  "bin": "build/app.js",
   "dependencies": {
     "@types/cors": "^2.8.4",
+    "@types/dockerode": "^2.5.10",
     "@types/es6-shim": "^0.31.39",
     "@types/express": "^4.16.0",
+    "@types/express-http-proxy": "^1.5.1",
+    "@types/fs-extra": "^5.0.4",
+    "@types/get-stream": "^3.0.1",
     "@types/morgan": "^1.7.35",
     "@types/mssql": "^4.0.11",
     "@types/node": "^10.12.18",
+    "@types/request": "^2.48.1",
     "@types/tar-stream": "^1.6.0",
+    "@types/uniqid": "^4.1.2",
     "ajv": "^6.6.2",
     "alasql": "^0.4.11",
     "body-parser": "^1.18.3",
@@ -17,27 +23,39 @@
     "cors": "^2.8.5",
     "dockerode": "^2.5.8",
     "express": "^4.16.4",
+    "express-http-proxy": "^1.5.1",
+    "fs-extra": "^7.0.1",
+    "get-stream": "^4.1.0",
     "morgan": "^1.9.1",
     "mssql": "^4.3.0",
     "openapi3-ts": "^1.1.0",
+    "request": "^2.88.0",
     "routing-controllers-openapi": "^1.4.2",
     "s3-proxy": "^1.1.1",
     "source-map-support": "^0.5.10",
     "tar-stream": "^1.6.2",
-    "typescript": "^3.2.2"
+    "typescript": "^3.2.2",
+    "uniqid": "^5.0.3",
+    "vhost": "^3.0.2",
+    "vm2": "^3.6.10"
   },
   "devDependencies": {
-    "@types/dockerode": "^2.5.10",
     "pkg": "^4.3.5",
-    "tsc-watch": "^1.0.31"
+    "tsc-watch": "^1.0.31",
+    "tslint": "^5.12.1",
+    "tslint-config-prettier": "^1.18.0",
+    "tslint-config-standard": "^8.0.1"
   },
   "scripts": {
-    "start": "tsc-watch --onSuccess \"node -r source-map-support/register ./build/index.js\"",
+    "start": "tsc-watch --onSuccess \"node -r source-map-support/register ./build/app.js\"",
     "build": "tsc",
     "deploy": "pkg . -t node10-alpine-x64,node10-linux-x64,node10-macos-x64 --out-path bin/"
   },
   "pkg": {
-    "scripts": "build/**/*.js",
+    "scripts": [
+      "build/**/*.js",
+      "node_modules/vm2/lib/*.js"
+    ],
     "assets": "public/**/*"
   }
 }

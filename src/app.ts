@@ -2,7 +2,7 @@ import secrets from './secrets'
 import './controllers'
 import { API, Unimplemented } from './utils'
 import { OpenAPI, ExpressAPI } from './utils'
-import express, { Request, Response, Router, Application } from 'express'
+import express, { Request, Response, Router, NextFunction, Application } from 'express'
 import bodyParser from 'body-parser'
 import sql from 'mssql'
 import net from 'net'
@@ -10,9 +10,10 @@ import crypto from 'crypto'
 import fs from 'fs'
 import http from 'http'
 import https from 'https'
-
-import _Docker from 'dockerode'
-const Docker = new _Docker()
+import proxy from 'express-http-proxy'
+import { ScriptRunner } from './utils'
+const vhost = require('vhost')
+const alasql = require('alasql')
 
 const info = {
 	"title": "LAMP Platform",
@@ -24,9 +25,15 @@ const info = {
 // Configure the base Express app and middleware.
 export const app: Application = express()
 app.set('json spaces', 2)
-app.use(bodyParser.json())
+app.use(bodyParser.json({ limit: '50mb', strict: false }))
+app.use(bodyParser.text())
 app.use(require('cors')())
 app.use(require('morgan')('combined'))
+
+// TODO: separate express apps for sep. vhosts
+app.use(vhost('www.*', (req: Request, res: Response, next: NextFunction) => {
+	proxy(secrets.s3www.bucket_url).call(undefined, req, res, next)
+}))
 
 /**
  *
@@ -82,7 +89,7 @@ export const Decrypt = (data: string, mode: 'Rijndael' | 'AES256' = 'Rijndael'):
 /**
  *
  */
-export const Download = function(url: string) {
+export const Download = function(url: string): Promise<Buffer> {
 	return new Promise((resolve, reject) => {
 	    const lib = url.startsWith('https') ? https : http
 	    const request = lib.get(url, (response) => {
@@ -96,16 +103,37 @@ export const Download = function(url: string) {
 	})
 };
 
-
 // Initialize and configure the application.
 (async /* main */ () => {
 
 	// Establish the API routes.
 	const api = API.all()
 	const defn = OpenAPI(api, info)
-	ExpressAPI(api, app)
-	app.get('/', (req, res) => res.json(defn))
+	ExpressAPI(api, app, secrets.auth.root)
+	app.get('/', (req, res) => {
+		if ((<string>req.get('host')).split('.')[0] !== 'www')
+			res.json(defn)
+		proxy(secrets.s3www.bucket_url)
+	})
 	app.get('*', (req, res) => res.json(new Unimplemented()))
+
+	/*
+	// ... TODO
+	alasql(`CREATE TABLE ${'Researcher'}`)
+	alasql.tables['Researcher'] = {
+		...alasql.tables['Researcher'],
+		get data() { return [{ value: 'A' }, { value: 'B' }, { value: 'C' }] },
+		get columns() { return [{ columnid: 'value', dbtypeid: 'JSON' }] },
+		get xcolumns() { return { value: { columnid: 'value', dbtypeid: 'JSON' }} }
+	}
+	app.post('/', async (req, res) => {
+		try {
+			res.status(200).json(alasql(req.body))
+		} catch(e) {
+			res.status(500).json({ error: e.message })
+		}
+	})
+	*/
 
 	// Establish the SQL connection.
 	SQL = await new sql.ConnectionPool({
@@ -119,13 +147,21 @@ export const Download = function(url: string) {
 	}).connect()
 
 	// Begin listener on port 3000 and a TCP relay from 8080 to 3000.
-	app.listen(3000, async () => {
+	app.listen((process.env.PORT || 3000), async () => {
 
 		// Add a second listener on UNIX socket /var/run/lamp.sock.
 		// This listener receives requests from local Docker containers.
-		if (fs.existsSync('/var/run/lamp.sock'))
-			fs.unlinkSync('/var/run/lamp.sock')
-		process.on('SIGTERM', () => fs.unlinkSync('/var/run/lamp.sock'))
-		app.listen('/var/run/lamp.sock')
+		try {
+			if (fs.existsSync('/var/run/lamp.sock'))
+				fs.unlinkSync('/var/run/lamp.sock')
+			process.on('SIGTERM', () => { 
+				try {
+					fs.unlinkSync('/var/run/lamp.sock')
+				} catch (e) {}
+			})
+			app.listen('/var/run/lamp.sock').on('error', () => {
+				console.error('Could not listen on UNIX socket.')
+			})
+		} catch (e) {}
 	})
 })()

@@ -1,4 +1,4 @@
-import { SQL, Encrypt, Decrypt } from '../index'
+import { SQL, Encrypt, Decrypt } from '../app'
 import { 
 	d, Schema, Property, Description, Retype, Route, Throws, 
 	Path, BadRequest, NotFound, AuthorizationFailed, Auth,
@@ -86,78 +86,18 @@ export class Document<T> {
 	}
 }
 
-@Schema()
-@Description(d`
-	
-`)
-export class CalendarComponents {
-
-	@Property()
-	@Description(d`
-		
-	`)
-	public year?: Int64
-
-	@Property()
-	@Description(d`
-		
-	`)
-	public month?: Int64
-
-	@Property()
-	@Description(d`
-		
-	`)
-	public day?: Int64
-
-	@Property()
-	@Description(d`
-		
-	`)
-	public hour?: Int64
-
-	@Property()
-	@Description(d`
-		
-	`)
-	public minute?: Int64
-
-	@Property()
-	@Description(d`
-		
-	`)
-	public second?: Int64
-
-	@Property()
-	@Description(d`
-		
-	`)
-	public millisecond?: Int64
-
-	@Property()
-	@Description(d`
-		
-	`)
-	public weekday?: Int64
-
-	@Property()
-	@Description(d`
-		
-	`)
-	public ordinal?: Int64
-
-	@Property()
-	@Description(d`
-		
-	`)
-	public week_of_month?: Int64
-
-	@Property()
-	@Description(d`
-		
-	`)
-	public week_of_year?: Int64
-}
+// https://en.wikipedia.org/wiki/Cron#CRON_expression
+/*
+* * * * * *
+| | | | | | 
+| | | | | +-- Year              (range: 1900-3000)
+| | | | +---- Day of the Week   (range: 1-7; L=last, #=ordinal(range: 1-4))
+| | | +------ Month of the Year (range: 1-12)
+| | +-------- Day of the Month  (range: 1-31; L=last, W=nearest-weekday, #=ordinal(range: 1-52))
+| +---------- Hour              (range: 0-23)
++------------ Minute            (range: 0-59)
+*/
+type CronDefinition = string;
 
 @Schema()
 @Description(d`
@@ -172,11 +112,11 @@ export class DurationInterval {
 	public start?: Timestamp
 
 	@Property()
-	@Retype(Array, CalendarComponents)
+	@Retype(Array, String)
 	@Description(d`
 		
 	`)
-	public interval?: CalendarComponents[]
+	public interval?: CronDefinition[]
 
 	@Property()
 	@Description(d`
@@ -192,17 +132,17 @@ export class DurationInterval {
 }
 
 enum RepeatTypeLegacy {
-	hourly = 'hourly',
-	every3h = 'every3h',
-	every6h = 'every6h',
-	every12h = 'every12h',
-	daily = 'daily',
-	biweekly = 'biweekly',
-	weekly = 'weekly',
-	bimonthly = 'bimonthly',
-	monthly = 'monthly',
-	custom = 'custom',
-	none = 'none'
+	hourly = 'hourly', // 0 * * * * *
+	every3h = 'every3h', // 0 */3 * * * *
+	every6h = 'every6h', // 0 */6 * * * *
+	every12h = 'every12h', // 0 */12 * * * *
+	daily = 'daily', // 0 0 * * * *
+	weekly = 'weekly', // 0 0 * * 0 *
+	biweekly = 'biweekly', // 0 0 1,15 * * *
+	monthly = 'monthly', // 0 0 1 * * *
+	bimonthly = 'bimonthly', // 0 0 1 */2 * *
+	custom = 'custom', // 1 2 3 4 5 6
+	none = 'none' // 0 0 0 0 0 0
 }
 Enum(RepeatTypeLegacy, d`
 	The repeat type of a schedule.
@@ -233,11 +173,6 @@ export class DurationIntervalLegacy {
 	`)
 	public custom_times?: Timestamp[]
 }
-
-
-
-
-
 
 
 // TODO: below is to convert legacy scheduling into modern cron-like versions
@@ -296,9 +231,6 @@ $obj->schedule = isset($raw->schedule) ? array_merge(...array_map(function($x) {
 }, $raw->schedule)) : null;
 */
 
-
-
-
 // Schedule:
 //      - Admin_CTestSchedule, Admin_SurveySchedule
 //          - AdminID, CTestID/SurveyID, Version*(C), ScheduleDate, SlotID, Time, RepeatID, IsDeleted
@@ -318,8 +250,6 @@ $obj->schedule = isset($raw->schedule) ? array_merge(...array_map(function($x) {
 //          - SurveyID, QuestionText, AnswerType, IsDeleted
 //      - SurveyQuestionsOptions
 //          - QuestionID, OptionText
-
-
 
 /*
 -- Utility function that removes keys from FOR JSON output.

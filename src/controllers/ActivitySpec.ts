@@ -1,4 +1,4 @@
-import { SQL, Encrypt, Decrypt } from '../index'
+import { SQL, Encrypt, Decrypt } from '../app'
 import { 
 	d, Schema, Property, Description, Retype, Route, Throws, 
 	Path, BadRequest, NotFound, AuthorizationFailed, Auth,
@@ -6,6 +6,7 @@ import {
 } from '../utils/OpenAPI'
 import { IResult } from 'mssql'
 
+import { Type } from './Type'
 import { Participant } from './Participant'
 import { Study } from './Study'
 import { Researcher } from './Researcher'
@@ -25,118 +26,10 @@ import { Researcher } from './Researcher'
  * !!!!!!!!!!!!!!!!!!!!!!!
  */
 
-export enum QuestionType {
-	Likert = 'likert',
-	List = 'list',
-	YesNo = 'boolean',
-	Clock = 'clock',
-	Years = 'years',
-	Months = 'months',
-	Days = 'days'
-}
-Enum(QuestionType, d`
-	The kind of response to a question.
-`)
-Enum.Description(QuestionType, 'Likert', d`
-	A five-point likert scale. The \`options\` field will be \`null\`.
-`)
-Enum.Description(QuestionType, 'List', d`
-	A list of choices to select from.
-`)
-Enum.Description(QuestionType, 'YesNo', d`
-	A \`true\` or \`false\` (or \`yes\` and \`no\`) toggle. The \`options\` field will be \`null\`.
-`)
-Enum.Description(QuestionType, 'Clock', d`
-	A time selection clock. The \`options\` field will be \`null\`.
-`)
-Enum.Description(QuestionType, 'Years', d`
-	A number of years. The \`options\` field will be \`null\`.
-`)
-Enum.Description(QuestionType, 'Months', d`
-	A number of months. The \`options\` field will be \`null\`.
-`)
-Enum.Description(QuestionType, 'Days', d`
-	A number of days. The \`options\` field will be \`null\`.
-`)
+// TODO: REMOVE ID!
 
-@Schema()
-@Description(d`
-	A question within a survey-type \`Activity\`.
-`)
-export class Question {
-
-	@Property()
-	@Description(d`
-		The type of question within a survey activity.
-	`)
-	public type?: QuestionType
-
-	@Property()
-	@Description(d`
-		The prompt for the question.
-	`)
-	public text?: string
-
-	@Property()
-	@Description(d`
-		Possible option choices for a question of type \`list\`.
-	`)
-	public options?: string[]
-}
-
-@Schema()
-@Description(d`
-	The parameters of a setting, static data, or temporal event 
-	key, for an \`ActivitySpec\`.
-`)
-export class ActivitySpecItem {
-
-	@Property()
-	@Description(d`
-		The name of the specification item.
-	`)
-	public name?: string
-
-	@Property()
-	@Description(d`
-		The type of specification item, as a JSON Schema.
-	`)
-	public type?: string
-
-	@Property()
-	@Description(d`
-		The default value of the specification item.
-	`)
-	public default?: string
-}
-
-@Schema()
-@Description(d`
-	The definition of an \`Activity\`'s \`ResultEvent\`s.
-`)
-export class ActivityDefinition {
-
-	@Property()
-	@Retype(Array, ActivitySpecItem)
-	@Description(d`
-		The static data definition of an ActivitySpec.
-	`)
-	public static_data?: ActivitySpecItem[]
-
-	@Property()
-	@Retype(Array, ActivitySpecItem)
-	@Description(d`
-		The temporal event data definition of an ActivitySpec.
-	`)
-	public temporal_event?: ActivitySpecItem[]
-
-	@Property()
-	@Retype(Array, ActivitySpecItem)
-	@Description(d`
-		The Activity settings definition of an ActivitySpec.
-	`)
-	public settings?: ActivitySpecItem[]
-}
+// FIXME
+type JSONSchema = any;
 
 @Schema()
 @Parent(Study)
@@ -151,12 +44,6 @@ export class ActivitySpec {
 		The self-referencing identifier to this object.
 	`)
 	public id?: Identifier
-
-	@Property()
-	@Description(d`
-		External or out-of-line objects attached to this object.
-	`)
-	public attachments?: any
 
 	@Property()
 	@Description(d`
@@ -180,35 +67,43 @@ export class ActivitySpec {
 
 	@Property()
 	@Description(d`
-		The JSON Schema-based Activity definition and specification information.
+		The static data definition of an ActivitySpec.
 	`)
-	public definition?: ActivityDefinition
+	public static_data_schema?: JSONSchema
 
-	@Route.POST('/study/{study_id}/activity_spec') 
+	@Property()
+	@Description(d`
+		The temporal event data definition of an ActivitySpec.
+	`)
+	public temporal_event_schema?: JSONSchema
+
+	@Property()
+	@Description(d`
+		The Activity settings definition of an ActivitySpec.
+	`)
+	public settings_schema?: JSONSchema
+
+	@Route.POST('/activity_spec') 
 	@Description(d`
 		Create a new ActivitySpec visible to the given Study.
 	`)
-	@Auth(Ownership.Self, 'study_id')
+	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'study_id')
 	@Retype(Identifier, ActivitySpec)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async create(
-
-		@Path('study_id')
-		@Retype(Identifier, Study)
-		study_id: string,
 
 		@Body()
 		activity_spec: ActivitySpec,
 
 	): Promise<Identifier> {
-		return ActivitySpec._insert(study_id, activity_spec)
+		return ActivitySpec._insert(activity_spec)
 	}
 
 	@Route.PUT('/activity_spec/{activity_spec_id}') 
 	@Description(d`
 		Update an ActivitySpec.
 	`)
-	@Auth(Ownership.Self, 'activity_spec_id')
+	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'activity_spec_id')
 	@Retype(Identifier, ActivitySpec)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async update(
@@ -228,7 +123,7 @@ export class ActivitySpec {
 	@Description(d`
 		Delete an ActivitySpec.
 	`)
-	@Auth(Ownership.Self, 'activity_spec_id')
+	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'activity_spec_id')
 	@Retype(Identifier, ActivitySpec)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async delete(
@@ -239,76 +134,6 @@ export class ActivitySpec {
 
 	): Promise<Identifier> {
 		return ActivitySpec._delete(activity_spec_id)
-	}
-
-	@Route.GET('/activity_spec/{activity_spec_id}') 
-	@Description(d`
-		Get a single ActivitySpec by identifier.
-	`)
-	@Auth(Ownership.Self, 'activity_spec_id')
-	@Retype(Array, ActivitySpec)
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async view(
-
-		@Path('activity_spec_id')
-		@Retype(Identifier, ActivitySpec)
-		activity_spec_id: string
-
-	): Promise<ActivitySpec[]> {
-		return ActivitySpec._select(activity_spec_id)
-	}
-
-	@Route.GET('/participant/{participant_id}/activity_spec') 
-	@Description(d`
-		Get all ActivitySpecs visible to a Participant.
-	`)
-	@Auth(Ownership.Sibling, 'participant_id')
-	@Retype(Array, ActivitySpec)
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async all_by_participant(
-
-		@Path('participant_id')
-		@Retype(Identifier, Participant)
-		participant_id: string
-
-	): Promise<ActivitySpec[]> {
-		return ActivitySpec._select(participant_id)
-	}
-
-	@Route.GET('/study/{study_id}/activity_spec') 
-	@Description(d`
-		Get the set of all ActivitySpecs available to 
-		participants of a single study, by study identifier.
-	`)
-	@Auth(Ownership.Parent, 'study_id')
-	@Retype(Array, ActivitySpec)
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async all_by_study(
-
-		@Path('study_id')
-		@Retype(Identifier, Study)
-		study_id: string
-
-	): Promise<ActivitySpec[]> {
-		return ActivitySpec._select(study_id)
-	}
-
-	@Route.GET('/researcher/{researcher_id}/activity_spec') 
-	@Description(d`
-		Get the set of all activities available to participants 
-		of any study conducted by a researcher, by researcher identifier.
-	`)
-	@Auth(Ownership.Parent, 'researcher_id')
-	@Retype(Array, ActivitySpec)
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async all_by_researcher(
-
-		@Path('researcher_id')
-		@Retype(Identifier, Researcher)
-		researcher_id: string
-
-	): Promise<ActivitySpec[]> {
-		return ActivitySpec._select(researcher_id)
 	}
 
 	@Route.GET('/activity_spec') 
@@ -355,7 +180,7 @@ export class ActivitySpec {
 		let components = Identifier.unpack(id)
 		if (components[0] !== (<any>ActivitySpec).name)
 			throw new Error('invalid identifier')
-		let result = components.slice(1).map(parseInt)
+		let result = components.slice(1).map(x => parseInt(x))
 		return {
 			activity_spec_id: !isNaN(result[0]) ? result[0] : 0
 		}
@@ -410,7 +235,7 @@ export class ActivitySpec {
 		// Convert fields correctly and return the spec objects.
 		// Include the batchSpec only if a non-specific lookup was made.
 		return [
-			...[ActivitySpec.batchSpec],
+			...(!!index_id ? [] : [ActivitySpec.batchSpec]),
 			...result.recordsets[0].map(x => {
 				let obj = new ActivitySpec()
 				obj.id = ActivitySpec._pack_id({ activity_spec_id: x.id })
@@ -424,11 +249,6 @@ export class ActivitySpec {
 	 * Create a `ActivitySpec` with a new object.
 	 */
 	private static async _insert(
-
-		/**
-		 * The parent study ID.
-		 */
-		study_id: Identifier,
 
 		/**
 		 * The new object.
@@ -488,24 +308,23 @@ export class ActivitySpec {
 		let obj = new ActivitySpec()
 		obj.id = ActivitySpec._pack_id({ activity_spec_id: 0 })
 		obj.name = 'Activity Group'
-		obj.definition = new ActivityDefinition()
-		obj.definition.settings = [
-			<ActivitySpecItem>{
-				name: 'item1', /* static for now */
-				type: 'string', /* switch to schema format */
-				default: undefined /* null vs. 'null' */
-			},
-			<ActivitySpecItem>{
-				name: 'item2', /* static for now */
-				type: 'string', /* switch to schema format */
-				default: undefined /* null vs. 'null' */
-			},
-			<ActivitySpecItem>{
-				name: 'item3', /* static for now */
-				type: 'string', /* switch to schema format */
-				default: undefined /* null vs. 'null' */
+		obj.settings_schema = {
+			type: 'object',
+			properties: {
+				item1: {
+					type: 'string', /* switch to schema format */
+					default: undefined /* null vs. 'null' */
+				},
+				item2: {
+					type: 'string', /* switch to schema format */
+					default: undefined /* null vs. 'null' */
+				},
+				item3: {
+					type: 'string', /* switch to schema format */
+					default: undefined /* null vs. 'null' */
+				}
 			}
-		]
+		}
 		return obj
 	}
 
@@ -555,3 +374,66 @@ export class ActivitySpec {
 		}))[key]
 	}
 }
+
+// TODO: The below are actually part of the JSONSchema for Survey's ActivitySpec
+
+/*
+export enum QuestionType {
+	Likert = 'likert',
+	List = 'list',
+	YesNo = 'boolean',
+	Clock = 'clock',
+	Years = 'years',
+	Months = 'months',
+	Days = 'days'
+}
+Enum(QuestionType, d`
+	The kind of response to a question.
+`)
+Enum.Description(QuestionType, 'Likert', d`
+	A five-point likert scale. The \`options\` field will be \`null\`.
+`)
+Enum.Description(QuestionType, 'List', d`
+	A list of choices to select from.
+`)
+Enum.Description(QuestionType, 'YesNo', d`
+	A \`true\` or \`false\` (or \`yes\` and \`no\`) toggle. The \`options\` field will be \`null\`.
+`)
+Enum.Description(QuestionType, 'Clock', d`
+	A time selection clock. The \`options\` field will be \`null\`.
+`)
+Enum.Description(QuestionType, 'Years', d`
+	A number of years. The \`options\` field will be \`null\`.
+`)
+Enum.Description(QuestionType, 'Months', d`
+	A number of months. The \`options\` field will be \`null\`.
+`)
+Enum.Description(QuestionType, 'Days', d`
+	A number of days. The \`options\` field will be \`null\`.
+`)
+
+@Schema()
+@Description(d`
+	A question within a survey-type \`Activity\`.
+`)
+export class Question {
+
+	@Property()
+	@Description(d`
+		The type of question within a survey activity.
+	`)
+	public type?: QuestionType
+
+	@Property()
+	@Description(d`
+		The prompt for the question.
+	`)
+	public text?: string
+
+	@Property()
+	@Description(d`
+		Possible option choices for a question of type \`list\`.
+	`)
+	public options?: string[]
+}
+*/

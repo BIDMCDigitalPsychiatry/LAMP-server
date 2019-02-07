@@ -1,4 +1,4 @@
-import { SQL, Encrypt, Decrypt } from '../index'
+import { SQL, Encrypt, Decrypt } from '../app'
 import { 
 	d, Schema, Property, Description, Retype, Route, Throws, 
 	Path, BadRequest, NotFound, AuthorizationFailed, Auth,
@@ -6,77 +6,9 @@ import {
 } from '../utils/OpenAPI'
 import { IResult } from 'mssql'
 
+import { Type } from './Type'
 import { Study } from './Study'
 import { Researcher } from './Researcher'
-
-import { FitnessEvent } from './FitnessEvent'
-import { SensorEvent } from './SensorEvent'
-import { EnvironmentEvent } from './EnvironmentEvent'
-import { MetadataEvent } from './MetadataEvent'
-import { ResultEvent } from './ResultEvent'
-
-export enum DeviceType {
-	iOS = 'iOS',
-	Android = 'Android'
-}
-Enum(DeviceType, d`
-	The kind of device a participant is using.
-`)
-
-@Schema()
-@Description(d`
-	The settings or health information about a participant.
-`)
-export class ParticipantSettings {
-
-	@Property()
-	@Description(d`
-		The participant's selected theme for the LAMP app.
-	`)
-	public theme?: string
-
-	@Property()
-	@Description(d`
-		The participant's selected language code for the LAMP app.
-	`)
-	public language?: string
-
-	@Property()
-	@Description(d`
-		The date and time when the participant last used the LAMP app.
-	`)
-	public last_login?: Timestamp
-
-	@Property()
-	@Description(d`
-		The type of device the participant last used to use to the LAMP app.
-	`)
-	public device_type?: DeviceType
-
-	@Property()
-	@Description(d`
-		The participant's emergency contact number.
-	`)
-	public emergency_contact?: string
-
-	@Property()
-	@Description(d`
-		The participant's selected personal helpline number.
-	`)
-	public helpline?: string
-
-	@Property()
-	@Description(d`
-		The date and time when the participant last checked the Blogs page.
-	`)
-	public blogs_checked_date?: Timestamp
-
-	@Property()
-	@Description(d`
-		The date and time when the participant last checked the Tips page.
-	`)
-	public tips_checked_date?: Timestamp
-}
 
 @Schema()
 @Parent(Study)
@@ -94,62 +26,39 @@ export class Participant {
 
 	@Property()
 	@Description(d`
-		External or out-of-line objects attached to this object.
-	`)
-	public attachments?: any
-
-	@Property()
-	@Description(d`
 		The researcher-provided study code for the participant.
 	`)
 	public study_code?: string
 
 	@Property()
 	@Description(d`
-		The settings and information for the participant.
+		The participant's selected language code for the LAMP app.
 	`)
-	public settings?: ParticipantSettings
+	public language?: string
 
 	@Property()
-	@Retype(Array, Identifier)
 	@Description(d`
-		The set of all result events from the participant.
+		The participant's selected theme for the LAMP app.
 	`)
-	public result_events?: Identifier[]
+	public theme?: string
 
 	@Property()
-	@Retype(Array, Identifier)
 	@Description(d`
-		The set of all metadata events from the participant.
+		The participant's emergency contact number.
 	`)
-	public metadata_events?: Identifier[]
+	public emergency_contact?: string
 
 	@Property()
-	@Retype(Array, Identifier)
 	@Description(d`
-		The set of all sensor events from the participant.
+		The participant's selected personal helpline number.
 	`)
-	public sensor_events?: Identifier[]
-
-	@Property()
-	@Retype(Array, Identifier)
-	@Description(d`
-		The set of all environment events from the participant.
-	`)
-	public environment_events?: Identifier[]
-
-	@Property()
-	@Retype(Array, Identifier)
-	@Description(d`
-		The set of all fitness events from the participant.
-	`)
-	public fitness_events?: Identifier[]
+	public helpline?: string
 
 	@Route.POST('/study/{study_id}/participant') 
 	@Description(d`
 		Create a new Participant for the given Study.
 	`)
-	@Auth(Ownership.Parent, 'study_id')
+	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'study_id')
 	@Retype(Identifier, Participant)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async create(
@@ -169,7 +78,7 @@ export class Participant {
 	@Description(d`
 		Update a Participant's settings.
 	`)
-	@Auth(Ownership.Self, 'participant_id')
+	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'participant_id')
 	@Retype(Identifier, Participant)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async update(
@@ -189,7 +98,7 @@ export class Participant {
 	@Description(d`
 		Delete a participant AND all owned data or event streams.
 	`)
-	@Auth(Ownership.Self, 'participant_id')
+	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'participant_id')
 	@Retype(Identifier, Participant)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async delete(
@@ -206,7 +115,7 @@ export class Participant {
 	@Description(d`
 		Get a single participant, by identifier.
 	`)
-	@Auth(Ownership.Self, 'participant_id')
+	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'participant_id')
 	@Retype(Array, Participant)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async view(
@@ -223,7 +132,7 @@ export class Participant {
 	@Description(d`
 		Get the set of all participants in a single study.
 	`)
-	@Auth(Ownership.Self, 'study_id')
+	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'study_id')
 	@Retype(Array, Participant)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async all_by_study(
@@ -240,7 +149,7 @@ export class Participant {
 	@Description(d`
 		Get the set of all participants under a single researcher.
 	`)
-	@Auth(Ownership.Self, 'researcher_id')
+	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'researcher_id')
 	@Retype(Array, Participant)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async all_by_researcher(
@@ -326,8 +235,6 @@ export class Participant {
 
 	): Promise<Participant[]> {
 
-		console.dir(Identifier.unpack(id!))
-
 		// Get the correctly scoped identifier to search within.
 		let user_id: string | undefined
 		let admin_id: number | undefined
@@ -350,52 +257,16 @@ export class Participant {
             SELECT 
                 StudyId AS id, 
                 StudyCode AS study_code, 
-                AppColor AS [settings.theme], 
-                Language AS [settings.language], 
-                DATEDIFF_BIG(MS, '1970-01-01', LastLoginOn) AS [settings.last_login],
-                (CASE 
-                    WHEN DeviceType = 1 THEN 'iOS'
-                    WHEN DeviceType = 2 THEN 'Android'
-                    ELSE NULL
-                END) AS [settings.device_type],
+                AppColor AS [theme], 
+                Language AS [language], 
                 (
                     SELECT [24By7ContactNo]
                     WHERE [24By7ContactNo] != ''
-                ) AS [settings.emergency_contact],
+                ) AS [emergency_contact],
                 (
                     SELECT PersonalHelpline
                     WHERE PersonalHelpline != ''
-                ) AS [settings.helpline], 
-                (
-                    SELECT DATEDIFF_BIG(MS, '1970-01-01', BlogsViewedOn)
-                    WHERE BlogsViewedOn IS NOT NULL
-                ) AS [settings.blogs_checked_date],
-                (
-                    SELECT DATEDIFF_BIG(MS, '1970-01-01', TipsViewedOn)
-                    WHERE TipsViewedOn IS NOT NULL
-                ) AS [settings.tips_checked_date],
-                ${activities_list.map(entry => `
-            	(
-	                SELECT 
-	                    (${entry.ActivityIndexID}) AS ctid,
-	                    [${entry.IndexColumnName}] AS id
-	                FROM ${entry.TableName}
-	                WHERE ${entry.TableName}.UserID = Users.UserID
-	                FOR JSON PATH, INCLUDE_NULL_VALUES
-            	) AS [rst_grp_${entry.ActivityIndexID}],
-            	`).join('')}
-                (
-                    SELECT HKDailyValueID AS id
-                    FROM HealthKit_DailyValues
-                    WHERE HealthKit_DailyValues.UserID = Users.UserID
-                    FOR JSON PATH, INCLUDE_NULL_VALUES
-                ) AS hkevents,
-                (
-                    SELECT LocationID AS id
-                    FROM Locations
-                    WHERE Locations.UserID = Users.UserID
-                    FOR JSON PATH, INCLUDE_NULL_VALUES
-                ) AS locations
+                ) AS [helpline]
             FROM Users
             FULL OUTER JOIN UserSettings
                 ON UserSettings.UserID = Users.UserID
@@ -414,22 +285,12 @@ export class Participant {
         // Map from SQL DB to the local Participant type.
         return result.recordset[0].map((raw: any) => {
         	let obj = new Participant()
-
-	        // A weird reverse-map + array-splat to group all result rows together.
-	        // FIXME: SurveyID is missing!
-	        let rst_grp_all = [].concat(...activities_list
-	        					.map(entry => raw['rst_grp_' + entry['ActivityIndexID']] || []))
-
             obj.id = Decrypt(raw.id)
             obj.study_code = Decrypt(raw.study_code)
-            obj.settings = raw.settings || {}
-            obj.settings!.theme = !!obj.settings!.theme ? Decrypt(obj.settings!.theme!) : undefined
-
-            obj.fitness_events = (raw.hkevents || []).map((x: any) => FitnessEvent._pack_id({ event_id: x.id }))
-            obj.environment_events = (raw.locations || []).map((x: any) => EnvironmentEvent._pack_id({ event_id: x.id }))
-            obj.result_events = (rst_grp_all || []).map((x: any) => ResultEvent._pack_id({ ctest_id: x.ctid, event_id: x.id }))
-            obj.metadata_events = []
-            obj.sensor_events = []
+            obj.language = raw.language || 'en'
+            obj.theme = !!raw.theme ? Decrypt(raw.theme!) : undefined
+            obj.emergency_contact = raw.emergency_contact
+            obj.helpline = raw.helpline
         	return obj
         })
 	}
@@ -453,7 +314,7 @@ export class Participant {
 	): Promise<any> {
 
 		let admin_id = Study._unpack_id(study_id).admin_id
-		let insert_object = object.settings
+		let insert_object = object
 
 		// Terminate the operation if any of the required valid string-typed fields are not present.
 		if (typeof ((<any>object).password) !== 'string')
@@ -469,14 +330,10 @@ export class Participant {
 		let study_code = !!object.study_code ? Encrypt(object.study_code) : 'NULL'
 
 		// Prepare the minimal SQL column changes from the provided fields.
-		let theme = !!object.settings!.theme ? Encrypt(object.settings!.theme!) : 'NULL'
-		let language = !!object.settings!.language ? Encrypt(object.settings!.language!) : 'NULL'
-		let emergency_contact = !!object.settings!.emergency_contact ? Encrypt(object.settings!.emergency_contact!) : 'NULL'
-		let helpline = !!object.settings!.helpline ? Encrypt(object.settings!.helpline!) : 'NULL'
-
-		// Part Two: Devices! FIXME TIMESTAMP!
-		let last_login = !!object.settings!.last_login ? Encrypt('' + object.settings!.last_login!) : 'NULL'
-		let device_type = !!object.settings!.device_type ? Encrypt(object.settings!.device_type!) : 'NULL'
+		let theme = !!object.theme ? Encrypt(object.theme!) : 'NULL'
+		let language = !!object.language ? Encrypt(object.language!) : 'NULL'
+		let emergency_contact = !!object.emergency_contact ? Encrypt(object.emergency_contact!) : 'NULL'
+		let helpline = !!object.helpline ? Encrypt(object.helpline!) : 'NULL'
 
 		// Insert row, returning the generated primary key ID.
 		let result1 = await SQL!.request().query(`
@@ -518,23 +375,10 @@ export class Participant {
 		        '${helpline}',
 		        '${language}'
 			);
-		`)
-
-		let result3 = await SQL!.request().query(`
-            INSERT INTO UserDevices (
-                UserID, 
-                DeviceType, 
-                LastLoginOn
-            )
-			VALUES (
-			    ${(<any>result1.recordset)['id']},
-		        '${device_type}'
-		        '${last_login}',
-			);
-		`)
+		`);
 
 		// Return the new row's ID.
-		return (result1.recordsets && result2.recordsets && result3.recordsets) ? { id: (<any>result1.recordset)['id'] } : null;
+		return (result1.recordsets && result2.recordsets) ? { id: (<any>result1.recordset)['id'] } : null;
 	}
 
 	/**
@@ -554,28 +398,22 @@ export class Participant {
 		object: Participant
 
 	): Promise<Identifier> {
-
-		let user_id = Participant._unpack_id(participant_id).study_id
-		user_id = Encrypt(user_id) || user_id
+		let user_id = Encrypt(Participant._unpack_id(participant_id).study_id)
 
 		// Prepare the minimal SQL column changes from the provided fields.
-		let updatesA = [], updatesB = [], updatesC = []
+		let updatesA = [], updatesB = []//, updatesC = []
 		if (!!((<any>object).password))
 			updatesA.push(`'Password = '${Encrypt((<any>object).password, 'AES256') || 'NULL'}'`)
 		if (!!object.study_code)
 			updatesA.push(`StudyCode = '${Encrypt(object.study_code)}'`)
-		if (!!object.settings!.theme)
-			updatesB.push(`AppColor = '${Encrypt(object.settings!.theme!)}'`)
-		if (!!object.settings!.language)
-			updatesB.push(`Language = '${object.settings!.language!}'`)
-		if (!!object.settings!.last_login)
-			updatesC.push(`LastLoginOn = '${object.settings!.last_login!}'`)
-		if (!!object.settings!.device_type)
-			updatesC.push(`DeviceType = '${object.settings!.device_type!}'`)
-		if (!!object.settings!.emergency_contact)
-			updatesB.push(`24By7ContactNo = '${Encrypt(object.settings!.emergency_contact!)}'`)
-		if (!!object.settings!.helpline)
-			updatesB.push(`PersonalHelpline = '${Encrypt(object.settings!.helpline!)}'`)
+		if (!!object.theme)
+			updatesB.push(`AppColor = '${Encrypt(object.theme!)}'`)
+		if (!!object.language)
+			updatesB.push(`Language = '${object.language!}'`)
+		if (!!object.emergency_contact)
+			updatesB.push(`24By7ContactNo = '${Encrypt(object.emergency_contact!)}'`)
+		if (!!object.helpline)
+			updatesB.push(`PersonalHelpline = '${Encrypt(object.helpline!)}'`)
 
 		// Update the specified fields on the selected Users, UserSettings, or UserDevices row.
 		let result1 = (await SQL!.request().query(`
@@ -591,15 +429,8 @@ export class Participant {
             WHERE StudyId = ${user_id};
 		`)).recordset
 
-		let result3 = (await SQL!.request().query(`
-            UPDATE UserDevices 
-            SET ${updatesC.join(', ')} 
-            LEFT JOIN Users ON Users.UserID = UserDevices.UserID
-            WHERE StudyId = ${user_id};
-		`)).recordset
-
 		// Return whether the operation was successful.
-		return (result1.length && result2.length && result3.length) ? 'ok' : 'no'
+		return (result1.length && result2.length) ? 'ok' : 'no'
 	}
 
 	/**
@@ -613,12 +444,11 @@ export class Participant {
 		participant_id: Identifier
 
 	): Promise<Identifier> {
-
-		let user_id = Participant._unpack_id(participant_id).study_id
+		let user_id = Encrypt(Participant._unpack_id(participant_id).study_id)
 
 		// Set the deletion flag, without actually deleting the row.
 		return (await SQL!.request().query(`
-			UPDATE Users SET IsDeleted = 1 WHERE StudyId = ${Encrypt(user_id)};
+			UPDATE Users SET IsDeleted = 1 WHERE StudyId = ${user_id};
 		`)).recordset[0]
 	}
 }

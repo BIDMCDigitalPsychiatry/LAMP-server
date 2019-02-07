@@ -1,54 +1,138 @@
-import { API } from './OpenAPI'
+import { API, Ownership, AuthorizationFailed, Identifier } from './OpenAPI'
 import { Request, Response, Router, Application } from 'express'
 import * as OA from 'openapi3-ts'
+
+// FIXME!
+import { SQL, Encrypt, Decrypt } from '../app'
+import { Type, Participant, Researcher } from '../controllers'
 
 /**
  * Create routers for each individual schema.
  */
-export function ExpressAPI(api: API.Schema[], app: Application) {
+export function ExpressAPI(api: API.Schema[], app: Application, rootPassword: string = '') {
 	console.group('Configuring Express routes...')
 	for (let component of api) {
 		if (component.routes.length == 0) continue
 
 		const router = Router()
 		for (let route of component.routes) {
-			let route_path = route.path.replace(/{([\w_]+)}/g, (_, p) => `:${p}`)
+			let route_path = route.path.replace(/{([\w_]+)}/g, (_, p) => `:${p}`).replace('*', '')
 			console.log(`[${component.name}::${route.name} => ${route.method} ${route_path}]`)
 
 			// Select the correct Router function and configure router parameters.
 			let method: typeof router.all = (router as any)[route.method.toLowerCase()].bind(router)
 			method(route_path, async (req, res) => {
-
-				// Extract the method and its declared parameters.
-				let method = (component.object as any)[route.name || '']
-				let args = route.input.map(x => {
-					switch(x.location) {
-						case API.Location.Path: 
-						return req.params[x.name!]
-						case API.Location.Query: 
-						return req.query[x.name!]
-						case API.Location.Body: 
-						return !!x.name ? req.body[x.name!] : req.body
-						case API.Location.Header: 
-						return req.get(x.name!)
-						case API.Location.Cookie: 
-						return req.cookies[x.name!]
-						case API.Location.Session: 
-						return null /* FIXME */
-						case API.Location.None: default: 
-						return null
-					}
-				})
-
-				// Invoke actual method with expanded arguments.
 				try {
+
+					// Extract the method and its declared parameters.
+					let method = (component.object as any)[route.name || '']
+					let args = route.input.map(x => {
+						switch(x.location) {
+							case API.Location.Path: 
+							return req.params[x.name!]
+							case API.Location.Query: 
+							return req.query[x.name!]
+							case API.Location.Body: 
+							return !!x.name ? req.body[x.name!] : req.body
+							case API.Location.Header: 
+							return req.get(x.name!)
+							case API.Location.Cookie: 
+							return req.cookies[x.name!]
+							case API.Location.Session: 
+							return null /* FIXME */
+							case API.Location.None: default: 
+							return null
+						}
+					})
+
+					// Authentication & Authorization:
+					if (route.authorization !== null) {
+
+						// Get the authorization components from the header and tokenize them.
+						// TODO: ignoring the other authorization location stuff for now...
+						let auth = (<string>req.get('Authorization')).replace('Basic', '').trim().split(':')
+
+						// Find the value of the parameter that needs authentication.
+						let param_idx = route.input.map(x => x.name!).indexOf(route.authorization.parameter)
+						let auth_value = param_idx >= 0 ? args[param_idx] : undefined
+
+						// Handle basic no credentials and root auth required cases.
+						if (!auth_value && !(auth[0] === 'root' && auth[1] === rootPassword)) {
+							throw new AuthorizationFailed()
+						} else if (auth[0] === 'root' && auth[1] !== rootPassword) {
+							throw new AuthorizationFailed()
+						} else if (!(auth[0] === 'root' && auth[1] === rootPassword)) {
+							let from = auth[0], to = auth_value
+
+
+
+
+							// FIXME: This must be moved into Type/Credential and available for all types (!!!)
+							/* FIXME */
+							if (Type._self_type(from) === 'Participant') {
+
+							    // Authenticate as a Participant.
+					    		let result = (await SQL!.request().query(`
+						            SELECT Password 
+						            FROM Users
+						            WHERE isDeleted = 0 AND StudyId = '${Encrypt(from)}';
+								`)).recordset
+					    		if (result.length === 0 || (Decrypt(result[0]['Password'], 'AES256') !== auth[1]))
+									throw new AuthorizationFailed()
+
+								/* [FIXME: EXPECTING AN EMAIL HERE?] */
+							} else if (from.match(/^[^@]+@[^@]+\.[^@]+$/) /*|| Type._self_type(from) === 'Researcher'*/) { 
+
+							    // Authenticate as a Researcher. 
+					    		let result = (await SQL!.request().query(`
+						            SELECT AdminID, Password 
+						            FROM Admin
+						            WHERE IsDeleted = 0 AND Email = '${Encrypt(from)}';
+								`)).recordset
+					    		if (result.length === 0 || (Decrypt(result[0]['Password'], 'AES256') !== auth[1]))
+									throw new AuthorizationFailed()
+
+								// FIXME: 
+								from = <string>Researcher._pack_id({ admin_id: result[0]['AdminID'] })
+							}
+							/* FIXME */
+
+
+
+
+
+							// Patch in the special-cased "me" to the actual authenticated credential.
+							if(to === 'me')
+								args[param_idx] = to = auth[0]
+
+							// Handle whether we require the parameter to be [[[self], a sibling], or a parent].
+							if (
+								/* Check if `to` and `from` are the same object. */
+								(route.authorization.requirement & Ownership.Self && 
+								 from !== to) && 
+
+								/* FIXME: Check if the immediate parent type of `to` is found in `from`'s inheritance tree. */
+								(route.authorization.requirement & Ownership.Sibling &&
+								 Type._parent_type(from).indexOf(Type._parent_type(to)[0]) < 0) &&
+
+								/* Check if `from` is actually the parent ID of `to` matching the same type as `from`. */
+								(route.authorization.requirement & Ownership.Parent &&
+								 from !== await Type._parent_id(to, Type._self_type(from)))
+							) {
+								/* We've given the authorization enough chances... */
+								throw new AuthorizationFailed()
+							}
+						}
+					}
+
+					// Invoke actual method with expanded arguments.
 					let result = await method(...args)
-					res.status(route.status).json(result)
+					res.status(route.status).json({ data: result})
 				} catch(e) {
 					console.error(e)
 
 					// Catch declared exceptions or throw a 500 error.
-					let match = route.throws.find((value) => e.constructor == value)
+					let match = route.throws.find(x => e.constructor == x.object)
 					res.status(!!match ? match.status : 500).json(e)
 				}
 			})
@@ -168,7 +252,7 @@ export function OpenAPI(api: API.Schema[], info: OA.InfoObject) {
 					}
 				}),
 				security: !route.authorization ? [] : [[route.authorization.parameter].reduce((x: any) => {
-					x[route.authorization.name!] = []; return x
+					x[route.authorization!.name!] = []; return x
 				}, {})]
 			}
 		}
@@ -178,10 +262,10 @@ export function OpenAPI(api: API.Schema[], info: OA.InfoObject) {
 			.map(x => x.authorization)
 			.filter(x => !!x)
 			.reduce((all: any, auth) => {
-				all[auth.name!] = {
+				all[auth!.name!] = {
 					type: 'apiKey',
-					name: auth.name!,
-					in: auth.location
+					name: auth!.name!,
+					in: auth!.location
 				}; return all
 			}, {})
 	}

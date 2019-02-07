@@ -295,7 +295,7 @@ export namespace API {
 		/**
 		 *
 		 */
-		authorization: Authorization
+		authorization: Authorization | null
 	}
 
 	/**
@@ -762,7 +762,7 @@ export class Identifier extends String {
 	public static pack(components: any[]): Identifier {
 		if (components.length === 0)
 			return ''
-		return Buffer.from(components.join(':')).toString('base64')
+		return Buffer.from(components.join(':')).toString('base64').replace(/=/g, '~')
 	}
 
 	/**
@@ -771,7 +771,7 @@ export class Identifier extends String {
 	public static unpack(components: Identifier): any[] {
 		if (components.match(/^G?U\d+$/))
 			return []
-		return Buffer.from((<string>components), 'base64').toString('utf8').split(':')
+		return Buffer.from((<string>components).replace(/~/g, '='), 'base64').toString('utf8').split(':')
 	}
 }
 

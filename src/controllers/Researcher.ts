@@ -1,4 +1,4 @@
-import { SQL, Encrypt, Decrypt } from '../index'
+import { SQL, Encrypt, Decrypt } from '../app'
 import { 
 	d, Schema, Property, Description, Retype, Route, Throws, 
 	Path, BadRequest, NotFound, AuthorizationFailed, Auth,
@@ -6,6 +6,7 @@ import {
 } from '../utils/OpenAPI'
 import { IResult } from 'mssql'
 
+import { Type } from './Type'
 import { Participant } from './Participant'
 import { Study } from './Study'
 
@@ -21,12 +22,6 @@ export class Researcher {
 		The self-referencing identifier to this object.
 	`)
 	public id?: Identifier
-
-	@Property()
-	@Description(d`
-		External or out-of-line objects attached to this object.
-	`)
-	public attachments?: any
 
 	@Property()
 	@Description(d`
@@ -73,7 +68,7 @@ export class Researcher {
 	@Description(d`
 		Update a Researcher's settings.
 	`)
-	@Auth(Ownership.Self, 'researcher_id')
+	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'researcher_id')
 	@Retype(Identifier, Researcher)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async update(
@@ -93,7 +88,7 @@ export class Researcher {
 	@Description(d`
 		Delete a researcher.
 	`)
-	@Auth(Ownership.Self, 'researcher_id')
+	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'researcher_id')
 	@Retype(Identifier, Researcher)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async delete(
@@ -110,7 +105,7 @@ export class Researcher {
 	@Description(d`
 		Get a single researcher, by identifier.
 	`)
-	@Auth(Ownership.Self, 'researcher_id')
+	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'researcher_id')
 	@Retype(Array, Researcher)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async view(
@@ -167,7 +162,7 @@ export class Researcher {
 		let components = Identifier.unpack(id)
 		if (components[0] !== (<any>Researcher).name)
 			throw new Error('invalid identifier')
-		let result = components.slice(1).map(parseInt)
+		let result = components.slice(1).map(x => parseInt(x))
 		return {
 			admin_id: !isNaN(result[0]) ? result[0] : 0
 		}
@@ -224,7 +219,7 @@ export class Researcher {
 		return result.recordset[0].map((raw: any) => {
 			let obj = new Researcher()
 			obj.id = Researcher._pack_id({ admin_id: raw.id })
-			obj.name = Decrypt(raw.name)
+			obj.name = [Decrypt(raw.name), Decrypt(raw.lname)].join(' ')
 			obj.email = Decrypt(raw.email)
 			obj.studies = raw.studies.map((x: any) => Study._pack_id({ admin_id: x.id }))
 			return obj
