@@ -50,7 +50,18 @@ export function ExpressAPI(api: API.Schema[], app: Application, rootPassword: st
 
 						// Get the authorization components from the header and tokenize them.
 						// TODO: ignoring the other authorization location stuff for now...
-						let auth = (<string>req.get('Authorization')).replace('Basic', '').trim().split(':')
+						let authStr = (<string>req.get('Authorization') || '').replace('Basic', '').trim()
+						authStr = authStr.indexOf(':') >= 0 ? authStr : Buffer.from(authStr, 'base64').toString()
+						let auth = authStr.split(':', 2)
+
+						// If no authorization is provided, ask for something.
+						if (auth.length !== 2 || !auth[1]) {
+							res.set('WWW-Authenticate', `Basic realm="LAMP" charset="UTF-8"`)
+							res.status(401).send(JSON.stringify({
+								error: 'authentication required'
+							}))
+							return
+						}
 
 						// Find the value of the parameter that needs authentication.
 						let param_idx = route.input.map(x => x.name!).indexOf(route.authorization.parameter)
