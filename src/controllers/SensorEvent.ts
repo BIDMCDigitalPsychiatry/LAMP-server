@@ -1,6 +1,6 @@
 import { SQL, Encrypt, Decrypt } from '../app'
 import { 
-	d, Schema, Property, Description, Retype, Route, Throws, 
+	d, Schema, Property, Description, Retype, Route, Throws, Unimplemented,
 	Path, BadRequest, NotFound, AuthorizationFailed, Auth, Query,
 	Enum, Ownership, Identifier, Parent, Body, Double, Timestamp
 } from '../utils/OpenAPI'
@@ -252,23 +252,12 @@ export class SensorEvent {
 		let result2 = (await SQL!.request().query(`
 			SELECT 
                 DATEDIFF_BIG(MS, '1970-01-01', Locations.CreatedOn) AS timestamp,
-                (CASE 
-                    WHEN Coordinates IS NOT NULL THEN Coordinates
-                    ELSE Locations.Address
-                END) AS coordinates,
-                (CASE 
-                    WHEN Coordinates IS NULL THEN NULL
-                    ELSE 1
-                END) AS accuracy,
-                (NULL) AS location_context,
-                (NULL) AS social_context,
-                Type AS type,
+                Latitude AS lat,
+                Longitude AS long,
                 LocationName AS location_name 
             FROM Locations
             LEFT JOIN Users
                 ON Locations.UserID = Users.UserID
-            LEFT JOIN LAMP_Aux.dbo.GPSLookup 
-                ON Locations.Address = LAMP_Aux.dbo.GPSLookup.Address
             WHERE IsDeleted = 0 
                 ${!!user_id ? `AND Users.StudyId = '${user_id}'` : ''}
                 ${!!admin_id ? `AND Users.AdminID = '${admin_id}'` : ''}
@@ -276,14 +265,13 @@ export class SensorEvent {
                 ${!!to_date ? `AND DATEDIFF_BIG(MS, '1970-01-01', Locations.CreatedOn) <= ${to_date}` : ''};
 		`)).recordset.map((raw: any) => {
 			let x = toLAMP(raw.location_name)
-			let y = (Decrypt(raw.coordinates) || raw.coordinates).split(',').map(parseFloat)
 			let obj = new SensorEvent()
 			obj.timestamp = raw.timestamp
 			obj.sensor = SensorName.ContextualLocation
 			obj.data = {
-				latitude: y[0],
-				longitude: y[1],
-				accuracy: raw.accuracy,
+				latitude: parseFloat(Decrypt(raw.lat) || raw.lat),
+				longitude: parseFloat(Decrypt(raw.long) || raw.long),
+				accuracy: 1,
 				location_context: x[0],
 				social_context: x[1]
 			}
@@ -334,7 +322,7 @@ export class SensorEvent {
             )
             VALUES (
                 (SELECT UserID FROM Users WHERE StudyId = '${Encrypt(Participant._unpack_id(participant_id).study_id)}'), 
-                ${object.timestamp!}, 
+                ${object.timestamp!},
                 '${object.sensor}', 
                 '${JSON.stringify(object.data)}'
             );
@@ -362,11 +350,12 @@ export class SensorEvent {
 		to_date?: number
 
 	): Promise<{}> {
+		throw new Unimplemented()
+
+		/*
 		let user_id = Encrypt(Participant._unpack_id(participant_id).study_id);
 
 		// TODO: Deletion is not supported! EditedOn is not correctly used here.
-		// FIXME
-
 		(await SQL!.request().query(`
 			UPDATE HealthKit_DailyValues 
             LEFT JOIN Users
@@ -385,6 +374,7 @@ export class SensorEvent {
                 ${!!from_date ? `AND DATEDIFF_BIG(MS, '1970-01-01', Locations.CreatedOn) >= ${from_date}` : ''}
                 ${!!to_date ? `AND DATEDIFF_BIG(MS, '1970-01-01', Locations.CreatedOn) <= ${to_date}` : ''}
 		`)).recordset;
+		*/
 		return {}
 	}
 }

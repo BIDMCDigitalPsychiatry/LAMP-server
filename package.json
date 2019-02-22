@@ -32,6 +32,7 @@
     "request": "^2.88.0",
     "routing-controllers-openapi": "^1.4.2",
     "s3-proxy": "^1.1.1",
+    "sendmail": "^1.4.1",
     "source-map-support": "^0.5.10",
     "tar-stream": "^1.6.2",
     "typescript": "^3.2.2",

@@ -224,9 +224,11 @@ export function OpenAPI(api: API.Schema[], info: OA.InfoObject) {
 										description: prop.description
 									}; return all
 								}, {})
+							} : (['Object', 'Function'].indexOf((<any>bodyItems[0].object)[0].name) >= 0 ? {
+								type: 'object'
 							} : {
-								$ref: `#/components/schemas/${(<any>bodyItems[0].object).name}`
-							}
+								$ref: `#/components/schemas/${(<any>bodyItems[0].object)[0].name}`
+							})
 						}
 					}
 				},
@@ -335,6 +337,7 @@ function JSON_builtin(func: Function): OA.SchemaObject | OA.ReferenceObject {
 		}
 	}
 	let name = ((<any>func)[0] || {}).name
+	name = (name === 'Function') ? 'Object' : name
 	let match = Object.entries(_builtins).find(y => y[0] === name)
 	return !!match ? match[1] : { $ref: `#/components/schemas/${name}` }
 }

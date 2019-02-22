@@ -15,19 +15,13 @@ import { Activity } from './Activity'
 
 /* TODO: Researcher->Participant attachment overrides Participant->self? */
 /* TODO: Support Credentials instead of id:pass authentication. */
+/* TODO: set_*_attachment: verify `target` is a valid id or 'me' AND if target not provided, delete all! */
 
 /**
  * Every object can have one or more credential(s) associated with it.
  * i.e. `my_researcher.credentials = ['person A', 'person B', 'api A', 'person C', 'api B']`
  */
 export class Credential {
-
-	/**
-     * The actual value of the credential. If an API key, this will be 
-     * the key value; if a Password combination, this will be the username
-     * and password as a JSON array.
-     */
-	public id: string = ''
 
     /**
      * The root object this credential is attached to.
@@ -36,9 +30,14 @@ export class Credential {
 	public origin: string = ''
 
 	/**
-     * The user-visible name of the credential.
+     * Username or machine-readable public key (access).
      */
-	public name: string = ''
+	public public_key: string = ''
+
+	/**
+     * SALTED HASH OF Password or machine-readable private key (secret).
+     */
+	public private_key: string = ''
 
 	/**
      * The user-visible description of the credential.
@@ -48,32 +47,24 @@ export class Credential {
 
 enum DynamicTrigger {
 	once = 'once',
-	each = 'each',
-	onCreate = 'onCreate',
-	onRead = 'onRead',
-	onUpdate = 'onUpdate',
-	onDelete = 'onDelete',
+	always = 'always',
+	every = 'every', // trailer: @cron-schedule
+	change = 'change', // trailer: @subtype-modified
 }
 Enum(DynamicTrigger, d`
 	The trigger types for an attachment.
 `)
 Enum.Description(DynamicTrigger, 'once', d`
-	executes once
+	executes once only.
 `)
-Enum.Description(DynamicTrigger, 'each', d`
-	executes each time the attachment's key is read
+Enum.Description(DynamicTrigger, 'always', d`
+	executes each time the attachment is requested.
 `)
-Enum.Description(DynamicTrigger, 'onCreate', d`
-	if a [to] is created (no-op for self)
+Enum.Description(DynamicTrigger, 'every', d`
+	executes on the provided cron-job schedule.
 `)
-Enum.Description(DynamicTrigger, 'onRead', d`
-	if [to](s) are read [!!!CURRENTLY DISABLED!!!]
-`)
-Enum.Description(DynamicTrigger, 'onUpdate', d`
-	if [to](s) are updated
-`)
-Enum.Description(DynamicTrigger, 'onDelete', d`
-	if [to](s) are deleted
+Enum.Description(DynamicTrigger, 'change', d`
+	executes whenever the [subtype] provided is changed for the [to] object.
 `)
 
 @Schema()
@@ -162,6 +153,19 @@ export class Type {
 			ActivitySpec: ['Study', 'Researcher'],
 			Activity: ['ActivitySpec', 'Study', 'Researcher'],
 		}
+		/*
+		// TODO:
+		const shortcode_map = {
+			'Researcher': 'R',
+			'R': 'Researcher',
+			'Study': 'S',
+			'S': 'Study',
+			'Participant': 'P',
+			'P': 'Participant',
+			'Activity': 'A',
+			'A': 'Activity',
+		}
+		*/
 		return parent_types[Type._self_type(type_id)]
 	}
 
@@ -393,49 +397,9 @@ export class Type {
 		attachment_value: any,
 
 	): Promise<{}> {
-
-		// TODO: verify `target` is a valid id or 'me'
-		// TODO: if target not provided, delete all!
-
-		let result: sql.IResult<any>
-		if (Object.keys(attachment_value).length === 0) /* DELETE */ {
-			result = await SQL!.request().query(`
-	            DELETE FROM LAMP_Aux.dbo.OOLAttachment
-	            WHERE 
-	                ObjectID = '${type_id}'
-	                AND [Key] = '${attachment_key}'
-	                AND ObjectType = '${target}';
-			`)
-		} else /* INSERT or UPDATE */ {
-			let req = SQL!.request()
-			req.input('json_value', sql.NVarChar, JSON.stringify(attachment_value))
-			result = await req.query(`
-	            MERGE INTO LAMP_Aux.dbo.OOLAttachment
-	                WITH (HOLDLOCK) AS Output
-	            USING (SELECT
-	                '${target}' AS ObjectType,
-	                '${type_id}' AS ObjectID,
-	                '${attachment_key}' AS [Key]
-	            ) AS Input(ObjectType, ObjectID, [Key])
-	            ON (
-	                Output.[Key] = Input.[Key] 
-	                AND Output.ObjectID = Input.ObjectID 
-	                AND Output.ObjectType = Input.ObjectType 
-	            )
-	            WHEN MATCHED THEN 
-	                UPDATE SET Value = @json_value
-	            WHEN NOT MATCHED THEN 
-	                INSERT (
-	                    ObjectType, ObjectID, [Key], Value
-	                )
-	                VALUES (
-	                    '${target}', '${type_id}', '${attachment_key}', @json_value
-	                );
-			`)
-		}
-		if (result.rowsAffected[0] === 0)
-			throw new BadRequest()
-		return {}
+		if (Type._set('a', target, <string>type_id, attachment_key, attachment_value))
+			return {}
+		else throw new BadRequest()
 	}
 
 	@Route.GET('/type/{type_id}/attachment/dynamic/{attachment_key}') 
@@ -514,63 +478,9 @@ export class Type {
 		attachment_value: DynamicAttachment,
 
 	): Promise<{}> {
-
-		// TODO: verify `target` is a valid id or 'me'
-		// TODO: if target not provided, delete all!
-
-		let result: sql.IResult<any>
-		if (Object.keys(attachment_value).length === 0) /* DELETE */ {
-			result = await SQL!.request().query(`
-	            DELETE FROM LAMP_Aux.dbo.OOLAttachmentLinker 
-	            WHERE 
-	                AttachmentKey = '${attachment_key}'
-	                AND ObjectID = '${type_id}'
-	                AND ChildObjectType = '${target}';
-			`)
-		} else /* INSERT or UPDATE */ {
-
-			let { triggers, language, contents, requirements } = attachment_value
-			let script_type = JSON.stringify({ language, triggers })
-			let packages = JSON.stringify(requirements) || ''
-
-			console.dir(attachment_value)
-
-			let req = SQL!.request()
-			req.input('script_contents', sql.NVarChar, contents)
-			result = await req.query(`
-	            MERGE INTO LAMP_Aux.dbo.OOLAttachmentLinker 
-	                WITH (HOLDLOCK) AS Output
-	            USING (SELECT
-	                '${attachment_key}' AS AttachmentKey,
-	                '${type_id}' AS ObjectID,
-	                '${target}' AS ChildObjectType
-	            ) AS Input(AttachmentKey, ObjectID, ChildObjectType)
-	            ON (
-	                Output.AttachmentKey = Input.AttachmentKey 
-	                AND Output.ObjectID = Input.ObjectID 
-	                AND Output.ChildObjectType = Input.ChildObjectType 
-	            )
-	            WHEN MATCHED THEN 
-	                UPDATE SET 
-	                	ScriptType = '${script_type}',
-	                	ScriptContents = @script_contents, 
-	                	ReqPackages = '${packages}'
-	            WHEN NOT MATCHED THEN 
-	                INSERT (
-	                    AttachmentKey, ObjectID, ChildObjectType, 
-	                    ScriptType, ScriptContents, ReqPackages
-	                )
-	                VALUES (
-	                    '${attachment_key}', '${type_id}', '${target}',
-	                    '${script_type}', @script_contents, '${packages}'
-	                );
-			`)
-
-			console.dir(result)
-		}
-		if (result.rowsAffected[0] === 0)
-			throw new BadRequest()
-		return {}
+		if (Type._set('b', target, <string>type_id, attachment_key, attachment_value))
+			return {}
+		else throw new BadRequest()
 	}
 
 	@Route.GET('/type/{type_id}/attachment_trigger')
@@ -585,11 +495,9 @@ export class Type {
 	): Promise<any> {
 		Type._trigger_scripts(type_id,
 			DynamicTrigger.once,
-			DynamicTrigger.each,
-			DynamicTrigger.onCreate,
-			DynamicTrigger.onRead,
-			DynamicTrigger.onUpdate,
-			DynamicTrigger.onDelete
+			DynamicTrigger.always,
+			DynamicTrigger.every,
+			DynamicTrigger.change,
 		)
 	}
 
@@ -681,4 +589,119 @@ export class Type {
 			}).catch(err => console.error(err))
 		}
 	}
+
+	/**
+	 * 
+	 */
+	private static async _set(mode: 'a' | 'b', type: string, id: string, key: string, value?: DynamicAttachment | any) {
+		let result: sql.IResult<any>
+		if (mode === 'a' && !value /* null | undefined */) /* DELETE */ {
+			result = await SQL!.request().query(`
+	            DELETE FROM LAMP_Aux.dbo.OOLAttachment
+	            WHERE 
+	                ObjectID = '${id}'
+	                AND [Key] = '${key}'
+	                AND ObjectType = '${type}';
+			`)
+		} else if (mode === 'a' && !!value /* JSON value */) /* INSERT or UPDATE */ {
+			let req = SQL!.request()
+			req.input('json_value', sql.NVarChar, JSON.stringify(value))
+			result = await req.query(`
+	            MERGE INTO LAMP_Aux.dbo.OOLAttachment
+	                WITH (HOLDLOCK) AS Output
+	            USING (SELECT
+	                '${type}' AS ObjectType,
+	                '${id}' AS ObjectID,
+	                '${key}/output' AS [Key]
+	            ) AS Input(ObjectType, ObjectID, [Key])
+	            ON (
+	                Output.[Key] = Input.[Key] 
+	                AND Output.ObjectID = Input.ObjectID 
+	                AND Output.ObjectType = Input.ObjectType 
+	            )
+	            WHEN MATCHED THEN 
+	                UPDATE SET Value = @json_value
+	            WHEN NOT MATCHED THEN 
+	                INSERT (
+	                    ObjectType, ObjectID, [Key], Value
+	                )
+	                VALUES (
+	                    '${type}', '${id}', '${key}', @json_value
+	                );
+			`)
+		} else if (mode === 'b' && !value /* null | undefined */) /* DELETE */ {
+			result = await SQL!.request().query(`
+	            DELETE FROM LAMP_Aux.dbo.OOLAttachmentLinker 
+	            WHERE 
+	                AttachmentKey = '${key}'
+	                AND ObjectID = '${id}'
+	                AND ChildObjectType = '${type}';
+			`)
+		} else if (mode === 'b' && !!value /* DynamicAttachment */) /* INSERT or UPDATE */ {
+			let { triggers, language, contents, requirements } = value
+			let script_type = JSON.stringify({ language, triggers })
+			let packages = JSON.stringify(requirements) || ''
+
+			let req = SQL!.request()
+			req.input('script_contents', sql.NVarChar, contents)
+			result = await req.query(`
+	            MERGE INTO LAMP_Aux.dbo.OOLAttachmentLinker 
+	                WITH (HOLDLOCK) AS Output
+	            USING (SELECT
+	                '${key}' AS AttachmentKey,
+	                '${id}' AS ObjectID,
+	                '${type}' AS ChildObjectType
+	            ) AS Input(AttachmentKey, ObjectID, ChildObjectType)
+	            ON (
+	                Output.AttachmentKey = Input.AttachmentKey 
+	                AND Output.ObjectID = Input.ObjectID 
+	                AND Output.ChildObjectType = Input.ChildObjectType 
+	            )
+	            WHEN MATCHED THEN 
+	                UPDATE SET 
+	                	ScriptType = '${script_type}',
+	                	ScriptContents = @script_contents, 
+	                	ReqPackages = '${packages}'
+	            WHEN NOT MATCHED THEN 
+	                INSERT (
+	                    AttachmentKey, ObjectID, ChildObjectType, 
+	                    ScriptType, ScriptContents, ReqPackages
+	                )
+	                VALUES (
+	                    '${key}', '${id}', '${type}',
+	                    '${script_type}', @script_contents, '${packages}'
+	                );
+			`)
+		}
+		return (result!.rowsAffected[0] !== 0)
+	}
+
+	/**
+	 *
+	 */
+	private static async _get(mode: 'a' | 'b', type: string, id: string, key: string): Promise<DynamicAttachment | any | undefined> {
+		// TODO: support listing vs. single return mode, and support multiple type+id combos?
+	}
+
+	public static async _check_triggers() {
+		console.log('CHECKING TRIGGERS...')
+
+
+		// SELECT TOP 1000 * FROM LAMP_Aux.dbo.UpdateCounter; // => Type, ID, Subtype
+		// SELECT TOP 1000 * FROM LAMP_Aux.dbo.OOLTriggerSet; // => ObjectID, ChildType, AttachmentKey, TriggerType
+
+
+		// 1. check every update counter
+		// 2. delete all counters
+		// 3. check any matching trigger-sets
+		// 4. un-cache any stdin (non-dynamic/tags)
+		// 5. execute (distinct) scripts from above
+		// 6. cache stdout+stderr
+
+	}
 }
+
+/**
+ * Set up a 5-minute interval callback to invoke triggers.
+ */
+setInterval(() => { if (!!SQL) Type._check_triggers() }, (5 * 60 * 1000) /* 5min */)

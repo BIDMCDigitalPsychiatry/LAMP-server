@@ -1,6 +1,6 @@
 import { SQL, Encrypt, Decrypt, Download } from '../app'
 import { 
-	d, Schema, Property, Description, Retype, Route, Throws, 
+	d, Schema, Property, Description, Retype, Route, Throws, Unimplemented,
 	Path, BadRequest, NotFound, AuthorizationFailed, Auth, Query,
 	Enum, Ownership, Identifier, Parent, Body, Double, Int64, Timestamp
 } from '../utils/OpenAPI'
@@ -443,12 +443,12 @@ export class ResultEvent {
 					result_event.static_data.survey_name = Decrypt(result_event.static_data.survey_name) || result_event.static_data.survey_name
 				if (!!result_event.static_data.drawn_fig_file_name) {
 					let fname = 'https://psych.digital/LampWeb/Games/User3DFigures/' + (Decrypt(result_event.static_data.drawn_fig_file_name) || result_event.static_data.drawn_fig_file_name)
-					result_event.static_data.drawn_figure = (await Download(fname)).toString('base64')
+					result_event.static_data.drawn_figure = fname//(await Download(fname)).toString('base64')
 					result_event.static_data.drawn_fig_file_name = undefined
 				}
                 if (!!result_event.static_data.scratch_file_name) {
                     let fname = 'https://psych.digital/LampWeb/Games/UserScratchImages/' + (Decrypt(result_event.static_data.scratch_file_name) || result_event.static_data.scratch_file_name)
-                    result_event.static_data.scratch_figure = (await Download(fname)).toString('base64')
+                    result_event.static_data.scratch_figure = fname//(await Download(fname)).toString('base64')
                     result_event.static_data.scratch_file_name = undefined
                 }
 				if (!!result_event.static_data.game_name)
@@ -612,6 +612,9 @@ export class ResultEvent {
 		to_date?: number
 
 	): Promise<{}> {
+		throw new Unimplemented()
+
+		/*
 		let user_id = Encrypt(Participant._unpack_id(participant_id).study_id)
 
 		// Collect the set of legacy Activity tables and stitch the full query.
@@ -620,8 +623,6 @@ export class ResultEvent {
 		`)).recordset;
 
 		// TODO: Deletion is not supported! CreatedOn is not correctly used here.
-
-		/*
 		(await SQL!.request().query(`
 			UPDATE ${tablerow['TableName']} SET CreatedOn = NULL WHERE ${tablerow['IndexColumnName']} = ${type_id};
 		`)).recordset;

@@ -431,7 +431,7 @@ export class Activity {
 				) AS schedule
 			FROM Survey
 			WHERE isDeleted = 0 
-				${ctest_id == 1 /* survey */ ? '' : `AND 1=0`}
+				${!ctest_id ? '' : (ctest_id === 1 /* survey */ ? '' : `AND 1=0`)}
 				${!survey_id ? '' : `AND SurveyID = '${survey_id}'`}
 				${!admin_id ? '' : `AND AdminID = '${admin_id}'`}
 			FOR JSON PATH, INCLUDE_NULL_VALUES, WITHOUT_ARRAY_WRAPPER

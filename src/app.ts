@@ -14,6 +14,7 @@ import proxy from 'express-http-proxy'
 import { ScriptRunner } from './utils'
 const vhost = require('vhost')
 const alasql = require('alasql')
+const sendmail = require('sendmail')
 
 const info = {
 	"title": "LAMP Platform",
@@ -101,6 +102,26 @@ export const Download = function(url: string): Promise<Buffer> {
 	    });
 	    request.on('error', (err) => reject(err))
 	})
+}
+
+/**
+ *
+ */
+export const Sysmail = function(
+	subject: string, 
+	contents: string,
+	from: string = 'system@lamp.digital', 
+	to: string = 'team@digitalpsych.org', 
+	replyTo: string | undefined = 'team@digitalpsych.org'
+): Promise<any> {
+	return new Promise((resolve, reject) => {
+		sendmail({ silent: true })({
+			from, to, replyTo, subject, html: contents
+		}, (error: Error, reply: string) => {
+			if (!!error) reject(error)
+			else resolve(reply)
+		})
+	})
 };
 
 // Initialize and configure the application.
@@ -116,6 +137,9 @@ export const Download = function(url: string): Promise<Buffer> {
 		proxy(secrets.s3www.bucket_url)
 	})
 	app.get('*', (req, res) => res.json(new Unimplemented()))
+	app.post('/internal/sysmsg/', (req, res) => {
+		Sysmail(req.body.subject, req.body.contents)
+	})
 
 	/*
 	// ... TODO

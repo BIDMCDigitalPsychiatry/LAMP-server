@@ -279,7 +279,7 @@ export class Participant {
             FOR JSON PATH, INCLUDE_NULL_VALUES;
 	    `)
 
-		if (result.recordset.length === 0)
+		if (result.recordset.length === 0 || !result.recordset[0])
 			return []
 
         // Map from SQL DB to the local Participant type.
@@ -307,29 +307,17 @@ export class Participant {
 
 		/**
 		 * The patch fields of the `Participant` object. 
-		 * Only `settings` and `password` are supported.
 		 */
 		object: Participant
 
 	): Promise<any> {
-
 		let admin_id = Study._unpack_id(study_id).admin_id
-		let insert_object = object
-
-		// Terminate the operation if any of the required valid string-typed fields are not present.
-		if (typeof ((<any>object).password) !== 'string')
-			throw new Error();
 
 		// Create a fake email and study ID to allow login on the client app.
 		let _id = 'U' + (Math.random() * 1000000) /* rand(000000, 999999) */
-		let study_id2 = Encrypt(_id)
-		let email = Encrypt(Math.random().toString(26).slice(2) + '@lamp.com')
 
 		// Prepare the likely required SQL column changes as above.
-		let password = Encrypt((<any>object).password, 'AES256')
 		let study_code = !!object.study_code ? Encrypt(object.study_code) : 'NULL'
-
-		// Prepare the minimal SQL column changes from the provided fields.
 		let theme = !!object.theme ? Encrypt(object.theme!) : 'NULL'
 		let language = !!object.language ? Encrypt(object.language!) : 'NULL'
 		let emergency_contact = !!object.emergency_contact ? Encrypt(object.emergency_contact!) : 'NULL'
@@ -339,7 +327,7 @@ export class Participant {
 		let result1 = await SQL!.request().query(`
 			INSERT INTO Users (
                 Email, 
-                Password, 
+                Password,
                 StudyCode, 
                 StudyId, 
                 CreatedOn, 
@@ -347,10 +335,10 @@ export class Participant {
             )
             OUTPUT INSERTED.UserID AS id
 			VALUES (
-		        '${email}',
-		        '${password}',
+		        '${Encrypt(_id + '@lamp.com')}', 
+		        '',
 		        '${study_code}',
-		        '${study_id2}',
+		        '${Encrypt(_id)}',
 		        GETDATE(), 
 		        ${admin_id}
 			);
@@ -393,7 +381,6 @@ export class Participant {
 
 		/**
 		 * The patch fields of the `Participant` object. 
-		 * Only `settings` and `password` are supported.
 		 */
 		object: Participant
 
@@ -402,8 +389,8 @@ export class Participant {
 
 		// Prepare the minimal SQL column changes from the provided fields.
 		let updatesA = [], updatesB = []//, updatesC = []
-		if (!!((<any>object).password))
-			updatesA.push(`'Password = '${Encrypt((<any>object).password, 'AES256') || 'NULL'}'`)
+		//if (!!((<any>object).password))
+		//	updatesA.push(`'Password = '${Encrypt((<any>object).password, 'AES256') || 'NULL'}'`)
 		if (!!object.study_code)
 			updatesA.push(`StudyCode = '${Encrypt(object.study_code)}'`)
 		if (!!object.theme)

@@ -1,4 +1,4 @@
-import { SQL, Encrypt, Decrypt } from '../app'
+import { SQL, Encrypt, Decrypt, Sysmail } from '../app'
 import { 
 	d, Schema, Property, Description, Retype, Route, Throws, 
 	Path, BadRequest, NotFound, AuthorizationFailed, Auth,
@@ -242,15 +242,16 @@ export class Researcher {
 		let fields = {
 			...object,
 			email: Encrypt(object.email!),
-			password: Encrypt((<any>object).password, 'AES256'),
+			//password: Encrypt((<any>object).password, 'AES256'),
 			first_name: object.name!.split(' ')[0],
 			last_name: object.name!.split(' ')[1],
 		}
 
+		//TODO: //Sysmail(req.body.subject, req.body.contents)
+
 		let result = await SQL!.request().query(`
 			INSERT INTO Admin (
                 Email, 
-                Password, 
                 FirstName, 
                 LastName, 
                 CreatedOn, 
@@ -259,7 +260,6 @@ export class Researcher {
             OUTPUT INSERTED.AdminID AS id
 			VALUES (
 		        '${fields.email}',
-		        '${fields.password}',
 		        '${fields.first_name}',
 		        '${fields.last_name}',
 		        GETDATE(), 
@@ -300,8 +300,8 @@ export class Researcher {
 		}
 		if (!!object.email)
 			updates.push(`Email = '${Encrypt(object.email)}'`)
-		if (!!(<any>object).password)
-			updates.push(`Password = '${Encrypt((<any>object).password, 'AES256')}'`)
+		//if (!!(<any>object).password)
+		//	updates.push(`Password = '${Encrypt((<any>object).password, 'AES256')}'`)
 
 		if (updates.length == 0)
 			throw new Error()
