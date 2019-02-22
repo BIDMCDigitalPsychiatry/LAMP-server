@@ -291,6 +291,9 @@ export class Participant {
             obj.theme = !!raw.theme ? Decrypt(raw.theme!) : undefined
             obj.emergency_contact = raw.emergency_contact
             obj.helpline = raw.helpline
+
+            // TODO: Legacy!! REMOVE!
+            ;(<any>obj).settings = { study_code: obj.study_code || '' }
         	return obj
         })
 	}
