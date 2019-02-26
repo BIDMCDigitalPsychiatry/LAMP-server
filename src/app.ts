@@ -31,11 +31,6 @@ app.use(bodyParser.text())
 app.use(require('cors')())
 app.use(require('morgan')('combined'))
 
-// TODO: separate express apps for sep. vhosts
-app.use(vhost('www.*', (req: Request, res: Response, next: NextFunction) => {
-	proxy(secrets.s3www.bucket_url).call(undefined, req, res, next)
-}))
-
 /**
  *
  */
@@ -131,11 +126,7 @@ export const Sysmail = function(
 	const api = API.all()
 	const defn = OpenAPI(api, info)
 	ExpressAPI(api, app, secrets.auth.root)
-	app.get('/', (req, res) => {
-		if ((<string>req.get('host')).split('.')[0] !== 'www')
-			res.json(defn)
-		proxy(secrets.s3www.bucket_url)
-	})
+	app.get('/', (req, res) => res.json(defn))
 	app.get('*', (req, res) => res.json(new Unimplemented()))
 	app.post('/internal/sysmsg/', (req, res) => {
 		Sysmail(req.body.subject, req.body.contents)

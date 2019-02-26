@@ -245,7 +245,7 @@ export class SensorEvent {
 			let obj = new SensorEvent()
 			obj.timestamp = raw.timestamp
 			obj.sensor = <SensorName>Object.entries(HK_LAMP_map).filter(x => x[1] === (<string>raw.type))[0][0]
-			obj.data = ((<any>HK_to_LAMP)[obj.sensor!] || ((x: any) => x))(raw.value)
+			obj.data = ((<any>HK_to_LAMP)[obj.sensor!] || ((x: any) => x))(raw.data)
 			return obj
 		})
 
@@ -272,8 +272,10 @@ export class SensorEvent {
 				latitude: parseFloat(Decrypt(raw.lat) || raw.lat),
 				longitude: parseFloat(Decrypt(raw.long) || raw.long),
 				accuracy: 1,
-				location_context: x[0],
-				social_context: x[1]
+				context: {
+					environment: x[0] || null,
+					social: x[1] || null
+				}
 			}
 			return obj
 		})
@@ -452,9 +454,9 @@ const fromLAMP = (value: [LocationContext?, SocialContext?]): string | undefined
 	})[(value[1] || '')])
 }
 
-const _decrypt = function(str: string) { let v = Decrypt(str); return (!v || v === '' || v === 'NA') ? undefined : v.toLowerCase() }
-const _convert = function(x?: string, strip_suffix: string = '', convert_number: boolean = false) { return !x ? undefined : (convert_number ? parseFloat(x.replace(strip_suffix, '')) : x.replace(strip_suffix, '')) }
-const _clean = function(x: any) { return x === 0 ? undefined : x }
+const _decrypt = function(str: string) { let v = Decrypt(str); return (!v || v === '' || v === 'NA') ? null : v.toLowerCase() }
+const _convert = function(x: string | null, strip_suffix: string = '', convert_number: boolean = false) { return !x ? null : (convert_number ? parseFloat(x.replace(strip_suffix, '')) : x.replace(strip_suffix, '')) }
+const _clean = function(x: any) { return x === 0 ? null : x }
 
 /**
  *
@@ -501,7 +503,17 @@ const HK_LAMP_map = {
 	'lamp.steps': 'Steps',
 	'lamp.flights': 'FlightClimbed',
 	'lamp.segment': 'Segment',
-	'lamp.distance': 'Distance'
+	'lamp.distance': 'Distance',
+	'Height': 'lamp.height',
+	'Weight': 'lamp.weight',
+	'HeartRate': 'lamp.heart_rate',
+	'BloodPressure': 'lamp.blood_pressure',
+	'RespiratoryRate': 'lamp.respiratory_rate',
+	'Sleep': 'lamp.sleep',
+	'Steps': 'lamp.steps',
+	'FlightClimbed': 'lamp.flights',
+	'Segment': 'lamp.segment',
+	'Distance': 'lamp.distance',
 }
 
 /*
