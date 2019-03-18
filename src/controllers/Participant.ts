@@ -317,7 +317,7 @@ export class Participant {
 		let admin_id = Study._unpack_id(study_id).admin_id
 
 		// Create a fake email and study ID to allow login on the client app.
-		let _id = 'U' + (Math.random() * 1000000) /* rand(000000, 999999) */
+		let _id = 'U' + Math.floor(Math.random() * 100000000) /* rand(000000, 999999) */
 
 		// Prepare the likely required SQL column changes as above.
 		let study_code = !!object.study_code ? Encrypt(object.study_code) : 'NULL'
