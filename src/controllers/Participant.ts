@@ -336,7 +336,6 @@ export class Participant {
                 CreatedOn, 
                 AdminID
             )
-            OUTPUT INSERTED.UserID AS id
 			VALUES (
 		        '${Encrypt(_id + '@lamp.com')}', 
 		        '',
@@ -345,6 +344,7 @@ export class Participant {
 		        GETDATE(), 
 		        ${admin_id}
 			);
+			SELECT SCOPE_IDENTITY() AS id;
 		`)
 
 		// Bail early if we failed to create a User row.
@@ -360,7 +360,7 @@ export class Participant {
                 Language
             )
 			VALUES (
-			    ${(<any>result1.recordset)['id']},
+			    ${(<any>result1.recordset)[0]['id']},
 		        '${theme}',
 		        '${emergency_contact}',
 		        '${helpline}',
@@ -369,7 +369,7 @@ export class Participant {
 		`);
 
 		// Return the new row's ID.
-		return (result1.recordsets && result2.recordsets) ? { id: (<any>result1.recordset)['id'] } : null;
+		return { id: _id }
 	}
 
 	/**

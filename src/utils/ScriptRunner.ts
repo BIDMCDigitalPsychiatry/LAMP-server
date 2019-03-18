@@ -1,19 +1,16 @@
-import _Docker from 'dockerode'
-const Docker = new _Docker()
+import { Docker } from '../app'
 import { Stream } from "stream"
+import _Docker from 'dockerode'
 import tar from 'tar-stream'
 import uniqid from 'uniqid'
 import getStream from 'get-stream'
 import fs from 'fs-extra'
 import vm2 from 'vm2'
 
-
 // TODO: USE DOCKER COMMIT!
-
 
 //console.dir(await ((new ScriptRunner.JS()).execute('console.log(\'testing\'); return "hi";', '', '')))
 //console.dir(await ((new ScriptRunner.Bash()).execute('echo "Hello World"', '', '')))
-
 
 /**
  *
@@ -77,7 +74,7 @@ export default abstract class ScriptRunner {
 				let container = await Docker.createContainer({
 					Image: 'alpine:latest',
 					Tty: true,
-					Cmd: ['/bin/bash']
+					Cmd: ['/bin/sh']
 				})
 				await container.start()
 
@@ -94,7 +91,7 @@ export default abstract class ScriptRunner {
 
 					console.log('Retrieving result...')
 					let output = (await getFileInTar(await container.getArchive({ path: '/src/stdout' }), 'stdout')).toString('utf8')
-					resolve({ output, logs })
+					resolve({ output, logs: Buffer.concat(logs).toString('utf8') })
 				} catch(e) {
 					console.error(e)
 					reject(e)
@@ -330,7 +327,7 @@ export default abstract class ScriptRunner {
 const containerExec = (container: _Docker.Container, shellCommand: string): Promise<Buffer> => {
     return new Promise((resolve, error) => {
         container.exec({ Cmd: [
-        	'/bin/bash', '-c', shellCommand
+        	'/bin/sh', '-c', shellCommand
     	], AttachStdout: true, AttachStderr: true }, (cErr: any, exec: any) => {
             if (cErr) error(cErr)
             exec.start({ hijack: true }, (sErr: any, stream: Stream) => {

@@ -11,6 +11,7 @@ import fs from 'fs'
 import http from 'http'
 import https from 'https'
 import proxy from 'express-http-proxy'
+import _Docker from 'dockerode'
 import { ScriptRunner } from './utils'
 const vhost = require('vhost')
 const alasql = require('alasql')
@@ -22,6 +23,9 @@ const info = {
 	"termsOfService": "http://psych.digital/lamp/terms/",
 	"version": "0.1"
 }
+
+// 
+export const Docker = new _Docker({ host: '18.221.120.86', port: 2375 })
 
 // Configure the base Express app and middleware.
 export const app: Application = express()
@@ -163,7 +167,7 @@ export const Sysmail = function(
 
 	// Begin listener on port 3000 and a TCP relay from 8080 to 3000.
 	app.listen((process.env.PORT || 3000), async () => {
-
+		
 		// Add a second listener on UNIX socket /var/run/lamp.sock.
 		// This listener receives requests from local Docker containers.
 		try {

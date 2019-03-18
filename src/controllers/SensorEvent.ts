@@ -17,7 +17,7 @@ export enum SensorName {
 	Accelerometer = 'lamp.accelerometer',
 	Bluetooth = 'lamp.bluetooth',
 	Calls = 'lamp.calls',
-	ScreenState = 'lamp.screen_state',
+	DeviceState = 'lamp.device_state',
 	SMS = 'lamp.sms',
 	WiFi = 'lamp.wifi',
 	Audio = 'lamp.audio_recordings',
@@ -96,12 +96,17 @@ export class SensorEvent {
 		@Retype(Identifier, Participant)
 		participant_id: string,
 
-		@Query('limit')
-		date_range?: string
+		@Query('origin')
+		origin?: string,
+
+		@Query('from')
+		from?: number,
+
+		@Query('to')
+		to?: number
 
 	): Promise<{}> {
-		let limit = !!date_range ? date_range.split(':', 2).map(x => parseInt(x)) : [undefined, undefined]
-		return SensorEvent._delete(participant_id, limit[0], limit[1])
+		return SensorEvent._delete(participant_id, origin, from, to)
 	}
 
 	@Route.GET('/participant/{participant_id}/sensor_event') 
@@ -117,12 +122,17 @@ export class SensorEvent {
 		@Retype(Identifier, Participant)
 		participant_id: string,
 
-		@Query('limit')
-		date_range?: string
+		@Query('origin')
+		origin?: string,
+
+		@Query('from')
+		from?: number,
+
+		@Query('to')
+		to?: number
 
 	): Promise<SensorEvent[]> {
-		let limit = !!date_range ? date_range.split(':', 2).map(x => parseInt(x)) : [undefined, undefined]
-		return SensorEvent._select(participant_id, limit[0], limit[1])
+		return SensorEvent._select(participant_id, origin, from, to)
 	}
 
 	@Route.GET('/study/{study_id}/sensor_event') 
@@ -139,12 +149,17 @@ export class SensorEvent {
 		@Retype(Identifier, Study)
 		study_id: string,
 
-		@Query('limit')
-		date_range?: string
+		@Query('origin')
+		origin?: string,
+
+		@Query('from')
+		from?: number,
+
+		@Query('to')
+		to?: number
 
 	): Promise<SensorEvent[]> {
-		let limit = !!date_range ? date_range.split(':', 2).map(x => parseInt(x)) : [undefined, undefined]
-		return SensorEvent._select(study_id, limit[0], limit[1])
+		return SensorEvent._select(study_id, origin, from, to)
 	}
 
 	@Route.GET('/researcher/{researcher_id}/sensor_event') 
@@ -161,12 +176,17 @@ export class SensorEvent {
 		@Retype(Identifier, Researcher)
 		researcher_id: string,
 
-		@Query('limit')
-		date_range?: string
+		@Query('origin')
+		origin?: string,
+
+		@Query('from')
+		from?: number,
+
+		@Query('to')
+		to?: number
 
 	): Promise<SensorEvent[]> {
-		let limit = !!date_range ? date_range.split(':', 2).map(x => parseInt(x)) : [undefined, undefined]
-		return SensorEvent._select(researcher_id, limit[0], limit[1])
+		return SensorEvent._select(researcher_id, origin, from, to)
 	}
 
 	/**
@@ -178,6 +198,11 @@ export class SensorEvent {
 		 * 
 		 */
 		id?: Identifier,
+
+		/**
+		 * 
+		 */
+		sensor_spec?: Identifier,
 
 		/**
 		 *
@@ -204,7 +229,7 @@ export class SensorEvent {
 		user_id = !!user_id ? Encrypt(user_id) : undefined
 
 		let result1 = (await SQL!.request().query(`
-				SELECT timestamp, type, data
+				SELECT timestamp, type, data, X.StudyId AS parent
 				FROM (
 					SELECT
 						Users.AdminID, 
@@ -229,7 +254,7 @@ export class SensorEvent {
 						Users.IsDeleted,
 					    DATEDIFF_BIG(MS, '1970-01-01', DateTime) AS timestamp,
 					    REPLACE(HKParamName, ' ', '') AS type,
-					    Value AS data 
+					    Value AS data
 					FROM HealthKit_ParamValues
 					LEFT JOIN Users
 					    ON HealthKit_ParamValues.UserID = Users.UserID
@@ -246,6 +271,7 @@ export class SensorEvent {
 			obj.timestamp = raw.timestamp
 			obj.sensor = <SensorName>Object.entries(HK_LAMP_map).filter(x => x[1] === (<string>raw.type))[0][0]
 			obj.data = ((<any>HK_to_LAMP)[obj.sensor!] || ((x: any) => x))(raw.data)
+			;(<any>obj).parent = !!admin_id ? Decrypt(raw.parent) : undefined
 			return obj
 		})
 
@@ -254,7 +280,8 @@ export class SensorEvent {
                 DATEDIFF_BIG(MS, '1970-01-01', Locations.CreatedOn) AS timestamp,
                 Latitude AS lat,
                 Longitude AS long,
-                LocationName AS location_name 
+                LocationName AS location_name,
+                Users.StudyId AS parent
             FROM Locations
             LEFT JOIN Users
                 ON Locations.UserID = Users.UserID
@@ -277,12 +304,13 @@ export class SensorEvent {
 					social: x[1] || null
 				}
 			}
+			;(<any>obj).parent = !!admin_id ? Decrypt(raw.parent) : undefined
 			return obj
 		})
 
 		let result3 = (await SQL!.request().query(`
 			SELECT 
-				timestamp, sensor_name, data
+				timestamp, sensor_name, data, Users.StudyId AS parent
 			FROM LAMP_Aux.dbo.CustomSensorEvent
             LEFT JOIN Users
             	ON CustomSensorEvent.UserID = Users.UserID
@@ -296,10 +324,18 @@ export class SensorEvent {
 			obj.timestamp = raw.timestamp
 			obj.sensor = raw.sensor_name
 			obj.data = JSON.parse(raw.data)
+			;(<any>obj).parent = !!admin_id ? Decrypt(raw.parent) : undefined
 			return obj
 		})
 
-		return [...result1, ...result2, ...result3].sort((a, b) => (<number>a.timestamp) - (<number>b.timestamp))
+		let all_res = [...result1, ...result2, ...result3].sort((a, b) => (<number>a.timestamp) - (<number>b.timestamp))
+
+		// Perform a group-by operation on the participant ID if needed.
+		return !admin_id ? all_res : all_res.reduce((prev, curr: any) => {
+			let key = (<any>curr).parent;
+			(prev[key] ? prev[key] : (prev[key] = null || [])).push({ ...curr, parent: undefined })
+			return prev
+		}, (<any>{}))
 	}
 
 	/**
@@ -340,6 +376,11 @@ export class SensorEvent {
 		 * The `StudyId` column of the `Users` table in the LAMP v0.1 DB.
 		 */
 		participant_id: Identifier,
+
+		/**
+		 * 
+		 */
+		sensor_spec?: Identifier,
 
 		/**
 		 *

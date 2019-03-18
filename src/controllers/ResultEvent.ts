@@ -131,12 +131,17 @@ export class ResultEvent {
 		@Retype(Identifier, Participant)
 		participant_id: string,
 
-		@Query('limit')
-		date_range?: string
+		@Query('origin')
+		origin?: string,
+
+		@Query('from')
+		from?: number,
+
+		@Query('to')
+		to?: number
 
 	): Promise<{}> {
-		let limit = !!date_range ? date_range.split(':', 2).map(x => parseInt(x)) : [undefined, undefined]
-		return ResultEvent._delete(participant_id, limit[0], limit[1])
+		return ResultEvent._delete(participant_id, origin, from, to)
 	}
 
 	@Route.GET('/participant/{participant_id}/result_event') 
@@ -153,12 +158,17 @@ export class ResultEvent {
 		@Retype(Identifier, Participant)
 		participant_id: string,
 
-		@Query('limit')
-		date_range?: string
+		@Query('origin')
+		origin?: string,
+
+		@Query('from')
+		from?: number,
+
+		@Query('to')
+		to?: number
 
 	): Promise<ResultEvent[]> {
-		let limit = !!date_range ? date_range.split(':', 2).map(x => parseInt(x)) : [undefined, undefined]
-		return ResultEvent._select(participant_id, undefined, limit[0], limit[1])
+		return ResultEvent._select(participant_id, origin, from, to)
 	}
 
 	@Route.GET('/study/{study_id}/result_event') 
@@ -175,12 +185,17 @@ export class ResultEvent {
 		@Retype(Identifier, Study)
 		study_id: string,
 
-		@Query('limit')
-		date_range?: string
+		@Query('origin')
+		origin?: string,
+
+		@Query('from')
+		from?: number,
+
+		@Query('to')
+		to?: number
 
 	): Promise<ResultEvent[]> {
-		let limit = !!date_range ? date_range.split(':', 2).map(x => parseInt(x)) : [undefined, undefined]
-		return ResultEvent._select(study_id, undefined, limit[0], limit[1])
+		return ResultEvent._select(study_id, origin, from, to)
 	}
 
 	@Route.GET('/researcher/{researcher_id}/result_event') 
@@ -197,112 +212,17 @@ export class ResultEvent {
 		@Retype(Identifier, Researcher)
 		researcher_id: string,
 
-		@Query('limit')
-		date_range?: string
+		@Query('origin')
+		origin?: string,
+
+		@Query('from')
+		from?: number,
+
+		@Query('to')
+		to?: number
 
 	): Promise<ResultEvent[]> {
-		let limit = !!date_range ? date_range.split(':', 2).map(x => parseInt(x)) : [undefined, undefined]
-		return ResultEvent._select(researcher_id, undefined, limit[0], limit[1])
-	}
-
-	@Route.GET('/participant/{participant_id}/activity/{activity_id}/result_event') 
-	@Description(d`
-		Get the set of all result events produced by a 
-		given participant, by identifier.
-	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'participant_id')
-	@Retype(Array, ResultEvent)
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async all_by_participant_activity(
-
-		@Path('participant_id')
-		@Retype(Identifier, Participant)
-		participant_id: string,
-
-		@Path('activity_id')
-		@Retype(Identifier, Activity)
-		activity_id: string,
-
-		@Query('limit')
-		date_range?: string
-
-	): Promise<ResultEvent[]> {
-		let limit = !!date_range ? date_range.split(':', 2).map(x => parseInt(x)) : [undefined, undefined]
-		return ResultEvent._select(participant_id, activity_id, limit[0], limit[1])
-	}
-
-	@Route.GET('/study/{study_id}/activity/{activity_id}/result_event') 
-	@Description(d`
-		Get the set of all result events produced by participants 
-		participants of a single study, by study identifier.
-	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'study_id')
-	@Retype(Array, ResultEvent)
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async all_by_study_activity(
-
-		@Path('study_id')
-		@Retype(Identifier, Study)
-		study_id: string,
-
-		@Path('activity_id')
-		@Retype(Identifier, Activity)
-		activity_id: string,
-
-		@Query('limit')
-		date_range?: string
-
-	): Promise<ResultEvent[]> {
-		let limit = !!date_range ? date_range.split(':', 2).map(x => parseInt(x)) : [undefined, undefined]
-		return ResultEvent._select(study_id, activity_id, limit[0], limit[1])
-	}
-
-	@Route.GET('/researcher/{researcher_id}/activity/{activity_id}/result_event') 
-	@Description(d`
-		Get the set of all result events produced by participants 
-		of any study conducted by a researcher, by researcher identifier.
-	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'researcher_id')
-	@Retype(Array, ResultEvent)
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async all_by_researcher_activity(
-
-		@Path('researcher_id')
-		@Retype(Identifier, Researcher)
-		researcher_id: string,
-
-		@Path('activity_id')
-		@Retype(Identifier, Activity)
-		activity_id: string,
-
-		@Query('limit')
-		date_range?: string
-
-	): Promise<ResultEvent[]> {
-		let limit = !!date_range ? date_range.split(':', 2).map(x => parseInt(x)) : [undefined, undefined]
-		return ResultEvent._select(researcher_id, activity_id, limit[0], limit[1])
-	}
-
-	@Route.GET('/activity/{activity_id}/result_event') 
-	@Description(d`
-		Get the set of all result events produced by participants 
-		of any study conducted by a researcher, by researcher identifier.
-	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'activity_id')
-	@Retype(Array, ResultEvent)
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async all_by_activity(
-
-		@Path('activity_id')
-		@Retype(Identifier, Activity)
-		activity_id: string,
-
-		@Query('limit')
-		date_range?: string
-
-	): Promise<ResultEvent[]> {
-		let limit = !!date_range ? date_range.split(':', 2).map(x => parseInt(x)) : [undefined, undefined]
-		return ResultEvent._select(undefined, activity_id, limit[0], limit[1])
+		return ResultEvent._select(researcher_id, origin, from, to)
 	}
 
 	/**
@@ -318,7 +238,7 @@ export class ResultEvent {
 		/**
 		 * 
 		 */
-		activity_id?: Identifier, // FIXME: UNUSED!
+		activity_id_or_spec?: Identifier,
 
 		/**
 		 *
@@ -360,6 +280,7 @@ export class ResultEvent {
 			// Perform the result lookup for every Activity table.
 			let events = (await SQL!.request().query(`
 				SELECT
+					Users.StudyId AS uid,
 	                [${entry.IndexColumnName}] AS id,
 	                DATEDIFF_BIG(MS, '1970-01-01', [${entry.StartTimeColumnName}]) AS timestamp,
 	                DATEDIFF_BIG(MS, [${entry.StartTimeColumnName}], [${entry.EndTimeColumnName}]) AS duration,
@@ -418,6 +339,7 @@ export class ResultEvent {
 				let result_event = new ResultEvent()
 				result_event.timestamp = parseInt(row.timestamp)
 				result_event.duration = parseInt(row.duration)
+				;(<any>result_event).parent = !!admin_id ? Decrypt(row.uid) : undefined
 
 				// Map internal ID sub-components into the single mangled ID form.
 				// FIXME: Currently it's not feasible to map SurveyID from SurveyName.
@@ -500,8 +422,14 @@ export class ResultEvent {
 			})
 			return (<ResultEvent[]>[]).concat(...(await Promise.all(res)))
 		})
+		let all_res = (<ResultEvent[]>[]).concat(...(await Promise.all(result)))
 
-		return (<ResultEvent[]>[]).concat(...(await Promise.all(result)))
+		// Perform a group-by operation on the participant ID if needed.
+		return !admin_id ? all_res : all_res.reduce((prev, curr: any) => {
+			let key = (<any>curr).parent;
+			(prev[key] ? prev[key] : (prev[key] = null || [])).push({ ...curr, parent: undefined })
+			return prev
+		}, (<any>{}))
 	}
 
 	/**
@@ -600,6 +528,11 @@ export class ResultEvent {
 		 * The `StudyId` column of the `Users` table in the LAMP v0.1 DB.
 		 */
 		participant_id: Identifier,
+
+		/**
+		 * 
+		 */
+		activity_id_or_spec?: Identifier,
 
 		/**
 		 *
