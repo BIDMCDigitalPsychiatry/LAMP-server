@@ -10,7 +10,6 @@ import sql from 'mssql'
 import { Participant } from './Participant'
 import { Study } from './Study'
 import { Researcher } from './Researcher'
-import { ActivitySpec } from './ActivitySpec'
 import { Activity } from './Activity'
 
 /* TODO: Researcher->Participant attachment overrides Participant->self? */
@@ -260,8 +259,7 @@ export class Type {
 			Researcher: [],
 			Study: ['Researcher'],
 			Participant: ['Study', 'Researcher'],
-			ActivitySpec: ['Study', 'Researcher'],
-			Activity: ['ActivitySpec', 'Study', 'Researcher'],
+			Activity: ['Study', 'Researcher'],
 		}
 		/*
 		// TODO:
@@ -287,7 +285,6 @@ export class Type {
 			Researcher: Researcher,
 			Study: Study,
 			Participant: Participant,
-			ActivitySpec: ActivitySpec,
 			Activity: Activity,
 		}
 		return await (<any>self_type[Type._self_type(type_id)])._parent_id(type_id, self_type[type])

@@ -90,7 +90,7 @@ export class Participant {
 		@Body()
 		participant: Participant,
 
-	): Promise<Identifier> {
+	): Promise<{}> {
 		return Participant._update(participant_id, participant)
 	}
 
@@ -107,7 +107,7 @@ export class Participant {
 		@Retype(Identifier, Participant)
 		participant_id: string
 
-	): Promise<Identifier> {
+	): Promise<{}> {
 		return Participant._delete(participant_id)
 	}
 
@@ -320,11 +320,11 @@ export class Participant {
 		let _id = 'U' + Math.floor(Math.random() * 100000000) /* rand(000000, 999999) */
 
 		// Prepare the likely required SQL column changes as above.
-		let study_code = !!object.study_code ? Encrypt(object.study_code) : 'NULL'
-		let theme = !!object.theme ? Encrypt(object.theme!) : 'NULL'
-		let language = !!object.language ? Encrypt(object.language!) : 'NULL'
-		let emergency_contact = !!object.emergency_contact ? Encrypt(object.emergency_contact!) : 'NULL'
-		let helpline = !!object.helpline ? Encrypt(object.helpline!) : 'NULL'
+		let study_code = !!object.study_code ? `'${Encrypt(object.study_code)}'` : 'NULL'
+		let theme = !!object.theme ? `'${Encrypt(object.theme!)}'` : 'NULL'
+		let language = !!object.language ? `'${Encrypt(object.language!)}'` : 'NULL'
+		let emergency_contact = !!object.emergency_contact ? `'${Encrypt(object.emergency_contact!)}'` : 'NULL'
+		let helpline = !!object.helpline ? `'${Encrypt(object.helpline!)}'` : 'NULL'
 
 		// Insert row, returning the generated primary key ID.
 		let result1 = await SQL!.request().query(`
@@ -339,7 +339,7 @@ export class Participant {
 			VALUES (
 		        '${Encrypt(_id + '@lamp.com')}', 
 		        '',
-		        '${study_code}',
+		        ${study_code},
 		        '${Encrypt(_id)}',
 		        GETDATE(), 
 		        ${admin_id}
@@ -361,10 +361,10 @@ export class Participant {
             )
 			VALUES (
 			    ${(<any>result1.recordset)[0]['id']},
-		        '${theme}',
-		        '${emergency_contact}',
-		        '${helpline}',
-		        '${language}'
+		        ${theme},
+		        ${emergency_contact},
+		        ${helpline},
+		        ${language}
 			);
 		`);
 
@@ -387,7 +387,7 @@ export class Participant {
 		 */
 		object: Participant
 
-	): Promise<Identifier> {
+	): Promise<{}> {
 		let user_id = Encrypt(Participant._unpack_id(participant_id).study_id)
 
 		// Prepare the minimal SQL column changes from the provided fields.
@@ -420,7 +420,7 @@ export class Participant {
 		`)).recordset
 
 		// Return whether the operation was successful.
-		return (result1.length && result2.length) ? 'ok' : 'no'
+		return (result1.length && result2.length) ? {} : {}
 	}
 
 	/**
@@ -433,12 +433,17 @@ export class Participant {
 		 */
 		participant_id: Identifier
 
-	): Promise<Identifier> {
+	): Promise<{}> {
 		let user_id = Encrypt(Participant._unpack_id(participant_id).study_id)
 
 		// Set the deletion flag, without actually deleting the row.
-		return (await SQL!.request().query(`
-			UPDATE Users SET IsDeleted = 1 WHERE StudyId = ${user_id};
-		`)).recordset[0]
+		let res = (await SQL!.request().query(`
+			IF EXISTS(SELECT UserID FROM Users WHERE StudyId = '${user_id}' AND IsDeleted != 1)
+				UPDATE Users SET IsDeleted = 1 WHERE StudyId = '${user_id}';
+		`))
+
+		if (res.rowsAffected.length === 0 || res.rowsAffected[0] === 0)
+			throw new NotFound()
+		return {}
 	}
 }

@@ -475,7 +475,7 @@ Route.PATCH = function(route: string) { return Route(API.HTTPMethod.PATCH, route
 /**
  * Declares a method as an HTTP DELETE OpenAPI path.
  */
-Route.DELETE = function(route: string) { return Route(API.HTTPMethod.DELETE, route, 203) }
+Route.DELETE = function(route: string) { return Route(API.HTTPMethod.DELETE, route, 202) }
 
 /**
  * Declares a method as an HTTP HEAD OpenAPI path.
