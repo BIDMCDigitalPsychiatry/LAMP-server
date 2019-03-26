@@ -12,7 +12,6 @@ import { Study } from './Study'
 import { Researcher } from './Researcher'
 
 export enum SensorName {
-	// IGNORED: DateOfBirth, Sex, BloodType
 	Analytics = 'lamp.analytics',
 	Accelerometer = 'lamp.accelerometer',
 	Bluetooth = 'lamp.bluetooth',
@@ -556,89 +555,6 @@ const HK_LAMP_map = {
 	'Segment': 'lamp.segment',
 	'Distance': 'lamp.distance',
 }
-
-/*
-@Property()
-@Description(d`
-	The date and time when the participant last used the LAMP app.
-`)
-public last_login?: Timestamp
-
-@Property()
-@Description(d`
-	The type of device the participant last used to use to the LAMP app.
-`)
-public device_type?: string
-*/
-
-/*
-@Property()
-@Description(d`
-	The date and time when the participant last checked the Blogs page.
-`)
-public blogs_checked_date?: Timestamp
-
-@Property()
-@Description(d`
-	The date and time when the participant last checked the Tips page.
-`)
-public tips_checked_date?: Timestamp
-*/
-
-// Part Two: Devices! FIXME TIMESTAMP!
-/*
-let last_login = !!object.last_login ? Encrypt('' + object.last_login!) : 'NULL'
-let device_type = !!object.device_type ? Encrypt(object.device_type!) : 'NULL'
-*/
-
-/*
-if (!!object.last_login)
-	updatesC.push(`LastLoginOn = '${object.last_login!}'`)
-if (!!object.device_type)
-	updatesC.push(`DeviceType = '${object.device_type!}'`)
-*/
-
-/*
-DATEDIFF_BIG(MS, '1970-01-01', LastLoginOn) AS [last_login],
-(CASE 
-    WHEN DeviceType = 1 THEN 'iOS'
-    WHEN DeviceType = 2 THEN 'Android'
-    ELSE NULL
-END) AS [device_type],
-
-(
-    SELECT DATEDIFF_BIG(MS, '1970-01-01', BlogsViewedOn)
-    WHERE BlogsViewedOn IS NOT NULL
-) AS [blogs_checked_date],
-(
-    SELECT DATEDIFF_BIG(MS, '1970-01-01', TipsViewedOn)
-    WHERE TipsViewedOn IS NOT NULL
-) AS [tips_checked_date],
-*/
-
-/*
-let result3 = await SQL!.request().query(`
-    INSERT INTO UserDevices (
-        UserID, 
-        DeviceType, 
-        LastLoginOn
-    )
-	VALUES (
-	    ${(<any>result1.recordset)['id']},
-        '${device_type}'
-        '${last_login}',
-	);
-`)
-*/
-
-/*
-let result3 = (await SQL!.request().query(`
-    UPDATE UserDevices 
-    SET ${updatesC.join(', ')} 
-    LEFT JOIN Users ON Users.UserID = UserDevices.UserID
-    WHERE StudyId = ${user_id};
-`)).recordset
-*/
 
 /*
 public static function get_streams(

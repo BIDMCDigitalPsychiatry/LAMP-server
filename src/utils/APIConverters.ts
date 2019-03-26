@@ -104,7 +104,7 @@ export function ExpressAPI(api: API.Schema[], app: Application, rootPassword: st
 									throw new AuthorizationFailed()
 
 								// FIXME: 
-								from = <string>Researcher._pack_id({ admin_id: result[0]['AdminID'] })
+								auth[0] = from = <string>Researcher._pack_id({ admin_id: result[0]['AdminID'] })
 							}
 							/* FIXME */
 
@@ -115,15 +115,8 @@ export function ExpressAPI(api: API.Schema[], app: Application, rootPassword: st
 
 							// Patch in the special-cased "me" to the actual authenticated credential.
 							if(to === 'me')
-								args[param_idx] = to = auth[0]
+								args[param_idx] = auth_value = to = auth[0]
 							// FIXME: R vs P?
-
-							console.dir({
-								to: to,
-								from: from,
-								to_parent: Type._parent_type(to),
-								from_parent: Type._parent_type(from)
-							})
 
 							// Handle whether we require the parameter to be [[[self], a sibling], or a parent].
 							if (
