@@ -106,7 +106,7 @@ export const Download = function(url: string): Promise<Buffer> {
 /**
  *
  */
-export const Sysmail = function(
+export const Sysmail = async function(
 	subject: string, 
 	contents: string,
 	from: string = 'system@lamp.digital', 
@@ -132,8 +132,13 @@ export const Sysmail = function(
 	ExpressAPI(api, app, secrets.auth.root)
 	app.get('/', (req, res) => res.json(defn))
 	app.get('*', (req, res) => res.json(new Unimplemented()))
-	app.post('/internal/sysmsg/', (req, res) => {
-		Sysmail(req.body.subject, req.body.contents)
+	app.post('/internal/sysmsg/', async (req, res) => {
+		try {
+			let result = await Sysmail(req.body.subject, req.body.contents)
+			res.status(200).json(result)
+		} catch(e) {
+			res.status(500).json({ error: e.message })
+		}
 	})
 
 	/*
