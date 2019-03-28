@@ -321,10 +321,10 @@ export class Participant {
 
 		// Prepare the likely required SQL column changes as above.
 		let study_code = !!object.study_code ? `'${Encrypt(object.study_code)}'` : 'NULL'
-		let theme = !!object.theme ? `'${Encrypt(object.theme!)}'` : 'NULL'
-		let language = !!object.language ? `'${Encrypt(object.language!)}'` : 'NULL'
-		let emergency_contact = !!object.emergency_contact ? `'${Encrypt(object.emergency_contact!)}'` : 'NULL'
-		let helpline = !!object.helpline ? `'${Encrypt(object.helpline!)}'` : 'NULL'
+		let theme = !!object.theme ? `'${Encrypt(object.theme!)}'` : `'dJjw5FK/FXK6qU32frXHvg=='`
+		let language = !!object.language ? `'${Encrypt(object.language!)}'` : `'en'`
+		let emergency_contact = !!object.emergency_contact ? `'${Encrypt(object.emergency_contact!)}'` : `''`
+		let helpline = !!object.helpline ? `'${Encrypt(object.helpline!)}'` : `''`
 
 		// Insert row, returning the generated primary key ID.
 		let result1 = await SQL!.request().query(`
@@ -334,6 +334,7 @@ export class Participant {
                 StudyCode, 
                 StudyId, 
                 CreatedOn, 
+                Status
                 AdminID
             )
 			VALUES (
@@ -342,6 +343,7 @@ export class Participant {
 		        ${study_code},
 		        '${Encrypt(_id)}',
 		        GETDATE(), 
+		        1,
 		        ${admin_id}
 			);
 			SELECT SCOPE_IDENTITY() AS id;
@@ -354,16 +356,28 @@ export class Participant {
 		let result2 = await SQL!.request().query(`
             INSERT INTO UserSettings (
                 UserID, 
-                AppColor, 
+                AppColor,
+                SympSurvey_SlotID,
+                SympSurvey_RepeatID,
+                CognTest_SlotID,
+                CognTest_RepeatID,
                 [24By7ContactNo], 
                 PersonalHelpline,
+                PrefferedSurveys,
+                PrefferedCognitions,
                 Language
             )
 			VALUES (
 			    ${(<any>result1.recordset)[0]['id']},
 		        ${theme},
+		        1,
+		        1,
+		        1,
+		        1,
 		        ${emergency_contact},
 		        ${helpline},
+		        '',
+		        '',
 		        ${language}
 			);
 		`);

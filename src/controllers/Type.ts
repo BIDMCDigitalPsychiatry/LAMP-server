@@ -444,6 +444,7 @@ export class Type {
 		// Determine the parent type(s) of `type_id` first.
 		let components = Identifier.unpack(id)
 		let from_type: string = (components.length === 0) ? (<any>Participant).name : components[0]
+		console.dir(id)
 		let parents = await Type.parent(<string>id)
 		if (Object.keys(parents).length === 0)
 			parents = { ' ' : ' ' } // for the SQL 'IN' operator
@@ -506,6 +507,7 @@ export class Type {
 	public static async _process_triggers() {
 		console.log('Processing accumulated attachment triggers...')
 
+		/*
 		let type_id: Identifier = ''
 		let attachments: DynamicAttachment[] = await Promise.all((await Type._list('b', <string>type_id))
 												.map(async x => (await Type._get('b', <string>type_id, x))))
@@ -514,6 +516,7 @@ export class Type {
 			.forEach(x => Type._invoke(x).then(y => {
 				Type._set('a', x.to!, <string>x.from!, x.key! + '/output')
 			}))
+		*/
 
 		// SELECT TOP 1000 * FROM LAMP_Aux.dbo.UpdateCounter; // => Type, ID, Subtype
 		// SELECT TOP 1000 * FROM LAMP_Aux.dbo.OOLTriggerSet; // => ObjectID, ChildType, AttachmentKey, TriggerType
