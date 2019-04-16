@@ -334,7 +334,7 @@ export class Participant {
                 StudyCode, 
                 StudyId, 
                 CreatedOn, 
-                Status
+                Status,
                 AdminID
             )
 			VALUES (
