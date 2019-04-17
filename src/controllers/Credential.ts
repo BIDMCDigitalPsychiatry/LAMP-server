@@ -28,17 +28,14 @@ export class Credential {
 	@Description(d`
 		Username or machine-readable public key (access).
 	`)
-	public public_key: string = ''
+	public access_key: string = ''
 
 	@Property()
 	@Description(d`
 		SALTED HASH OF Password or machine-readable private key (secret).
 	`)
-	public private_key: string = ''
+	public secret_key: string = ''
 
-	/**
-     * 
-     */
 	@Property()
 	@Description(d`
 		The user-visible description of the credential.
@@ -57,6 +54,18 @@ export class Credential {
 		type_id: Identifier
 
 	): Promise<string[]> {
+
+		// Get the correctly scoped identifier to search within.
+		let user_id: string | undefined
+		let admin_id: number | undefined
+		if (!!type_id && Identifier.unpack(type_id)[0] === (<any>Researcher).name)
+			admin_id = Researcher._unpack_id(type_id).admin_id
+		else if (!!type_id && Identifier.unpack(type_id).length === 0 /* Participant */)
+			user_id = Participant._unpack_id(type_id).study_id
+		else if(!!type_id) throw new Error()
+
+		// 
+
 		let result = (await SQL!.request().query(`
             SELECT [Key], Value
             FROM LAMP_Aux.dbo.OOLAttachment
@@ -83,6 +92,18 @@ export class Credential {
 		credential: any
 
 	): Promise<any> {
+
+		// Get the correctly scoped identifier to search within.
+		let user_id: string | undefined
+		let admin_id: number | undefined
+		if (!!type_id && Identifier.unpack(type_id)[0] === (<any>Researcher).name)
+			admin_id = Researcher._unpack_id(type_id).admin_id
+		else if (!!type_id && Identifier.unpack(type_id).length === 0 /* Participant */)
+			user_id = Participant._unpack_id(type_id).study_id
+		else if(!!type_id) throw new Error()
+
+		//
+
 		let req = SQL!.request()
 		req.input('json_value', JSON.stringify(credential))
 		let result = (await req.query(`
@@ -113,6 +134,18 @@ export class Credential {
 		credential_key: string
 
 	): Promise<any> {
+
+		// Get the correctly scoped identifier to search within.
+		let user_id: string | undefined
+		let admin_id: number | undefined
+		if (!!type_id && Identifier.unpack(type_id)[0] === (<any>Researcher).name)
+			admin_id = Researcher._unpack_id(type_id).admin_id
+		else if (!!type_id && Identifier.unpack(type_id).length === 0 /* Participant */)
+			user_id = Participant._unpack_id(type_id).study_id
+		else if(!!type_id) throw new Error()
+
+		//
+
 		let result = (await SQL!.request().query(`
             DELETE FROM LAMP_Aux.dbo.OOLAttachment
             WHERE 
