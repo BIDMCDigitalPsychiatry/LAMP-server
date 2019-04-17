@@ -46,9 +46,9 @@ export class Credential {
 	@Description(d`
 		
 	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'type_id')
+	@Auth(Ownership.Self | Ownership.Parent, 'type_id')
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async list_credentials(
+	public static async list(
 
 		@Path('type_id')
 		type_id: Identifier
@@ -64,8 +64,46 @@ export class Credential {
 			user_id = Participant._unpack_id(type_id).study_id
 		else if(!!type_id) throw new Error()
 
-		// 
+		// Get the legacy credential.
+		let legacy_key: Credential | undefined = undefined
+		if (!!admin_id) {
 
+			// Reset the legacy/default credential as a Researcher. 
+			let result = (await SQL!.request().query(`
+				SELECT Email
+				FROM Admin
+				WHERE IsDeleted = 0 
+					AND Password != ''
+					AND AdminID = ${admin_id};
+			`))
+			if (result.rowsAffected[0] > 0)
+				legacy_key = {
+					origin: <string>type_id,
+					access_key: Decrypt(result.recordset[0]['Email']) || '',
+					secret_key: '',
+					description: 'Default Credential'
+				}
+
+		} else if (!!user_id) {
+
+			// Reset the legacy/default credential as a Participant.
+			let result = (await SQL!.request().query(`
+				SELECT Email
+				FROM Users
+				WHERE isDeleted = 0 
+					AND Password != ''
+					AND StudyId = '${Encrypt(user_id)}';
+			`))
+			if (result.rowsAffected[0] > 0)
+				legacy_key = {
+					origin: <string>type_id,
+					access_key: Decrypt(result.recordset[0]['Email']) || '',
+					secret_key: '',
+					description: 'Default Credential'
+				}
+		}
+
+		// Get any API credentials.
 		let result = (await SQL!.request().query(`
             SELECT [Key], Value
             FROM LAMP_Aux.dbo.OOLAttachment
@@ -74,16 +112,18 @@ export class Credential {
                 	AND ObjectType = 'Credential'
                 );
 		`)).recordset
-		return result
+
+		// 
+		return [legacy_key, ...(result.map(x => x['Value']))].filter(x => !!x)
 	}
 
 	@Route.POST('/type/{type_id}/credential') 
 	@Description(d`
 		
 	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'type_id')
+	@Auth(Ownership.Self | Ownership.Parent, 'type_id')
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async create_credential(
+	public static async create(
 
 		@Path('type_id')
 		type_id: Identifier,
@@ -102,36 +142,74 @@ export class Credential {
 			user_id = Participant._unpack_id(type_id).study_id
 		else if(!!type_id) throw new Error()
 
-		//
-
-		let req = SQL!.request()
-		req.input('json_value', JSON.stringify(credential))
-		let result = (await req.query(`
-            INSERT (
-                ObjectType, ObjectID, [Key], Value
-            )
-            VALUES (
-                'Credential', '${type_id}', '${credential.key}', @json_value
-            );
-		`)).recordset
-		if (result.length === 0)
+		// If it's not our credential, don't mess with it!
+		if (credential.origin !== type_id || !credential.access_key || !credential.secret_key)
 			throw new NotFound()
+
+		if (!!admin_id) {
+
+			// Reset the legacy/default credential as a Researcher. 
+			let result = (await SQL!.request().query(`
+				UPDATE Admin 
+				SET 
+					Email = '${Encrypt(credential.access_key)}',
+					Password = '${Encrypt(credential.secret_key, 'AES256')}'
+				WHERE IsDeleted = 0 
+					AND Password = ''
+					AND AdminID = ${admin_id};
+			`))
+			if (result.rowsAffected[0] === 0)
+				throw new NotFound()
+
+		} else if (!!user_id) {
+
+			// Reset the legacy/default credential as a Participant.
+			let result = (await SQL!.request().query(`
+				UPDATE Users 
+				SET 
+					Email = '${Encrypt(credential.access_key)}',
+					Password = '${Encrypt(credential.secret_key, 'AES256')}'
+				WHERE isDeleted = 0 
+					AND Password = ''
+					AND StudyId = '${Encrypt(user_id)}';
+			`))
+			if (result.rowsAffected[0] === 0)
+				throw new NotFound()
+		} else {
+
+			// Reset an API credential as either a Researcher or Participant.
+			let req = SQL!.request()
+			req.input('json_value', JSON.stringify(credential))
+			let result = (await req.query(`
+	            INSERT (
+	                ObjectType, ObjectID, [Key], Value
+	            )
+	            VALUES (
+	                'Credential', '${type_id}', '${credential.key}', @json_value
+	            );
+			`))
+			if (result.rowsAffected[0] === 0)
+				throw new NotFound()
+		}
 		return {}
 	}
 
-	@Route.DELETE('/type/{type_id}/credential/{credential_key}') 
+	@Route.PUT('/type/{type_id}/credential/{access_key}') 
 	@Description(d`
 		
 	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'type_id')
+	@Auth(Ownership.Self | Ownership.Parent, 'type_id')
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async delete_credential(
+	public static async update(
 
 		@Path('type_id')
 		type_id: Identifier,
 
-		@Path('credential_key')
-		credential_key: string
+		@Path('access_key')
+		access_key: string,
+
+		@Body()
+		credential: any
 
 	): Promise<any> {
 
@@ -144,17 +222,125 @@ export class Credential {
 			user_id = Participant._unpack_id(type_id).study_id
 		else if(!!type_id) throw new Error()
 
-		//
-
-		let result = (await SQL!.request().query(`
-            DELETE FROM LAMP_Aux.dbo.OOLAttachment
-            WHERE 
-                ObjectID = '${type_id}'
-                AND [Key] = '${credential_key}'
-                AND ObjectType = 'Credential';
-		`)).recordset
-		if (result.length === 0)
+		// If it's not our credential, don't mess with it!
+		if (credential.origin !== type_id || !credential.access_key || !credential.secret_key)
 			throw new NotFound()
+
+		if (!!admin_id) {
+
+			// Reset the legacy/default credential as a Researcher. 
+			let result = (await SQL!.request().query(`
+				UPDATE Admin 
+				SET 
+					Email = '${Encrypt(credential.access_key)}',
+					Password = '${Encrypt(credential.secret_key, 'AES256')}'
+				WHERE IsDeleted = 0 
+					AND Password != ''
+					AND AdminID = ${admin_id};
+			`))
+			if (result.rowsAffected[0] === 0)
+				throw new NotFound()
+
+		} else if (!!user_id) {
+
+			// Reset the legacy/default credential as a Participant.
+			let result = (await SQL!.request().query(`
+				UPDATE Users 
+				SET 
+					Email = '${Encrypt(credential.access_key)}',
+					Password = '${Encrypt(credential.secret_key, 'AES256')}'
+				WHERE isDeleted = 0 
+					AND Password != ''
+					AND StudyId = '${Encrypt(user_id)}';
+			`))
+			if (result.rowsAffected[0] === 0)
+				throw new NotFound()
+		} else {
+			
+			throw new NotFound()
+
+			/*
+			// Reset an API credential as either a Researcher or Participant.
+			let req = SQL!.request()
+			req.input('json_value', JSON.stringify(credential))
+			let result = (await req.query(`
+	            INSERT (
+	                ObjectType, ObjectID, [Key], Value
+	            )
+	            VALUES (
+	                'Credential', '${type_id}', '${credential.key}', @json_value
+	            );
+			`))
+			if (result.rowsAffected[0] === 0)
+				throw new NotFound()
+			*/
+		}
+		return {}
+	}
+
+	@Route.DELETE('/type/{type_id}/credential/{access_key}') 
+	@Description(d`
+		
+	`)
+	@Auth(Ownership.Self | Ownership.Parent, 'type_id')
+	@Throws(BadRequest, AuthorizationFailed, NotFound)
+	public static async delete(
+
+		@Path('type_id')
+		type_id: Identifier,
+
+		@Path('access_key')
+		access_key: string
+
+	): Promise<any> {
+
+		// Get the correctly scoped identifier to search within.
+		let user_id: string | undefined
+		let admin_id: number | undefined
+		if (!!type_id && Identifier.unpack(type_id)[0] === (<any>Researcher).name)
+			admin_id = Researcher._unpack_id(type_id).admin_id
+		else if (!!type_id && Identifier.unpack(type_id).length === 0 /* Participant */)
+			user_id = Participant._unpack_id(type_id).study_id
+		else if(!!type_id) throw new Error()
+
+		if (!!admin_id) {
+
+			// Reset the legacy/default credential as a Researcher. 
+			let result = (await SQL!.request().query(`
+				UPDATE Admin 
+				SET Password = '' 
+				WHERE IsDeleted = 0 
+					AND Email = '${Encrypt(access_key)}'
+					AND AdminID = ${admin_id};
+			`))
+			if (result.rowsAffected[0] === 0)
+				throw new NotFound()
+
+		} else if (!!user_id) {
+
+			// Reset the legacy/default credential as a Participant.
+			let result = (await SQL!.request().query(`
+				UPDATE Users 
+				SET Password = '' 
+				WHERE isDeleted = 0 
+					AND Email = '${Encrypt(access_key)}'
+					AND StudyId = '${Encrypt(user_id)}';
+			`))
+			if (result.rowsAffected[0] === 0)
+				throw new NotFound()
+		} else {
+
+			// Reset an API credential as either a Researcher or Participant.
+			let result = (await SQL!.request().query(`
+		        DELETE FROM LAMP_Aux.dbo.OOLAttachment
+	            WHERE 
+	                ObjectID = '${type_id}'
+	                AND [Key] = '${access_key}'
+	                AND ObjectType = 'Credential';
+			`))
+			if (result.rowsAffected[0] === 0)
+				throw new NotFound()
+		}
 		return {}
 	}
 }
