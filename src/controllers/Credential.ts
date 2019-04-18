@@ -223,8 +223,8 @@ export class Credential {
 		else if(!!type_id) throw new Error()
 
 		// If it's not our credential, don't mess with it!
-		if (<string>(credential.origin) != <string>type_id)
-			throw new BadRequest("The credential origin does not match the requested resource.")
+		//if (<string>(credential.origin) != <string>type_id)
+		//	throw new BadRequest("The credential origin does not match the requested resource.")
 		if (!credential.access_key || !credential.secret_key)
 			throw new BadRequest("A credential must have both access and secret keys.")
 
