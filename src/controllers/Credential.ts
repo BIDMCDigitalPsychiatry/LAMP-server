@@ -222,9 +222,13 @@ export class Credential {
 			user_id = Participant._unpack_id(type_id).study_id
 		else if(!!type_id) throw new Error()
 
+		console.log(credential)
+
 		// If it's not our credential, don't mess with it!
-		if (credential.origin !== type_id || !credential.access_key || !credential.secret_key)
-			throw new BadRequest()
+		if (credential.origin !== type_id)
+			throw new BadRequest("The credential origin does not match the requested resource.")
+		if (!credential.access_key || !credential.secret_key)
+			throw new BadRequest("A credential must have both access and secret keys.")
 
 		if (!!admin_id) {
 			console.log('route admin')
