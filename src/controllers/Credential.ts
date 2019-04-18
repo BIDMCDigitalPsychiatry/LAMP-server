@@ -224,9 +224,10 @@ export class Credential {
 
 		// If it's not our credential, don't mess with it!
 		if (credential.origin !== type_id || !credential.access_key || !credential.secret_key)
-			throw new NotFound()
+			throw new BadRequest()
 
 		if (!!admin_id) {
+			console.log('route admin')
 
 			// Reset the legacy/default credential as a Researcher. 
 			let result = (await SQL!.request().query(`
@@ -242,6 +243,7 @@ export class Credential {
 				throw new NotFound()
 
 		} else if (!!user_id) {
+			console.log('route user')
 
 			// Reset the legacy/default credential as a Participant.
 			let result = (await SQL!.request().query(`
@@ -256,7 +258,7 @@ export class Credential {
 			if (result.rowsAffected[0] === 0)
 				throw new NotFound()
 		} else {
-			
+			console.log('route missing')
 			throw new NotFound()
 
 			/*
