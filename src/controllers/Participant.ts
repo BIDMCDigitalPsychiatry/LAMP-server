@@ -320,7 +320,7 @@ export class Participant {
 		let _id = 'U' + Math.floor(Math.random() * 100000000) /* rand(000000, 999999) */
 
 		// Prepare the likely required SQL column changes as above.
-		let study_code = !!object.study_code ? `'${Encrypt(object.study_code)}'` : 'NULL'
+		let study_code = !!object.study_code ? `'${Encrypt(object.study_code)}'` : `'${Encrypt('001')}'`
 		let theme = !!object.theme ? `'${Encrypt(object.theme!)}'` : `'dJjw5FK/FXK6qU32frXHvg=='`
 		let language = !!object.language ? `'${Encrypt(object.language!)}'` : `'en'`
 		let emergency_contact = !!object.emergency_contact ? `'${Encrypt(object.emergency_contact!)}'` : `''`
@@ -343,7 +343,7 @@ export class Participant {
 		        ${study_code},
 		        '${Encrypt(_id)}',
 		        GETDATE(), 
-		        1,
+		        0,
 		        ${admin_id}
 			);
 			SELECT SCOPE_IDENTITY() AS id;
