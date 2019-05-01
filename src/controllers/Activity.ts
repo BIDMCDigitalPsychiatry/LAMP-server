@@ -452,10 +452,8 @@ export class Activity {
 					activity_spec_id: raw.id,
 					admin_id: raw.aid
 				})
-				obj.spec = ActivitySpec._pack_id({
-					activity_spec_id: raw.id
-				})
-				obj.name = raw.name
+				obj.spec = raw.name
+				obj.name = spec_map[(<string>raw.name)]
 				obj.settings = {
 					...(raw.settings.jewelsA || ({'0': {}}))['0'],
 					...(raw.settings.jewelsB || ({'0': {}}))['0']
@@ -466,9 +464,7 @@ export class Activity {
 					admin_id: raw.aid,
 					survey_id: raw.id
 				})
-				obj.spec = ActivitySpec._pack_id({
-					activity_spec_id: 1 /* survey */
-				})
+				obj.spec = 'lamp.survey'
 				obj.name = raw.name
 				obj.settings = raw.questions
 			}
@@ -494,8 +490,7 @@ export class Activity {
 	): Promise<Identifier> {
 
 		// Non-Survey Activities cannot be created!
-		let specID = ActivitySpec._unpack_id(object.spec!)
-		if (specID.activity_spec_id !== 1 /* survey */)
+		if (object.spec! !== 'lamp.survey')
 			throw new Error()
 
 		 // TODO... use schedule + settings for survey config!
@@ -551,4 +546,26 @@ export class Activity {
 			UPDATE Survey SET IsDeleted = 1 WHERE SurveyID = ${id.survey_id};
 		`)).recordset[0]
 	}
+}
+
+const spec_map: { [string: string]: any; } = {
+	'lamp.survey': 'Survey',
+	'lamp.nback': 'N-Back',
+	'lamp.trails_b': 'Trails B',
+	'lamp.spatial_span': 'Spatial Span',
+	'lamp.simple_memory': 'Simple Memory',
+	'lamp.serial7s': 'Serial 7s',
+	'lamp.cats_and_dogs': 'Cats and Dogs',
+	'lamp.3d_figure_copy': '3D Figure Copy',
+	'lamp.visual_association': 'Visual Association',
+	'lamp.digit_span': 'Digit Span',
+	'lamp.cats_and_dogs_new': 'Cats and Dogs New',
+	'lamp.temporal_order': 'Temporal Order',
+	'lamp.nback_new': 'N-Back New',
+	'lamp.trails_b_new': 'Trails B New',
+	'lamp.trails_b_dot_touch': 'Trails B Dot Touch',
+	'lamp.jewels_a': 'Jewels Trails A',
+	'lamp.jewels_b': 'Jewels Trails B',
+	'lamp.scratch_image': 'Scratch Image',
+	'lamp.spin_wheel': 'Spin Wheel',
 }

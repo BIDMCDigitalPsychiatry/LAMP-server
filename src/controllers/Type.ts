@@ -1,4 +1,4 @@
-import { SQL, Encrypt, Decrypt } from '../app'
+import { SQL, Encrypt, Decrypt, Root } from '../app'
 import { 
 	d, Schema, Property, Description, Retype, Route, Throws, 
 	Path, BadRequest, NotFound, AuthorizationFailed, Auth, Query,
@@ -192,7 +192,7 @@ export class Type {
 
 			// If needed, invoke the attachment now.
 			let attachment: DynamicAttachment = await Type._get('b', <string>type_id, attachment_key)
-		    result = await Type._invoke(attachment)
+		    result = await Type._invoke(attachment, {})
 			await Type._set('a', attachment.to!, <string>attachment.from, attachment.key + '/output', result)
 		} else {
 
@@ -233,7 +233,7 @@ export class Type {
 
 			// If needed, invoke the attachment now.
 			if (!!invoke_once) {
-			    Type._invoke(attachment_value).then(y => {
+			    Type._invoke(attachment_value, {}).then(y => {
 					Type._set('a', target, <string>type_id, attachment_key + '/output', y)
 				})
 			}
@@ -444,7 +444,6 @@ export class Type {
 		// Determine the parent type(s) of `type_id` first.
 		let components = Identifier.unpack(id)
 		let from_type: string = (components.length === 0) ? (<any>Participant).name : components[0]
-		console.dir(id)
 		let parents = await Type.parent(<string>id)
 		if (Object.keys(parents).length === 0)
 			parents = { ' ' : ' ' } // for the SQL 'IN' operator
@@ -483,7 +482,7 @@ export class Type {
 	/**
 	 *
 	 */
-	public static async _invoke(attachment: DynamicAttachment): Promise<any | undefined> {
+	public static async _invoke(attachment: DynamicAttachment, context: any): Promise<any | undefined> {
 		if ((attachment.contents || '').trim().length === 0)
 			return undefined
 
@@ -498,7 +497,7 @@ export class Type {
 		}
 
 		// Execute script.
-		return await runner.execute(attachment.contents!, attachment.requirements!.join(','), {})
+		return await runner.execute(attachment.contents!, attachment.requirements!.join(','), context)
 	}
 
 	/**
@@ -507,8 +506,108 @@ export class Type {
 	public static async _process_triggers() {
 		console.log('Processing accumulated attachment triggers...')
 
-		/*
-		let type_id: Identifier = ''
+		// Request the set of all updates.
+		let accumulated_set = (await SQL!.request().query(`
+			SELECT 
+				Type, ID, Subtype, 
+				DATEDIFF_BIG(MS, '1970-01-01', LastUpdate) AS LastUpdate, 
+				Users.StudyId AS _SID,
+				Users.AdminID AS _AID
+			FROM LAMP_Aux.dbo.UpdateCounter
+			LEFT JOIN LAMP.dbo.Users
+				ON Type = 'Participant' AND Users.UserID = ID
+			ORDER BY LastUpdate DESC;
+		`)).recordset.map(x => ({
+			...x, 
+			_id: (x.Type === 'Participant' ? 
+				Participant._pack_id({ study_id: Decrypt(<string>x._SID) }) : 
+				Researcher._pack_id({ admin_id: x.ID })), 
+			_admin: (x.Type === 'Participant' ? 
+				Researcher._pack_id({ admin_id: x._AID }) : 
+				Researcher._pack_id({ admin_id: x.ID }))
+		}))
+		let ax_set1 = accumulated_set.map(x => x._id)
+		let ax_set2 = accumulated_set.map(x => x._admin)
+
+		// Request the set of event masks prepared.
+		let registered_set = (await SQL!.request().query(`
+			SELECT * FROM LAMP_Aux.dbo.OOLAttachmentLinker; 
+		`)).recordset // TODO: SELECT * FROM LAMP_Aux.dbo.OOLTriggerSet;
+
+		// Diff the masks against all updates.
+		let working_set = registered_set.filter(x => (
+
+			/* Attachment from self -> self. */
+			(x.ChildObjectType === 'me' && ax_set1.indexOf(x.ObjectID) >= 0) ||
+
+			/* Attachment from self -> children of type Participant */
+			(x.ChildObjectType === 'Participant' && ax_set2.indexOf(x.ObjectID) >= 0) ||
+
+			/* Attachment from self -> specific child Participant matching an ID */
+			(accumulated_set.find(y => (y._id === x.ChildObjectType && y._admin === x.ObjectID)) !== undefined) 
+		))
+
+		// Completely delete all updates; we're done collecting the working set.
+		// TODO: Maybe don't delete before execution?
+		//console.dir(working_set.map(x => x.AttachmentLinkerID))
+		/*let result = await SQL!.request().query(`
+            DELETE FROM LAMP_Aux.dbo.UpdateCounter;
+		`)*/
+
+		// Duplicate the working set into specific entries.
+		working_set = working_set
+			.map(x => {
+				let script_type = x.ScriptType.startsWith('{') ? JSON.parse(x.ScriptType) : { triggers: [], language: x.ScriptType }
+
+				let obj = new DynamicAttachment()
+				obj.key = x.AttachmentKey
+				obj.from = x.ObjectID
+				obj.to = x.ChildObjectType
+				obj.triggers = script_type.triggers
+				obj.language = script_type.language
+				obj.contents = x.ScriptContents
+				obj.requirements = JSON.parse(x.ReqPackages)
+				return obj
+			}).map(x => {
+
+				// Apply a subgroup transformation only if we're targetting all 
+				// child resources of a type (i.e. 'Participant').
+				if (x.to === 'Participant')
+					return accumulated_set
+							.filter(y => 
+								y.Type === 'Participant' && 
+								y._admin === x.from && 
+								y._id !== y._admin)
+							.map(y => ({ ...x, to: y._id }))
+				return [{ ...x, to: <string>x.from }]
+			});
+
+		(<any[]>[]).concat(...working_set)
+			.forEach(x => Type._invoke(x, {
+
+				/* The security context originator for the script 
+				   with a magic placeholder to indicate to the LAMP server
+				   that the script's API requests are pre-authenticated. */
+				token: 'LAMP' + Encrypt(JSON.stringify({
+					identity: { from: x.from, to: x.to },
+					cosigner: Root
+				})),
+
+				/* What object was this automation run for on behalf of an agent? */
+				object: {
+					id: x.to,
+					type: Type._self_type(x.to)
+				},
+
+				/* Currently meaningless but does signify what caused the IA to run. */
+				event: ['ResultEvent', 'SensorEvent']
+			}).then((y) => {
+				Type._set('a', x.to!, <string>x.from!, x.key! + '/output', y)
+			}).catch((err) => {
+				Type._set('a', x.to!, <string>x.from!, x.key! + '/logs', JSON.stringify(err))
+			}))
+
+		/* // TODO: This is for a single item only;
 		let attachments: DynamicAttachment[] = await Promise.all((await Type._list('b', <string>type_id))
 												.map(async x => (await Type._get('b', <string>type_id, x))))
 		attachments
@@ -517,16 +616,6 @@ export class Type {
 				Type._set('a', x.to!, <string>x.from!, x.key! + '/output')
 			}))
 		*/
-
-		// SELECT TOP 1000 * FROM LAMP_Aux.dbo.UpdateCounter; // => Type, ID, Subtype
-		// SELECT TOP 1000 * FROM LAMP_Aux.dbo.OOLTriggerSet; // => ObjectID, ChildType, AttachmentKey, TriggerType
-
-		// 1. check every update counter
-		// 2. delete all counters
-		// 3. check any matching trigger-sets
-		// 4. un-cache any stdin (non-dynamic/tags)
-		// 5. execute (distinct) scripts from above
-		// 6. cache stdout+stderr
 	}
 }
 

@@ -84,6 +84,22 @@ export class SensorSpec {
 		return SensorSpec._delete(sensor_spec_name)
 	}
 
+	@Route.GET('/sensor_spec/{sensor_spec_name}') 
+	@Description(d`
+		Get a SensorSpec.
+	`)
+	@Auth(Ownership.Root)
+	@Retype(Array, SensorSpec)
+	@Throws(BadRequest, AuthorizationFailed, NotFound)
+	public static async view(
+
+		@Path('sensor_spec_name')
+		sensor_spec_name: string
+
+	): Promise<SensorSpec[]> {
+		return SensorSpec._select(sensor_spec_name)
+	}
+
 	@Route.GET('/sensor_spec') 
 	@Description(d`
 		Get all SensorSpecs registered by any Researcher.

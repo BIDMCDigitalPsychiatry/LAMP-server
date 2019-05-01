@@ -41,12 +41,6 @@ export class ActivitySpec {
 
 	@Property()
 	@Description(d`
-		The self-referencing identifier to this object.
-	`)
-	public id?: Identifier
-
-	@Property()
-	@Description(d`
 		The name of the activity spec.
 	`)
 	public name?: string
@@ -85,9 +79,9 @@ export class ActivitySpec {
 
 	@Route.POST('/activity_spec') 
 	@Description(d`
-		Create a new ActivitySpec visible to the given Study.
+		Create a new ActivitySpec.
 	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'study_id')
+	@Auth(Ownership.Root)
 	@Retype(Identifier, ActivitySpec)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async create(
@@ -99,101 +93,71 @@ export class ActivitySpec {
 		return ActivitySpec._insert(activity_spec)
 	}
 
-	@Route.PUT('/activity_spec/{activity_spec_id}') 
+	@Route.PUT('/activity_spec/{activity_spec_name}') 
 	@Description(d`
 		Update an ActivitySpec.
 	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'activity_spec_id')
+	@Auth(Ownership.Root)
 	@Retype(Identifier, ActivitySpec)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async update(
 
-		@Path('activity_spec_id')
+		@Path('activity_spec_name')
 		@Retype(Identifier, ActivitySpec)
-		activity_spec_id: string,
+		activity_spec_name: string,
 
 		@Body()
 		activity_spec: ActivitySpec,
 
 	): Promise<Identifier> {
-		return ActivitySpec._update(activity_spec_id, activity_spec)
+		return ActivitySpec._update(activity_spec_name, activity_spec)
 	}
 
-	@Route.DELETE('/activity_spec/{activity_spec_id}') 
+	@Route.DELETE('/activity_spec/{activity_spec_name}') 
 	@Description(d`
 		Delete an ActivitySpec.
 	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'activity_spec_id')
+	@Auth(Ownership.Root)
 	@Retype(Identifier, ActivitySpec)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async delete(
 
-		@Path('activity_spec_id')
+		@Path('activity_spec_name')
 		@Retype(Identifier, ActivitySpec)
-		activity_spec_id: string
+		activity_spec_name: string
 
 	): Promise<Identifier> {
-		return ActivitySpec._delete(activity_spec_id)
+		return ActivitySpec._delete(activity_spec_name)
+	}
+
+	@Route.GET('/activity_spec/{activity_spec_name}') 
+	@Description(d`
+		View an ActivitySpec.
+	`)
+	@Auth(Ownership.Any)
+	@Retype(Identifier, ActivitySpec)
+	@Throws(BadRequest, AuthorizationFailed, NotFound)
+	public static async view(
+
+		@Path('activity_spec_name')
+		@Retype(String, ActivitySpec)
+		activity_spec_name: string
+
+	): Promise<ActivitySpec[]> {
+		return ActivitySpec._select(activity_spec_name)
 	}
 
 	@Route.GET('/activity_spec') 
 	@Description(d`
-		Get all ActivitySpecs registered by any Researcher.
+		Get all ActivitySpecs registered.
 	`)
-	@Auth(Ownership.Root)
+	@Auth(Ownership.Any)
 	@Retype(Array, ActivitySpec)
 	@Throws(BadRequest, AuthorizationFailed, NotFound)
 	public static async all(
 
 	): Promise<ActivitySpec[]> {
 		return ActivitySpec._select()
-	}
-
-	/**
-	 *
-	 */
-	public static _pack_id(components: {
-
-		/**
-		 * 
-		 */
-		activity_spec_id?: number
-
-	}): Identifier {
-		return Identifier.pack([
-			(<any>ActivitySpec).name, 
-			components.activity_spec_id || 0,
-		])
-	}
-
-	/**
-	 *
-	 */
-	public static _unpack_id(id: Identifier): ({
-
-		/**
-		 * 
-		 */
-		activity_spec_id: number
-
-	}) {
-		let components = Identifier.unpack(id)
-		if (components[0] !== (<any>ActivitySpec).name)
-			throw new Error('invalid identifier')
-		let result = components.slice(1).map(x => parseInt(x))
-		return {
-			activity_spec_id: !isNaN(result[0]) ? result[0] : 0
-		}
-	}
-
-	/**
-	 *
-	 */
-	public static async _parent_id(id: Identifier, type: Function): Promise<Identifier | undefined> {
-		let { activity_spec_id } = ActivitySpec._unpack_id(id)
-		switch (type) {
-			default: throw new Error()
-		}
 	}
 
 	/**
@@ -204,23 +168,12 @@ export class ActivitySpec {
 		/**
 		 * The identifier of the object or any parent.
 		 */
-		id?: Identifier
+		index_name?: String
 
 	): Promise<ActivitySpec[]> {
-
-		// Get the correctly scoped identifier to search within.
-		let index_id: number | undefined
-		let admin_id: number | undefined
-		if (!!id && Identifier.unpack(id)[0] === (<any>Researcher).name)
-			admin_id = Researcher._unpack_id(id).admin_id
-		else if (!!id && Identifier.unpack(id)[0] === (<any>Study).name)
-			admin_id = Study._unpack_id(id).admin_id
-		else if (!!id && Identifier.unpack(id)[0] === (<any>ActivitySpec).name)
-			index_id = ActivitySpec._unpack_id(id).activity_spec_id
-		else if(!!id) throw new Error()
 		
 		// Short-circuit to the batch spec if requested.
-		if (index_id === 0)
+		if (index_name === 'lamp.activity_group')
 			return [ActivitySpec.batchSpec]
 
 		// Collect the set of legacy Activity tables and stitch the full query.
@@ -229,16 +182,15 @@ export class ActivitySpec {
 	        	ActivityIndexID AS id,
 	        	Name AS name
 			FROM LAMP_Aux.dbo.ActivityIndex
-			${!!index_id ? `WHERE ActivityIndexID = ${index_id}` : ''};
+			${!!index_name ? `WHERE ActivityIndexID = ${index_name}` : ''};
 		`)
 
 		// Convert fields correctly and return the spec objects.
 		// Include the batchSpec only if a non-specific lookup was made.
 		return [
-			...(!!index_id ? [] : [ActivitySpec.batchSpec]),
+			...(!!index_name ? [] : [ActivitySpec.batchSpec]),
 			...result.recordsets[0].map(x => {
 				let obj = new ActivitySpec()
-				obj.id = ActivitySpec._pack_id({ activity_spec_id: x.id })
 				obj.name = x.name
 				return obj
 			})
@@ -270,7 +222,7 @@ export class ActivitySpec {
 		/**
 		 * The `ActivityIndexID` column of the `ActivityIndex` table in the LAMP_Aux DB.
 		 */
-		activity_spec_id: Identifier,
+		activity_spec_name: Identifier,
 
 		/**
 		 * The replacement object or specific fields within.
@@ -292,7 +244,7 @@ export class ActivitySpec {
 		/**
 		 * The `ActivityIndexID` column of the `ActivityIndex` table in the LAMP_Aux DB.
 		 */
-		activity_spec_id: Identifier
+		activity_spec_name: Identifier
 
 	): Promise<Identifier> {
 
@@ -306,8 +258,7 @@ export class ActivitySpec {
 	 */
 	private static get batchSpec() {
 		let obj = new ActivitySpec()
-		obj.id = ActivitySpec._pack_id({ activity_spec_id: 0 })
-		obj.name = 'Activity Group'
+		obj.name = 'lamp.activity_group'
 		obj.settings_schema = {
 			type: 'object',
 			properties: {

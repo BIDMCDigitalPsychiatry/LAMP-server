@@ -125,7 +125,7 @@ export default abstract class ScriptRunner {
 				&& apt-get install -y --no-install-recommends \
 					socat \
 					curl \
-					libcurl-dev \
+					libcurl4-openssl-dev \
 					software-properties-common \
 					ed \
 					less \
@@ -329,9 +329,9 @@ const containerExec = (container: _Docker.Container, shellCommand: string): Prom
         container.exec({ Cmd: [
         	'/bin/sh', '-c', shellCommand
     	], AttachStdout: true, AttachStderr: true }, (cErr: any, exec: any) => {
-            if (cErr) error(cErr)
+            if (cErr) return error(cErr)
             exec.start({ hijack: true }, (sErr: any, stream: Stream) => {
-                if (sErr) error(sErr)
+                if (sErr) return error(sErr)
 
                 const output: Buffer[] = []
                 stream.on('data', (chunk: Buffer) => {

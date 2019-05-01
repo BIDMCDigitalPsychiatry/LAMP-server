@@ -51,7 +51,10 @@ export function ExpressAPI(api: API.Schema[], app: Application, rootPassword: st
 						// Get the authorization components from the header and tokenize them.
 						// TODO: ignoring the other authorization location stuff for now...
 						let authStr = (<string>req.get('Authorization') || '').replace('Basic', '').trim()
-						authStr = authStr.indexOf(':') >= 0 ? authStr : Buffer.from(authStr, 'base64').toString()
+						let cosignData = authStr.startsWith('LAMP') ? JSON.parse(Decrypt(authStr.slice(4)) || '') : undefined
+						if (cosignData !== undefined) // FIXME !?
+							authStr = Object.values(cosignData.cosigner).join(':')
+						else authStr = authStr.indexOf(':') >= 0 ? authStr : Buffer.from(authStr, 'base64').toString()
 						let auth = authStr.split(':', 2)
 
 						// If no authorization is provided, ask for something.
@@ -137,8 +140,38 @@ export function ExpressAPI(api: API.Schema[], app: Application, rootPassword: st
 							}
 						}
 
+						// FIXME: clean this up...
+						// Handle the above normal login cases if we're cosigned by root.
+						if (!!cosignData) {
+							let from = cosignData.identity.from
+							let to = auth_value
+
+							// Patch in the special-cased "me" to the actual authenticated credential.
+							if(auth_value /* to */ === 'me')
+								args[param_idx] = auth_value = to = cosignData.identity.to
+							// FIXME: R vs P?
+
+							// Handle whether we require the parameter to be [[[self], a sibling], or a parent].
+							if (
+								/* Check if `to` and `from` are the same object. */
+								(route.authorization.requirement & Ownership.Self && 
+								 from !== to) && 
+
+								/* FIXME: Check if the immediate parent type of `to` is found in `from`'s inheritance tree. */
+								(route.authorization.requirement & Ownership.Sibling &&
+								 Type._parent_type(from).indexOf(Type._parent_type(to)[0]) < 0) &&
+
+								/* Check if `from` is actually the parent ID of `to` matching the same type as `from`. */
+								(route.authorization.requirement & Ownership.Parent &&
+								 from !== await Type._parent_id(to, Type._self_type(from)))
+							) {
+								/* We've given the authorization enough chances... */
+								throw new AuthorizationFailed()
+							}
+						}
+
 						// There shouldn't be any "me" anymore -- unless we're root.
-						if(auth_value /* to */ === 'me')
+						if(cosignData === undefined && auth_value /* to */ === 'me')
 							throw new Error('authorization context does not support \'me\' substitution')
 					}
 
