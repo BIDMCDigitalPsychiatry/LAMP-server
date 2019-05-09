@@ -33,7 +33,6 @@ app.set('json spaces', 2)
 app.use(bodyParser.json({ limit: '50mb', strict: false }))
 app.use(bodyParser.text())
 app.use(require('cors')())
-app.use(require('morgan')('combined'))
 
 /**
  *
