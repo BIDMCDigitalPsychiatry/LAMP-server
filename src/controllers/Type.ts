@@ -549,10 +549,10 @@ export class Type {
 
 		// Completely delete all updates; we're done collecting the working set.
 		// TODO: Maybe don't delete before execution?
-		//console.dir(working_set.map(x => x.AttachmentLinkerID))
-		/*let result = await SQL!.request().query(`
+		let result = await SQL!.request().query(`
             DELETE FROM LAMP_Aux.dbo.UpdateCounter;
-		`)*/
+		`)
+		console.log('Resolved ' + JSON.stringify(result.recordset) + ' events.')
 
 		// Duplicate the working set into specific entries.
 		working_set = working_set
@@ -604,7 +604,7 @@ export class Type {
 			}).then((y) => {
 				Type._set('a', x.to!, <string>x.from!, x.key! + '/output', y)
 			}).catch((err) => {
-				Type._set('a', x.to!, <string>x.from!, x.key! + '/logs', JSON.stringify(err))
+				Type._set('a', x.to!, <string>x.from!, x.key! + '/output', JSON.stringify({ output: null, logs: err }))
 			}))
 
 		/* // TODO: This is for a single item only;
