@@ -393,13 +393,13 @@ export class Type {
 	            SELECT TOP 1 * 
 	            FROM LAMP_Aux.dbo.OOLAttachment
 	            WHERE [Key] = '${key}'
-	                AND (
+	                AND ((
 	                	ObjectID = '${id}'
 	                	AND ObjectType = 'me'
 	                ) OR (
 	                	ObjectID IN (${Object.values(parents).map(x => `'${x}'`).join(', ')})
 	                	AND ObjectType IN ('${from_type}', '${id}')
-	                );
+	                ));
 			`)).recordset
 
 			if (result.length === 0)
@@ -411,13 +411,13 @@ export class Type {
 	            SELECT TOP 1 * 
 	            FROM LAMP_Aux.dbo.OOLAttachmentLinker
 	            WHERE AttachmentKey = '${key}'
-	            	AND (
+	            	AND ((
 	                	ObjectID = '${id}'
 	                	AND ChildObjectType = 'me'
 	                ) OR (
 	                	ObjectID IN (${Object.values(parents).map(x => `'${x}'`).join(', ')})
 	                	AND ChildObjectType IN ('${from_type}', '${id}')
-	                );
+	                ));
 			`)).recordset
 			if (result.length === 0)
 				throw new NotFound()
