@@ -1,19 +1,9 @@
 workflow "Build" {
   on = "push"
-  resolves = ["GitHub Action for npm"]
+  resolves = ["app.build"]
 }
 
-action "checkout" {
-  uses = "actions/checkout@master"
-}
-
-action "actions/setup-node@master" {
-  uses = "actions/setup-node@master"
-  needs = ["checkout"]
-}
-
-action "GitHub Action for npm" {
-  uses = "actions/npm@master"
-  needs = ["actions/setup-node@master"]
-  args = "install"
+action "app.build" {
+  uses = "actions/docker/cli@master"
+  args = "build -f Dockerfile -t app-$GITHUB_SHA:latest ."
 }
