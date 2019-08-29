@@ -162,9 +162,14 @@ export const Sysmail = async function(
 	SQL = await new sql.ConnectionPool({
 	    ...secrets.sql,
 	    parseJSON: true,
-	    options: { encrypt: true },
+	    options: { 
+	    	encrypt: true, 
+	    	appName: 'LAMP-server',
+	    	abortTransactionOnError: true 
+	    },
 	    pool: {
-	        min: 0, max: 10,
+	        min: 0, 
+	        max: 10,
 	        idleTimeoutMillis: 30000
 	    }
 	}).connect()
