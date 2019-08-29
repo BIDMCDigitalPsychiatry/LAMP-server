@@ -449,26 +449,38 @@ export class ResultEvent {
 
 	): Promise<{}> {
 		let user_id = Encrypt(Participant._unpack_id(participant_id).study_id)
-
 		let { activity_spec_id, admin_id, survey_id } = Activity._unpack_id(object.activity!)
-		// FIXME: USE SURVEY ID!!!
 
 		// Collect the set of legacy Activity tables and stitch the full query.
 		let tableset = (await SQL!.request().query(`
 			SELECT * FROM LAMP_Aux.dbo.ActivityIndex;
 		`)).recordset
-		let tablerow = tableset.filter((x: any) => x['ActivityIndexID'] === activity_spec_id)[0]
+		let tablerow = tableset.filter((x: any) => parseInt(x['ActivityIndexID']) === activity_spec_id)[0]
+
+		let userIDset = (await SQL!.request().query(`
+			SELECT TOP 1 UserID FROM LAMP.dbo.Users WHERE StudyId = '${user_id}';
+		`)).recordset
 
 	    // First consume the timestamp + duration fields that are always present.
-	    // TODO: convert time!
+	    // FIXME: millisecond precision is lost!!
 	    let columns: any = {}
-	    columns[tablerow['StartTimeColumnName']] = object.static_data.timestamp
-	    columns[tablerow['EndTimeColumnName']] = object.static_data.timestamp + object.static_data.duration
+	    let startTime = ((object.timestamp as number) || 0)
+	    let endTime = ((object.timestamp as number) || 0) + (object.duration as number || 1)
+	    columns[tablerow['StartTimeColumnName']] = `DATEADD(s, CONVERT(BIGINT, ${startTime}) / 1000, CONVERT(DATETIME, '1-1-1970 00:00:00'))`
+	    columns[tablerow['EndTimeColumnName']] = `DATEADD(s, CONVERT(BIGINT, ${endTime}) / 1000, CONVERT(DATETIME, '1-1-1970 00:00:00'))`
 
 	    // We only support 5 static slots; check if they're used by the activity first.
 	    for (let x of [1, 2, 3, 4, 5]) {
 	    	if (!!tablerow[`Slot${x}Name`]) {
-	    		columns[tablerow[`Slot${x}ColumnName`]] = object.static_data[tablerow[`Slot${x}Name`]]
+	    		let value = object.static_data[tablerow[`Slot${x}Name`]]
+	    		let isString = (typeof value === 'string' || value instanceof String)
+	    		if (tablerow[`Slot${x}ColumnName`] === 'SurveyName') {
+	    			value = Encrypt(value) // FIXME
+					columns['SurveyType'] = 3 // FIXME 
+					columns['SurveyID'] = survey_id // FIXME
+	    		}
+
+	    		columns[tablerow[`Slot${x}ColumnName`]] = isString ? `'${_escapeMSSQL(value)}'` : value
 	    	}
 	    }
 	    
@@ -479,10 +491,14 @@ export class ResultEvent {
 	    // Insert row, returning the generated primary key ID.
 	    let result: any = (await SQL!.request().query(`
 	    	INSERT INTO ${tablerow['TableName']} (
+	    		UserID,
+	    		Status,
                 ${static_keys}
             )
             OUTPUT INSERTED.${tablerow['IndexColumnName']} AS id
 			VALUES (
+				${userIDset[0]['UserID']},
+				2,
 		        ${static_values}
 			);
 	    `)).recordset
@@ -490,30 +506,41 @@ export class ResultEvent {
 	    // Bail early if there was a failure to record the parent event row.
 	    if (result.length === 0)
 	    	throw new Error()
-	    if (!!tablerow['TemporalTableName'])
-	    	return result[0]
+	    if (!tablerow['TemporalTableName'] || (object.temporal_events || []).length === 0)
+	    	return {}//result[0]
 
 	    // Now the temporal fields are mapped for each sub-event.
 	    let temporals = (object.temporal_events || []).map(event => [
-	    	[tablerow['TemporalIndexColumnName'], result.id],
-		    [tablerow['Temporal1ColumnName'], event.item],
-		    [tablerow['Temporal2ColumnName'], event.value],
-		    [tablerow['Temporal3ColumnName'], event.type],
-		    [tablerow['Temporal4ColumnName'], event.duration],
-		    [tablerow['Temporal5ColumnName'], event.level],
+	    	[tablerow['IndexColumnName'], result[0].id],
+		    [tablerow['Temporal1ColumnName'], event.item || 'NULL'],
+		    [tablerow['Temporal2ColumnName'], event.value || 'NULL'],
+		    [tablerow['Temporal3ColumnName'], event.type || 'NULL'],
+		    [tablerow['Temporal4ColumnName'], event.duration || '0'],
+		    [tablerow['Temporal5ColumnName'], event.level || 'NULL'],
 	    ].reduce((prev, curr) => {
+	    	if (curr[0] === null) return prev;
 	    	(<any>prev)[curr[0]] = curr[1]; return prev
-	    }, {}))
+	    }, {})).map((x: any) => {
+			if (!!x['Question'])
+				x['Question'] = `'${_escapeMSSQL(Encrypt(x['Question'])!)}'`
+			if (!!x['CorrectAnswer'])
+				x['CorrectAnswer'] = `'${_escapeMSSQL(Encrypt(x['CorrectAnswer'])!)}'`
+			return x
+	    })
 
 	    // Convert the temporal arrays into SQL strings.
 	    let temporal_keys = `(${Object.keys(temporals[0]).join(', ')})`
 	    let temporal_values = temporals.map(x => `(${Object.values(x).join(', ')})`).join(', ')
 
 	    // Insert sub-rows, without returning anything.
-	    let result2 = await SQL!.request().query(`
+	    let result2 = (await SQL!.request().query(`
 	    	INSERT INTO ${tablerow['TemporalTableName']} ${temporal_keys}
 			VALUES ${temporal_values};
-	    `)
+	    `))
+
+	    // Bail early if there was a failure to record the parent event row.
+	    if (result2.rowsAffected[0] === 0)
+	    	throw new Error()
 
 	    // Return the new parent row's ID.
 	    return {}//!!result2 ? result : null;
@@ -563,3 +590,26 @@ export class ResultEvent {
 		return {}
 	}
 }
+
+const _escapeMSSQL = (val: string) => val.replace(/[\0\n\r\b\t\\'"\x1a]/g, (s: string) => {
+	switch (s) {
+	  case "\0":
+	    return "\\0";
+	  case "\n":
+	    return "\\n";
+	  case "\r":
+	    return "\\r";
+	  case "\b":
+	    return "\\b";
+	  case "\t":
+	    return "\\t";
+	  case "\x1a":
+	    return "\\Z";
+	  case "'":
+	    return "''";
+	  case '"':
+	    return '""';
+	  default:
+	    return "\\" + s;
+	}
+})
