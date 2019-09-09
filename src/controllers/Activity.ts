@@ -336,7 +336,7 @@ export class Activity {
 			FROM Admin_BatchScheduleCTest
 			JOIN LAMP_Aux.dbo.ActivityIndex
 				ON LegacyCTestID = CTestID
-			WHERE AdminBatchSchID IN (${resultBatch.map(x => x.id).join(',')})
+			WHERE AdminBatchSchID IN (${resultBatch.length === 0 ? 'NULL' : resultBatch.map(x => x.id).join(',')})
 		;`)).recordset
 		let resultBatchSurveySettings = (await SQL!.request().query(`
 			SELECT 
@@ -344,7 +344,7 @@ export class Activity {
 				SurveyID AS survey_id, 
 				[Order] AS [order]
 			FROM Admin_BatchScheduleSurvey
-			WHERE AdminBatchSchID IN (${resultBatch.map(x => x.id).join(',')})
+			WHERE AdminBatchSchID IN (${resultBatch.length === 0 ? 'NULL' : resultBatch.map(x => x.id).join(',')})
 		;`)).recordset
 		let resultBatchSchedule = (await SQL!.request().query(`
 			SELECT
@@ -365,7 +365,7 @@ export class Activity {
 				) AS custom_time
 			FROM Admin_BatchSchedule
 			WHERE IsDeleted = 0 
-				AND AdminBatchSchID IN (${resultBatch.map(x => x.id).join(',')})
+				AND AdminBatchSchID IN (${resultBatch.length === 0 ? 'NULL' : resultBatch.map(x => x.id).join(',')})
 		;`)).recordset
 		let resultSurvey = (await SQL!.request().query(`
 			SELECT 
@@ -395,7 +395,7 @@ export class Activity {
 				) AS options
 				FROM SurveyQuestions
 				WHERE IsDeleted = 0 
-					AND SurveyID IN (${resultSurvey.map(x => x.id).join(',')})
+					AND SurveyID IN (${resultSurvey.length === 0 ? 'NULL' : resultSurvey.map(x => x.id).join(',')})
 		;`)).recordset
 		let resultSurveySchedule = (await SQL!.request().query(`
 			SELECT
@@ -416,7 +416,7 @@ export class Activity {
 				) AS custom_time
 			FROM Admin_SurveySchedule
 			WHERE IsDeleted = 0 
-				AND Admin_SurveySchedule.SurveyID IN (${resultSurvey.map(x => x.id).join(',')})
+				AND Admin_SurveySchedule.SurveyID IN (${resultSurvey.length === 0 ? 'NULL' : resultSurvey.map(x => x.id).join(',')})
 		;`)).recordset
 		let resultTest = (await SQL!.request().query(`
 			SELECT 
@@ -456,7 +456,7 @@ export class Activity {
 				Y_NoOfChangesInLevel AS y_changes_in_level_count,
 				Y_NoOfShapes AS y_shape_count
 			FROM Admin_JewelsTrailsASettings
-			WHERE Admin_JewelsTrailsASettings.AdminID IN (${resultTest.map(x => x.aid).join(',')})
+			WHERE Admin_JewelsTrailsASettings.AdminID IN (${resultTest.length === 0 ? 'NULL' : resultTest.map(x => x.aid).join(',')})
 			UNION ALL
 			SELECT 
 				('b') AS type,
@@ -472,7 +472,7 @@ export class Activity {
 				Y_NoOfChangesInLevel AS y_changes_in_level_count,
 				Y_NoOfShapes AS y_shape_count
 			FROM Admin_JewelsTrailsBSettings
-			WHERE Admin_JewelsTrailsBSettings.AdminID IN (${resultTest.map(x => x.aid).join(',')})
+			WHERE Admin_JewelsTrailsBSettings.AdminID IN (${resultTest.length === 0 ? 'NULL' : resultTest.map(x => x.aid).join(',')})
 		;`)).recordset
 		let resultTestSchedule = (await SQL!.request().query(`
 			SELECT
@@ -494,7 +494,7 @@ export class Activity {
 				) AS custom_time
 			FROM Admin_CTestSchedule
 			WHERE IsDeleted = 0 
-				AND CONCAT('', CTestID, AdminID) IN (${resultTest.map(x => `'${x.lid}${x.aid}'`).join(',')})
+				AND CONCAT('', CTestID, AdminID) IN (${resultTest.length === 0 ? 'NULL' : resultTest.map(x => `'${x.lid}${x.aid}'`).join(',')})
 		;`)).recordset
 
 		// FIXME: Shouldn't return deleted surveys/ctests in group settings.
