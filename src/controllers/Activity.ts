@@ -1216,6 +1216,8 @@ export class Activity {
 					}
 				}
 
+				// FIXME: Cannot preserve question ordering using this method
+
 				// Modify batch settings.
 				if (Array.isArray(object.settings)) {
 					let result1 = await transaction.request().query(`
