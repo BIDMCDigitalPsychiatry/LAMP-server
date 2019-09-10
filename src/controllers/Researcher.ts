@@ -80,7 +80,7 @@ export class Researcher {
 		@Body()
 		researcher: Researcher,
 
-	): Promise<Identifier> {
+	): Promise<{}> {
 		return Researcher._update(researcher_id, researcher)
 	}
 
@@ -97,7 +97,7 @@ export class Researcher {
 		@Retype(Identifier, Researcher)
 		researcher_id: string
 
-	): Promise<Identifier> {
+	): Promise<{}> {
 		return Researcher._delete(researcher_id)
 	}
 
@@ -214,7 +214,7 @@ export class Researcher {
             FOR JSON PATH, INCLUDE_NULL_VALUES;
 		`)
 
-		if (result.recordset.length === 0)
+		if (result.recordset.length === 0 || result.recordset[0] === null)
 			return []
 		return result.recordset[0].map((raw: any) => {
 			let obj = new Researcher()
@@ -239,16 +239,7 @@ export class Researcher {
 	): Promise<Identifier> {
 
 		// Prepare SQL row-columns from JSON object-fields.
-		let fields = {
-			...object,
-			email: Encrypt(object.email!),
-			//password: Encrypt((<any>object).password, 'AES256'),
-			first_name: object.name!.split(' ')[0],
-			last_name: object.name!.split(' ')[1],
-		}
-
-		//TODO: //Sysmail(req.body.subject, req.body.contents)
-
+		//password: Encrypt((<any>object).password, 'AES256')
 		let result = await SQL!.request().query(`
 			INSERT INTO Admin (
                 Email, 
@@ -259,16 +250,18 @@ export class Researcher {
             )
             OUTPUT INSERTED.AdminID AS id
 			VALUES (
-		        '${fields.email}',
-		        '${fields.first_name}',
-		        '${fields.last_name}',
+		        '${Encrypt(object.email!)}',
+		        '${Encrypt(object.name!.split(' ')[0])}',
+		        '${Encrypt(object.name!.split(' ').slice(1).join(' '))}',
 		        GETDATE(), 
 		        2
 			);
 		`)
+		if (result.recordset.length === 0)
+			throw new Error('Could not create Researcher.')
 
 		// Return the new row's ID.
-		return result.recordset[0]
+		return Researcher._pack_id({ admin_id: result.recordset[0]['id'] })
 	}
 
 	/**
@@ -286,17 +279,15 @@ export class Researcher {
 		 */
 		object: Researcher
 
-	): Promise<Identifier> {
+	): Promise<{}> {
 
 		let admin_id = Researcher._unpack_id(researcher_id).admin_id
 
 		// Prepare the minimal SQL column changes from the provided fields.
 		let updates: string[] = []
 		if (!!object.name) {
-			updates.push(
-				`FirstName = '${Encrypt(object.name.split(' ')[0])}'`,
-				`LastName = '${Encrypt(object.name.split(' ')[1])}'`
-			)
+			updates.push(`FirstName = '${Encrypt(object.name.split(' ')[0])}'`)
+			updates.push(`LastName = '${Encrypt(object.name.split(' ').slice(1).join(' '))}'`)
 		}
 		if (!!object.email)
 			updates.push(`Email = '${Encrypt(object.email)}'`)
@@ -311,7 +302,7 @@ export class Researcher {
 			UPDATE Admin SET ${updates.join(', ')} WHERE AdminID = ${admin_id};
 		`)
 
-		return result.recordset[0]
+		return {}//result.recordset[0]
 	}
 
 	/**
@@ -324,13 +315,18 @@ export class Researcher {
 		 */
 		researcher_id: Identifier
 
-	): Promise<Identifier> {
+	): Promise<{}> {
 
 		let admin_id = Researcher._unpack_id(researcher_id).admin_id
+		if (admin_id === 1)
+			throw new Error('Could not delete this Researcher.')
 
 		// Set the deletion flag, without actually deleting the row.
-		return (await SQL!.request().query(`
-			UPDATE Admin SET IsDeleted = 1 WHERE AdminID = ${admin_id};
-		`)).recordset[0]
+		let result = await SQL!.request().query(`
+			UPDATE Admin SET IsDeleted = 1 WHERE AdminID = ${admin_id} AND IsDeleted = 0;
+		`)
+		if (result.rowsAffected[0] === 0)
+			throw new Error('No such Researcher.')
+		return {}
 	}
 }
