@@ -374,7 +374,7 @@ export class Activity {
 				SurveyName AS name, 
 				('survey') AS type
 			FROM Survey
-			WHERE isDeleted = 0 
+			WHERE IsDeleted = 0 
 				${!ctest_id ? '' : (ctest_id === 1 /* survey */  ? '' : `AND 1=0`)}
 				${!survey_id ? '' : `AND SurveyID = '${survey_id}'`}
 				${!admin_id ? '' : `AND AdminID = '${admin_id}'`}
@@ -436,7 +436,7 @@ export class Activity {
 			JOIN Admin_CTestSettings
 				ON Admin_CTestSettings.AdminID = Admin.AdminID
 				AND Admin_CTestSettings.CTestID = CTest.lid
-			WHERE isDeleted = 0 
+			WHERE IsDeleted = 0 
 				AND Status IN (1, NULL)
 				${!ctest_id ? '' : `AND CTest.id = '${ctest_id}'`}
 				${!admin_id ? '' : `AND Admin.AdminID = '${admin_id}'`}

@@ -225,7 +225,7 @@ export class Study {
                     SELECT 
                         StudyId AS id
                     FROM Users
-                    WHERE isDeleted = 0 
+                    WHERE IsDeleted = 0 
                         AND Users.AdminID = Admin.AdminID
                     FOR JSON PATH, INCLUDE_NULL_VALUES
                 ) AS participants,
@@ -234,7 +234,7 @@ export class Study {
                         SurveyID AS id,
                         Admin.AdminID AS aid
                     FROM Survey
-                    WHERE isDeleted = 0 
+                    WHERE IsDeleted = 0 
                         AND Survey.AdminID = Admin.AdminID
                     FOR JSON PATH, INCLUDE_NULL_VALUES
                 ) AS surveys,
@@ -250,7 +250,7 @@ export class Study {
             LEFT JOIN Admin_Settings
                 ON Admin_Settings.AdminID = Admin.AdminID
             WHERE 
-            	isDeleted = 0 
+            	IsDeleted = 0 
             	${!!admin_id ? `AND Admin.AdminID = '${admin_id}'` : ''}
             FOR JSON PATH, INCLUDE_NULL_VALUES;
 		`)

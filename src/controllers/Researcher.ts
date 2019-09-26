@@ -209,7 +209,7 @@ export class Researcher {
                 ) AS studies
             FROM Admin
             WHERE 
-            	isDeleted = 0 
+            	IsDeleted = 0 
             	${!!admin_id ? `AND AdminID = '${admin_id}'` : ''}
             FOR JSON PATH, INCLUDE_NULL_VALUES;
 		`)

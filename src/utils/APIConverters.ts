@@ -89,7 +89,7 @@ export function ExpressAPI(api: API.Schema[], app: Application, rootPassword: st
 					    		let result = (await SQL!.request().query(`
 						            SELECT Password 
 						            FROM Users
-						            WHERE isDeleted = 0 AND StudyId = '${Encrypt(from)}';
+						            WHERE IsDeleted = 0 AND StudyId = '${Encrypt(from)}';
 								`)).recordset
 					    		if (result.length === 0 || (Decrypt(result[0]['Password'], 'AES256') !== auth[1]))
 									throw new AuthorizationFailed()

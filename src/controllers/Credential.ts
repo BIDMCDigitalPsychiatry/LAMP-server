@@ -90,7 +90,7 @@ export class Credential {
 			let result = (await SQL!.request().query(`
 				SELECT Email
 				FROM Users
-				WHERE isDeleted = 0 
+				WHERE IsDeleted = 0 
 					AND (Password IS NOT NULL AND Password != '')
 					AND StudyId = '${Encrypt(user_id)}';
 			`))
@@ -169,7 +169,7 @@ export class Credential {
 				SET 
 					Email = '${Encrypt(credential.access_key)}',
 					Password = '${Encrypt(credential.secret_key, 'AES256')}'
-				WHERE isDeleted = 0 
+				WHERE IsDeleted = 0 
 					AND (Password IS NULL OR Password = '')
 					AND StudyId = '${Encrypt(user_id)}';
 			`))
@@ -253,7 +253,7 @@ export class Credential {
 				SET 
 					Email = '${Encrypt(credential.access_key)}',
 					Password = '${Encrypt(credential.secret_key, 'AES256')}'
-				WHERE isDeleted = 0 
+				WHERE IsDeleted = 0 
 					AND (Password IS NOT NULL AND Password != '')
 					AND StudyId = '${Encrypt(user_id)}';
 			`))
@@ -326,7 +326,7 @@ export class Credential {
 			let result = (await SQL!.request().query(`
 				UPDATE Users 
 				SET Password = '' 
-				WHERE isDeleted = 0 
+				WHERE IsDeleted = 0 
 					AND Email = '${Encrypt(access_key)}'
 					AND StudyId = '${Encrypt(user_id)}';
 			`))
