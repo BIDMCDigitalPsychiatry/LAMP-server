@@ -73,7 +73,7 @@ export class Credential {
 				SELECT Email
 				FROM Admin
 				WHERE IsDeleted = 0 
-					AND Password != ''
+					AND (Password IS NOT NULL AND Password != '')
 					AND AdminID = ${admin_id};
 			`))
 			if (result.rowsAffected[0] > 0)
@@ -91,7 +91,7 @@ export class Credential {
 				SELECT Email
 				FROM Users
 				WHERE isDeleted = 0 
-					AND Password != ''
+					AND (Password IS NOT NULL AND Password != '')
 					AND StudyId = '${Encrypt(user_id)}';
 			`))
 			if (result.rowsAffected[0] > 0)
@@ -155,7 +155,7 @@ export class Credential {
 					Email = '${Encrypt(credential.access_key)}',
 					Password = '${Encrypt(credential.secret_key, 'AES256')}'
 				WHERE IsDeleted = 0 
-					AND Password = ''
+					AND (Password IS NULL OR Password = '')
 					AND AdminID = ${admin_id};
 			`))
 			if (result.rowsAffected[0] === 0)
@@ -170,7 +170,7 @@ export class Credential {
 					Email = '${Encrypt(credential.access_key)}',
 					Password = '${Encrypt(credential.secret_key, 'AES256')}'
 				WHERE isDeleted = 0 
-					AND Password = ''
+					AND (Password IS NULL OR Password = '')
 					AND StudyId = '${Encrypt(user_id)}';
 			`))
 			if (result.rowsAffected[0] === 0)
@@ -238,7 +238,7 @@ export class Credential {
 					Email = '${Encrypt(credential.access_key)}',
 					Password = '${Encrypt(credential.secret_key, 'AES256')}'
 				WHERE IsDeleted = 0 
-					AND Password != ''
+					AND (Password IS NOT NULL AND Password != '')
 					AND AdminID = ${admin_id};
 			`))
 			if (result.rowsAffected[0] === 0)
@@ -254,7 +254,7 @@ export class Credential {
 					Email = '${Encrypt(credential.access_key)}',
 					Password = '${Encrypt(credential.secret_key, 'AES256')}'
 				WHERE isDeleted = 0 
-					AND Password != ''
+					AND (Password IS NOT NULL AND Password != '')
 					AND StudyId = '${Encrypt(user_id)}';
 			`))
 			if (result.rowsAffected[0] === 0)

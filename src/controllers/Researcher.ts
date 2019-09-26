@@ -213,7 +213,6 @@ export class Researcher {
             	${!!admin_id ? `AND AdminID = '${admin_id}'` : ''}
             FOR JSON PATH, INCLUDE_NULL_VALUES;
 		`)
-
 		if (result.recordset.length === 0 || result.recordset[0] === null)
 			return []
 		return result.recordset[0].map((raw: any) => {
@@ -259,6 +258,21 @@ export class Researcher {
 		`)
 		if (result.recordset.length === 0)
 			throw new Error('Could not create Researcher.')
+		
+		let result2 = await SQL!.request().query(`
+			INSERT INTO Admin_CTestSettings (
+				AdminID,
+				CTestID,
+				Status,
+				Notification
+			)
+			SELECT
+				${result.recordset[0]['id']},
+				CTestID,
+				0,
+				0
+			FROM CTest;
+		`)
 
 		// Return the new row's ID.
 		return Researcher._pack_id({ admin_id: result.recordset[0]['id'] })

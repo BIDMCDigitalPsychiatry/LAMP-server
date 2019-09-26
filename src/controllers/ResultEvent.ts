@@ -342,9 +342,11 @@ export class ResultEvent {
 				;(<any>result_event).parent = !!admin_id ? Decrypt(row.uid) : undefined
 
 				// Map internal ID sub-components into the single mangled ID form.
-				// FIXME: Currently it's not feasible to map SurveyID from SurveyName.
-				result_event.activity = entry.ActivityIndexID === 1 /* survey */ ? undefined : 
-										Activity._pack_id({ activity_spec_id: entry.ActivityIndexID, admin_id: row.aid, survey_id: 0 })
+				result_event.activity = Activity._pack_id({ 
+					activity_spec_id: entry.ActivityIndexID, 
+					admin_id: row.aid, 
+					survey_id: entry.ActivityIndexID !== '1' /* survey */ ? 0 : (row[`static_data.${entry.Slot2Name}`] || 0) 
+				})
 
 				// Copy static data fields if declared.
 				result_event.static_data = {}
@@ -363,6 +365,7 @@ export class ResultEvent {
 				// TODO: Encryption of fields should also be found in the ActivityIndex table!
 				if (!!result_event.static_data.survey_name)
 					result_event.static_data.survey_name = Decrypt(result_event.static_data.survey_name) || result_event.static_data.survey_name
+				result_event.static_data.survey_id = undefined
 				if (!!result_event.static_data.drawn_fig_file_name) {
 					let fname = 'https://psych.digital/LampWeb/Games/User3DFigures/' + (Decrypt(result_event.static_data.drawn_fig_file_name) || result_event.static_data.drawn_fig_file_name)
 					result_event.static_data.drawn_figure = fname//(await Download(fname)).toString('base64')
