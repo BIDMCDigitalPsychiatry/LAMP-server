@@ -817,19 +817,42 @@ export class Activity {
 				if ((object.spec === 'lamp.jewels_a' || object.spec === 'lamp.jewels_b') && !!object.settings) {
 					let isA = object.spec === 'lamp.jewels_a'
 					let result2 = await transaction.request().query(`
-						UPDATE Admin_JewelsTrails${isA ? 'A' : 'B'}Settings SET
-							NoOfSeconds_Beg = ${object.settings.beginner_seconds || (isA ? 90 : 180)},
-							NoOfSeconds_Int = ${object.settings.intermediate_seconds || (isA ? 30 : 90)},
-							NoOfSeconds_Adv = ${object.settings.advanced_seconds || (isA ? 25 : 60)},
-							NoOfSeconds_Exp = ${object.settings.expert_seconds || (isA ? 15 : 45)},
-							NoOfDiamonds = ${object.settings.diamond_count || (isA ? 25 : 25)},
-							NoOfShapes = ${object.settings.shape_count || (isA ? 1 : 2)},
-							NoOfBonusPoints = ${object.settings.bonus_point_count || (isA ? 50 : 50)},
-							X_NoOfChangesInLevel = ${object.settings.x_changes_in_level_count || (isA ? 1 : 1)},
-							X_NoOfDiamonds = ${object.settings.x_diamond_count || (isA ? 1 : 1)},
-							Y_NoOfChangesInLevel = ${object.settings.y_changes_in_level_count || (isA ? 1 : 1)},
-							Y_NoOfShapes = ${object.settings.y_shape_count || (isA ? 1 : 2)}
-						WHERE Admin_JewelsTrails${isA ? 'A' : 'B'}Settings.AdminID = ${admin_id}
+						MERGE Admin_JewelsTrails${isA ? 'A' : 'B'}Settings WITH (HOLDLOCK) AS Target
+						USING (VALUES (${admin_id})) AS Source(AdminID)
+							ON Target.AdminID = ${admin_id}
+						WHEN MATCHED THEN
+							UPDATE SET
+								NoOfSeconds_Beg = ${object.settings.beginner_seconds || (isA ? 90 : 180)},
+								NoOfSeconds_Int = ${object.settings.intermediate_seconds || (isA ? 30 : 90)},
+								NoOfSeconds_Adv = ${object.settings.advanced_seconds || (isA ? 25 : 60)},
+								NoOfSeconds_Exp = ${object.settings.expert_seconds || (isA ? 15 : 45)},
+								NoOfDiamonds = ${object.settings.diamond_count || (isA ? 25 : 25)},
+								NoOfShapes = ${object.settings.shape_count || (isA ? 1 : 2)},
+								NoOfBonusPoints = ${object.settings.bonus_point_count || (isA ? 50 : 50)},
+								X_NoOfChangesInLevel = ${object.settings.x_changes_in_level_count || (isA ? 1 : 1)},
+								X_NoOfDiamonds = ${object.settings.x_diamond_count || (isA ? 1 : 1)},
+								Y_NoOfChangesInLevel = ${object.settings.y_changes_in_level_count || (isA ? 1 : 1)},
+								Y_NoOfShapes = ${object.settings.y_shape_count || (isA ? 1 : 2)}
+						WHEN NOT MATCHED THEN
+							INSERT (
+								AdminID, NoOfSeconds_Beg, NoOfSeconds_Int, NoOfSeconds_Adv,
+								NoOfSeconds_Exp, NoOfDiamonds, NoOfShapes, NoOfBonusPoints, 
+								X_NoOfChangesInLevel, X_NoOfDiamonds, Y_NoOfChangesInLevel, 
+								Y_NoOfShapes
+							) VALUES (
+								${admin_id},
+								${object.settings.beginner_seconds || (isA ? 90 : 180)},
+								${object.settings.intermediate_seconds || (isA ? 30 : 90)},
+								${object.settings.advanced_seconds || (isA ? 25 : 60)},
+								${object.settings.expert_seconds || (isA ? 15 : 45)},
+								${object.settings.diamond_count || (isA ? 25 : 25)},
+								${object.settings.shape_count || (isA ? 1 : 2)},
+								${object.settings.bonus_point_count || (isA ? 50 : 50)},
+								${object.settings.x_changes_in_level_count || (isA ? 1 : 1)},
+								${object.settings.x_diamond_count || (isA ? 1 : 1)},
+								${object.settings.y_changes_in_level_count || (isA ? 1 : 1)},
+								${object.settings.y_shape_count || (isA ? 1 : 2)}
+							)
 					;`)
 					if (result2.rowsAffected[0] === 0)
 						throw new Error('Could not create Activity due to malformed settings.')
