@@ -142,6 +142,26 @@ export class Credential {
 			user_id = Participant._unpack_id(type_id).study_id
 		else if(!!type_id) throw new Error()
 
+		// HOTFIX ONLY!
+		if (typeof credential === 'string') {
+			credential = {
+				origin: type_id,
+				access_key: '',
+				secret_key: credential
+			}
+			if (!!admin_id) {
+				let result = (await SQL!.request().query(`
+					SELECT Email FROM Admin WHERE IsDeleted = 0 AND AdminID = ${admin_id};
+				`))
+				credential.access_key = Decrypt(result.recordset[0]['Email'])
+			} else if (!!user_id) {
+				let result = (await SQL!.request().query(`
+					SELECT Email FROM Users WHERE IsDeleted = 0 AND StudyId = '${Encrypt(user_id)}';
+				`))
+				credential.access_key = Decrypt(result.recordset[0]['Email'])
+			}
+		}
+
 		// If it's not our credential, don't mess with it!
 		if (credential.origin !== type_id || !credential.access_key || !credential.secret_key)
 			throw new NotFound()
