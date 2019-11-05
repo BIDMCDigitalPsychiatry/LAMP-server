@@ -5,11 +5,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
-    - name: Install Secrets
-      env:
-        SECRETS: ${{ secrets.LAMP_SECRETS }}
-      run: |
-        echo $SECRETS > src/secrets.ts
     - name: Docker Image Build
       uses: elgohr/Publish-Docker-Github-Action@master
       with:
