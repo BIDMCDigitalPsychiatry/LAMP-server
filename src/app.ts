@@ -1,4 +1,3 @@
-import secrets from './secrets'
 import './controllers'
 import { API, Unimplemented } from './utils'
 import { OpenAPI, ExpressAPI } from './utils'
@@ -42,7 +41,7 @@ export let SQL: sql.ConnectionPool | undefined
 /**
  *
  */
-export let Root = { id: 'root', password: secrets.auth.root }
+export let Root = { id: 'root', password: process.env.ROOT_PASSWORD || '' }
 
 /**
  * If the data could not be encrypted or is invalid, returns `undefined`.
@@ -50,11 +49,11 @@ export let Root = { id: 'root', password: secrets.auth.root }
 export const Encrypt = (data: string, mode: 'Rijndael' | 'AES256' = 'Rijndael'): string | undefined => {
 	try {
 		if (mode === 'Rijndael') {
-			let cipher = crypto.createCipheriv('aes-256-ecb', secrets.auth.hipaa, '')
+			let cipher = crypto.createCipheriv('aes-256-ecb', process.env.DB_KEY || '', '')
 			return cipher.update(data, 'utf8', 'base64') + cipher.final('base64')
 		} else if (mode === 'AES256') {
 			let ivl = crypto.randomBytes(16)
-			let cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(secrets.auth.oauth, 'hex'), ivl)
+			let cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(process.env.ROOT_KEY || '', 'hex'), ivl)
 			return Buffer.concat([
 				ivl,
 				cipher.update(Buffer.from(data, 'utf16le')), 
@@ -71,11 +70,11 @@ export const Encrypt = (data: string, mode: 'Rijndael' | 'AES256' = 'Rijndael'):
 export const Decrypt = (data: string, mode: 'Rijndael' | 'AES256' = 'Rijndael'): string | undefined => {
 	try {
 		if (mode === 'Rijndael') {
-			let cipher = crypto.createDecipheriv('aes-256-ecb', secrets.auth.hipaa, '')
+			let cipher = crypto.createDecipheriv('aes-256-ecb', process.env.DB_KEY || '', '')
 			return cipher.update(data, 'base64', 'utf8') + cipher.final('utf8')
 		} else if (mode === 'AES256') {
 			let dat = Buffer.from(data, 'base64')
-			let cipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(secrets.auth.oauth, 'hex'), dat.slice(0, 16))
+			let cipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(process.env.ROOT_KEY || '', 'hex'), dat.slice(0, 16))
 			return Buffer.concat([
 				cipher.update(dat.slice(16)),
 				cipher.final()
@@ -128,7 +127,7 @@ export const Sysmail = async function(
 	// Establish the API routes.
 	const api = API.all()
 	const defn = OpenAPI(api, info)
-	ExpressAPI(api, app, secrets.auth.root)
+	ExpressAPI(api, app, process.env.ROOT_PASSWORD || '')
 	app.get('/', (req, res) => res.json(defn))
 	app.get('*', (req, res) => res.json(new Unimplemented()))
 	app.post('/internal/sysmsg/', async (req, res) => {
@@ -160,7 +159,11 @@ export const Sysmail = async function(
 
 	// Establish the SQL connection.
 	SQL = await new sql.ConnectionPool({
-	    ...secrets.sql,
+		user: process.env.DB_USERNAME || '',
+		password: process.env.DB_PASSWORD || '',
+		server: process.env.DB_SERVER || '',
+		port: parseInt(process.env.DB_PORT || '') || 1433,
+		database: process.env.DB_NAME || 'LAMP',
 	    parseJSON: true,
 	    options: { 
 	    	encrypt: true, 
