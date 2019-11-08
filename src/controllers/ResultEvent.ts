@@ -478,7 +478,7 @@ export class ResultEvent {
 
 		    // We only support 5 static slots; check if they're used by the activity first.
 		    for (let x of [1, 2, 3, 4, 5]) {
-		    	if (!!tablerow[`Slot${x}Name`]) {
+		    	if (!!tablerow[`Slot${x}Name`] && tablerow[`Slot${x}ColumnName`] !== 'SurveyID') {
 		    		let value = object.static_data[tablerow[`Slot${x}Name`]]
 		    		let isString = (typeof value === 'string' || value instanceof String)
 		    		if (tablerow[`Slot${x}ColumnName`] === 'SurveyName') {
