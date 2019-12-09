@@ -339,7 +339,7 @@ export class Participant {
 		        ${study_code},
 		        '${Encrypt(_id)}',
 		        GETDATE(), 
-		        0,
+		        1,
 		        ${admin_id}
 			);
 			SELECT SCOPE_IDENTITY() AS id;

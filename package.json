@@ -28,6 +28,7 @@
     "get-stream": "^4.1.0",
     "morgan": "^1.9.1",
     "mssql": "^4.3.0",
+    "nano": "^8.1.0",
     "openapi3-ts": "^1.1.0",
     "request": "^2.88.0",
     "routing-controllers-openapi": "^1.4.2",

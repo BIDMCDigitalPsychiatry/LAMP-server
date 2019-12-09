@@ -1,0 +1,572 @@
+{
+    "_jsonschema": {
+        "id": "_jsonschema",
+        "definitions": {
+            "schemaArray": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "$ref": "#" }
+            },
+            "nonNegativeInteger": {
+                "type": "integer",
+                "minimum": 0
+            },
+            "nonNegativeIntegerDefault0": {
+                "allOf": [
+                    { "$ref": "#/definitions/nonNegativeInteger" },
+                    { "default": 0 }
+                ]
+            },
+            "simpleTypes": {
+                "enum": [
+                    "array",
+                    "boolean",
+                    "integer",
+                    "null",
+                    "number",
+                    "object",
+                    "string"
+                ]
+            },
+            "stringArray": {
+                "type": "array",
+                "items": { "type": "string" },
+                "uniqueItems": true,
+                "default": []
+            }
+        },
+        "type": ["object", "boolean"],
+        "properties": {
+            "$id": {
+                "type": "string",
+                "format": "uri-reference"
+            },
+            "$schema": {
+                "type": "string",
+                "format": "uri"
+            },
+            "$ref": {
+                "type": "string",
+                "format": "uri-reference"
+            },
+            "$comment": {
+                "type": "string"
+            },
+            "title": {
+                "type": "string"
+            },
+            "description": {
+                "type": "string"
+            },
+            "default": true,
+            "readOnly": {
+                "type": "boolean",
+                "default": false
+            },
+            "examples": {
+                "type": "array",
+                "items": true
+            },
+            "multipleOf": {
+                "type": "number",
+                "exclusiveMinimum": 0
+            },
+            "maximum": {
+                "type": "number"
+            },
+            "exclusiveMaximum": {
+                "type": "number"
+            },
+            "minimum": {
+                "type": "number"
+            },
+            "exclusiveMinimum": {
+                "type": "number"
+            },
+            "maxLength": { "$ref": "#/definitions/nonNegativeInteger" },
+            "minLength": { "$ref": "#/definitions/nonNegativeIntegerDefault0" },
+            "pattern": {
+                "type": "string",
+                "format": "regex"
+            },
+            "additionalItems": { "$ref": "#" },
+            "items": {
+                "anyOf": [
+                    { "$ref": "#" },
+                    { "$ref": "#/definitions/schemaArray" }
+                ],
+                "default": true
+            },
+            "maxItems": { "$ref": "#/definitions/nonNegativeInteger" },
+            "minItems": { "$ref": "#/definitions/nonNegativeIntegerDefault0" },
+            "uniqueItems": {
+                "type": "boolean",
+                "default": false
+            },
+            "contains": { "$ref": "#" },
+            "maxProperties": { "$ref": "#/definitions/nonNegativeInteger" },
+            "minProperties": { "$ref": "#/definitions/nonNegativeIntegerDefault0" },
+            "required": { "$ref": "#/definitions/stringArray" },
+            "additionalProperties": { "$ref": "#" },
+            "definitions": {
+                "type": "object",
+                "additionalProperties": { "$ref": "#" },
+                "default": {}
+            },
+            "properties": {
+                "type": "object",
+                "additionalProperties": { "$ref": "#" },
+                "default": {}
+            },
+            "patternProperties": {
+                "type": "object",
+                "additionalProperties": { "$ref": "#" },
+                "propertyNames": { "format": "regex" },
+                "default": {}
+            },
+            "dependencies": {
+                "type": "object",
+                "additionalProperties": {
+                    "anyOf": [
+                        { "$ref": "#" },
+                        { "$ref": "#/definitions/stringArray" }
+                    ]
+                }
+            },
+            "propertyNames": { "$ref": "#" },
+            "const": true,
+            "enum": {
+                "type": "array",
+                "items": true,
+                "minItems": 1,
+                "uniqueItems": true
+            },
+            "type": {
+                "anyOf": [
+                    { "$ref": "#/definitions/simpleTypes" },
+                    {
+                        "type": "array",
+                        "items": { "$ref": "#/definitions/simpleTypes" },
+                        "minItems": 1,
+                        "uniqueItems": true
+                    }
+                ]
+            },
+            "format": { "type": "string" },
+            "contentMediaType": { "type": "string" },
+            "contentEncoding": { "type": "string" },
+            "if": { "$ref": "#" },
+            "then": { "$ref": "#" },
+            "else": { "$ref": "#" },
+            "allOf": { "$ref": "#/definitions/schemaArray" },
+            "anyOf": { "$ref": "#/definitions/schemaArray" },
+            "oneOf": { "$ref": "#/definitions/schemaArray" },
+            "not": { "$ref": "#" }
+        },
+        "default": true
+    },
+    "lamp.accelerometer": {
+        "id": "lamp.accelerometer",
+        "type": "object",
+        "properties": {
+            "x": {
+                "type": "number"
+            },
+            "y": {
+                "type": "number"
+            },
+            "z": {
+                "type": "number"
+            },
+            "accuracy": {
+                "type": "number"
+            }
+        }
+    },
+    "lamp.accelerometer.motion": {
+        "id": "lamp.accelerometer.motion",
+        "type": "object",
+        "properties": {
+            "tilt": {
+                "type": "object",
+                "properties": {
+                    "roll": {
+                        "type": "number"
+                    },
+                    "pitch": {
+                        "type": "number"
+                    },
+                    "yaw": {
+                        "type": "number"
+                    }
+                }
+            },
+            "rotation": {
+                "type": "object",
+                "properties": {
+                    "x": {
+                        "type": "number"
+                    },
+                    "y": {
+                        "type": "number"
+                    },
+                    "z": {
+                        "type": "number"
+                    }
+                }
+            },
+            "gravity": {
+                "type": "object",
+                "properties": {
+                    "x": {
+                        "type": "number"
+                    },
+                    "y": {
+                        "type": "number"
+                    },
+                    "z": {
+                        "type": "number"
+                    }
+                }
+            },
+            "user_accel": {
+                "type": "object",
+                "properties": {
+                    "x": {
+                        "type": "number"
+                    },
+                    "y": {
+                        "type": "number"
+                    },
+                    "z": {
+                        "type": "number"
+                    }
+                }
+            },
+            "magnetic_field": {
+                "type": "object",
+                "properties": {
+                    "x": {
+                        "type": "number"
+                    },
+                    "y": {
+                        "type": "number"
+                    },
+                    "z": {
+                        "type": "number"
+                    },
+                    "calibration_accuracy": {
+                        "type": "number"
+                    }
+                }
+            }
+        }
+    },
+    "lamp.analytics": {
+        "id": "lamp.analytics",
+        "type": "object",
+        "properties": {
+            "event_name": {
+                "type": "string"
+            },
+            "event_payload": {
+                "type": "object",
+                "additionalProperties": true
+            }
+        }
+    },
+    "lamp.blood_pressure": {
+        "id": "lamp.blood_pressure",
+        "type": "object",
+        "properties": {
+            "value": {
+                "type": "number"
+            },
+            "units": {
+                "type": "string"
+            }
+        }
+    },
+    "lamp.bluetooth": {
+        "id": "lamp.bluetooth",
+        "type": "object",
+        "properties": {
+            "device_id": {
+                "type": "string"
+            },
+            "frequency": {
+                "type": "number"
+            },
+            "rssi": {
+                "type": "number"
+            }
+        }
+    },
+    "lamp.calls": {
+        "id": "lamp.calls",
+        "type": "object",
+        "properties": {
+            "phone_number": {
+                "type": "string"
+            },
+            "duration": {
+                "type": "number"
+            },
+            "call_type": {
+                "type": "string",
+                "enum": [
+                    "incoming",
+                    "outgoing",
+                    "missed",
+                    "busy"
+                ]
+            }
+        }
+    },
+    "lamp.device_state": {
+        "id": "lamp.device_state",
+        "type": "object",
+        "properties": {
+            "battery_level": {
+                "type": "number"
+            },
+            "event_type": {
+                "type": "string",
+                "enum": [
+                    "locked",
+                    "unlocked",
+                    "plugged",
+                    "unplugged",
+                    "screen_on",
+                    "screen_off"
+                ]
+            }
+        }
+    },
+    "lamp.distance": {
+        "id": "lamp.distance",
+        "type": "object",
+        "properties": {
+            "value": {
+                "type": "number"
+            },
+            "units": {
+                "type": "string"
+            }
+        }
+    },
+    "lamp.flights": {
+        "id": "lamp.flights",
+        "type": "object",
+        "properties": {
+            "value": {
+                "type": "number"
+            },
+            "units": {
+                "type": "string"
+            }
+        }
+    },
+    "lamp.gps.contextual": {
+        "id": "lamp.gps.contextual",
+        "type": "object",
+        "properties": {
+            "latitude": {
+                "type": "number"
+            },
+            "longitude": {
+                "type": "number"
+            },
+            "accuracy": {
+                "type": "number"
+            },
+            "social_context": {
+                "type": "string",
+                "enum": [
+                    "home",
+                    "school",
+                    "work",
+                    "hospital",
+                    "outside",
+                    "transit"
+                ]
+            },
+            "location_context": {
+                "type": "string",
+                "enum": [
+                    "alone",
+                    "friends",
+                    "family",
+                    "crowd"
+                ]
+            }
+        }
+    },
+    "lamp.gps": {
+        "id": "lamp.gps",
+        "type": "object",
+        "properties": {
+            "latitude": {
+                "type": "number"
+            },
+            "longitude": {
+                "type": "number"
+            },
+            "altitude": {
+                "type": "number"
+            },
+            "accuracy": {
+                "type": "number"
+            }
+        }
+    },
+    "lamp.gyroscope": {
+        "id": "lamp.gyroscope",
+        "type": "object",
+        "properties": {
+            "x": {
+                "type": "number"
+            },
+            "y": {
+                "type": "number"
+            },
+            "z": {
+                "type": "number"
+            }
+        }
+    },
+    "lamp.heart_rate": {
+        "id": "lamp.heart_rate",
+        "type": "object",
+        "properties": {
+            "value": {
+                "type": "number"
+            },
+            "units": {
+                "type": "string"
+            }
+        }
+    },
+    "lamp.height": {
+        "id": "lamp.height",
+        "type": "object",
+        "properties": {
+            "value": {
+                "type": "number"
+            },
+            "units": {
+                "type": "string"
+            }
+        }
+    },
+    "lamp.magnetometer": {
+        "id": "lamp.magnetometer",
+        "type": "object",
+        "properties": {
+            "x": {
+                "type": "number"
+            },
+            "y": {
+                "type": "number"
+            },
+            "z": {
+                "type": "number"
+            }
+        }
+    },
+    "lamp.respiratory_rate": {
+        "id": "lamp.respiratory_rate",
+        "type": "object",
+        "properties": {
+            "value": {
+                "type": "number"
+            },
+            "units": {
+                "type": "string"
+            }
+        }
+    },
+    "lamp.segment": {
+        "id": "lamp.segment",
+        "type": "object",
+        "properties": {
+            "value": {
+                "type": "number"
+            },
+            "units": {
+                "type": "string"
+            }
+        }
+    },
+    "lamp.sleep": {
+        "id": "lamp.sleep",
+        "type": "object",
+        "properties": {
+            "value": {
+                "type": "number"
+            },
+            "units": {
+                "type": "string"
+            }
+        }
+    },
+    "lamp.sms": {
+        "id": "lamp.sms",
+        "type": "object",
+        "properties": {
+            "phone_number": {
+                "type": "string"
+            },
+            "length": {
+                "type": "integer",
+                "format": "int64"
+            },
+            "sms_type": {
+                "type": "string",
+                "enum": [
+                    "sent",
+                    "received"
+                ]
+            }
+        }
+    },
+    "lamp.steps": {
+        "id": "lamp.steps",
+        "type": "object",
+        "properties": {
+            "value": {
+                "type": "number"
+            },
+            "units": {
+                "type": "string"
+            }
+        }
+    },
+    "lamp.weight": {
+        "id": "lamp.weight",
+        "type": "object",
+        "properties": {
+            "value": {
+                "type": "number"
+            },
+            "units": {
+                "type": "string"
+            }
+        }
+    },
+    "lamp.wifi": {
+        "id": "lamp.wifi",
+        "type": "object",
+        "properties": {
+            "device_id": {
+                "type": "string"
+            },
+            "frequency": {
+                "type": "number"
+            },
+            "rssi": {
+                "type": "number"
+            }
+        }
+    }
+}

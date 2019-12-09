@@ -5,6 +5,7 @@ import {
 	Enum, Ownership, Identifier, Parent, Body
 } from '../utils/OpenAPI'
 import { IResult } from 'mssql'
+import SchemaList from '../utils/migrator/schema.json'
 
 import { Type } from './Type'
 import { Participant } from './Participant'
@@ -125,7 +126,7 @@ export class SensorSpec {
 
 	): Promise<SensorSpec[]> {
 
-		return []
+		return SchemaList as any 
 	}
 
 	/**

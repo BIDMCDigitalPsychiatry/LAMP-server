@@ -1285,5 +1285,5 @@ AS BEGIN
 	RETURN REPLACE(REPLACE(@json, FORMATMESSAGE('{"%s":', @key),''), '}','')
 END;
 GO
-USE DATABASE master;
+USE LAMP;
 GO
