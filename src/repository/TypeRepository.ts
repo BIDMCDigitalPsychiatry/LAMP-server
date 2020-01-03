@@ -1,252 +1,43 @@
 import { SQL, Encrypt, Decrypt, Root } from '../app'
-import { 
-	d, Schema, Property, Description, Retype, Route, Throws, 
-	Path, BadRequest, NotFound, AuthorizationFailed, Auth, Query,
-	Enum, Ownership, Identifier, Parent, Body, Double, Int64, Timestamp
-} from '../utils/OpenAPI'
-import { ScriptRunner } from '../utils'
+import ScriptRunner from '../utils/ScriptRunner'
 import sql from 'mssql'
+import { Participant } from '../model/Participant'
+import { Study } from '../model/Study'
+import { Researcher } from '../model/Researcher'
+import { Activity } from '../model/Activity'
+import { DynamicAttachment } from '../model/Type'
+import { ResearcherRepository } from '../repository/ResearcherRepository'
+import { ParticipantRepository } from '../repository/ParticipantRepository'
+import { StudyRepository } from '../repository/StudyRepository'
+import { ActivityRepository } from '../repository/ActivityRepository'
 
-import { Participant } from './Participant'
-import { Study } from './Study'
-import { Researcher } from './Researcher'
-import { Activity } from './Activity'
-
-/* TODO: Researcher->Participant attachment overrides Participant->self? */
-/* TODO: set_*_attachment: verify `target` is a valid id or 'me' AND if target not provided, delete all! */
-
-@Schema()
-@Description(d`
-
-`)
-export class DynamicAttachment {
-
-	@Property()
-	@Description(d`
-		The key.
-	`)
-	public key?: string
-
-	@Property()
-	@Description(d`
-		The attachment owner.
-	`)
-	public from?: Identifier /* read-only? */
-
-	@Property()
-	@Description(d`
-		Either "me" to apply to the attachment owner only, the ID of an object owned 
-		by the attachment owner, or a string representing the child object type to apply to.
-	`)
-	public to?: string
-
-	@Property()
-	@Retype(Array, String)
-	@Description(d`
-		The API triggers that activate script execution. These will be event stream types
-		or object types in the API, or, if scheduling execution periodically, a cron-job
-		string prefixed with "!" (exclamation point). 
-	`)
-	public triggers?: string[]
-
-	@Property()
-	@Description(d`
-		The script language.
-	`)
-	public language?: string
-
-	@Property()
-	@Description(d`
-		The script contents.
-	`)
-	public contents?: string
-
-	@Property()
-	@Retype(Array, String)
-	@Description(d`
-		The script requirements.
-	`)
-	public requirements?: string[]
-
-	// TODO
-	public input_schema?: string /* JSONSchema */
-
-	// TODO
-	public output_schema?: string /* JSONSchema */
+export function Identifier_pack(components: any[]): string {
+	if (components.length === 0)
+		return ''
+	return Buffer.from(components.join(':')).toString('base64').replace(/=/g, '~')
+}
+export function Identifier_unpack(components: string): any[] {
+	if (components.match(/^G?U\d+$/))
+		return []
+	return Buffer.from((<string>components).replace(/~/g, '='), 'base64').toString('utf8').split(':')
 }
 
-@Schema()
-@Description(d`
-	Runtime type specification for each object in the LAMP platform.
-`)
-export class Type {
+export class TypeRepository {
 
-	@Route.GET('/type/{type_id}/parent') 
-	@Description(d`
-		Get the parent type identifier of the data structure referenced by the identifier.
-	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'type_id')
-	@Retype(Identifier)
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async parent(
-
-		@Path('type_id')
-		@Retype(Identifier)
+	public static async _parent(
 		type_id: string
-
 	): Promise<{}> {
 		let result: any = {}
-		for (let parent_type of Type._parent_type(type_id))
-			result[parent_type] = await Type._parent_id(type_id, parent_type)
+		for (let parent_type of TypeRepository._parent_type(type_id))
+			result[parent_type] = await TypeRepository._parent_id(type_id, parent_type)
 		return result 
-	}
-
-	@Route.GET('/type/{type_id}/attachment') 
-	@Description(d`
-		
-	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'type_id')
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async list_attachments(
-
-		@Path('type_id')
-		type_id: Identifier
-
-	): Promise<string[]> {
-		return (<string[]>[]).concat(
-			(await Type._list('a', <string>type_id)), 
-			(await Type._list('b', <string>type_id)).map(x => 'dynamic/' + x)
-		)
-	}
-
-	@Route.GET('/type/{type_id}/attachment/{attachment_key}') 
-	@Description(d`
-		
-	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'type_id')
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async get_attachment(
-
-		@Path('type_id')
-		type_id: Identifier,
-
-		@Path('attachment_key')
-		attachment_key: string
-
-	): Promise<any> {
-		return await Type._get('a', <string>type_id, attachment_key)
-	}
-
-	@Route.PUT('/type/{type_id}/attachment/{attachment_key}/{target}') 
-	@Description(d`
-		
-	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'type_id')
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async set_attachment(
-
-		@Path('type_id')
-		type_id: Identifier,
-
-		@Path('target')
-		target: string,
-
-		@Path('attachment_key')
-		attachment_key: string,
-
-		@Body()
-		attachment_value: any,
-
-	): Promise<{}> {
-		if (Type._set('a', target, <string>type_id, attachment_key, attachment_value))
-			return {}
-		else throw new BadRequest()
-	}
-
-	@Route.GET('/type/{type_id}/attachment/dynamic/{attachment_key}') 
-	@Description(d`
-		
-	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'type_id')
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async get_dynamic_attachment(
-
-		@Path('type_id')
-		type_id: Identifier,
-
-		@Path('attachment_key')
-		attachment_key: string,
-
-		@Query('invoke_always')
-		invoke_always?: boolean,
-
-		@Query('include_logs')
-		include_logs?: boolean,
-
-		@Query('ignore_output')
-		ignore_output?: boolean
-
-	): Promise<any> {
-		let result: any = {}
-		if (!!invoke_always) {
-
-			// If needed, invoke the attachment now.
-			let attachment: DynamicAttachment = await Type._get('b', <string>type_id, attachment_key)
-		    result = await Type._invoke(attachment, {})
-			await Type._set('a', attachment.to!, <string>attachment.from, attachment.key + '/output', result)
-		} else {
-
-			// Otherwise, return any cached result available.
-			result = await Type._get('a', <string>type_id, attachment_key + '/output')
-		}
-		return (!!include_logs && !ignore_output) ? result : {
-			data: !ignore_output ? result.output : undefined,
-			logs: !!include_logs ? result.logs : undefined
-		}
-	}
-
-	@Route.PUT('/type/{type_id}/attachment/dynamic/{attachment_key}/{target}') 
-	@Description(d`
-		
-	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'type_id')
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async set_dynamic_attachment(
-
-		@Path('type_id')
-		type_id: Identifier,
-
-		@Path('target')
-		target: string,
-
-		@Path('attachment_key')
-		attachment_key: string,
-
-		@Body()
-		attachment_value: DynamicAttachment,
-
-		@Query('invoke_once')
-		invoke_once?: boolean
-
-	): Promise<{}> {
-		if (Type._set('b', target, <string>type_id, attachment_key, attachment_value)) {
-
-			// If needed, invoke the attachment now.
-			if (!!invoke_once) {
-			    Type._invoke(attachment_value, {}).then(y => {
-					Type._set('a', target, <string>type_id, attachment_key + '/output', y)
-				})
-			}
-			return {}
-		}
-		else throw new BadRequest()
 	}
 
 	/**
 	 * Get the self type of a given ID.
 	 */
 	public static _self_type(type_id: string): string {
-		let components = Identifier.unpack(type_id)
+		let components = Identifier_unpack(type_id)
 		let from_type: string = (components.length === 0) ? (<any>Participant).name : components[0]
 		return from_type
 	}
@@ -274,26 +65,26 @@ export class Type {
 			'A': 'Activity',
 		}
 		*/
-		return parent_types[Type._self_type(type_id)]
+		return parent_types[TypeRepository._self_type(type_id)]
 	}
 
 	/**
 	 * Get a single parent object ID for a given ID.
 	 */
-	public static async _parent_id(type_id: string, type: string): Promise<Identifier> {
+	public static async _parent_id(type_id: string, type: string): Promise<string> {
 		const self_type: { [type: string]: Function } = {
-			Researcher: Researcher,
-			Study: Study,
-			Participant: Participant,
-			Activity: Activity,
+			Researcher: ResearcherRepository,
+			Study: StudyRepository,
+			Participant: ParticipantRepository,
+			Activity: ActivityRepository,
 		}
-		return await (<any>self_type[Type._self_type(type_id)])._parent_id(type_id, self_type[type])
+		return await (<any>self_type[TypeRepository._self_type(type_id)])._parent_id(type_id, self_type[type])
 	}
 
 	/**
 	 * 
 	 */
-	private static async _set(mode: 'a' | 'b', type: string, id: string, key: string, value?: DynamicAttachment | any) {
+	public static async _set(mode: 'a' | 'b', type: string, id: string, key: string, value?: DynamicAttachment | any) {
 		let result: sql.IResult<any>
 		if (mode === 'a' && !value /* null | undefined */) /* DELETE */ {
 			result = await SQL!.request().query(`
@@ -379,11 +170,11 @@ export class Type {
 	/**
 	 * TODO: if key is undefined just return every item instead as an array
 	 */
-	private static async _get(mode: 'a' | 'b', id: string, key: string): Promise<DynamicAttachment[] | any | undefined> {
+	public static async _get(mode: 'a' | 'b', id: string, key: string): Promise<DynamicAttachment[] | any | undefined> {
 		
-		let components = Identifier.unpack(id)
+		let components = Identifier_unpack(id)
 		let from_type: string = (components.length === 0) ? (<any>Participant).name : components[0]
-		let parents = await Type.parent(<string>id)
+		let parents = await TypeRepository._parent(<string>id)
 		if (Object.keys(parents).length === 0)
 			parents = { ' ' : ' ' } // for the SQL 'IN' operator
 
@@ -403,7 +194,7 @@ export class Type {
 			`)).recordset
 
 			if (result.length === 0)
-				throw new NotFound()
+				throw new Error('404.object-not-found')
 			return JSON.parse(result[0].Value)
 		} else if (mode === 'b') {
 
@@ -420,7 +211,7 @@ export class Type {
 	                ));
 			`)).recordset
 			if (result.length === 0)
-				throw new NotFound()
+				throw new Error('404.object-not-found')
 
 			// Convert all to DynamicAttachments.
 			return result.map(x => {
@@ -439,12 +230,12 @@ export class Type {
 		}
 	}
 
-	private static async _list(mode: 'a' | 'b', id: string): Promise<string[]> {
+	public static async _list(mode: 'a' | 'b', id: string): Promise<string[]> {
 
 		// Determine the parent type(s) of `type_id` first.
-		let components = Identifier.unpack(id)
+		let components = Identifier_unpack(id)
 		let from_type: string = (components.length === 0) ? (<any>Participant).name : components[0]
-		let parents = await Type.parent(<string>id)
+		let parents = await TypeRepository._parent(<string>id)
 		if (Object.keys(parents).length === 0)
 			parents = { ' ' : ' ' } // for the SQL 'IN' operator
 
@@ -493,7 +284,7 @@ export class Type {
 			case 'python': runner = new ScriptRunner.Py(); break;
 			case 'javascript': runner = new ScriptRunner.JS(); break;
 			case 'bash': runner = new ScriptRunner.Bash(); break;
-			default: throw new Error()
+			default: throw new Error('400.invalid-script-runner')
 		}
 
 		// Execute script.
@@ -520,11 +311,11 @@ export class Type {
 		`)).recordset.map(x => ({
 			...x, 
 			_id: (x.Type === 'Participant' ? 
-				Participant._pack_id({ study_id: Decrypt(<string>x._SID) }) : 
-				Researcher._pack_id({ admin_id: x.ID })), 
+				ParticipantRepository._pack_id({ study_id: Decrypt(<string>x._SID) }) : 
+				ResearcherRepository._pack_id({ admin_id: x.ID })), 
 			_admin: (x.Type === 'Participant' ? 
-				Researcher._pack_id({ admin_id: x._AID }) : 
-				Researcher._pack_id({ admin_id: x.ID }))
+				ResearcherRepository._pack_id({ admin_id: x._AID }) : 
+				ResearcherRepository._pack_id({ admin_id: x.ID }))
 		}))
 		let ax_set1 = accumulated_set.map(x => x._id)
 		let ax_set2 = accumulated_set.map(x => x._admin)
@@ -583,7 +374,7 @@ export class Type {
 			});
 
 		(<any[]>[]).concat(...working_set)
-			.forEach(x => Type._invoke(x, {
+			.forEach(x => TypeRepository._invoke(x, {
 
 				/* The security context originator for the script 
 				   with a magic placeholder to indicate to the LAMP server
@@ -596,24 +387,24 @@ export class Type {
 				/* What object was this automation run for on behalf of an agent? */
 				object: {
 					id: x.to,
-					type: Type._self_type(x.to)
+					type: TypeRepository._self_type(x.to)
 				},
 
 				/* Currently meaningless but does signify what caused the IA to run. */
-				event: ['ResultEvent', 'SensorEvent']
+				event: ['ActivityEvent', 'SensorEvent']
 			}).then((y) => {
-				Type._set('a', x.to!, <string>x.from!, x.key! + '/output', y)
+				TypeRepository._set('a', x.to!, <string>x.from!, x.key! + '/output', y)
 			}).catch((err) => {
-				Type._set('a', x.to!, <string>x.from!, x.key! + '/output', JSON.stringify({ output: null, logs: err }))
+				TypeRepository._set('a', x.to!, <string>x.from!, x.key! + '/output', JSON.stringify({ output: null, logs: err }))
 			}))
 
 		/* // TODO: This is for a single item only;
-		let attachments: DynamicAttachment[] = await Promise.all((await Type._list('b', <string>type_id))
-												.map(async x => (await Type._get('b', <string>type_id, x))))
+		let attachments: DynamicAttachment[] = await Promise.all((await TypeRepository._list('b', <string>type_id))
+												.map(async x => (await TypeRepository._get('b', <string>type_id, x))))
 		attachments
 			.filter(x => !!x.triggers && x.triggers.length > 0)
-			.forEach(x => Type._invoke(x).then(y => {
-				Type._set('a', x.to!, <string>x.from!, x.key! + '/output')
+			.forEach(x => TypeRepository._invoke(x).then(y => {
+				TypeRepository._set('a', x.to!, <string>x.from!, x.key! + '/output')
 			}))
 		*/
 	}
@@ -622,4 +413,130 @@ export class Type {
 /**
  * Set up a 5-minute interval callback to invoke triggers.
  */
-setInterval(() => { if (!!SQL) Type._process_triggers() }, (5 * 60 * 1000) /* 5min */)
+setInterval(() => { if (!!SQL) TypeRepository._process_triggers() }, (5 * 60 * 1000) /* 5min */)
+
+
+
+
+// TODO: below is to convert legacy scheduling into modern cron-like versions
+/* FIXME:
+$obj->schedule = isset($raw->schedule) ? array_merge(...array_map(function($x) {
+	$duration = new DurationInterval(); $ri = $x->repeat_interval;
+	if ($ri >= 0 && $ri <= 4) { // hourly
+		$h = ($ri == 4 ? 12 : ($ri == 3 ? 6 : ($ri == 2 ? 3 : 1)));
+		$duration->interval = new CalendarComponents();
+		$duration->interval->hour = $h;
+	} else if ($ri >= 5 && $ri <= 10) { // weekly+
+		if ($ri == 6) {
+			$duration = [
+				new DurationInterval(strtotime($x->time) * 1000, new CalendarComponents()), 
+				new DurationInterval(strtotime($x->time) * 1000, new CalendarComponents())
+			];
+			$duration[0]->interval->weekday = 2;
+			$duration[1]->interval->weekday = 4;
+		} else if ($ri == 7) {
+			$duration = [
+				new DurationInterval(strtotime($x->time) * 1000, new CalendarComponents()), 
+				new DurationInterval(strtotime($x->time) * 1000, new CalendarComponents()), 
+				new DurationInterval(strtotime($x->time) * 1000, new CalendarComponents())
+			];
+			$duration[0]->interval->weekday = 1;
+			$duration[1]->interval->weekday = 3;
+			$duration[2]->interval->weekday = 5;
+		} else {
+			$duration = [
+				new DurationInterval(strtotime($x->time) * 1000, new CalendarComponents())
+			];
+			$duration[0]->interval->day = ($ri == 5 ? 1 : null);
+			$duration[0]->interval->week_of_month = ($ri == 9 ? 2 : ($ri == 8 ? 1 : null));
+			$duration[0]->interval->month = ($ri == 10 ? 1 : null);
+		}
+	} else if ($ri == 11 && count($x->custom_time) == 1) { // custom+
+		$duration->start = strtotime($x->custom_time[0]) * 1000;
+		$duration->repeat_count = 1;
+	} else if ($ri == 11 && count($x->custom_time) > 2) { // custom*
+		$int_comp = (new DateTime($x->custom_time[0]))
+						->diff(new DateTime($x->custom_time[1]));
+		$duration->start = strtotime($x->custom_time[0]) * 1000;
+		$duration->interval = new CalendarComponents();
+		$duration->interval->year = ($int_comp->y == 0 ? null : $int_comp->y);
+		$duration->interval->month = ($int_comp->m == 0 ? null : $int_comp->m);
+		$duration->interval->day = ($int_comp->d == 0 ? null : $int_comp->d);
+		$duration->interval->hour = ($int_comp->h == 0 ? null : $int_comp->h);
+		$duration->interval->minute = ($int_comp->i == 0 ? null : $int_comp->i);
+		$duration->interval->second = ($int_comp->s == 0 ? null : $int_comp->s);
+		$duration->repeat_count = count($x->custom_time) - 1;
+	} else if ($ri == 12) { // none
+		$duration->start = strtotime($x->time) * 1000;
+		$duration->repeat_count = 1;
+	}
+	return is_array($duration) ? $duration : [$duration];
+}, $raw->schedule)) : null;
+*/
+
+// Schedule:
+//      - Admin_CTestSchedule, Admin_SurveySchedule
+//          - AdminID, CTestID/SurveyID, Version*(C), ScheduleDate, SlotID, Time, RepeatID, IsDeleted
+//      - Admin_CTestScheduleCustomTime, Admin_SurveyScheduleCustomTime, Admin_BatchScheduleCustomTime
+//          - Time
+//      - Admin_BatchSchedule
+//          - AdminID, BatchName, ScheduleDate, SlotID, Time, RepeatID, IsDeleted
+//      - Admin_BatchScheduleCTest, Admin_BatchScheduleSurvey
+//          - CTestID/SurveyID, Version*(C), Order
+//
+// Settings:
+//      - Admin_CTestSurveySettings
+//          - AdminID, CTestID, SurveyID
+//      - Admin_JewelsTrailsASettings, Admin_JewelsTrailsBSettings
+//          - AdminID, ... (")
+//      - SurveyQuestions
+//          - SurveyID, QuestionText, AnswerType, IsDeleted
+//      - SurveyQuestionsOptions
+//          - QuestionID, OptionText
+
+/*
+-- Utility function that removes keys from FOR JSON output.
+-- i.e. UNWRAP_JSON([{'val':1,{'val':2},{'val':'cell'}], 'val') => [1,2,'cell']
+CREATE OR ALTER FUNCTION FUNCTION
+	dbo.UNWRAP_JSON(@json nvarchar(max), @key nvarchar(400)) RETURNS nvarchar(max)
+AS BEGIN
+	RETURN REPLACE(REPLACE(@json, FORMATMESSAGE('{"%s":', @key),''), '}','')
+END;
+*/
+
+
+
+
+// https://en.wikipedia.org/wiki/Cron#CRON_expression
+/*
+* * * * * *
+| | | | | | 
+| | | | | +-- Year              (range: 1900-3000)
+| | | | +---- Day of the Week   (range: 1-7; L=last, #=ordinal(range: 1-4))
+| | | +------ Month of the Year (range: 1-12)
+| | +-------- Day of the Month  (range: 1-31; L=last, W=nearest-weekday, #=ordinal(range: 1-52))
+| +---------- Hour              (range: 0-23)
++------------ Minute            (range: 0-59)
+*/
+
+
+/*
+
+
+
+enum RepeatTypeLegacy {
+	hourly = 'hourly', // 0 * * * * *
+	every3h = 'every3h', // 0 * /3 * * * *
+	every6h = 'every6h', // 0 * /6 * * * *
+	every12h = 'every12h', // 0 * /12 * * * *
+	daily = 'daily', // 0 0 * * * *
+	weekly = 'weekly', // 0 0 * * 0 *
+	biweekly = 'biweekly', // 0 0 1,15 * * *
+	monthly = 'monthly', // 0 0 1 * * *
+	bimonthly = 'bimonthly', // 0 0 1 * /2 * *
+	custom = 'custom', // 1 2 3 4 5 6
+	none = 'none' // 0 0 0 0 0 0
+}
+
+
+*/

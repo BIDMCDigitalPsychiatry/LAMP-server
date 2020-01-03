@@ -1,6 +1,5 @@
-import './controllers'
-import { API, Unimplemented } from './utils'
-import { OpenAPI, ExpressAPI } from './utils'
+import API from './service'
+import _defn from './utils/openapi.json'
 import express, { Request, Response, Router, NextFunction, Application } from 'express'
 import bodyParser from 'body-parser'
 import sql from 'mssql'
@@ -11,17 +10,11 @@ import http from 'http'
 import https from 'https'
 import proxy from 'express-http-proxy'
 import _Docker from 'dockerode'
-import { ScriptRunner } from './utils'
+import ScriptRunner from './utils/ScriptRunner'
+import LegacyAPI from './utils/legacy/route'
 const vhost = require('vhost')
 const alasql = require('alasql')
 const sendmail = require('sendmail')
-
-const info = {
-	"title": "LAMP Platform",
-	"description": "The LAMP Platform API.",
-	"termsOfService": "http://psych.digital/lamp/terms/",
-	"version": "0.1"
-}
 
 // 
 export const Docker = new _Docker({ host: '18.216.130.88', port: 2375 })
@@ -32,6 +25,7 @@ app.set('json spaces', 2)
 app.use(bodyParser.json({ limit: '50mb', strict: false }))
 app.use(bodyParser.text())
 app.use(require('cors')())
+app.use(require('morgan')(':method :url :status - :response-time ms'))
 
 /**
  *
@@ -125,11 +119,15 @@ export const Sysmail = async function(
 (async /* main */ () => {
 
 	// Establish the API routes.
-	const api = API.all()
-	const defn = OpenAPI(api, info)
-	ExpressAPI(api, app, process.env.ROOT_PASSWORD || '')
-	app.get('/', (req, res) => res.json(defn))
-	app.get('*', (req, res) => res.json(new Unimplemented()))
+	app.use('/', API)
+	app.use('/v0', LegacyAPI)
+
+	// Establish misc. routes.
+	app.get('/', (req, res) => res.json(_defn))
+	app.get('*', (req, res) => res.status(404).json({ "message": "404.api-endpoint-unimplemented" }))
+	app.get('/favicon.ico', (req, res) => res.status(204))
+	app.get('/service-worker.js', (req, res) => res.status(204))
+	
 	app.post('/internal/sysmsg/', async (req, res) => {
 		try {
 			let result = await Sysmail(req.body.subject, req.body.contents)
@@ -139,24 +137,6 @@ export const Sysmail = async function(
 		}
 	})
 
-	/*
-	// ... TODO
-	alasql(`CREATE TABLE ${'Researcher'}`)
-	alasql.tables['Researcher'] = {
-		...alasql.tables['Researcher'],
-		get data() { return [{ value: 'A' }, { value: 'B' }, { value: 'C' }] },
-		get columns() { return [{ columnid: 'value', dbtypeid: 'JSON' }] },
-		get xcolumns() { return { value: { columnid: 'value', dbtypeid: 'JSON' }} }
-	}
-	app.post('/', async (req, res) => {
-		try {
-			res.status(200).json(alasql(req.body))
-		} catch(e) {
-			res.status(500).json({ error: e.message })
-		}
-	})
-	*/
-
 	// Establish the SQL connection.
 	SQL = await new sql.ConnectionPool({
 		user: process.env.DB_USERNAME || '',
@@ -165,6 +145,9 @@ export const Sysmail = async function(
 		port: parseInt(process.env.DB_PORT || '') || 1433,
 		database: process.env.DB_NAME || 'LAMP',
 	    parseJSON: true,
+	    stream: true,
+	    requestTimeout: 30000,
+	    connectionTimeout: 30000,
 	    options: { 
 	    	encrypt: true, 
 	    	appName: 'LAMP-server',
@@ -177,22 +160,27 @@ export const Sysmail = async function(
 	    }
 	}).connect()
 
-	// Begin listener on port 3000 and a TCP relay from 8080 to 3000.
-	app.listen((process.env.PORT || 3000), async () => {
-		
-		// Add a second listener on UNIX socket /var/run/lamp.sock.
-		// This listener receives requests from local Docker containers.
-		try {
-			if (fs.existsSync('/var/run/lamp.sock'))
-				fs.unlinkSync('/var/run/lamp.sock')
-			process.on('SIGTERM', () => { 
-				try {
-					fs.unlinkSync('/var/run/lamp.sock')
-				} catch (e) {}
-			})
-			app.listen('/var/run/lamp.sock').on('error', () => {
-				console.error('Could not listen on UNIX socket.')
-			})
-		} catch (e) {}
-	})
+	// Begin listener on port 3000.
+	app.listen(process.env.PORT || 3000)
 })()
+
+
+
+/*
+alasql(`CREATE TABLE ${'Researcher'}`)
+alasql.tables['Researcher'] = {
+	...alasql.tables['Researcher'],
+	get data() { return [{ value: 'A' }, { value: 'B' }, { value: 'C' }] },
+	get columns() { return [{ columnid: 'value', dbtypeid: 'JSON' }] },
+	get xcolumns() { return { value: { columnid: 'value', dbtypeid: 'JSON' }} }
+}
+app.post('/', async (req, res) => {
+	try {
+		res.status(200).json(alasql(req.body))
+	} catch(e) {
+		res.status(500).json({ error: e.message })
+	}
+})
+*/
+
+

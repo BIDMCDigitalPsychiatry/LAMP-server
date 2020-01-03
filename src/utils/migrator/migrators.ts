@@ -891,89 +891,89 @@ export class ActivityEvent {
 
 			// Map from SQL DB to the local ActivityEvent type.
 			let res = events.map(async (row: any) => {
-				let result_event = {} as any
-				result_event.$_parent_id = Decrypt(row.uid)
-				result_event.timestamp = parseInt(row.timestamp)
-				result_event.duration = parseInt(row.duration)
+				let activity_event = {} as any
+				activity_event.$_parent_id = Decrypt(row.uid)
+				activity_event.timestamp = parseInt(row.timestamp)
+				activity_event.duration = parseInt(row.duration)
 
 				// Map internal ID sub-components into the single mangled ID form.
 				// FIXME: Currently it's not feasible to map SurveyID from SurveyName.
-				result_event.activity = entry.ActivityIndexID === 1 /* survey */ ? undefined : 
+				activity_event.activity = entry.ActivityIndexID === 1 /* survey */ ? undefined : 
 										Identifier.activity_pack({ activity_spec_id: entry.ActivityIndexID, admin_id: row.aid, survey_id: 0 })
 
 				// Copy static data fields if declared.
-				result_event.static_data = {}
+				activity_event.static_data = {}
 				if (!!entry.Slot1ColumnName)
-					result_event.static_data[entry.Slot1Name] = row[`static_data.${entry.Slot1Name}`]
+					activity_event.static_data[entry.Slot1Name] = row[`static_data.${entry.Slot1Name}`]
 				if (!!entry.Slot2ColumnName)
-					result_event.static_data[entry.Slot2Name] = row[`static_data.${entry.Slot2Name}`]
+					activity_event.static_data[entry.Slot2Name] = row[`static_data.${entry.Slot2Name}`]
 				if (!!entry.Slot3ColumnName)
-					result_event.static_data[entry.Slot3Name] = row[`static_data.${entry.Slot3Name}`]
+					activity_event.static_data[entry.Slot3Name] = row[`static_data.${entry.Slot3Name}`]
 				if (!!entry.Slot4ColumnName)
-					result_event.static_data[entry.Slot4Name] = row[`static_data.${entry.Slot4Name}`]
+					activity_event.static_data[entry.Slot4Name] = row[`static_data.${entry.Slot4Name}`]
 				if (!!entry.Slot5ColumnName)
-					result_event.static_data[entry.Slot5Name] = row[`static_data.${entry.Slot5Name}`]
+					activity_event.static_data[entry.Slot5Name] = row[`static_data.${entry.Slot5Name}`]
 
 				// Decrypt all static data properties if known to be encrypted.
 				// TODO: Encryption of fields should also be found in the ActivityIndex table!
-				if (!!result_event.static_data.survey_name)
-					result_event.static_data.survey_name = Decrypt(result_event.static_data.survey_name) || result_event.static_data.survey_name
-				if (!!result_event.static_data.drawn_fig_file_name) {
-					let fname = 'https://psych.digital/LampWeb/Games/User3DFigures/' + (Decrypt(result_event.static_data.drawn_fig_file_name) || result_event.static_data.drawn_fig_file_name)
-					result_event.static_data.drawn_figure = fname//(await Download(fname)).toString('base64')
-					result_event.static_data.drawn_fig_file_name = undefined
+				if (!!activity_event.static_data.survey_name)
+					activity_event.static_data.survey_name = Decrypt(activity_event.static_data.survey_name) || activity_event.static_data.survey_name
+				if (!!activity_event.static_data.drawn_fig_file_name) {
+					let fname = 'https://psych.digital/LampWeb/Games/User3DFigures/' + (Decrypt(activity_event.static_data.drawn_fig_file_name) || activity_event.static_data.drawn_fig_file_name)
+					activity_event.static_data.drawn_figure = fname//(await Download(fname)).toString('base64')
+					activity_event.static_data.drawn_fig_file_name = undefined
 				}
-                if (!!result_event.static_data.scratch_file_name) {
-                    let fname = 'https://psych.digital/LampWeb/Games/UserScratchImages/' + (Decrypt(result_event.static_data.scratch_file_name) || result_event.static_data.scratch_file_name)
-                    result_event.static_data.scratch_figure = fname//(await Download(fname)).toString('base64')
-                    result_event.static_data.scratch_file_name = undefined
+                if (!!activity_event.static_data.scratch_file_name) {
+                    let fname = 'https://psych.digital/LampWeb/Games/UserScratchImages/' + (Decrypt(activity_event.static_data.scratch_file_name) || activity_event.static_data.scratch_file_name)
+                    activity_event.static_data.scratch_figure = fname//(await Download(fname)).toString('base64')
+                    activity_event.static_data.scratch_file_name = undefined
                 }
-				if (!!result_event.static_data.game_name)
-					result_event.static_data.game_name = Decrypt(result_event.static_data.game_name) || result_event.static_data.game_name
-				if (!!result_event.static_data.collected_stars)
-					result_event.static_data.collected_stars = Decrypt(result_event.static_data.collected_stars) || result_event.static_data.collected_stars
-				if (!!result_event.static_data.total_jewels_collected)
-					result_event.static_data.total_jewels_collected = Decrypt(result_event.static_data.total_jewels_collected) || result_event.static_data.total_jewels_collected
-				if (!!result_event.static_data.total_bonus_collected)
-					result_event.static_data.total_bonus_collected = Decrypt(result_event.static_data.total_bonus_collected) || result_event.static_data.total_bonus_collected
-				if (!!result_event.static_data.score)
-					result_event.static_data.score = Decrypt(result_event.static_data.score) || result_event.static_data.score
+				if (!!activity_event.static_data.game_name)
+					activity_event.static_data.game_name = Decrypt(activity_event.static_data.game_name) || activity_event.static_data.game_name
+				if (!!activity_event.static_data.collected_stars)
+					activity_event.static_data.collected_stars = Decrypt(activity_event.static_data.collected_stars) || activity_event.static_data.collected_stars
+				if (!!activity_event.static_data.total_jewels_collected)
+					activity_event.static_data.total_jewels_collected = Decrypt(activity_event.static_data.total_jewels_collected) || activity_event.static_data.total_jewels_collected
+				if (!!activity_event.static_data.total_bonus_collected)
+					activity_event.static_data.total_bonus_collected = Decrypt(activity_event.static_data.total_bonus_collected) || activity_event.static_data.total_bonus_collected
+				if (!!activity_event.static_data.score)
+					activity_event.static_data.score = Decrypt(activity_event.static_data.score) || activity_event.static_data.score
 
 				// Copy all temporal events for this result event by matching parent ID.
 				if (!!slices) {
-					result_event.temporal_events = slices
+					activity_event.temporal_slices = slices
 						.filter(slice_row => slice_row.parent_id === row.id)
 						.map(slice_row => {
-							let temporal_event = {} as any
-							temporal_event.item = slice_row.item
-							temporal_event.value = slice_row.value
-							temporal_event.type = slice_row.type
-							temporal_event.duration = parseInt(slice_row.duration)
-							temporal_event.level = slice_row.level
+							let temporal_slice = {} as any
+							temporal_slice.item = slice_row.item
+							temporal_slice.value = slice_row.value
+							temporal_slice.type = slice_row.type
+							temporal_slice.duration = parseInt(slice_row.duration)
+							temporal_slice.level = slice_row.level
 
 							// Special treatment for surveys with encrypted answers.
 							if (entry.ActivityIndexID === '1' /* survey */) {
-								temporal_event.item = Decrypt(temporal_event.item) || temporal_event.item
-								temporal_event.value = Decrypt(temporal_event.value) || temporal_event.value
-								temporal_event.type = !temporal_event.type ? undefined : (<string>temporal_event.type).toLowerCase()
+								temporal_slice.item = Decrypt(temporal_slice.item) || temporal_slice.item
+								temporal_slice.value = Decrypt(temporal_slice.value) || temporal_slice.value
+								temporal_slice.type = !temporal_slice.type ? undefined : (<string>temporal_slice.type).toLowerCase()
 
 								// Adjust the Likert scaled values to numbers.
-								if (["Not at all", "12:00AM - 06:00AM", "0-3"].indexOf(temporal_event.value) >= 0) {
-									temporal_event.value = 0
-								} else if (["Several Times", "06:00AM - 12:00PM", "3-6"].indexOf(temporal_event.value) >= 0) {
-									temporal_event.value = 1
-								} else if (["More than Half the Time", "12:00PM - 06:00PM", "6-9"].indexOf(temporal_event.value) >= 0) {
-									temporal_event.value = 2
-								} else if (["Nearly All the Time", "06:00PM - 12:00AM", ">9"].indexOf(temporal_event.value) >= 0) {
-									temporal_event.value = 3
+								if (["Not at all", "12:00AM - 06:00AM", "0-3"].indexOf(temporal_slice.value) >= 0) {
+									temporal_slice.value = 0
+								} else if (["Several Times", "06:00AM - 12:00PM", "3-6"].indexOf(temporal_slice.value) >= 0) {
+									temporal_slice.value = 1
+								} else if (["More than Half the Time", "12:00PM - 06:00PM", "6-9"].indexOf(temporal_slice.value) >= 0) {
+									temporal_slice.value = 2
+								} else if (["Nearly All the Time", "06:00PM - 12:00AM", ">9"].indexOf(temporal_slice.value) >= 0) {
+									temporal_slice.value = 3
 								}
 							}
-							return temporal_event
+							return temporal_slice
 						})
 				}
 
 				// Finally return the newly created event.
-				return result_event
+				return activity_event
 			})
 			return (<ActivityEvent[]>[]).concat(...(await Promise.all(res)))
 		})

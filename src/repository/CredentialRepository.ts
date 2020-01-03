@@ -1,68 +1,30 @@
+import { Request, Response } from 'express'
 import { SQL, Encrypt, Decrypt } from '../app'
-import { 
-	d, Schema, Property, Description, Retype, Route, Throws, 
-	Path, BadRequest, NotFound, AuthorizationFailed, Auth,
-	Enum, Ownership, Identifier, Parent, Body, Double, Int64, Timestamp
-} from '../utils/OpenAPI'
 import sql from 'mssql'
+import { Participant } from '../model/Participant'
+import { Study } from '../model/Study'
+import { Researcher } from '../model/Researcher'
+import { Credential } from '../model/Credential'
+import { ResearcherRepository } from '../repository/ResearcherRepository'
+import { ParticipantRepository } from '../repository/ParticipantRepository'
+import { Identifier_unpack, Identifier_pack } from '../repository/TypeRepository'
 
-import { Participant } from './Participant'
-import { Study } from './Study'
-import { Researcher } from './Researcher'
+export class CredentialRepository {
 
-@Schema()
-@Description(d`
-	Every object can have one or more credential(s) associated with it.
-	i.e. my_researcher.credentials = ['person A', 'person B', 'api A', 'person C', 'api B']
-`)
-export class Credential {
+	public static async _select(
 
-	@Property()
-	@Description(d`
-		The root object this credential is attached to.
-		The scope of this credential is limited to the object itself and any children.
-	`)
-	public origin: string = ''
-
-	@Property()
-	@Description(d`
-		Username or machine-readable public key (access).
-	`)
-	public access_key: string = ''
-
-	@Property()
-	@Description(d`
-		SALTED HASH OF Password or machine-readable private key (secret).
-	`)
-	public secret_key: string = ''
-
-	@Property()
-	@Description(d`
-		The user-visible description of the credential.
-	`)
-	public description: string = ''
-
-	@Route.GET('/type/{type_id}/credential') 
-	@Description(d`
-		
-	`)
-	@Auth(Ownership.Self | Ownership.Parent, 'type_id')
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async list(
-
-		@Path('type_id')
-		type_id: Identifier
+		type_id: string
 
 	): Promise<string[]> {
 
 		// Get the correctly scoped identifier to search within.
 		let user_id: string | undefined
 		let admin_id: number | undefined
-		if (!!type_id && Identifier.unpack(type_id)[0] === (<any>Researcher).name)
-			admin_id = Researcher._unpack_id(type_id).admin_id
-		else if (!!type_id && Identifier.unpack(type_id).length === 0 /* Participant */)
-			user_id = Participant._unpack_id(type_id).study_id
-		else if(!!type_id) throw new Error()
+		if (!!type_id && Identifier_unpack(type_id)[0] === (<any>Researcher).name)
+			admin_id = ResearcherRepository._unpack_id(type_id).admin_id
+		else if (!!type_id && Identifier_unpack(type_id).length === 0 /* Participant */)
+			user_id = ParticipantRepository._unpack_id(type_id).study_id
+		else if(!!type_id) throw new Error('400.invalid-identifier')
 
 		// Get the legacy credential.
 		let legacy_key: Credential | undefined = undefined
@@ -117,18 +79,10 @@ export class Credential {
 		return [legacy_key, ...(result.map(x => x['Value']))].filter(x => !!x)
 	}
 
-	@Route.POST('/type/{type_id}/credential') 
-	@Description(d`
-		
-	`)
-	@Auth(Ownership.Self | Ownership.Parent, 'type_id')
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async create(
+	public static async _insert(
 
-		@Path('type_id')
-		type_id: Identifier,
+		type_id: string,
 
-		@Body()
 		credential: any
 
 	): Promise<any> {
@@ -136,11 +90,11 @@ export class Credential {
 		// Get the correctly scoped identifier to search within.
 		let user_id: string | undefined
 		let admin_id: number | undefined
-		if (!!type_id && Identifier.unpack(type_id)[0] === (<any>Researcher).name)
-			admin_id = Researcher._unpack_id(type_id).admin_id
-		else if (!!type_id && Identifier.unpack(type_id).length === 0 /* Participant */)
-			user_id = Participant._unpack_id(type_id).study_id
-		else if(!!type_id) throw new Error()
+		if (!!type_id && Identifier_unpack(type_id)[0] === (<any>Researcher).name)
+			admin_id = ResearcherRepository._unpack_id(type_id).admin_id
+		else if (!!type_id && Identifier_unpack(type_id).length === 0 /* Participant */)
+			user_id = ParticipantRepository._unpack_id(type_id).study_id
+		else if(!!type_id) throw new Error('400.invalid-identifier')
 
 		// HOTFIX ONLY!
 		if (typeof credential === 'string') {
@@ -164,7 +118,7 @@ export class Credential {
 
 		// If it's not our credential, don't mess with it!
 		if (credential.origin !== type_id || !credential.access_key || !credential.secret_key)
-			throw new NotFound()
+			throw new Error('404.object-not-found')
 
 		if (!!admin_id) {
 
@@ -179,7 +133,7 @@ export class Credential {
 					AND AdminID = ${admin_id};
 			`))
 			if (result.rowsAffected[0] === 0)
-				throw new NotFound()
+				throw new Error('404.object-not-found')
 
 		} else if (!!user_id) {
 
@@ -194,7 +148,7 @@ export class Credential {
 					AND StudyId = '${Encrypt(user_id)}';
 			`))
 			if (result.rowsAffected[0] === 0)
-				throw new NotFound()
+				throw new Error('404.object-not-found')
 		} else {
 
 			// Reset an API credential as either a Researcher or Participant.
@@ -209,26 +163,17 @@ export class Credential {
 	            );
 			`))
 			if (result.rowsAffected[0] === 0)
-				throw new NotFound()
+				throw new Error('404.object-not-found')
 		}
 		return {}
 	}
 
-	@Route.PUT('/type/{type_id}/credential/{access_key}') 
-	@Description(d`
-		
-	`)
-	@Auth(Ownership.Self | Ownership.Parent, 'type_id')
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async update(
+	public static async _update(
 
-		@Path('type_id')
-		type_id: Identifier,
+		type_id: string,
 
-		@Path('access_key')
 		access_key: string,
 
-		@Body()
 		credential: any
 
 	): Promise<any> {
@@ -236,17 +181,17 @@ export class Credential {
 		// Get the correctly scoped identifier to search within.
 		let user_id: string | undefined
 		let admin_id: number | undefined
-		if (!!type_id && Identifier.unpack(type_id)[0] === (<any>Researcher).name)
-			admin_id = Researcher._unpack_id(type_id).admin_id
-		else if (!!type_id && Identifier.unpack(type_id).length === 0 /* Participant */)
-			user_id = Participant._unpack_id(type_id).study_id
-		else if(!!type_id) throw new Error()
+		if (!!type_id && Identifier_unpack(type_id)[0] === (<any>Researcher).name)
+			admin_id = ResearcherRepository._unpack_id(type_id).admin_id
+		else if (!!type_id && Identifier_unpack(type_id).length === 0 /* Participant */)
+			user_id = ParticipantRepository._unpack_id(type_id).study_id
+		else if(!!type_id) throw new Error('400.invalid-identifier')
 
 		// If it's not our credential, don't mess with it!
 		//if (<string>(credential.origin) != <string>type_id)
 		//	throw new BadRequest("The credential origin does not match the requested resource.")
 		if (!credential.access_key || !credential.secret_key)
-			throw new BadRequest("A credential must have both access and secret keys.")
+			throw new Error("400.A credential must have both access and secret keys.") /* bad-request */
 
 		if (!!admin_id) {
 			console.log('route admin')
@@ -262,7 +207,7 @@ export class Credential {
 					AND AdminID = ${admin_id};
 			`))
 			if (result.rowsAffected[0] === 0)
-				throw new NotFound()
+				throw new Error('404.object-not-found')
 
 		} else if (!!user_id) {
 			console.log('route user')
@@ -278,10 +223,10 @@ export class Credential {
 					AND StudyId = '${Encrypt(user_id)}';
 			`))
 			if (result.rowsAffected[0] === 0)
-				throw new NotFound()
+				throw new Error('404.object-not-found')
 		} else {
 			console.log('route missing')
-			throw new NotFound()
+			throw new Error('404.object-not-found')
 
 			/*
 			// Reset an API credential as either a Researcher or Participant.
@@ -296,24 +241,16 @@ export class Credential {
 	            );
 			`))
 			if (result.rowsAffected[0] === 0)
-				throw new NotFound()
+				throw new Error('404.object-not-found')
 			*/
 		}
 		return {}
 	}
 
-	@Route.DELETE('/type/{type_id}/credential/{access_key}') 
-	@Description(d`
-		
-	`)
-	@Auth(Ownership.Self | Ownership.Parent, 'type_id')
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async delete(
+	public static async _delete(
 
-		@Path('type_id')
-		type_id: Identifier,
+		type_id: string,
 
-		@Path('access_key')
 		access_key: string
 
 	): Promise<any> {
@@ -321,11 +258,11 @@ export class Credential {
 		// Get the correctly scoped identifier to search within.
 		let user_id: string | undefined
 		let admin_id: number | undefined
-		if (!!type_id && Identifier.unpack(type_id)[0] === (<any>Researcher).name)
-			admin_id = Researcher._unpack_id(type_id).admin_id
-		else if (!!type_id && Identifier.unpack(type_id).length === 0 /* Participant */)
-			user_id = Participant._unpack_id(type_id).study_id
-		else if(!!type_id) throw new Error()
+		if (!!type_id && Identifier_unpack(type_id)[0] === (<any>Researcher).name)
+			admin_id = ResearcherRepository._unpack_id(type_id).admin_id
+		else if (!!type_id && Identifier_unpack(type_id).length === 0 /* Participant */)
+			user_id = ParticipantRepository._unpack_id(type_id).study_id
+		else if(!!type_id) throw new Error('400.invalid-identifier')
 
 		if (!!admin_id) {
 
@@ -338,7 +275,7 @@ export class Credential {
 					AND AdminID = ${admin_id};
 			`))
 			if (result.rowsAffected[0] === 0)
-				throw new NotFound()
+				throw new Error('404.object-not-found')
 
 		} else if (!!user_id) {
 
@@ -351,7 +288,7 @@ export class Credential {
 					AND StudyId = '${Encrypt(user_id)}';
 			`))
 			if (result.rowsAffected[0] === 0)
-				throw new NotFound()
+				throw new Error('404.object-not-found')
 		} else {
 
 			// Reset an API credential as either a Researcher or Participant.
@@ -363,7 +300,7 @@ export class Credential {
 	                AND ObjectType = 'Credential';
 			`))
 			if (result.rowsAffected[0] === 0)
-				throw new NotFound()
+				throw new Error('404.object-not-found')
 		}
 		return {}
 	}

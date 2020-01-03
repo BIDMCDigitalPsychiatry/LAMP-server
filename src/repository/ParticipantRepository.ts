@@ -1,179 +1,13 @@
 import { SQL, Encrypt, Decrypt } from '../app'
-import { 
-	d, Schema, Property, Description, Retype, Route, Throws, 
-	Path, BadRequest, NotFound, AuthorizationFailed, Auth,
-	Enum, Ownership, Identifier, Parent, Body, Double, Int64, Timestamp
-} from '../utils/OpenAPI'
 import { IResult } from 'mssql'
+import { Study } from '../model/Study'
+import { Researcher } from '../model/Researcher'
+import { Participant } from '../model/Participant'
+import { ResearcherRepository } from '../repository/ResearcherRepository'
+import { StudyRepository } from '../repository/StudyRepository'
+import { Identifier_unpack, Identifier_pack } from '../repository/TypeRepository'
 
-import { Type } from './Type'
-import { Study } from './Study'
-import { Researcher } from './Researcher'
-
-@Schema()
-@Parent(Study)
-@Description(d`
-	A participant within a study; a participant cannot be enrolled in 
-	more than one study at a time.
-`)
-export class Participant {
-	
-	@Property()
-	@Description(d`
-		The self-referencing identifier to this object.
-	`)
-	public id?: Identifier
-
-	@Property()
-	@Description(d`
-		The researcher-provided study code for the participant.
-	`)
-	public study_code?: string
-
-	@Property()
-	@Description(d`
-		The participant's selected language code for the LAMP app.
-	`)
-	public language?: string
-
-	@Property()
-	@Description(d`
-		The participant's selected theme for the LAMP app.
-	`)
-	public theme?: string
-
-	@Property()
-	@Description(d`
-		The participant's emergency contact number.
-	`)
-	public emergency_contact?: string
-
-	@Property()
-	@Description(d`
-		The participant's selected personal helpline number.
-	`)
-	public helpline?: string
-
-	@Route.POST('/study/{study_id}/participant') 
-	@Description(d`
-		Create a new Participant for the given Study.
-	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'study_id')
-	@Retype(Identifier, Participant)
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async create(
-
-		@Path('study_id')
-		@Retype(Identifier, Study)
-		study_id: string,
-
-		@Body()
-		participant: Participant,
-
-	): Promise<Identifier> {
-		return Participant._insert(study_id, participant)
-	}
-
-	@Route.PUT('/participant/{participant_id}') 
-	@Description(d`
-		Update a Participant's settings.
-	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'participant_id')
-	@Retype(Identifier, Participant)
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async update(
-
-		@Path('participant_id')
-		@Retype(Identifier, Participant)
-		participant_id: string,
-
-		@Body()
-		participant: Participant,
-
-	): Promise<{}> {
-		return Participant._update(participant_id, participant)
-	}
-
-	@Route.DELETE('/participant/{participant_id}') 
-	@Description(d`
-		Delete a participant AND all owned data or event streams.
-	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'participant_id')
-	@Retype(Identifier, Participant)
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async delete(
-
-		@Path('participant_id')
-		@Retype(Identifier, Participant)
-		participant_id: string
-
-	): Promise<{}> {
-		return Participant._delete(participant_id)
-	}
-
-	@Route.GET('/participant/{participant_id}') 
-	@Description(d`
-		Get a single participant, by identifier.
-	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'participant_id')
-	@Retype(Array, Participant)
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async view(
-
-		@Path('participant_id')
-		@Retype(Identifier, Participant)
-		participant_id: string
-
-	): Promise<Participant[]> {
-		return Participant._select(participant_id)
-	}
-
-	@Route.GET('/study/{study_id}/participant') 
-	@Description(d`
-		Get the set of all participants in a single study.
-	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'study_id')
-	@Retype(Array, Participant)
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async all_by_study(
-
-		@Path('study_id')
-		@Retype(Identifier, Study)
-		study_id: string
-
-	): Promise<Participant[]> {
-		return Participant._select(study_id)
-	}
-
-	@Route.GET('/researcher/{researcher_id}/participant') 
-	@Description(d`
-		Get the set of all participants under a single researcher.
-	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'researcher_id')
-	@Retype(Array, Participant)
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async all_by_researcher(
-
-		@Path('researcher_id')
-		@Retype(Identifier, Researcher)
-		researcher_id: string
-
-	): Promise<Participant[]> {
-		return Participant._select(researcher_id)
-	}
-
-	@Route.GET('/participant') 
-	@Description(d`
-		Get the set of all participants.
-	`)
-	@Auth(Ownership.Root)
-	@Retype(Array, Participant)
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async all(
-
-	): Promise<Participant[]> {
-		return Participant._select()
-	}
+export class ParticipantRepository {
 
 	/**
 	 *
@@ -185,14 +19,14 @@ export class Participant {
 		 */
 		study_id?: string
 
-	}): Identifier {
+	}): string {
 		return components.study_id || ''
 	}
 
 	/**
 	 *
 	 */
-	public static _unpack_id(id: Identifier): ({
+	public static _unpack_id(id: string): ({
 
 		/**
 		 * 
@@ -206,45 +40,45 @@ export class Participant {
 	/**
 	 *
 	 */
-	public static async _parent_id(id: Identifier, type: Function): Promise<Identifier | undefined> {
-		let { study_id } = Participant._unpack_id(id)
+	public static async _parent_id(id: string, type: Function): Promise<string | undefined> {
+		let { study_id } = ParticipantRepository._unpack_id(id)
 		switch (type) {
-			case Study:
-			case Researcher: 
+			case StudyRepository:
+			case ResearcherRepository: 
 				let result = (await SQL!.request().query(`
                     SELECT AdminID AS value
                     FROM Users
                     WHERE IsDeleted = 0 AND StudyId = '${Encrypt(study_id)}';
 				`)).recordset
 				return result.length === 0 ? undefined : 
-					(type === Researcher ? Researcher : Study)._pack_id({ admin_id: result[0].value })
+					(type === ResearcherRepository ? ResearcherRepository : StudyRepository)._pack_id({ admin_id: result[0].value })
 
-			default: throw new Error()
+			default: throw new Error('400.invalid-identifier')
 		}
 	}
 
 	/**
 	 * Get a set of `Participant`s matching the criteria parameters.
 	 */
-	private static async _select(
+	public static async _select(
 
 		/**
 		 * 
 		 */
-		id?: Identifier
+		id?: string
 
 	): Promise<Participant[]> {
 
 		// Get the correctly scoped identifier to search within.
 		let user_id: string | undefined
 		let admin_id: number | undefined
-		if (!!id && Identifier.unpack(id)[0] === (<any>Researcher).name)
-			admin_id = Researcher._unpack_id(id).admin_id
-		else if (!!id && Identifier.unpack(id)[0] === (<any>Study).name)
-			admin_id = Study._unpack_id(id).admin_id
-		else if (!!id && Identifier.unpack(id).length === 0 /* Participant */)
-			user_id = Participant._unpack_id(id).study_id
-		else if(!!id) throw new Error()
+		if (!!id && Identifier_unpack(id)[0] === (<any>Researcher).name)
+			admin_id = ResearcherRepository._unpack_id(id).admin_id
+		else if (!!id && Identifier_unpack(id)[0] === (<any>Study).name)
+			admin_id = StudyRepository._unpack_id(id).admin_id
+		else if (!!id && Identifier_unpack(id).length === 0 /* Participant */)
+			user_id = ParticipantRepository._unpack_id(id).study_id
+		else if(!!id) throw new Error('400.invalid-identifier')
 
 		// Collect the set of legacy Activity tables and stitch the full query.
 		let activities_list = (await SQL!.request().query(`
@@ -297,12 +131,12 @@ export class Participant {
 	/**
 	 * Create a `Participant`.
 	 */
-	private static async _insert(
+	public static async _insert(
 
 		/**
 		 * The `AdminID` column of the `Admin` table in the LAMP v0.1 DB.
 		 */
-		study_id: Identifier,
+		study_id: string,
 
 		/**
 		 * The patch fields of the `Participant` object. 
@@ -310,7 +144,7 @@ export class Participant {
 		object: Participant
 
 	): Promise<any> {
-		let admin_id = Study._unpack_id(study_id).admin_id
+		let admin_id = StudyRepository._unpack_id(study_id).admin_id
 
 		// Create a fake email and study ID to allow login on the client app.
 		let _id = 'U' + Math.floor(Math.random() * 100000000) /* rand(000000, 999999) */
@@ -347,7 +181,7 @@ export class Participant {
 
 		// Bail early if we failed to create a User row.
 		if (result1.recordset.length === 0) 
-			throw new Error()
+			throw new Error('404.object-not-found')
 
 		let result2 = await SQL!.request().query(`
             INSERT INTO UserSettings (
@@ -385,12 +219,12 @@ export class Participant {
 	/**
 	 * Update a `Participant` with new fields.
 	 */
-	private static async _update(
+	public static async _update(
 
 		/**
 		 * The `StudyId` column of the `Users` table in the LAMP v0.1 DB.
 		 */
-		participant_id: Identifier, 
+		participant_id: string, 
 
 		/**
 		 * The patch fields of the `Participant` object. 
@@ -398,7 +232,7 @@ export class Participant {
 		object: Participant
 
 	): Promise<{}> {
-		let user_id = Encrypt(Participant._unpack_id(participant_id).study_id)
+		let user_id = Encrypt(ParticipantRepository._unpack_id(participant_id).study_id)
 
 		// Prepare the minimal SQL column changes from the provided fields.
 		let updatesA = [], updatesB = []//, updatesC = []
@@ -436,15 +270,15 @@ export class Participant {
 	/**
 	 * Delete a `Participant`.
 	 */
-	private static async _delete(
+	public static async _delete(
 
 		/**
 		 * The `StudyId` column of the `Users` table in the LAMP v0.1 DB.
 		 */
-		participant_id: Identifier
+		participant_id: string
 
 	): Promise<{}> {
-		let user_id = Encrypt(Participant._unpack_id(participant_id).study_id)
+		let user_id = Encrypt(ParticipantRepository._unpack_id(participant_id).study_id)
 
 		// Set the deletion flag, without actually deleting the row.
 		let res = (await SQL!.request().query(`
@@ -453,7 +287,7 @@ export class Participant {
 		`))
 
 		if (res.rowsAffected.length === 0 || res.rowsAffected[0] === 0)
-			throw new NotFound()
+			throw new Error('404.object-not-found')
 		return {}
 	}
 }

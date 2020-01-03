@@ -1,195 +1,18 @@
 import { SQL, Encrypt, Decrypt } from '../app'
-import { 
-	d, Schema, Property, Description, Retype, Route, Throws, 
-	Path, BadRequest, NotFound, AuthorizationFailed, Auth,
-	Enum, Ownership, Identifier, Parent, Body
-} from '../utils/OpenAPI'
 import { IResult } from 'mssql'
+import { Activity } from '../model/Activity'
+import { Participant } from '../model/Participant'
+import { Study } from '../model/Study'
+import { Researcher } from '../model/Researcher'
+import { ActivitySpec } from '../model/ActivitySpec'
+import { DurationIntervalLegacy } from '../model/Document'
+import { ResearcherRepository } from '../repository/ResearcherRepository'
+import { StudyRepository } from '../repository/StudyRepository'
+import { ParticipantRepository } from '../repository/ParticipantRepository'
+import { TypeRepository } from '../repository/TypeRepository'
+import { Identifier_unpack, Identifier_pack } from '../repository/TypeRepository'
 
-import { Type } from './Type'
-import { Participant } from './Participant'
-import { Study } from './Study'
-import { Researcher } from './Researcher'
-import { ActivitySpec } from './ActivitySpec'
-import { DurationIntervalLegacy } from './Document'
-
-@Schema()
-@Parent(Study)
-@Description(d`
-	An activity that may be performed by a participant in a study.
-`)
-export class Activity {
-
-	@Property()
-	@Description(d`
-		The self-referencing identifier to this object.
-	`)
-	public id?: Identifier
-
-	@Property()
-	@Description(d`
-		The specification, parameters, and type of the activity.
-	`)
-	public spec?: Identifier
-
-	@Property()
-	@Description(d`
-		The name of the activity.
-	`)
-	public name?: string
-
-	@Property()
-	@Description(d`
-		The notification schedule for the activity.
-	`)
-	public schedule?: DurationIntervalLegacy
-
-	@Property()
-	@Description(d`
-		The configuration settings for the activity.
-	`)
-	public settings?: any
-
-	@Route.POST('/study/{study_id}/activity') 
-	@Description(d`
-		Create a new Activity under the given Study.
-	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'study_id')
-	@Retype(Identifier, Activity)
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async create(
-
-		@Path('study_id')
-		@Retype(Identifier, Study)
-		study_id: string,
-
-		@Body()
-		activity: Activity,
-
-	): Promise<Identifier> {
-		return Activity._insert(study_id, activity)
-	}
-
-	@Route.PUT('/activity/{activity_id}') 
-	@Description(d`
-		Update an Activity's settings.
-	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'activity_id')
-	@Retype(Identifier, Activity)
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async update(
-
-		@Path('activity_id')
-		@Retype(Identifier, Activity)
-		activity_id: string,
-
-		@Body()
-		activity: Activity,
-
-	): Promise<{}> {
-		return Activity._update(activity_id, activity)
-	}
-
-	@Route.DELETE('/activity/{activity_id}') 
-	@Description(d`
-		Delete an Activity.
-	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'activity_id')
-	@Retype(Identifier, Activity)
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async delete(
-
-		@Path('activity_id')
-		@Retype(Identifier, Activity)
-		activity_id: string
-
-	): Promise<{}> {
-		return Activity._delete(activity_id)
-	}
-
-	@Route.GET('/activity/{activity_id}') 
-	@Description(d`
-		Get a single activity, by identifier.
-	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'activity_id')
-	@Retype(Array, Activity)
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async view(
-
-		@Path('activity_id')
-		@Retype(Identifier, Activity)
-		activity_id: string
-
-	): Promise<Activity[]> {
-		return Activity._select(activity_id)
-	}
-
-	@Route.GET('/participant/{participant_id}/activity') 
-	@Description(d`
-		Get the set of all activities available to a participant, 
-		by participant identifier.
-	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'participant_id')
-	@Retype(Array, Activity)
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async all_by_participant(
-
-		@Path('participant_id')
-		@Retype(Identifier, Participant)
-		participant_id: string
-
-	): Promise<Activity[]> {
-		return Activity._select(participant_id)
-	}
-
-	@Route.GET('/study/{study_id}/activity') 
-	@Description(d`
-		Get the set of all activities available to 
-		participants of a single study, by study identifier.
-	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'study_id')
-	@Retype(Array, Activity)
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async all_by_study(
-
-		@Path('study_id')
-		@Retype(Identifier, Study)
-		study_id: string
-
-	): Promise<Activity[]> {
-		return Activity._select(study_id)
-	}
-
-	@Route.GET('/researcher/{researcher_id}/activity') 
-	@Description(d`
-		Get the set of all activities available to participants 
-		of any study conducted by a researcher, by researcher identifier.
-	`)
-	@Auth(Ownership.Self | Ownership.Sibling | Ownership.Parent, 'researcher_id')
-	@Retype(Array, Activity)
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async all_by_researcher(
-
-		@Path('researcher_id')
-		@Retype(Identifier, Researcher)
-		researcher_id: string
-
-	): Promise<Activity[]> {
-		return Activity._select(researcher_id)
-	}
-
-	@Route.GET('/activity') 
-	@Description(d`
-		Get the set of all activities.
-	`)
-	@Auth(Ownership.Root)
-	@Retype(Array, Activity)
-	@Throws(BadRequest, AuthorizationFailed, NotFound)
-	public static async all(
-
-	): Promise<Activity[]> {
-		return Activity._select()
-	}
+export class ActivityRepository {
 
 	/**
 	 *
@@ -211,8 +34,8 @@ export class Activity {
 		 */
 		survey_id?: number
 
-	}): Identifier {
-		return Identifier.pack([
+	}): string {
+		return Identifier_pack([
 			(<any>Activity).name, 
 			components.activity_spec_id || 0, 
 			components.admin_id || 0, 
@@ -223,7 +46,7 @@ export class Activity {
 	/**
 	 *
 	 */
-	public static _unpack_id(id: Identifier): ({
+	public static _unpack_id(id: string): ({
 
 		/**
 		 * 
@@ -241,9 +64,9 @@ export class Activity {
 		survey_id: number
 
 	}) {
-		let components = Identifier.unpack(id)
+		let components = Identifier_unpack(id)
 		if (components[0] !== (<any>Activity).name)
-			throw new Error('invalid identifier')
+			throw new Error('400.invalid-identifier')
 		let result = components.slice(1).map(x => parseInt(x))
 		return {
 			activity_spec_id: !isNaN(result[0]) ? result[0] : 0,
@@ -255,11 +78,11 @@ export class Activity {
 	/**
 	 *
 	 */
-	public static async _parent_id(id: Identifier, type: Function): Promise<Identifier | undefined> {
-		let { activity_spec_id, admin_id, survey_id } = Activity._unpack_id(id)
+	public static async _parent_id(id: string, type: Function): Promise<string | undefined> {
+		let { activity_spec_id, admin_id, survey_id } = ActivityRepository._unpack_id(id)
 		switch (type) {
-			case Study:
-			case Researcher: 
+			case StudyRepository:
+			case ResearcherRepository: 
 				if (activity_spec_id === 1 /* survey */) {
 					let result = (await SQL!.request().query(`
 						SELECT AdminID AS value
@@ -267,7 +90,7 @@ export class Activity {
 						WHERE IsDeleted = 0 AND SurveyID = '${survey_id}'
 					;`)).recordset
 					return result.length === 0 ? undefined :
-						(type === Researcher ? Researcher : Study)._pack_id({ admin_id: result[0].value })
+						(type === ResearcherRepository ? ResearcherRepository : StudyRepository)._pack_id({ admin_id: result[0].value })
 				} else {
 
 					// Only "Survey" types lack an encoded AdminID; regardless, verify their deletion.
@@ -277,9 +100,9 @@ export class Activity {
 						WHERE IsDeleted = 0 AND AdminID = '${admin_id}'
 					;`)).recordset
 					return result.length === 0 ? undefined :
-						(type === Researcher ? Researcher : Study)._pack_id({ admin_id: result[0].value })
+						(type === ResearcherRepository ? ResearcherRepository : StudyRepository)._pack_id({ admin_id: result[0].value })
 				}
-			default: throw new Error()
+			default: throw new Error('400.invalid-identifier')
 		}
 	}
 
@@ -288,12 +111,12 @@ export class Activity {
 	/**
 	 * Get a set of `Activity`s matching the criteria parameters.
 	 */
-	private static async _select(
+	public static async _select(
 
 		/**
 		 * 
 		 */
-		id?: Identifier, 
+		id?: string, 
 
 	): Promise<Activity[]> {
 
@@ -301,19 +124,19 @@ export class Activity {
 		let ctest_id: number | undefined
 		let survey_id: number | undefined
 		let admin_id: number | undefined
-		if (!!id && Identifier.unpack(id)[0] === (<any>Researcher).name)
-			admin_id = Researcher._unpack_id(id).admin_id
-		else if (!!id && Identifier.unpack(id)[0] === (<any>Study).name)
-			admin_id = Study._unpack_id(id).admin_id
-		else if (!!id && Identifier.unpack(id)[0] === (<any>Activity).name) {
-			let c = Activity._unpack_id(id)
+		if (!!id && Identifier_unpack(id)[0] === (<any>Researcher).name)
+			admin_id = ResearcherRepository._unpack_id(id).admin_id
+		else if (!!id && Identifier_unpack(id)[0] === (<any>Study).name)
+			admin_id = StudyRepository._unpack_id(id).admin_id
+		else if (!!id && Identifier_unpack(id)[0] === (<any>Activity).name) {
+			let c = ActivityRepository._unpack_id(id)
 			ctest_id = c.activity_spec_id
 			survey_id = c.survey_id
 			admin_id = c.admin_id
 		} 
-		else if (!!id && Identifier.unpack(id).length === 0 /* Participant */)
-			admin_id = Researcher._unpack_id((<any>await Type.parent(<string>id))['Researcher']).admin_id
-		else if(!!id) throw new Error()
+		else if (!!id && Identifier_unpack(id).length === 0 /* Participant */)
+			admin_id = ResearcherRepository._unpack_id((<any>await TypeRepository._parent(<string>id))['Researcher']).admin_id
+		else if(!!id) throw new Error('400.invalid-identifier')
 
 		let resultBatch = (await SQL!.request().query(`
 			SELECT 
@@ -502,7 +325,7 @@ export class Activity {
 		return [...resultBatch, ...resultSurvey, ...resultTest].map((raw: any) => {
 			let obj = new Activity()
 			if (raw.type === 'batch') {
-				obj.id = Activity._pack_id({
+				obj.id = ActivityRepository._pack_id({
 					activity_spec_id: 0 /* batch */,
 					admin_id: raw.aid,
 					survey_id: raw.id
@@ -514,7 +337,7 @@ export class Activity {
 						...resultBatchCTestSettings.filter(x => x.id === raw.id)
 					]
 					.sort((x: any, y: any) => x.order - y.order)
-					.map((x: any) => Activity._pack_id({
+					.map((x: any) => ActivityRepository._pack_id({
 						activity_spec_id: !x.survey_id ? x.ctest_id : 1 /* survey */,
 						admin_id: raw.aid,
 						survey_id: !x.survey_id ? undefined : x.survey_id
@@ -525,7 +348,7 @@ export class Activity {
 							custom_time: !x.custom_time ? null : JSON.parse(x.custom_time).map((y: any) => y.t) 
 						})) as any
 			} else if (raw.type === 'survey') {
-				obj.id = Activity._pack_id({
+				obj.id = ActivityRepository._pack_id({
 					activity_spec_id: 1 /* survey */,
 					admin_id: raw.aid,
 					survey_id: raw.id
@@ -543,7 +366,7 @@ export class Activity {
 							custom_time: !x.custom_time ? null : JSON.parse(x.custom_time).map((y: any) => y.t) 
 						})) as any
 			} else if (raw.type === 'ctest') {
-				obj.id = Activity._pack_id({
+				obj.id = ActivityRepository._pack_id({
 					activity_spec_id: raw.id,
 					admin_id: raw.aid,
 					//survey_id: raw.id
@@ -572,21 +395,21 @@ export class Activity {
 	/**
 	 * Create an `Activity` with a new object.
 	 */
-	private static async _insert(
+	public static async _insert(
 
 		/**
 		 * The parent Study's ID.
 		 */
-		study_id: Identifier,
+		study_id: string,
 
 		/**
 		 * The new object.
 		 */
 		object: Activity
 
-	): Promise<Identifier> {
+	): Promise<string> {
 
-		let { admin_id } = Study._unpack_id(study_id)
+		let { admin_id } = StudyRepository._unpack_id(study_id)
 		let transaction = SQL!.transaction()
 		await transaction.begin()
 		try {
@@ -594,9 +417,9 @@ export class Activity {
 			// Set the deletion flag, without actually deleting the row.
 			if (object.spec === 'lamp.group' /* group */) {
 				if (!Array.isArray(object.schedule) || object.schedule.length !== 1)
-					throw new Error('This ActivitySpec requires a schedule of exactly one DurationInterval.')
+					throw new Error('400.duration-interval-not-specified')
 				if (!Array.isArray(object.settings) || object.settings.length === 0)
-					throw new Error('This ActivitySpec requires settings of a non-zero length array.')
+					throw new Error('400.settings-not-specified')
 
 				// Create the schedule.
 				let result1 = await transaction.request().query(`
@@ -621,7 +444,7 @@ export class Activity {
 					)`).join(', ')}
 				;`)
 				if (result1.rowsAffected[0] !== object.schedule.length)
-					throw new Error('Could not create Activity due to malformed schedule.')
+					throw new Error('400.create-failed-due-to-malformed-parameters-schedule')
 				let batch_id = result1.recordset[0]['AdminBatchSchId']
 
 				let ctime = [].concat(...object.schedule
@@ -640,7 +463,7 @@ export class Activity {
 						)`).join(', ')}
 					;`)
 					if (result2.rowsAffected[0] === 0)
-						throw new Error('Could not create Activity due to malformed schedule timing parameters.')
+						throw new Error('400.create-failed-due-to-malformed-parameters-timing')
 				}
 
 				// Get CTest spec list.
@@ -651,10 +474,10 @@ export class Activity {
 					FROM LAMP_Aux.dbo.ActivityIndex
 				;`)).recordset
 				let items = object.settings
-									.map((x, idx) => ({ ...Activity._unpack_id(x), idx }))
+									.map((x, idx) => ({ ...ActivityRepository._unpack_id(x), idx }))
 									.map(x => ({ ...x, lid: (spec.find(a => a['ActivityIndexID'] === x.activity_spec_id) || {})['LegacyCTestID'] }))
 				if (items.filter(x => x.activity_spec_id === 0).length > 0)
-					throw new Error('Activity Groups cannot be nested within one-another.')
+					throw new Error('400.nested-objects-unsupported')
 
 				// FIXME: Shouldn't be able to add deleted surveys/ctests.
 
@@ -670,7 +493,7 @@ export class Activity {
 						)`).join(', ')}
 					;`)
 					if (result3.rowsAffected[0] !== items.filter(x => x.activity_spec_id > 1).length)
-						throw new Error('Could not create Activity due to malformed settings.')
+						throw new Error('400.create-failed-due-to-malformed-parameters-settings')
 				}
 				if (items.filter(x => x.activity_spec_id === 1).length > 0) {
 					let result4 = await transaction.request().query(`
@@ -682,12 +505,12 @@ export class Activity {
 						)`).join(', ')}
 					;`)
 					if (result4.rowsAffected[0] !== items.filter(x => x.activity_spec_id === 1).length)
-						throw new Error('Could not create Activity due to malformed settings.')
+						throw new Error('400.create-failed-due-to-malformed-parameters-settings')
 				}
 
 				// Return the new ID.
 				await transaction.commit()
-				return Activity._pack_id({
+				return ActivityRepository._pack_id({
 					activity_spec_id: 0 /* batch */,
 					admin_id: admin_id,
 					survey_id: batch_id
@@ -701,7 +524,7 @@ export class Activity {
 					VALUES (${admin_id}, '${object.name ? _escapeMSSQL(object.name) : 'new_survey'}')
 				;`)
 				if (result1.rowsAffected[0] === 0)
-					throw new Error('Could not create Activity.')
+					throw new Error('400.create-failed')
 				let survey_id = result1.recordset[0]['SurveyID']
 
 				// Create the questions.
@@ -716,7 +539,7 @@ export class Activity {
 						)`).join(', ')}
 					;`)
 					if (result2.rowsAffected[0] !== object.settings.length)
-						throw new Error('Could not create Activity due to malformed settings.')
+						throw new Error('400.create-failed-due-to-malformed-parameters-settings')
 
 					let opts = [].concat(...object.settings
 												   .map((x, idx) => [x.options, idx])
@@ -731,7 +554,7 @@ export class Activity {
 							)`).join(', ')}
 						;`)
 						if (result21.rowsAffected[0] !== opts.length)
-							throw new Error('Could not create Activity due to malformed settings.')
+							throw new Error('400.create-failed-due-to-malformed-parameters-settings')
 					}
 				}
 
@@ -759,7 +582,7 @@ export class Activity {
 						)`).join(', ')}
 					;`)
 					if (result3.rowsAffected[0] !== object.schedule.length)
-						throw new Error('Could not create Activity due to malformed schedule.')
+						throw new Error('400.create-failed-due-to-malformed-parameters-schedule')
 
 					let ctime = [].concat(...object.schedule
 												   .map((x, idx) => [x.custom_time, idx])
@@ -777,13 +600,13 @@ export class Activity {
 							)`).join(', ')}
 						;`)
 						if (result4.rowsAffected[0] === 0)
-							throw new Error('Could not create Activity due to malformed schedule timing parameters.')
+							throw new Error('400.create-failed-due-to-malformed-parameters-timing')
 					}
 				}
 
 				// Return the new ID.
 				await transaction.commit()
-				return Activity._pack_id({
+				return ActivityRepository._pack_id({
 					activity_spec_id: 1 /* survey */,
 					admin_id: admin_id,
 					survey_id: survey_id
@@ -800,7 +623,7 @@ export class Activity {
 					WHERE Name = '${object.spec}'
 				;`)).recordset[0]
 				if (!spec)
-					throw new Error('No such ActivitySpec exists.')
+					throw new Error('404.object-not-found')
 
 				// First activate the CTest if previously inactive.
 				let result = await transaction.request().query(`
@@ -811,7 +634,7 @@ export class Activity {
 						AND CTestID = ${spec.lid}
 				;`)
 				if (result.rowsAffected[0] === 0)
-					throw new Error('This Activity already exists and cannot be re-created.')
+					throw new Error('400.activity-exists-cannot-overwrite')
 
 				// Configure Jewels A or B if needed.
 				if ((object.spec === 'lamp.jewels_a' || object.spec === 'lamp.jewels_b') && !!object.settings) {
@@ -855,7 +678,7 @@ export class Activity {
 							)
 					;`)
 					if (result2.rowsAffected[0] === 0)
-						throw new Error('Could not create Activity due to malformed settings.')
+						throw new Error('400.create-failed-due-to-malformed-parameters-settings')
 				}
 
 				// Create the schedule.
@@ -884,7 +707,7 @@ export class Activity {
 						)`).join(', ')}
 					;`)
 					if (result3.rowsAffected[0] !== object.schedule.length)
-						throw new Error('Could not create Activity due to malformed schedule.')
+						throw new Error('400.create-failed-due-to-malformed-parameters-schedule')
 
 					let ctime = [].concat(...object.schedule
 												   .map((x, idx) => [x.custom_time, idx])
@@ -902,13 +725,13 @@ export class Activity {
 							)`).join(', ')}
 						;`)
 						if (result4.rowsAffected[0] === 0)
-							throw new Error('Could not create Activity due to malformed schedule timing parameters.')
+							throw new Error('400.create-failed-due-to-malformed-parameters-timing')
 					}
 				}
 
 				// Return the new ID.
 				await transaction.commit()
-				return Activity._pack_id({
+				return ActivityRepository._pack_id({
 					activity_spec_id: spec.id,
 					admin_id: admin_id,
 					//survey_id: raw.id
@@ -918,18 +741,18 @@ export class Activity {
 			await transaction.rollback()
 			throw e
 		}
-		throw new Error()
+		throw new Error('400.creation-failed')
 	}
 
 	/**
 	 * Update an `Activity` with new fields.
 	 */
-	private static async _update(
+	public static async _update(
 
 		/**
 		 * The Activity's ID.
 		 */
-		activity_id: Identifier,
+		activity_id: string,
 
 		/**
 		 * The object containing partial updating fields.
@@ -938,10 +761,10 @@ export class Activity {
 
 	): Promise<{}> {
 
-		let { activity_spec_id, admin_id, survey_id } = Activity._unpack_id(activity_id)
+		let { activity_spec_id, admin_id, survey_id } = ActivityRepository._unpack_id(activity_id)
 
 		if (typeof object.spec === 'string')
-			throw new Error('Cannot update the ActivitySpec of an existing Activity; please delete and create a new Activity.')
+			throw new Error('400.update-failed-modifying-activityspec-is-illegal')
 
 		let transaction = SQL!.transaction()
 		await transaction.begin()
@@ -958,12 +781,12 @@ export class Activity {
 						AND AdminBatchSchID = ${survey_id}
 				;`)
 				if (result.recordset.length === 0)
-					throw new Error('No such Activity exists.')
+					throw new Error('404.object-not-found')
 
 				// Modify batch schedule and name.
 				if (Array.isArray(object.schedule) || typeof object.name === 'string') {
 					if (Array.isArray(object.schedule) && object.schedule.length !== 1)
-						throw new Error('This ActivitySpec requires a schedule of exactly one DurationInterval.')
+						throw new Error('400.empty-duration-unsupported')
 					
 					let result1 = await transaction.request().query(`
 						UPDATE Admin_BatchSchedule SET 
@@ -1010,13 +833,13 @@ export class Activity {
 						FROM LAMP_Aux.dbo.ActivityIndex
 					;`)).recordset
 					let items = (object.settings as Array<string>)
-										.map((x, idx) => ({ ...Activity._unpack_id(x), idx }))
+										.map((x, idx) => ({ ...ActivityRepository._unpack_id(x), idx }))
 										.map(x => ({ ...x, lid: (spec.find(a => a['id'] === `${x.activity_spec_id}`) || {})['lid'] }))
 
 					if (items.filter(x => x.activity_spec_id === 0).length > 0)
-						throw new Error('Activity Groups cannot be nested within one-another.')
+						throw new Error('400.nested-object-unsupported')
 					if (items.filter(x => x.activity_spec_id !== 0).length === 0)
-						throw new Error('This ActivitySpec requires settings of a non-zero length array.')
+						throw new Error('400.empty-array-unsupported')
 					let ctest = items.filter(x => x.activity_spec_id > 1)
 					let survey = items.filter(x => x.activity_spec_id === 1)
 
@@ -1071,7 +894,7 @@ export class Activity {
 							AND SurveyID = ${survey_id}
 					;`)
 					if (result0.rowsAffected[0] === 0)
-						throw new Error('No such Activity exists.')
+						throw new Error('404.object-not-found')
 				} else {
 					let result0 = await transaction.request().query(`
 						SELECT SurveyID 
@@ -1080,7 +903,7 @@ export class Activity {
 							AND SurveyID = ${survey_id}
 					;`)
 					if (result0.recordset.length === 0)
-						throw new Error('No such Activity exists.')
+						throw new Error('404.object-not-found')
 				}
 
 				// Modify survey schedule.
@@ -1115,7 +938,7 @@ export class Activity {
 							)`).join(', ')}
 						;`)
 						if (result3.rowsAffected[0] !== object.schedule.length)
-							throw new Error('Could not create Activity due to malformed schedule.')
+							throw new Error('400.create-failed-due-to-malformed-parameters-schedule')
 
 						let ctime = [].concat(...object.schedule
 													   .map((x: any, idx: number) => [x.custom_time, idx])
@@ -1133,7 +956,7 @@ export class Activity {
 								)`).join(', ')}
 							;`)
 							if (result4.rowsAffected[0] === 0)
-								throw new Error('Could not create Activity due to malformed schedule timing parameters.')
+								throw new Error('400.create-failed-due-to-malformed-parameters-timing')
 						}
 					}
 				}
@@ -1157,7 +980,7 @@ export class Activity {
 							)`).join(', ')}
 						;`)
 						if (result2.rowsAffected[0] !== object.settings.length)
-							throw new Error('Could not create Activity due to malformed settings.')
+							throw new Error('400.create-failed-due-to-malformed-parameters-settings')
 
 						let opts = [].concat(...object.settings
 													   .map((x: any, idx: number) => [x.options, idx])
@@ -1172,7 +995,7 @@ export class Activity {
 								)`).join(', ')}
 							;`)
 							if (result21.rowsAffected[0] !== opts.length)
-								throw new Error('Could not create Activity due to malformed settings.')
+								throw new Error('400.create-failed-due-to-malformed-parameters-settings')
 						}
 					}
 				}
@@ -1313,7 +1136,7 @@ export class Activity {
 					WHERE ActivityIndexID = '${activity_spec_id}'
 				;`)).recordset[0]
 				if (!spec)
-					throw new Error('No such ActivitySpec exists.')
+					throw new Error('404.object-not-found')
 				
 				// Verify that the item exists.
 				let result = await transaction.request().query(`
@@ -1324,7 +1147,7 @@ export class Activity {
 						AND CTestID = ${survey_id}
 				;`)
 				if (result.recordset.length === 0)
-					throw new Error('No such Activity exists.')
+					throw new Error('404.object-not-found')
 
 				// Modify ctest schedule.
 				if (Array.isArray(object.schedule)) {
@@ -1364,7 +1187,7 @@ export class Activity {
 							)`).join(', ')}
 						;`)
 						if (result3.rowsAffected[0] !== object.schedule.length)
-							throw new Error('Could not create Activity due to malformed schedule.')
+							throw new Error('400.create-failed-due-to-malformed-parameters-schedule')
 
 						let ctime = [].concat(...object.schedule
 													   .map((x: any, idx: number) => [x.custom_time, idx])
@@ -1382,7 +1205,7 @@ export class Activity {
 								)`).join(', ')}
 							;`)
 							if (result4.rowsAffected[0] === 0)
-								throw new Error('Could not create Activity due to malformed schedule timing parameters.')
+								throw new Error('400.create-failed-due-to-malformed-parameters-timing')
 						}
 					}
 				}
@@ -1406,7 +1229,7 @@ export class Activity {
 						WHERE Admin_JewelsTrails${isA ? 'A' : 'B'}Settings.AdminID = ${admin_id}
 					;`)
 					if (result2.rowsAffected[0] === 0)
-						throw new Error('Could not create Activity due to malformed settings.')
+						throw new Error('400.create-failed-due-to-malformed-parameters-settings')
 				}
 
 				await transaction.commit()
@@ -1416,22 +1239,22 @@ export class Activity {
 			await transaction.rollback()
 			throw e
 		}
-		throw new Error()
+		throw new Error('400.update-failed')
 	}
 
 	/**
 	 * Delete an `Activity` row.
 	 */
-	private static async _delete(
+	public static async _delete(
 
 		/**
 		 * The Activity's ID.
 		 */
-		activity_id: Identifier
+		activity_id: string
 
 	): Promise<{}> {
 
-		let { activity_spec_id, admin_id, survey_id } = Activity._unpack_id(activity_id)
+		let { activity_spec_id, admin_id, survey_id } = ActivityRepository._unpack_id(activity_id)
 		let transaction = SQL!.transaction()
 		await transaction.begin()
 		try {
@@ -1445,7 +1268,7 @@ export class Activity {
 						AND AdminBatchSchID = ${survey_id}
 				;`)
 				if (result.rowsAffected[0] === 0)
-					throw new Error('No such Activity exists.')
+					throw new Error('404.object-not-found')
 
 			} else if (activity_spec_id === 1 /* survey */) {
 				let result = await transaction.request().query(`
@@ -1456,7 +1279,7 @@ export class Activity {
 						AND SurveyID = ${survey_id}
 				;`)
 				if (result.rowsAffected[0] === 0)
-					throw new Error('No such Activity exists.')
+					throw new Error('404.object-not-found')
 
 				let result2 = await transaction.request().query(`
 					UPDATE Admin_SurveySchedule 
@@ -1486,7 +1309,7 @@ export class Activity {
 						)
 				;`)
 				if (result1.rowsAffected[0] === 0)
-					throw new Error('No such Activity exists.')
+					throw new Error('404.object-not-found')
 
 				let result2 = await transaction.request().query(`
 					UPDATE Admin_CTestSchedule 
@@ -1507,7 +1330,7 @@ export class Activity {
 			await transaction.rollback()
 			throw e
 		}
-		throw new Error()
+		throw new Error('400.delete-failed')
 	}
 }
 
