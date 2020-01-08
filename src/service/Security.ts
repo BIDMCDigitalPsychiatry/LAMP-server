@@ -2,6 +2,7 @@ import { SQL, Encrypt, Decrypt } from '../app'
 import { Request, Response } from 'express'
 import { ResearcherRepository } from '../repository/ResearcherRepository'
 import { TypeRepository } from '../repository/TypeRepository'
+import { CredentialRepository } from '../repository/CredentialRepository'
 
 export function SecurityContext(): Promise<{type: string; id: string}> {
 	return Promise.resolve({ type: '', id: '' })
@@ -44,8 +45,6 @@ export async function _verify(
 	} else if (!(['root', 'admin'].includes(auth[0]) && auth[1] === rootPassword)) {
 		let from = auth[0], to = auth_value
 
-		// FIXME: This must be moved into Type/Credential and available for all types (!!!)
-		/* FIXME */
 		if (TypeRepository._self_type(from) === 'Participant') {
 
 		    // Authenticate as a Participant.
@@ -56,23 +55,19 @@ export async function _verify(
 			`)).recordset
     		if (result.length === 0 || (Decrypt(result[0]['Password'], 'AES256') !== auth[1]))
 				throw new Error('403.invalid-credentials') /* authorization-failed */
-
-			/* [FIXME: EXPECTING AN EMAIL HERE?] */
-		} else if (from.match(/^[^@]+@[^@]+\.[^@]+$/) || TypeRepository._self_type(from) === 'Researcher') { 
+		} else if (TypeRepository._self_type(from) === 'Researcher') { 
 
 		    // Authenticate as a Researcher. 
     		let result = (await SQL!.request().query(`
 	            SELECT AdminID, Password 
 	            FROM Admin
-	            WHERE IsDeleted = 0 AND Email = '${Encrypt(from)}';
+	            WHERE IsDeleted = 0 AND AdminID = '${ResearcherRepository._unpack_id(from).admin_id}';
 			`)).recordset
     		if (result.length === 0 || (Decrypt(result[0]['Password'], 'AES256') !== auth[1]))
 				throw new Error('403.invalid-credentials')
-
-			// FIXME: 
-			auth[0] = from = <string>ResearcherRepository._pack_id({ admin_id: result[0]['AdminID'] })
+		} else {
+			auth[0] = from = await CredentialRepository._find(auth[0], auth[1] || '*' /* FIXME: force password matching */)
 		}
-		/* FIXME */
 
 		// Patch in the special-cased "me" to the actual authenticated credential.
 		if(to === 'me')

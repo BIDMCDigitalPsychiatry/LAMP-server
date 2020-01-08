@@ -13,24 +13,35 @@ TypeService.get('/type/:type_id/parent', async (req: Request, res: Response) => 
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
 	}
 })
-TypeService.get('/type/:type_id/attachment', async (req: Request, res: Response) => {
+TypeService.get('/type/:type_id/attachment/:attachment_key?/:index?', async (req: Request, res: Response) => {
 	try {
 		let type_id = req.params.type_id
-		type_id = await _verify(req, res, ['self', 'sibling', 'parent'], type_id)
-		res.json({ data: (<string[]>[]).concat(
-			(await TypeRepository._list('a', <string>type_id)), 
-			(await TypeRepository._list('b', <string>type_id)).map(x => 'dynamic/' + x)
-		)})
-	} catch(e) {
-		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
-	}
-})
-TypeService.get('/type/:type_id/attachment/:attachment_key', async (req: Request, res: Response) => {
-	try {
-		let type_id = req.params.type_id
-		type_id = await _verify(req, res, ['self', 'sibling', 'parent'], type_id)
 		let attachment_key = req.params.attachment_key
-		res.json({ data: await TypeRepository._get('a', <string>type_id, attachment_key) })
+		let index = req.params.index
+		type_id = await _verify(req, res, ['self', 'sibling', 'parent'], type_id)
+		if (attachment_key !== undefined) {
+			let obj = await TypeRepository._get('a', <string>type_id, attachment_key)
+
+			// TODO: if obj undefined here, return null instead of throwing 404 error
+
+			let sequenceObj = (Array.isArray(obj) || typeof obj === "string")
+			let shouldIndex = index !== undefined && (typeof obj === "object" || 
+				(sequenceObj && (!isNaN(parseInt(index)) || index === 'length')))
+			let realIndex = sequenceObj && parseInt(index) < 0 ? obj.length + parseInt(index) : index
+			if (index !== undefined && !shouldIndex)
+				throw new Error('404.specified-index-not-found')
+			else if (shouldIndex)
+				obj = obj[realIndex]
+
+			// TODO: parse & b64decode data-uri strings if Accept header matches
+
+			res.json({ data: obj !== undefined ? obj : null })
+		} else {
+			res.json({ data: (<string[]>[]).concat(
+				(await TypeRepository._list('a', <string>type_id)), 
+				(await TypeRepository._list('b', <string>type_id)).map(x => 'dynamic/' + x)
+			)})
+		}
 	} catch(e) {
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
 	}

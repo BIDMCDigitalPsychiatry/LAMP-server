@@ -4,6 +4,6 @@ import { Researcher } from './Researcher'
 export class Credential {
 	public origin: string = ''
 	public access_key: string = ''
-	public secret_key: string = ''
+	public secret_key: string | null = ''
 	public description: string = ''
 }

@@ -11,6 +11,104 @@ import { Identifier_unpack, Identifier_pack } from '../repository/TypeRepository
 
 export class CredentialRepository {
 
+	// DANGER: This decrypts and dumps EVERY SINGLE CREDENTIAL!!! DO NOT USE EXCEPT FOR DEBUGGING!
+	public static async _showAll(): Promise<any[]> {
+
+		// Reset the legacy/default credential as a Researcher. 
+		let result1 = (await SQL!.request().query(`
+			SELECT AdminID, Email, Password
+			FROM Admin
+			WHERE IsDeleted = 0
+		;`))
+
+		let out1 = result1.recordset.map(x => ({
+			origin: ResearcherRepository._pack_id({ admin_id: parseInt(x['AdminID']) }),
+			access_key: Decrypt(x['Email']),
+			secret_key: Decrypt(x['Password'], 'AES256'),
+			description: 'Default Credential'
+		}))
+
+		// Reset the legacy/default credential as a Participant.
+		let result2 = (await SQL!.request().query(`
+			SELECT StudyId, Email, Password
+			FROM Users
+			WHERE IsDeleted = 0
+		;`))
+
+		let out2 = result2.recordset.map(x => ({
+			origin: Decrypt(x['StudyId']),
+			access_key: Decrypt(x['Email']),
+			secret_key: Decrypt(x['Password'], 'AES256'),
+			description: 'Default Credential'
+		}))
+
+		// Get any API credentials.
+		let result3 = (await SQL!.request().query(`
+            SELECT ObjectID, Value
+            FROM LAMP_Aux.dbo.OOLAttachment
+            WHERE ObjectType = 'Credential'
+		;`))
+
+		let out3 = result3.recordset
+						.map(x => JSON.parse(x['Value']))
+						.map(x => ({ ...x, secret_key: Decrypt(x.secret_key, 'AES256') }))
+		return [...out1, ...out2, ...out3]
+	}
+
+	// if used with secret_key, will throw error if mismatch, else, will return confirmation of existence
+	public static async _find(
+
+		access_key: string,
+
+		secret_key?: string
+
+	): Promise<string> {
+
+		// Reset the legacy/default credential as a Researcher. 
+		let result = (await SQL!.request().query(`
+			SELECT AdminID, Password
+			FROM Admin
+			WHERE IsDeleted = 0 
+				AND Email = '${Encrypt(access_key)}'
+				AND (Password IS NOT NULL AND Password != '')
+		;`))
+		if (result.rowsAffected[0] > 0) {
+			if (!!secret_key && secret_key !== Decrypt(result.recordset[0]['Password'], 'AES256'))
+				throw new Error('403.no-such-credentials')
+			return ResearcherRepository._pack_id({ admin_id: parseInt(result.recordset[0]['AdminID']) })
+		}
+
+		// Reset the legacy/default credential as a Participant.
+		result = (await SQL!.request().query(`
+			SELECT StudyId, Password
+			FROM Users
+			WHERE IsDeleted = 0 
+				AND Email = '${Encrypt(access_key)}'
+				AND (Password IS NOT NULL AND Password != '')
+		;`))
+		if (result.rowsAffected[0] > 0) {
+			if (!!secret_key && secret_key !== Decrypt(result.recordset[0]['Password'], 'AES256'))
+				throw new Error('403.no-such-credentials')
+			return <string>Decrypt(result.recordset[0]['StudyId'])
+		}
+
+		// Get any API credentials.
+		result = (await SQL!.request().query(`
+            SELECT ObjectID, Value
+            FROM LAMP_Aux.dbo.OOLAttachment
+            WHERE (
+                	[Key] = '${access_key}'
+                	AND ObjectType = 'Credential'
+                )
+		;`))
+		if (result.rowsAffected[0] === 0)
+			throw new Error('403.no-such-credentials')
+
+		if (!!secret_key && secret_key !== Decrypt(JSON.parse(result.recordset[0]['Value'])['secret_key'], 'AES256'))
+			throw new Error('403.no-such-credentials')
+		return result.recordset[0]['ObjectID']
+	}
+
 	public static async _select(
 
 		type_id: string
@@ -36,13 +134,13 @@ export class CredentialRepository {
 				FROM Admin
 				WHERE IsDeleted = 0 
 					AND (Password IS NOT NULL AND Password != '')
-					AND AdminID = ${admin_id};
-			`))
+					AND AdminID = ${admin_id}
+			;`))
 			if (result.rowsAffected[0] > 0)
 				legacy_key = {
 					origin: <string>type_id,
 					access_key: Decrypt(result.recordset[0]['Email']) || '',
-					secret_key: '',
+					secret_key: null,
 					description: 'Default Credential'
 				}
 
@@ -54,13 +152,13 @@ export class CredentialRepository {
 				FROM Users
 				WHERE IsDeleted = 0 
 					AND (Password IS NOT NULL AND Password != '')
-					AND StudyId = '${Encrypt(user_id)}';
-			`))
+					AND StudyId = '${Encrypt(user_id)}'
+			;`))
 			if (result.rowsAffected[0] > 0)
 				legacy_key = {
 					origin: <string>type_id,
 					access_key: Decrypt(result.recordset[0]['Email']) || '',
-					secret_key: '',
+					secret_key: null,
 					description: 'Default Credential'
 				}
 		}
@@ -72,11 +170,11 @@ export class CredentialRepository {
             WHERE (
                 	ObjectID = '${type_id}'
                 	AND ObjectType = 'Credential'
-                );
-		`)).recordset
+                )
+		;`)).recordset
 
 		// 
-		return [legacy_key, ...(result.map(x => x['Value']))].filter(x => !!x)
+		return [legacy_key, ...(result.map(x => JSON.parse(x['Value'])).map(x => ({ ...x, secret_key: null })))].filter(x => !!x)
 	}
 
 	public static async _insert(
@@ -105,20 +203,25 @@ export class CredentialRepository {
 			}
 			if (!!admin_id) {
 				let result = (await SQL!.request().query(`
-					SELECT Email FROM Admin WHERE IsDeleted = 0 AND AdminID = ${admin_id};
-				`))
+					SELECT Email FROM Admin WHERE IsDeleted = 0 AND AdminID = ${admin_id}
+				;`))
 				credential.access_key = Decrypt(result.recordset[0]['Email'])
 			} else if (!!user_id) {
 				let result = (await SQL!.request().query(`
-					SELECT Email FROM Users WHERE IsDeleted = 0 AND StudyId = '${Encrypt(user_id)}';
-				`))
+					SELECT Email FROM Users WHERE IsDeleted = 0 AND StudyId = '${Encrypt(user_id)}'
+				;`))
 				credential.access_key = Decrypt(result.recordset[0]['Email'])
 			}
 		}
 
 		// If it's not our credential, don't mess with it!
 		if (credential.origin !== type_id || !credential.access_key || !credential.secret_key)
-			throw new Error('404.object-not-found')
+			throw new Error('400.malformed-credential-object')
+
+		let x
+		try { x = await CredentialRepository._find(credential.access_key)
+		} catch(e) {}
+		if (!!x) throw new Error('403.access-key-already-in-use')
 
 		if (!!admin_id) {
 
@@ -130,10 +233,10 @@ export class CredentialRepository {
 					Password = '${Encrypt(credential.secret_key, 'AES256')}'
 				WHERE IsDeleted = 0 
 					AND (Password IS NULL OR Password = '')
-					AND AdminID = ${admin_id};
-			`))
-			if (result.rowsAffected[0] === 0)
-				throw new Error('404.object-not-found')
+					AND AdminID = ${admin_id}
+			;`))
+			if (result.rowsAffected[0] > 0)
+				return {}
 
 		} else if (!!user_id) {
 
@@ -145,26 +248,26 @@ export class CredentialRepository {
 					Password = '${Encrypt(credential.secret_key, 'AES256')}'
 				WHERE IsDeleted = 0 
 					AND (Password IS NULL OR Password = '')
-					AND StudyId = '${Encrypt(user_id)}';
-			`))
-			if (result.rowsAffected[0] === 0)
-				throw new Error('404.object-not-found')
-		} else {
-
-			// Reset an API credential as either a Researcher or Participant.
-			let req = SQL!.request()
-			req.input('json_value', JSON.stringify(credential))
-			let result = (await req.query(`
-	            INSERT (
-	                ObjectType, ObjectID, [Key], Value
-	            )
-	            VALUES (
-	                'Credential', '${type_id}', '${credential.key}', @json_value
-	            );
-			`))
-			if (result.rowsAffected[0] === 0)
-				throw new Error('404.object-not-found')
+					AND StudyId = '${Encrypt(user_id)}'
+			;`))
+			if (result.rowsAffected[0] > 0)
+				return {}
 		}
+
+		// Reset an API credential as either a Researcher or Participant.
+		credential.secret_key = Encrypt(credential.secret_key, 'AES256')
+		let req = SQL!.request()
+		req.input('json_value', JSON.stringify(credential))
+		let result = (await req.query(`
+            INSERT INTO LAMP_Aux.dbo.OOLAttachment (
+                ObjectType, ObjectID, [Key], Value
+            )
+            VALUES (
+                'Credential', '${type_id}', '${credential.access_key}', @json_value
+            )
+		;`))
+		if (result.rowsAffected[0] === 0)
+			throw new Error('404.object-not-found')
 		return {}
 	}
 
@@ -191,59 +294,52 @@ export class CredentialRepository {
 		//if (<string>(credential.origin) != <string>type_id)
 		//	throw new BadRequest("The credential origin does not match the requested resource.")
 		if (!credential.access_key || !credential.secret_key)
-			throw new Error("400.A credential must have both access and secret keys.") /* bad-request */
+			throw new Error("400.credential-requires-access-and-secret-keys")
 
 		if (!!admin_id) {
-			console.log('route admin')
 
 			// Reset the legacy/default credential as a Researcher. 
 			let result = (await SQL!.request().query(`
 				UPDATE Admin 
 				SET 
-					Email = '${Encrypt(credential.access_key)}',
 					Password = '${Encrypt(credential.secret_key, 'AES256')}'
 				WHERE IsDeleted = 0 
 					AND (Password IS NOT NULL AND Password != '')
-					AND AdminID = ${admin_id};
-			`))
-			if (result.rowsAffected[0] === 0)
-				throw new Error('404.object-not-found')
+					AND Email = '${Encrypt(credential.access_key)}'
+					AND AdminID = ${admin_id}
+			;`))
+			if (result.rowsAffected[0] > 0)
+				return {}
 
 		} else if (!!user_id) {
-			console.log('route user')
 
 			// Reset the legacy/default credential as a Participant.
 			let result = (await SQL!.request().query(`
 				UPDATE Users 
 				SET 
-					Email = '${Encrypt(credential.access_key)}',
 					Password = '${Encrypt(credential.secret_key, 'AES256')}'
 				WHERE IsDeleted = 0 
 					AND (Password IS NOT NULL AND Password != '')
-					AND StudyId = '${Encrypt(user_id)}';
-			`))
-			if (result.rowsAffected[0] === 0)
-				throw new Error('404.object-not-found')
-		} else {
-			console.log('route missing')
-			throw new Error('404.object-not-found')
-
-			/*
-			// Reset an API credential as either a Researcher or Participant.
-			let req = SQL!.request()
-			req.input('json_value', JSON.stringify(credential))
-			let result = (await req.query(`
-	            INSERT (
-	                ObjectType, ObjectID, [Key], Value
-	            )
-	            VALUES (
-	                'Credential', '${type_id}', '${credential.key}', @json_value
-	            );
-			`))
-			if (result.rowsAffected[0] === 0)
-				throw new Error('404.object-not-found')
-			*/
+					AND Email = '${Encrypt(credential.access_key)}'
+					AND StudyId = '${Encrypt(user_id)}'
+			;`))
+			if (result.rowsAffected[0] > 0)
+				return {}
 		}
+
+		// Reset an API credential as either a Researcher or Participant.
+		credential.secret_key = Encrypt(credential.secret_key, 'AES256')
+		let req = SQL!.request()
+		req.input('json_value', JSON.stringify(credential))
+		let result = (await req.query(`
+            UPDATE LAMP_Aux.dbo.OOLAttachment SET
+	            Value = @json_value
+            WHERE ObjectType = 'Credential'
+            	AND ObjectID = '${type_id}'
+            	AND [Key] = '${credential.access_key}'
+		;`))
+		if (result.rowsAffected[0] === 0)
+			throw new Error('404.object-not-found')
 		return {}
 	}
 
@@ -272,10 +368,11 @@ export class CredentialRepository {
 				SET Password = '' 
 				WHERE IsDeleted = 0 
 					AND Email = '${Encrypt(access_key)}'
-					AND AdminID = ${admin_id};
-			`))
-			if (result.rowsAffected[0] === 0)
-				throw new Error('404.object-not-found')
+					AND AdminID = ${admin_id}
+					AND (Password IS NOT NULL AND Password != '')
+			;`))
+			if (result.rowsAffected[0] > 0)
+				return {}
 
 		} else if (!!user_id) {
 
@@ -285,23 +382,23 @@ export class CredentialRepository {
 				SET Password = '' 
 				WHERE IsDeleted = 0 
 					AND Email = '${Encrypt(access_key)}'
-					AND StudyId = '${Encrypt(user_id)}';
-			`))
-			if (result.rowsAffected[0] === 0)
-				throw new Error('404.object-not-found')
-		} else {
-
-			// Reset an API credential as either a Researcher or Participant.
-			let result = (await SQL!.request().query(`
-		        DELETE FROM LAMP_Aux.dbo.OOLAttachment
-	            WHERE 
-	                ObjectID = '${type_id}'
-	                AND [Key] = '${access_key}'
-	                AND ObjectType = 'Credential';
-			`))
-			if (result.rowsAffected[0] === 0)
-				throw new Error('404.object-not-found')
+					AND StudyId = '${Encrypt(user_id)}'
+					AND (Password IS NOT NULL AND Password != '')
+			;`))
+			if (result.rowsAffected[0] > 0)
+				return {}
 		}
+
+		// Reset an API credential as either a Researcher or Participant.
+		let result = (await SQL!.request().query(`
+	        DELETE FROM LAMP_Aux.dbo.OOLAttachment
+            WHERE 
+                ObjectID = '${type_id}'
+                AND [Key] = '${access_key}'
+                AND ObjectType = 'Credential'
+		;`))
+		if (result.rowsAffected[0] === 0)
+			throw new Error('404.access-key-not-found')
 		return {}
 	}
 }

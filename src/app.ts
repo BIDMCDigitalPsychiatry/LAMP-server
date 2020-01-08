@@ -16,6 +16,8 @@ const vhost = require('vhost')
 const alasql = require('alasql')
 const sendmail = require('sendmail')
 
+// FIXME: Support application/json;indent=:spaces format mime type!
+
 // 
 export const Docker = new _Docker({ host: '18.216.130.88', port: 2375 })
 
