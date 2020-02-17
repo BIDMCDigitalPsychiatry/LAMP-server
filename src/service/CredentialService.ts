@@ -8,7 +8,8 @@ CredentialService.get('/type/:type_id/credential', async (req: Request, res: Res
 	try {
 		let type_id = req.params.type_id
 		type_id = await _verify(req, res, ['self', 'parent'], type_id)
-		res.json({ data: await CredentialRepository._select(type_id) })
+		let output = { data: await CredentialRepository._select(type_id) }
+		res.json(output)
 	} catch(e) {
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
 	}
@@ -18,7 +19,8 @@ CredentialService.post('/type/:type_id/credential', async (req: Request, res: Re
 		let type_id = req.params.type_id
 		let credential = req.body
 		type_id = await _verify(req, res, ['self', 'parent'], type_id)
-		res.json({ data: await CredentialRepository._insert(type_id, credential) })
+		let output = { data: await CredentialRepository._insert(type_id, credential) }
+		res.json(output)
 	} catch(e) {
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
 	}
@@ -29,7 +31,8 @@ CredentialService.put('/type/:type_id/credential/:access_key', async (req: Reque
 		let access_key = req.params.access_key
 		let credential = req.body
 		type_id = await _verify(req, res, ['self', 'parent'], type_id)
-		res.json({ data: await CredentialRepository._update(type_id, access_key, credential) })
+		let output = { data: await CredentialRepository._update(type_id, access_key, credential) }
+		res.json(output)
 	} catch(e) {
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
 	}
@@ -39,7 +42,8 @@ CredentialService.delete('/type/:type_id/credential/:access_key', async (req: Re
 		let type_id = req.params.type_id
 		let access_key = req.params.access_key
 		type_id = await _verify(req, res, ['self', 'parent'], type_id)
-		res.json({ data: await CredentialRepository._delete(type_id, access_key) })
+		let output = { data: await CredentialRepository._delete(type_id, access_key) }
+		res.json(output)
 	} catch(e) {
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
 	}

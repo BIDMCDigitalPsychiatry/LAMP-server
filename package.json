@@ -14,6 +14,7 @@
     "fastify": "^2.11.0",
     "fs-extra": "^7.0.1",
     "get-stream": "^5.1.0",
+    "jsonata": "^1.8.1",
     "morgan": "^1.9.1",
     "mssql": "^6.0.0",
     "nano": "^8.1.0",

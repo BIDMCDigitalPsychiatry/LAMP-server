@@ -9,6 +9,8 @@ import { ResearcherRepository } from '../repository/ResearcherRepository'
 import { ParticipantRepository } from '../repository/ParticipantRepository'
 import { Identifier_unpack, Identifier_pack } from '../repository/TypeRepository'
 
+// TODO: Credential.delete -> promote tag credential to legacy credential to allow login!
+
 export class CredentialRepository {
 
 	// DANGER: This decrypts and dumps EVERY SINGLE CREDENTIAL!!! DO NOT USE EXCEPT FOR DEBUGGING!

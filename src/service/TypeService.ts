@@ -8,7 +8,8 @@ TypeService.get('/type/:type_id/parent', async (req: Request, res: Response) => 
 	try {
 		let type_id = req.params.type_id
 		type_id = await _verify(req, res, ['self', 'sibling', 'parent'], type_id)
-		res.json({ data: await TypeRepository._parent(type_id) })
+		let output = { data: await TypeRepository._parent(type_id) }
+		res.json(output)
 	} catch(e) {
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
 	}
@@ -35,12 +36,14 @@ TypeService.get('/type/:type_id/attachment/:attachment_key?/:index?', async (req
 
 			// TODO: parse & b64decode data-uri strings if Accept header matches
 
-			res.json({ data: obj !== undefined ? obj : null })
+			let output = { data: obj !== undefined ? obj : null }
+			res.json(output)
 		} else {
-			res.json({ data: (<string[]>[]).concat(
+			let output = { data: (<string[]>[]).concat(
 				(await TypeRepository._list('a', <string>type_id)), 
 				(await TypeRepository._list('b', <string>type_id)).map(x => 'dynamic/' + x)
-			)})
+			)}
+			res.json(output)
 		}
 	} catch(e) {
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
@@ -53,7 +56,8 @@ TypeService.put('/type/:type_id/attachment/:attachment_key/:target', async (req:
 		let target = req.params.target
 		let attachment_value = req.body
 		type_id = await _verify(req, res, ['self', 'sibling', 'parent'], type_id)
-		res.json({ data: await TypeRepository._set('a', target, <string>type_id, attachment_key, attachment_value) ? {} : null /* error */ })
+		let output = { data: await TypeRepository._set('a', target, <string>type_id, attachment_key, attachment_value) ? {} : null /* error */ }
+		res.json(output)
 	} catch(e) {
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
 	}
@@ -79,10 +83,11 @@ TypeService.get('/type/:type_id/attachment/dynamic/:attachment_key', async (req:
 			// Otherwise, return any cached result available.
 			result = await TypeRepository._get('a', <string>type_id, attachment_key + '/output')
 		}
-		res.json({ data: (!!include_logs && !ignore_output) ? result : {
+		let output = { data: (!!include_logs && !ignore_output) ? result : {
 			data: !ignore_output ? result.output : undefined,
 			logs: !!include_logs ? result.logs : undefined
-		}})
+		}}
+		res.json(output)
 	} catch(e) {
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
 	}
@@ -107,7 +112,8 @@ TypeService.put('/type/:type_id/attachment/dynamic/:attachment_key/:target', asy
 			}
 			result = {}
 		}
-		res.json({ data: result })
+		let output = { data: result }
+		res.json(output)
 	} catch(e) {
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
 	}

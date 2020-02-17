@@ -41,7 +41,7 @@ export class ActivitySpecRepository {
 	): Promise<ActivitySpec[]> {
 		
 		// Short-circuit to the batch spec if requested.
-		if (index_name === 'lamp.activity_group')
+		if (index_name === 'lamp.group')
 			return [ActivitySpecRepository.batchSpec]
 
 		// Collect the set of legacy Activity tables and stitch the full query.
@@ -126,7 +126,7 @@ export class ActivitySpecRepository {
 	 */
 	private static get batchSpec() {
 		let obj = new ActivitySpec()
-		obj.name = 'lamp.activity_group'
+		obj.name = 'lamp.group'
 		obj.settings_schema = {
 			type: 'object',
 			properties: {
