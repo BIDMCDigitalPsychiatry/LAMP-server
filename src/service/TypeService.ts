@@ -2,6 +2,7 @@ import { Request, Response, Router } from 'express'
 import { DynamicAttachment } from '../model/Type'
 import { TypeRepository } from '../repository/TypeRepository'
 import { SecurityContext, ActionContext, _verify } from './Security'
+import jsonata from 'jsonata'
 
 export const TypeService = Router()
 TypeService.get('/type/:type_id/parent', async (req: Request, res: Response) => {
@@ -9,6 +10,7 @@ TypeService.get('/type/:type_id/parent', async (req: Request, res: Response) => 
 		let type_id = req.params.type_id
 		type_id = await _verify(req, res, ['self', 'sibling', 'parent'], type_id)
 		let output = { data: await TypeRepository._parent(type_id) }
+		output = typeof req.query.transform === 'string' ? jsonata(req.query.transform).evaluate(output) : output
 		res.json(output)
 	} catch(e) {
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })

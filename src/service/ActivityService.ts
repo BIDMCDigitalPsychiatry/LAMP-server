@@ -2,6 +2,7 @@ import { Request, Response, Router } from 'express'
 import { Activity } from '../model/Activity'
 import { ActivityRepository } from '../repository/ActivityRepository'
 import { SecurityContext, ActionContext, _verify } from './Security'
+import jsonata from 'jsonata'
 
 export const ActivityService = Router()
 ActivityService.post('/study/:study_id/activity', async (req: Request, res: Response) => {
@@ -41,6 +42,7 @@ ActivityService.get('/activity/:activity_id', async (req: Request, res: Response
 		let activity_id = req.params.activity_id
 		activity_id = await _verify(req, res, ['self', 'sibling', 'parent'], activity_id)
 		let output = { data: await ActivityRepository._select(activity_id) }
+		output = typeof req.query.transform === 'string' ? jsonata(req.query.transform).evaluate(output) : output
 		res.json(output)
 	} catch(e) {
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
@@ -51,6 +53,7 @@ ActivityService.get('/participant/:participant_id/activity', async (req: Request
 		let participant_id = req.params.participant_id
 		participant_id = await _verify(req, res, ['self', 'sibling', 'parent'], participant_id)
 		let output = { data: await ActivityRepository._select(participant_id) }
+		output = typeof req.query.transform === 'string' ? jsonata(req.query.transform).evaluate(output) : output
 		res.json(output)
 	} catch(e) {
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
@@ -61,6 +64,7 @@ ActivityService.get('/study/:study_id/activity', async (req: Request, res: Respo
 		let study_id = req.params.study_id
 		study_id = await _verify(req, res, ['self', 'sibling', 'parent'], study_id)
 		let output = { data: await ActivityRepository._select(study_id) }
+		output = typeof req.query.transform === 'string' ? jsonata(req.query.transform).evaluate(output) : output
 		res.json(output)
 	} catch(e) {
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
@@ -71,6 +75,7 @@ ActivityService.get('/researcher/:researcher_id/activity', async (req: Request, 
 		let researcher_id = req.params.researcher_id
 		researcher_id = await _verify(req, res, ['self', 'sibling', 'parent'], researcher_id)
 		let output = { data: await ActivityRepository._select(researcher_id) }
+		output = typeof req.query.transform === 'string' ? jsonata(req.query.transform).evaluate(output) : output
 		res.json(output)
 	} catch(e) {
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
@@ -80,6 +85,7 @@ ActivityService.get('/activity', async (req: Request, res: Response) => {
 	try {
 		let _ = await _verify(req, res, ['parent'])
 		let output = { data: await ActivityRepository._select() }
+		output = typeof req.query.transform === 'string' ? jsonata(req.query.transform).evaluate(output) : output
 		res.json(output)
 	} catch(e) {
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })

@@ -2,6 +2,7 @@ import { Request, Response, Router } from 'express'
 import { Participant } from '../model/Participant'
 import { ParticipantRepository } from '../repository/ParticipantRepository'
 import { SecurityContext, ActionContext, _verify } from './Security'
+import jsonata from 'jsonata'
 
 export const ParticipantService = Router()
 ParticipantService.post('/study/:study_id/participant', async (req: Request, res: Response) => {
@@ -41,6 +42,7 @@ ParticipantService.get('/participant/:participant_id', async (req: Request, res:
 		let participant_id = req.params.participant_id
 		participant_id = await _verify(req, res, ['self', 'sibling', 'parent'], participant_id)
 		let output = { data: await ParticipantRepository._select(participant_id) }
+		output = typeof req.query.transform === 'string' ? jsonata(req.query.transform).evaluate(output) : output
 		res.json(output)
 	} catch(e) {
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
@@ -51,6 +53,7 @@ ParticipantService.get('/study/:study_id/participant', async (req: Request, res:
 		let study_id = req.params.study_id
 		study_id = await _verify(req, res, ['self', 'sibling', 'parent'], study_id)
 		let output = { data: await ParticipantRepository._select(study_id) }
+		output = typeof req.query.transform === 'string' ? jsonata(req.query.transform).evaluate(output) : output
 		res.json(output)
 	} catch(e) {
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
@@ -61,6 +64,7 @@ ParticipantService.get('/researcher/:researcher_id/participant', async (req: Req
 		let researcher_id = req.params.researcher_id
 		researcher_id = await _verify(req, res, ['self', 'sibling', 'parent'], researcher_id)
 		let output = { data: await ParticipantRepository._select(researcher_id) }
+		output = typeof req.query.transform === 'string' ? jsonata(req.query.transform).evaluate(output) : output
 		res.json(output)
 	} catch(e) {
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
@@ -70,6 +74,7 @@ ParticipantService.get('/participant', async (req: Request, res: Response) => {
 	try {
 		let _ = await _verify(req, res, [])
 		let output = { data: await ParticipantRepository._select() }
+		output = typeof req.query.transform === 'string' ? jsonata(req.query.transform).evaluate(output) : output
 		res.json(output)
 	} catch(e) {
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })

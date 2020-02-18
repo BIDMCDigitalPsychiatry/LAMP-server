@@ -2,6 +2,7 @@ import { Request, Response, Router } from 'express'
 import { Credential } from '../model/Credential'
 import { CredentialRepository } from '../repository/CredentialRepository'
 import { SecurityContext, ActionContext, _verify } from './Security'
+import jsonata from 'jsonata'
 
 export const CredentialService = Router()
 CredentialService.get('/type/:type_id/credential', async (req: Request, res: Response) => {
@@ -9,6 +10,7 @@ CredentialService.get('/type/:type_id/credential', async (req: Request, res: Res
 		let type_id = req.params.type_id
 		type_id = await _verify(req, res, ['self', 'parent'], type_id)
 		let output = { data: await CredentialRepository._select(type_id) }
+		output = typeof req.query.transform === 'string' ? jsonata(req.query.transform).evaluate(output) : output
 		res.json(output)
 	} catch(e) {
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
