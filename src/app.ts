@@ -258,24 +258,3 @@ export const Sysmail = async function(
 	// Begin listener on port 3000.
 	_server.listen(process.env.PORT || 3000)
 })()
-
-
-
-/*
-alasql(`CREATE TABLE ${'Researcher'}`)
-alasql.tables['Researcher'] = {
-	...alasql.tables['Researcher'],
-	get data() { return [{ value: 'A' }, { value: 'B' }, { value: 'C' }] },
-	get columns() { return [{ columnid: 'value', dbtypeid: 'JSON' }] },
-	get xcolumns() { return { value: { columnid: 'value', dbtypeid: 'JSON' }} }
-}
-app.post('/', async (req, res) => {
-	try {
-		res.status(200).json(alasql(req.body))
-	} catch(e) {
-		res.status(500).json({ error: e.message })
-	}
-})
-*/
-
-
