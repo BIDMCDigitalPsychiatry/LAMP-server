@@ -46,6 +46,7 @@
     "pkg": "^4.4.2",
     "tsc-watch": "^1.1.39",
     "tslint": "^5.20.1",
+    "dotenv": "^8.2.0",
     "tslint-config-prettier": "^1.18.0",
     "tslint-config-standard": "^8.0.1"
   },

@@ -1,3 +1,4 @@
+require('dotenv').config()
 import API from './service'
 import _defn from './utils/openapi.json'
 import express, { Request, Response, Router, NextFunction, Application } from 'express'
@@ -30,7 +31,7 @@ app.use(require('cors')())
 app.use(require('morgan')(':method :url :status - :response-time ms'))
 
 //
-const _server = process.env.NODE_ENV === 'production' ? app : 
+const _server = process.env.HTTPS === 'off' ? app : 
 	https.createServer({
 		passphrase: 'localhost',
 		key: `-----BEGIN ENCRYPTED PRIVATE KEY-----

@@ -1,20 +1,3 @@
-# LAMP API 
+# LAMP Server
 
-- Object Hierarchy
-	- Researcher
-	- Study
-	- Activity
-	- Participant
-- Specifications
-	- ActivitySpec
-	- SensorSpec
-- Event Streams
-	- ResultEvent (Active)
-	- SensorEvent (Passive)
-- Scripting Additions
-	- Docker
-	- Language Support
-		- ???
-- Client Code
-	- OpenAPI Generator
-		- ???
+[To learn more about the LAMP Platform, visit our documentation.](https://docs.lamp.digital/)
