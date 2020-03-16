@@ -95,7 +95,10 @@ API.post('/', async (req, res) => {
 			},
 			'Tags_view': async (type_id: string, attachment_key: string) => {
 				type_id = await _verify(req, res, ['self', 'sibling', 'parent'], type_id)
-				return (await TypeRepository._get('a', <string>type_id, attachment_key)) ?? null
+				let x = null
+				try { x = await TypeRepository._get('a', <string>type_id, attachment_key)
+				} catch(e) {}
+				return x
 			}
 		}, (err, output) => {
 			if (err)

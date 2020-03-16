@@ -65,9 +65,26 @@ export class CredentialRepository {
 		secret_key?: string
 
 	): Promise<string> {
+		let result = null
+
+		// Get any API credentials. 
+		// Note: THIS MUST HAPPEN FIRST! If not, you will see email address conflicts with legacy accounts.
+		result = (await SQL!.request().query(`
+            SELECT ObjectID, Value
+            FROM LAMP_Aux.dbo.OOLAttachment
+            WHERE (
+                	[Key] = '${access_key}'
+                	AND ObjectType = 'Credential'
+                )
+		;`))
+		if (result.rowsAffected[0] > 0) {
+			if (!!secret_key && secret_key !== Decrypt(JSON.parse(result.recordset[0]['Value'])['secret_key'], 'AES256'))
+				throw new Error('403.no-such-credentials')
+			return result.recordset[0]['ObjectID']
+		}
 
 		// Reset the legacy/default credential as a Researcher. 
-		let result = (await SQL!.request().query(`
+		result = (await SQL!.request().query(`
 			SELECT AdminID, Password
 			FROM Admin
 			WHERE IsDeleted = 0 
@@ -82,7 +99,7 @@ export class CredentialRepository {
 
 		// Reset the legacy/default credential as a Participant.
 		result = (await SQL!.request().query(`
-			SELECT StudyId, Password
+			SELECT Email, StudyId, Password
 			FROM Users
 			WHERE IsDeleted = 0 
 				AND Email = '${Encrypt(access_key)}'
@@ -93,22 +110,8 @@ export class CredentialRepository {
 				throw new Error('403.no-such-credentials')
 			return <string>Decrypt(result.recordset[0]['StudyId'])
 		}
-
-		// Get any API credentials.
-		result = (await SQL!.request().query(`
-            SELECT ObjectID, Value
-            FROM LAMP_Aux.dbo.OOLAttachment
-            WHERE (
-                	[Key] = '${access_key}'
-                	AND ObjectType = 'Credential'
-                )
-		;`))
-		if (result.rowsAffected[0] === 0)
-			throw new Error('403.no-such-credentials')
-
-		if (!!secret_key && secret_key !== Decrypt(JSON.parse(result.recordset[0]['Value'])['secret_key'], 'AES256'))
-			throw new Error('403.no-such-credentials')
-		return result.recordset[0]['ObjectID']
+		
+		throw new Error('403.no-such-credentials')
 	}
 
 	public static async _select(

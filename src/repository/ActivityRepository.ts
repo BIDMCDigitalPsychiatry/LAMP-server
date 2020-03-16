@@ -530,12 +530,18 @@ export class ActivityRepository {
 				// Create the questions.
 				if (Array.isArray(object.settings) && object.settings.length > 0) {
 					let result2 = await transaction.request().query(`
-						INSERT INTO SurveyQuestions (SurveyID, QuestionText, AnswerType) 
+						INSERT INTO SurveyQuestions (
+							SurveyID, QuestionText, AnswerType, 
+							Threshold, Operator, Message
+						) 
 						OUTPUT INSERTED.QuestionID
 						VALUES ${object.settings.map(q => `(
 							${survey_id},
 							'${_escapeMSSQL(q.text)}',
-							${['likert', 'list', 'boolean', 'clock', 'years', 'months', 'days', 'text'].indexOf(q.type) + 1}
+							${['likert', 'list', 'boolean', 'clock', 'years', 'months', 'days', 'text'].indexOf(q.type) + 1},
+							${_opMatch(q.text)?.tr ?? 'NULL'},
+							${_opMatch(q.text)?.op ?? 'NULL'},
+							${_opMatch(q.text)?.msg ?? 'NULL'}
 						)`).join(', ')}
 					;`)
 					if (result2.rowsAffected[0] !== object.settings.length)
@@ -1379,3 +1385,12 @@ const _escapeMSSQL = (val: string) => val.replace(/[\0\n\r\b\t\\'"\x1a]/g, (s: s
 	    return "\\" + s;
 	}
 })
+
+// threshold & operator hard-coded matches
+const _opMatch = (val: string) => ((<any>{
+	'Today I have thoughts of self-harm': {
+		tr: 1,
+		op: `'1'`,
+		msg: `'Please remember that this app is not monitored.  If you are having thoughts of suicide or self-harm, please call 1-800-273-8255.'`
+	}
+})[val])
