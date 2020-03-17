@@ -9,10 +9,12 @@ ActivityEventService.post('/participant/:participant_id/activity_event', async (
 	try {
 		let participant_id = req.params.participant_id
 		let activity_event = req.body
-		participant_id = await _verify(req, res, ['self', 'sibling', 'parent'], participant_id)
+		participant_id = await _verify(req.get('Authorization'), ['self', 'sibling', 'parent'], participant_id)
 		let output = { data: await ActivityEventRepository._insert(participant_id, ae2re(req, [activity_event])[0]) }
 		res.json(output)
 	} catch(e) {
+		if (e.message === '401.missing-credentials')
+			res.set('WWW-Authenticate', `Basic realm="LAMP" charset="UTF-8"`)
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
 	}
 })
@@ -22,10 +24,12 @@ ActivityEventService.delete('/participant/:participant_id/activity_event', async
 		let origin = req.query.origin
 		let from = req.query.from
 		let to = req.query.to
-		participant_id = await _verify(req, res, ['self', 'sibling', 'parent'], participant_id)
+		participant_id = await _verify(req.get('Authorization'), ['self', 'sibling', 'parent'], participant_id)
 		let output = { data: await ActivityEventRepository._delete(participant_id, origin, from, to) }
 		res.json(output)
 	} catch(e) {
+		if (e.message === '401.missing-credentials')
+			res.set('WWW-Authenticate', `Basic realm="LAMP" charset="UTF-8"`)
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
 	}
 })
@@ -35,11 +39,14 @@ ActivityEventService.get('/participant/:participant_id/activity_event', async (r
 		let origin = req.query.origin
 		let from = req.query.from
 		let to = req.query.to
-		participant_id = await _verify(req, res, ['self', 'sibling', 'parent'], participant_id)
-		let output = { data: re2ae(req, await ActivityEventRepository._select(participant_id, origin, from, to)) }
+		let limit = Math.min(Math.max(req.query.limit ?? 1000, 0), 1000) // clamped to [0, 1000]
+		participant_id = await _verify(req.get('Authorization'), ['self', 'sibling', 'parent'], participant_id)
+		let output = { data: re2ae(req, await ActivityEventRepository._select(participant_id, origin, from, to, limit)) }
 		output = typeof req.query.transform === 'string' ? jsonata(req.query.transform).evaluate(output) : output
 		res.json(output)
 	} catch(e) {
+		if (e.message === '401.missing-credentials')
+			res.set('WWW-Authenticate', `Basic realm="LAMP" charset="UTF-8"`)
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
 	}
 })
@@ -49,11 +56,14 @@ ActivityEventService.get('/study/:study_id/activity_event', async (req: Request,
 		let origin = req.query.origin
 		let from = req.query.from
 		let to = req.query.to
-		study_id = await _verify(req, res, ['self', 'sibling', 'parent'], study_id)
-		let output = { data: re2ae(req, await ActivityEventRepository._select(study_id, origin, from, to)) }
+		let limit = Math.min(Math.max(req.query.limit ?? 1000, 0), 1000) // clamped to [0, 1000]
+		study_id = await _verify(req.get('Authorization'), ['self', 'sibling', 'parent'], study_id)
+		let output = { data: re2ae(req, await ActivityEventRepository._select(study_id, origin, from, to, limit)) }
 		output = typeof req.query.transform === 'string' ? jsonata(req.query.transform).evaluate(output) : output
 		res.json(output)
 	} catch(e) {
+		if (e.message === '401.missing-credentials')
+			res.set('WWW-Authenticate', `Basic realm="LAMP" charset="UTF-8"`)
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
 	}
 })
@@ -63,11 +73,14 @@ ActivityEventService.get('/researcher/:researcher_id/activity_event', async (req
 		let origin = req.query.origin
 		let from = req.query.from
 		let to = req.query.to
-		researcher_id = await _verify(req, res, ['self', 'sibling', 'parent'], researcher_id)
-		let output = { data: re2ae(req, await ActivityEventRepository._select(researcher_id, origin, from, to)) }
+		let limit = Math.min(Math.max(req.query.limit ?? 1000, 0), 1000) // clamped to [0, 1000]
+		researcher_id = await _verify(req.get('Authorization'), ['self', 'sibling', 'parent'], researcher_id)
+		let output = { data: re2ae(req, await ActivityEventRepository._select(researcher_id, origin, from, to, limit)) }
 		output = typeof req.query.transform === 'string' ? jsonata(req.query.transform).evaluate(output) : output
 		res.json(output)
 	} catch(e) {
+		if (e.message === '401.missing-credentials')
+			res.set('WWW-Authenticate', `Basic realm="LAMP" charset="UTF-8"`)
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
 	}
 })
@@ -96,10 +109,12 @@ ResultEventService.post('/participant/:participant_id/result_event', async (req:
 	try {
 		let participant_id = req.params.participant_id
 		let activity_event = req.body
-		participant_id = await _verify(req, res, ['self', 'sibling', 'parent'], participant_id)
+		participant_id = await _verify(req.get('Authorization'), ['self', 'sibling', 'parent'], participant_id)
 		let output = { data: await ActivityEventRepository._insert(participant_id, ae2re(req, [activity_event])[0]) }
 		res.json(output)
 	} catch(e) {
+		if (e.message === '401.missing-credentials')
+			res.set('WWW-Authenticate', `Basic realm="LAMP" charset="UTF-8"`)
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
 	}
 })
@@ -109,10 +124,12 @@ ResultEventService.delete('/participant/:participant_id/result_event', async (re
 		let origin = req.query.origin
 		let from = req.query.from
 		let to = req.query.to
-		participant_id = await _verify(req, res, ['self', 'sibling', 'parent'], participant_id)
+		participant_id = await _verify(req.get('Authorization'), ['self', 'sibling', 'parent'], participant_id)
 		let output = { data: await ActivityEventRepository._delete(participant_id, origin, from, to) }
 		res.json(output)
 	} catch(e) {
+		if (e.message === '401.missing-credentials')
+			res.set('WWW-Authenticate', `Basic realm="LAMP" charset="UTF-8"`)
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
 	}
 })
@@ -122,11 +139,14 @@ ResultEventService.get('/participant/:participant_id/result_event', async (req: 
 		let origin = req.query.origin
 		let from = req.query.from
 		let to = req.query.to
-		participant_id = await _verify(req, res, ['self', 'sibling', 'parent'], participant_id)
-		let output = { data: re2ae(req, await ActivityEventRepository._select(participant_id, origin, from, to)) }
+		let limit = Math.min(Math.max(req.query.limit ?? 1000, 0), 1000) // clamped to [0, 1000]
+		participant_id = await _verify(req.get('Authorization'), ['self', 'sibling', 'parent'], participant_id)
+		let output = { data: re2ae(req, await ActivityEventRepository._select(participant_id, origin, from, to, limit)) }
 		output = typeof req.query.transform === 'string' ? jsonata(req.query.transform).evaluate(output) : output
 		res.json(output)
 	} catch(e) {
+		if (e.message === '401.missing-credentials')
+			res.set('WWW-Authenticate', `Basic realm="LAMP" charset="UTF-8"`)
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
 	}
 })
@@ -136,11 +156,14 @@ ResultEventService.get('/study/:study_id/result_event', async (req: Request, res
 		let origin = req.query.origin
 		let from = req.query.from
 		let to = req.query.to
-		study_id = await _verify(req, res, ['self', 'sibling', 'parent'], study_id)
-		let output = { data: re2ae(req, await ActivityEventRepository._select(study_id, origin, from, to)) }
+		let limit = Math.min(Math.max(req.query.limit ?? 1000, 0), 1000) // clamped to [0, 1000]
+		study_id = await _verify(req.get('Authorization'), ['self', 'sibling', 'parent'], study_id)
+		let output = { data: re2ae(req, await ActivityEventRepository._select(study_id, origin, from, to, limit)) }
 		output = typeof req.query.transform === 'string' ? jsonata(req.query.transform).evaluate(output) : output
 		res.json(output)
 	} catch(e) {
+		if (e.message === '401.missing-credentials')
+			res.set('WWW-Authenticate', `Basic realm="LAMP" charset="UTF-8"`)
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
 	}
 })
@@ -150,11 +173,14 @@ ResultEventService.get('/researcher/:researcher_id/result_event', async (req: Re
 		let origin = req.query.origin
 		let from = req.query.from
 		let to = req.query.to
-		researcher_id = await _verify(req, res, ['self', 'sibling', 'parent'], researcher_id)
-		let output = { data: re2ae(req, await ActivityEventRepository._select(researcher_id, origin, from, to)) }
+		let limit = Math.min(Math.max(req.query.limit ?? 1000, 0), 1000) // clamped to [0, 1000]
+		researcher_id = await _verify(req.get('Authorization'), ['self', 'sibling', 'parent'], researcher_id)
+		let output = { data: re2ae(req, await ActivityEventRepository._select(researcher_id, origin, from, to, limit)) }
 		output = typeof req.query.transform === 'string' ? jsonata(req.query.transform).evaluate(output) : output
 		res.json(output)
 	} catch(e) {
+		if (e.message === '401.missing-credentials')
+			res.set('WWW-Authenticate', `Basic realm="LAMP" charset="UTF-8"`)
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
 	}
 })

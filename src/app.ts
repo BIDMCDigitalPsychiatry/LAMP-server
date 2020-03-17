@@ -13,6 +13,7 @@ import proxy from 'express-http-proxy'
 import _Docker from 'dockerode'
 import ScriptRunner from './utils/ScriptRunner'
 import LegacyAPI from './utils/legacy/route'
+import { BeiweMigrate } from './utils/migrator/beiwe'
 const vhost = require('vhost')
 const alasql = require('alasql')
 const sendmail = require('sendmail')
@@ -189,26 +190,6 @@ export const Download = function(url: string): Promise<Buffer> {
 	    });
 	    request.on('error', (err) => reject(err))
 	})
-}
-
-/**
- *
- */
-export const Sysmail = async function(
-	subject: string, 
-	contents: string,
-	from: string = 'system@lamp.digital', 
-	to: string = 'team@digitalpsych.org', 
-	replyTo: string | undefined = 'team@digitalpsych.org'
-): Promise<any> {
-	return new Promise((resolve, reject) => {
-		sendmail({ silent: true })({
-			from, to, replyTo, subject, html: contents
-		}, (error: Error, reply: string) => {
-			if (!!error) reject(error)
-			else resolve(reply)
-		})
-	})
 };
 
 // Initialize and configure the application.
@@ -220,18 +201,16 @@ export const Sysmail = async function(
 
 	// Establish misc. routes.
 	app.get('/', (req, res) => res.json(_defn))
-	app.get('*', (req, res) => res.status(404).json({ "message": "404.api-endpoint-unimplemented" }))
 	app.get('/favicon.ico', (req, res) => res.status(204))
 	app.get('/service-worker.js', (req, res) => res.status(204))
-	
-	app.post('/internal/sysmsg/', async (req, res) => {
-		try {
-			let result = await Sysmail(req.body.subject, req.body.contents)
-			res.status(200).json(result)
-		} catch(e) {
-			res.status(500).json({ error: e.message })
-		}
+	app.get('/_utils', (req, res) => {
+		if (req.query.key !== Root.password)
+			return res.status(400).json({ 'message': 'invalid credentials' })
+		if (req.query.func === 'crypto')
+			return res.status(200).json((req.query.type === 'encrypt' ? Encrypt : Decrypt)(req.query.data, req.query.mode))
+		return res.status(400).json({ 'message': 'invalid utility function' })
 	})
+	app.all('*', (req, res) => res.status(404).json({ "message": "404.api-endpoint-unimplemented" }))
 
 	// Establish the SQL connection.
 	SQL = await new sql.ConnectionPool({
@@ -250,11 +229,14 @@ export const Sysmail = async function(
 	    	abortTransactionOnError: true 
 	    },
 	    pool: {
-	        min: 0, 
-	        max: 10,
+	        min: 1, 
+	        max: 100,
 	        idleTimeoutMillis: 30000
 	    }
 	}).connect()
+
+	// TODO
+	//await BeiweMigrate([ 'UmVzZWFyY2hlcjozOQ~~', 'UmVzZWFyY2hlcjo0Nw~~', 'UmVzZWFyY2hlcjo0OA~~' ])
 
 	// Begin listener on port 3000.
 	_server.listen(process.env.PORT || 3000)

@@ -1,5 +1,4 @@
 import { SQL, Encrypt, Decrypt } from '../app'
-import { Request, Response } from 'express'
 import { ResearcherRepository } from '../repository/ResearcherRepository'
 import { TypeRepository } from '../repository/TypeRepository'
 import { CredentialRepository } from '../repository/CredentialRepository'
@@ -15,15 +14,14 @@ export function ActionContext(): Promise<{type: string; id: string}> {
 const rootPassword = process.env.ROOT_PASSWORD || ''
 
 export async function _verify(
-	req: Request, 
-	res: Response, 
+	authHeader: string | undefined, 
 	type: Array<'self' | 'sibling' | 'parent'>, /* 'root' = [] */
 	auth_value?: string
 ): Promise<string> {
 
 	// Get the authorization components from the header and tokenize them.
 	// TODO: ignoring the other authorization location stuff for now...
-	let authStr = (<string>req.get('Authorization') || '').replace('Basic', '').trim()
+	let authStr = (authHeader ?? '').replace('Basic', '').trim()
 	let cosignData = authStr.startsWith('LAMP') ? JSON.parse(Decrypt(authStr.slice(4)) || '') : undefined
 	if (cosignData !== undefined) // FIXME !?
 		authStr = Object.values(cosignData.cosigner).join(':')
@@ -32,7 +30,6 @@ export async function _verify(
 
 	// If no authorization is provided, ask for something.
 	if (auth.length !== 2 || !auth[1]) {
-		res.set('WWW-Authenticate', `Basic realm="LAMP" charset="UTF-8"`)
 		throw new Error('401.missing-credentials')
 	}
 

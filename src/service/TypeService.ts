@@ -8,11 +8,13 @@ export const TypeService = Router()
 TypeService.get('/type/:type_id/parent', async (req: Request, res: Response) => {
 	try {
 		let type_id = req.params.type_id
-		type_id = await _verify(req, res, ['self', 'sibling', 'parent'], type_id)
+		type_id = await _verify(req.get('Authorization'), ['self', 'sibling', 'parent'], type_id)
 		let output = { data: await TypeRepository._parent(type_id) }
 		output = typeof req.query.transform === 'string' ? jsonata(req.query.transform).evaluate(output) : output
 		res.json(output)
 	} catch(e) {
+		if (e.message === '401.missing-credentials')
+			res.set('WWW-Authenticate', `Basic realm="LAMP" charset="UTF-8"`)
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
 	}
 })
@@ -21,7 +23,7 @@ TypeService.get('/type/:type_id/attachment/:attachment_key?/:index?', async (req
 		let type_id = req.params.type_id
 		let attachment_key = req.params.attachment_key
 		let index = req.params.index
-		type_id = await _verify(req, res, ['self', 'sibling', 'parent'], type_id)
+		type_id = await _verify(req.get('Authorization'), ['self', 'sibling', 'parent'], type_id)
 		if (attachment_key !== undefined) {
 			let obj = await TypeRepository._get('a', <string>type_id, attachment_key)
 
@@ -48,6 +50,8 @@ TypeService.get('/type/:type_id/attachment/:attachment_key?/:index?', async (req
 			res.json(output)
 		}
 	} catch(e) {
+		if (e.message === '401.missing-credentials')
+			res.set('WWW-Authenticate', `Basic realm="LAMP" charset="UTF-8"`)
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
 	}
 })
@@ -57,10 +61,12 @@ TypeService.put('/type/:type_id/attachment/:attachment_key/:target', async (req:
 		let attachment_key = req.params.attachment_key
 		let target = req.params.target
 		let attachment_value = req.body
-		type_id = await _verify(req, res, ['self', 'sibling', 'parent'], type_id)
+		type_id = await _verify(req.get('Authorization'), ['self', 'sibling', 'parent'], type_id)
 		let output = { data: await TypeRepository._set('a', target, <string>type_id, attachment_key, attachment_value) ? {} : null /* error */ }
 		res.json(output)
 	} catch(e) {
+		if (e.message === '401.missing-credentials')
+			res.set('WWW-Authenticate', `Basic realm="LAMP" charset="UTF-8"`)
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
 	}
 })
@@ -71,7 +77,7 @@ TypeService.get('/type/:type_id/attachment/dynamic/:attachment_key', async (req:
 		let invoke_always = req.query.invoke_always
 		let ignore_output = req.query.ignore_output
 		let include_logs = req.query.include_logs
-		type_id = await _verify(req, res, ['self', 'sibling', 'parent'], type_id)
+		type_id = await _verify(req.get('Authorization'), ['self', 'sibling', 'parent'], type_id)
 
 		let result: any = {}
 		if (!!invoke_always) {
@@ -91,6 +97,8 @@ TypeService.get('/type/:type_id/attachment/dynamic/:attachment_key', async (req:
 		}}
 		res.json(output)
 	} catch(e) {
+		if (e.message === '401.missing-credentials')
+			res.set('WWW-Authenticate', `Basic realm="LAMP" charset="UTF-8"`)
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
 	}
 })
@@ -101,7 +109,7 @@ TypeService.put('/type/:type_id/attachment/dynamic/:attachment_key/:target', asy
 		let target = req.params.target
 		let attachment_value = req.body
 		let invoke_once = req.query.invoke_once
-		type_id = await _verify(req, res, ['self', 'sibling', 'parent'], type_id)
+		type_id = await _verify(req.get('Authorization'), ['self', 'sibling', 'parent'], type_id)
 
 		let result: any = null /* error */
 		if (TypeRepository._set('b', target, <string>type_id, attachment_key, attachment_value)) {
@@ -117,6 +125,8 @@ TypeService.put('/type/:type_id/attachment/dynamic/:attachment_key/:target', asy
 		let output = { data: result }
 		res.json(output)
 	} catch(e) {
+		if (e.message === '401.missing-credentials')
+			res.set('WWW-Authenticate', `Basic realm="LAMP" charset="UTF-8"`)
 		res.status(parseInt(e.message.split('.')[0]) || 500).json({ error: e.message })
 	}
 })

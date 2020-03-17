@@ -1,4 +1,4 @@
-import { SQL, Encrypt, Decrypt, Sysmail } from '../app'
+import { SQL, Encrypt, Decrypt } from '../app'
 import { IResult } from 'mssql'
 import { Participant } from '../model/Participant'
 import { Study } from '../model/Study'

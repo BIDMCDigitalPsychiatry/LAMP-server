@@ -34,7 +34,9 @@ export class SensorEventRepository {
 		/**
 		 *
 		 */
-		to_date?: number
+		to_date?: number,
+
+		limit?: number
 
 	): Promise<SensorEvent[]> {
 
@@ -51,7 +53,11 @@ export class SensorEventRepository {
 		user_id = !!user_id ? Encrypt(user_id) : undefined
 
 		let result1 = (await SQL!.request().query(`
-				SELECT timestamp, type, data, X.StudyId AS parent
+				SELECT TOP ${limit}
+					timestamp, 
+					type, 
+					data, 
+					X.StudyId AS parent
 				FROM (
 					SELECT
 						Users.AdminID, 
@@ -84,11 +90,11 @@ export class SensorEventRepository {
 					    ON HealthKit_Parameters.HKParamID = HealthKit_ParamValues.HKParamID
 				) X
 				WHERE X.IsDeleted = 0
-                ${!!user_id ? `AND X.StudyId = '${user_id}'` : ''}
-                ${!!admin_id ? `AND X.AdminID = '${admin_id}'` : ''}
-                ${!!from_date ? `AND X.timestamp >= ${from_date}` : ''}
-                ${!!to_date ? `AND X.timestamp <= ${to_date}` : ''};
-		`)).recordset.map((raw: any) => {
+					${!!user_id ? `AND X.StudyId = '${user_id}'` : ''}
+					${!!admin_id ? `AND X.AdminID = '${admin_id}'` : ''}
+					${!!from_date ? `AND X.timestamp >= ${from_date}` : ''}
+					${!!to_date ? `AND X.timestamp <= ${to_date}` : ''}
+		;`)).recordset.map((raw: any) => {
 			let obj = new SensorEvent()
 			obj.timestamp = raw.timestamp
 			obj.sensor = <SensorName>Object.entries(HK_LAMP_map).filter(x => x[1] === (<string>raw.type))[0][0]
@@ -98,7 +104,7 @@ export class SensorEventRepository {
 		})
 
 		let result2 = (await SQL!.request().query(`
-			SELECT 
+			SELECT TOP ${limit}
                 DATEDIFF_BIG(MS, '1970-01-01', Locations.CreatedOn) AS timestamp,
                 Latitude AS lat,
                 Longitude AS long,
@@ -111,8 +117,8 @@ export class SensorEventRepository {
                 ${!!user_id ? `AND Users.StudyId = '${user_id}'` : ''}
                 ${!!admin_id ? `AND Users.AdminID = '${admin_id}'` : ''}
                 ${!!from_date ? `AND DATEDIFF_BIG(MS, '1970-01-01', Locations.CreatedOn) >= ${from_date}` : ''}
-                ${!!to_date ? `AND DATEDIFF_BIG(MS, '1970-01-01', Locations.CreatedOn) <= ${to_date}` : ''};
-		`)).recordset.map((raw: any) => {
+                ${!!to_date ? `AND DATEDIFF_BIG(MS, '1970-01-01', Locations.CreatedOn) <= ${to_date}` : ''}
+		;`)).recordset.map((raw: any) => {
 			let x = toLAMP(raw.location_name)
 			let obj = new SensorEvent()
 			obj.timestamp = raw.timestamp
@@ -131,7 +137,7 @@ export class SensorEventRepository {
 		})
 
 		let result3 = (await SQL!.request().query(`
-			SELECT 
+			SELECT TOP ${limit}
 				timestamp, sensor_name, data, Users.StudyId AS parent
 			FROM LAMP_Aux.dbo.CustomSensorEvent
             LEFT JOIN Users
@@ -140,8 +146,8 @@ export class SensorEventRepository {
 	            ${!!user_id ? `AND Users.StudyId = '${user_id}'` : ''}
 	            ${!!admin_id ? `AND Users.AdminID = '${admin_id}'` : ''}
 	            ${!!from_date ? `AND timestamp >= ${from_date}` : ''}
-	            ${!!to_date ? `AND timestamp <= ${to_date}` : ''};
-		`)).recordset.map((raw: any) => {
+				${!!to_date ? `AND timestamp <= ${to_date}` : ''}
+		;`)).recordset.map((raw: any) => {
 			let obj = new SensorEvent()
 			obj.timestamp = raw.timestamp
 			obj.sensor = raw.sensor_name

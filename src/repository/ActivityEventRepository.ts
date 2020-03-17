@@ -11,6 +11,8 @@ import { ParticipantRepository } from '../repository/ParticipantRepository'
 import { ActivityRepository } from '../repository/ActivityRepository'
 import { Identifier_unpack, Identifier_pack } from '../repository/TypeRepository'
 
+// FIXME: LIMIT NOT RESPECTED CORRECTLY (!!!)
+
 export class ActivityEventRepository {
 
 	/**
@@ -36,7 +38,9 @@ export class ActivityEventRepository {
 		/**
 		 *
 		 */
-		to_date?: number
+		to_date?: number,
+
+		limit?: number
 
 	): Promise<ActivityEvent[]> {
 
@@ -67,7 +71,7 @@ export class ActivityEventRepository {
 
 			// Perform the result lookup for every Activity table.
 			let events = (await SQL!.request().query(`
-				SELECT
+				SELECT TOP ${limit}
 					Users.StudyId AS uid,
 	                [${entry.IndexColumnName}] AS id,
 	                DATEDIFF_BIG(MS, '1970-01-01', [${entry.StartTimeColumnName}]) AS timestamp,
