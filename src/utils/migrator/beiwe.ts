@@ -152,7 +152,7 @@ export async function BeiweMigrate(resIDs: string[]) {
                     let notCreated = 3 /* max retries = 3 */
                     while (notCreated > 0) {
                         try {
-                            let res = await SensorEventRepository._insert(tag.id, event)
+                            let res = await SensorEventRepository._insert(tag.id, [event]) // FIXME
                             notCreated = 0 /* ok */
                         } catch(err) {
                             console.error({ obj: event, msg: err })

@@ -179,19 +179,25 @@ export class SensorEventRepository {
 		/**
 		 * The new object.
 		 */
-		object: SensorEvent
+		objects: SensorEvent[]
 
 	): Promise<{}> {
+		let userID = (await SQL!.request().query(`
+			SELECT UserID 
+			FROM Users 
+			WHERE StudyId = '${Encrypt(ParticipantRepository._unpack_id(participant_id).study_id)}'
+	    ;`)).recordset[0]['UserID']
+		
 	    return (await SQL!.request().query(`
             INSERT INTO LAMP_Aux.dbo.CustomSensorEvent (
                 UserID, timestamp, sensor_name, data
             )
-            VALUES (
-                (SELECT UserID FROM Users WHERE StudyId = '${Encrypt(ParticipantRepository._unpack_id(participant_id).study_id)}'), 
+            VALUES ${objects.map(object => `(
+                ${userID}, 
                 ${object.timestamp!},
                 '${object.sensor}', 
                 '${JSON.stringify(object.data)}'
-            );
+            )`).join(',\n')};
 	    `)).recordset
 	}
 

@@ -10,7 +10,7 @@ SensorEventService.post('/participant/:participant_id/sensor_event', async (req:
 		let participant_id = req.params.participant_id
 		let sensor_event = req.body
 		participant_id = await _verify(req.get('Authorization'), ['self', 'sibling', 'parent'], participant_id)
-		let output = { data: await SensorEventRepository._insert(participant_id, sensor_event) }
+		let output = { data: await SensorEventRepository._insert(participant_id, Array.isArray(sensor_event) ? sensor_event : [sensor_event]) }
 		res.json(output)
 	} catch(e) {
 		if (e.message === '401.missing-credentials')
