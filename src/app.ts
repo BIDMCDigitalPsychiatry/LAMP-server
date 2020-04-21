@@ -224,6 +224,7 @@ async function main() {
     options: {
       encrypt: true,
       appName: "LAMP-server",
+      enableArithAbort: false,
       abortTransactionOnError: true
     },
     pool: {
