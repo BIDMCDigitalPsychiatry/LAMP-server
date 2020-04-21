@@ -1,4 +1,5 @@
-import { SQL, Encrypt, Decrypt } from "../app"
+import crypto from "crypto"
+import { Database, SQL, Encrypt, Decrypt } from "../app"
 import { ResearcherRepository } from "../repository/ResearcherRepository"
 import { TypeRepository } from "../repository/TypeRepository"
 import { CredentialRepository } from "../repository/CredentialRepository"
@@ -11,13 +12,26 @@ export function ActionContext(): Promise<{ type: string; id: string }> {
   return Promise.resolve({ type: "", id: "" })
 }
 
-const rootPassword = process.env.ROOT_PASSWORD || ""
+let rootPassword: string
 
 export async function _verify(
   authHeader: string | undefined,
   type: Array<"self" | "sibling" | "parent"> /* 'root' = [] */,
   auth_value?: string
 ): Promise<string> {
+  // Lazy evaluation of root password if we haven't already loaded it.
+  if (rootPassword === undefined) {
+    try {
+      rootPassword = ((await Database.use("root").get("#master_config")) as any).data.password
+    } catch (e) {
+      let random = crypto.randomBytes(32).toString("hex")
+      console.dir(`Because no master configuration could be located, a temporary root password \
+was generated for this session.`)
+      console.table({ "Root Password": random })
+      rootPassword = Encrypt(random, "AES256") as string
+    }
+  }
+
   // Get the authorization components from the header and tokenize them.
   // TODO: ignoring the other authorization location stuff for now...
   let authStr = (authHeader ?? "").replace("Basic", "").trim()
@@ -37,9 +51,9 @@ export async function _verify(
   let sub_auth_value = undefined
   if (!auth_value && !["root", "admin"].includes(auth[0])) {
     throw new Error("403.security-context-requires-root-scope")
-  } else if (["root", "admin"].includes(auth[0]) && auth[1] !== rootPassword) {
+  } else if (["root", "admin"].includes(auth[0]) && auth[1] !== Decrypt(rootPassword, "AES256")) {
     throw new Error("403.invalid-credentials")
-  } else if (!(["root", "admin"].includes(auth[0]) && auth[1] === rootPassword)) {
+  } else if (!(["root", "admin"].includes(auth[0]) && auth[1] === Decrypt(rootPassword, "AES256"))) {
     let from = auth[0],
       to = auth_value
 
@@ -80,10 +94,10 @@ export async function _verify(
       from !== to &&
       /* FIXME: Check if the immediate parent type of `to` is found in `from`'s inheritance tree. */
       type.includes("sibling") &&
-        TypeRepository._parent_type(from || "").indexOf(TypeRepository._parent_type(to || "")[0]) < 0 &&
+      TypeRepository._parent_type(from || "").indexOf(TypeRepository._parent_type(to || "")[0]) < 0 &&
       /* Check if `from` is actually the parent ID of `to` matching the same type as `from`. */
       type.includes("parent") &&
-        from !== (await TypeRepository._parent_id(to || "", TypeRepository._self_type(from || "")))
+      from !== (await TypeRepository._parent_id(to || "", TypeRepository._self_type(from || "")))
     ) {
       /* We've given the authorization enough chances... */
       throw new Error("403.security-context-out-of-scope")
@@ -107,10 +121,10 @@ export async function _verify(
       from !== to &&
       /* FIXME: Check if the immediate parent type of `to` is found in `from`'s inheritance tree. */
       type.includes("sibling") &&
-        TypeRepository._parent_type(from || "").indexOf(TypeRepository._parent_type(to || "")[0]) < 0 &&
+      TypeRepository._parent_type(from || "").indexOf(TypeRepository._parent_type(to || "")[0]) < 0 &&
       /* Check if `from` is actually the parent ID of `to` matching the same type as `from`. */
       type.includes("parent") &&
-        from !== (await TypeRepository._parent_id(to || "", TypeRepository._self_type(from || "")))
+      from !== (await TypeRepository._parent_id(to || "", TypeRepository._self_type(from || "")))
     ) {
       /* We've given the authorization enough chances... */
       throw new Error("403.security-context-out-of-scope")
