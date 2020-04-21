@@ -1,41 +1,40 @@
-require('dotenv').config()
-import API from './service'
-import _defn from './utils/openapi.json'
-import express, { Request, Response, Router, NextFunction, Application } from 'express'
-import bodyParser from 'body-parser'
-import sql from 'mssql'
-import net from 'net'
-import crypto from 'crypto'
-import fs from 'fs'
-import http from 'http'
-import https from 'https'
-import proxy from 'express-http-proxy'
-import _Docker from 'dockerode'
-import ScriptRunner from './utils/ScriptRunner'
-import LegacyAPI from './utils/legacy/route'
-import { BeiweMigrate } from './utils/migrator/beiwe'
-const vhost = require('vhost')
-const alasql = require('alasql')
-const sendmail = require('sendmail')
+require("dotenv").config()
+import API from "./service"
+import express, { Application } from "express"
+import bodyParser from "body-parser"
+import sql from "mssql"
+import crypto from "crypto"
+import http from "http"
+import https from "https"
+import _Docker from "dockerode"
+import ScriptRunner from "./utils/ScriptRunner"
+import LegacyAPI from "./utils/legacy/route"
+import nano from "nano"
 
 // FIXME: Support application/json;indent=:spaces format mime type!
 
-// 
-export const Docker = new _Docker({ host: '18.216.130.88', port: 2375 })
+//
+export const Docker = new _Docker({ host: "localhost", port: 2375 })
+
+//
+export const Database = nano(process.env.CDB || "")
 
 // Configure the base Express app and middleware.
 export const app: Application = express()
-app.set('json spaces', 2)
-app.use(bodyParser.json({ limit: '50mb', strict: false }))
+app.set("json spaces", 2)
+app.use(bodyParser.json({ limit: "50mb", strict: false }))
 app.use(bodyParser.text())
-app.use(require('cors')())
-app.use(require('morgan')(':method :url :status - :response-time ms'))
+app.use(require("cors")())
+app.use(require("morgan")(":method :url :status - :response-time ms"))
 
 //
-const _server = process.env.HTTPS === 'off' ? app : 
-	https.createServer({
-		passphrase: 'localhost',
-		key: `-----BEGIN ENCRYPTED PRIVATE KEY-----
+const _server =
+  process.env.HTTPS === "off"
+    ? app
+    : https.createServer(
+        {
+          passphrase: "localhost",
+          key: `-----BEGIN ENCRYPTED PRIVATE KEY-----
 MIIJnzBJBgkqhkiG9w0BBQ0wPDAbBgkqhkiG9w0BBQwwDgQIaFkMFRUDC9ACAggA
 MB0GCWCGSAFlAwQBKgQQIQEojG1jyAGIj6ebAp2YxASCCVA17+SUVb47fzWz7QKH
 Tg5DzKrpwmpdEx7ciSKU73uOilaUoNXBIyQxApapv7+2Sr3kYZbGO8wWLFW2Gb4I
@@ -89,7 +88,7 @@ twURZdb16W/vgtXUwafAvLmoYmWJsIjVVwj6p0QuNDrnEN9BOXhLBGUTe10wawRu
 hTRQKgLH/OqovKqPQGfAwd3njxJjtlcfAzlXzML23Pnixov+ohKlGpoEXWttjtLx
 6CMlq+Yko7ZnovATOHp44BrCmg==
 -----END ENCRYPTED PRIVATE KEY-----`,
-		cert: `-----BEGIN CERTIFICATE-----
+          cert: `-----BEGIN CERTIFICATE-----
 MIIFrjCCA5YCCQD+q//Qt55eFTANBgkqhkiG9w0BAQsFADCBlzELMAkGA1UEBhMC
 VVMxCzAJBgNVBAgMAk1BMQ8wDQYDVQQHDAZCb3N0b24xLTArBgNVBAoMJEJldGgg
 SXNyYWVsIERlYWNvbmVzcyBNZWRpY2FsIENlbnRlcjEnMCUGA1UECwweRGl2aXNp
@@ -122,7 +121,9 @@ bUFnraLvMJAzLQNN7BrrbdFTot7viPmZYe1Y12unlZ+yqHtusO5AdLF7p0F/t5k/
 R/mQB9d2LJUy81BZrO05VHrz91sHSDRRPg4lDw2GVSFtUE1ILDc3usb7JwJYZIXT
 fARYG40rIsYJipV76ICGNXSp
 -----END CERTIFICATE-----`
-	}, app)
+        },
+        app
+      )
 
 /**
  *
@@ -132,112 +133,109 @@ export let SQL: sql.ConnectionPool | undefined
 /**
  *
  */
-export let Root = { id: 'root', password: process.env.ROOT_PASSWORD || '' }
+export let Root = { id: "root", password: process.env.ROOT_PASSWORD || "" }
 
 /**
  * If the data could not be encrypted or is invalid, returns `undefined`.
  */
-export const Encrypt = (data: string, mode: 'Rijndael' | 'AES256' = 'Rijndael'): string | undefined => {
-	try {
-		if (mode === 'Rijndael') {
-			let cipher = crypto.createCipheriv('aes-256-ecb', process.env.DB_KEY || '', '')
-			return cipher.update(data, 'utf8', 'base64') + cipher.final('base64')
-		} else if (mode === 'AES256') {
-			let ivl = crypto.randomBytes(16)
-			let cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(process.env.ROOT_KEY || '', 'hex'), ivl)
-			return Buffer.concat([
-				ivl,
-				cipher.update(Buffer.from(data, 'utf16le')), 
-				cipher.final()
-			]).toString('base64')
-		}
-	} catch {}
-	return undefined
+export const Encrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"): string | undefined => {
+  try {
+    if (mode === "Rijndael") {
+      let cipher = crypto.createCipheriv("aes-256-ecb", process.env.DB_KEY || "", "")
+      return cipher.update(data, "utf8", "base64") + cipher.final("base64")
+    } else if (mode === "AES256") {
+      let ivl = crypto.randomBytes(16)
+      let cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(process.env.ROOT_KEY || "", "hex"), ivl)
+      return Buffer.concat([ivl, cipher.update(Buffer.from(data, "utf16le")), cipher.final()]).toString("base64")
+    }
+  } catch {}
+  return undefined
 }
 
 /**
  * If the data could not be decrypted or is invalid, returns `undefined`.
  */
-export const Decrypt = (data: string, mode: 'Rijndael' | 'AES256' = 'Rijndael'): string | undefined => {
-	try {
-		if (mode === 'Rijndael') {
-			let cipher = crypto.createDecipheriv('aes-256-ecb', process.env.DB_KEY || '', '')
-			return cipher.update(data, 'base64', 'utf8') + cipher.final('utf8')
-		} else if (mode === 'AES256') {
-			let dat = Buffer.from(data, 'base64')
-			let cipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(process.env.ROOT_KEY || '', 'hex'), dat.slice(0, 16))
-			return Buffer.concat([
-				cipher.update(dat.slice(16)),
-				cipher.final()
-			]).toString('utf16le')
-		}
-	} catch {}
-	return undefined
+export const Decrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"): string | undefined => {
+  try {
+    if (mode === "Rijndael") {
+      let cipher = crypto.createDecipheriv("aes-256-ecb", process.env.DB_KEY || "", "")
+      return cipher.update(data, "base64", "utf8") + cipher.final("utf8")
+    } else if (mode === "AES256") {
+      let dat = Buffer.from(data, "base64")
+      let cipher = crypto.createDecipheriv(
+        "aes-256-cbc",
+        Buffer.from(process.env.ROOT_KEY || "", "hex"),
+        dat.slice(0, 16)
+      )
+      return Buffer.concat([cipher.update(dat.slice(16)), cipher.final()]).toString("utf16le")
+    }
+  } catch {}
+  return undefined
 }
 
 /**
  *
  */
 export const Download = function(url: string): Promise<Buffer> {
-	return new Promise((resolve, reject) => {
-	    const lib = url.startsWith('https') ? https : http
-	    const request = lib.get(url, (response) => {
-			if ((response.statusCode || 0) < 200 || (response.statusCode || 0) > 299)
-				reject(new Error('' + response.statusCode))
-			const body: Buffer[] = []
-			response.on('data', (chunk) => body.push(Buffer.from(chunk)))
-			response.on('end', () => resolve(Buffer.concat(body)))
-	    });
-	    request.on('error', (err) => reject(err))
-	})
-};
+  return new Promise((resolve, reject) => {
+    const lib = url.startsWith("https") ? https : http
+    const request = lib.get(url, response => {
+      if ((response.statusCode || 0) < 200 || (response.statusCode || 0) > 299)
+        reject(new Error("" + response.statusCode))
+      const body: Buffer[] = []
+      response.on("data", chunk => body.push(Buffer.from(chunk)))
+      response.on("end", () => resolve(Buffer.concat(body)))
+    })
+    request.on("error", err => reject(err))
+  })
+}
 
 // Initialize and configure the application.
-(async /* main */ () => {
+async function main() {
+  const _openAPIschema = {
+    ...(await Database.use("root").get("#schema")),
+    _id: undefined,
+    _rev: undefined
+  }
 
-	// Establish the API routes.
-	app.use('/', API)
-	app.use('/v0', LegacyAPI)
+  // Establish the API routes.
+  app.use("/", API)
+  app.use("/v0", LegacyAPI)
 
-	// Establish misc. routes.
-	app.get('/', (req, res) => res.json(_defn))
-	app.get('/favicon.ico', (req, res) => res.status(204))
-	app.get('/service-worker.js', (req, res) => res.status(204))
-	app.get('/_utils', (req, res) => {
-		if (req.query.key !== Root.password)
-			return res.status(400).json({ 'message': 'invalid credentials' })
-		if (req.query.func === 'crypto')
-			return res.status(200).json((req.query.type === 'encrypt' ? Encrypt : Decrypt)(req.query.data, req.query.mode))
-		return res.status(400).json({ 'message': 'invalid utility function' })
-	})
-	app.all('*', (req, res) => res.status(404).json({ "message": "404.api-endpoint-unimplemented" }))
+  // Establish misc. routes.
+  app.get("/", async (req, res) => res.json(_openAPIschema))
+  app.get("/favicon.ico", (req, res) => res.status(204))
+  app.get("/service-worker.js", (req, res) => res.status(204))
+  app.get("/_utils", (req, res) => {
+    if (req.query.key !== Root.password) return res.status(400).json({ message: "invalid credentials" })
+    if (req.query.func === "crypto")
+      return res.status(200).json((req.query.type === "encrypt" ? Encrypt : Decrypt)(req.query.data, req.query.mode))
+    return res.status(400).json({ message: "invalid utility function" })
+  })
+  app.all("*", (req, res) => res.status(404).json({ message: "404.api-endpoint-unimplemented" }))
 
-	// Establish the SQL connection.
-	SQL = await new sql.ConnectionPool({
-		user: process.env.DB_USERNAME || '',
-		password: process.env.DB_PASSWORD || '',
-		server: process.env.DB_SERVER || '',
-		port: parseInt(process.env.DB_PORT || '') || 1433,
-		database: process.env.DB_NAME || 'LAMP',
-	    parseJSON: true,
-	    stream: true,
-	    requestTimeout: 30000,
-	    connectionTimeout: 30000,
-	    options: { 
-	    	encrypt: true, 
-	    	appName: 'LAMP-server',
-	    	abortTransactionOnError: true 
-	    },
-	    pool: {
-	        min: 1, 
-	        max: 100,
-	        idleTimeoutMillis: 30000
-	    }
-	}).connect()
+  // Establish the SQL connection.
+  SQL = await new sql.ConnectionPool({
+    ...require("mssql/lib/connectionstring").resolve(process.env.DB || "mssql://"),
+    parseJSON: true,
+    stream: true,
+    requestTimeout: 30000,
+    connectionTimeout: 30000,
+    options: {
+      encrypt: true,
+      appName: "LAMP-server",
+      abortTransactionOnError: true
+    },
+    pool: {
+      min: 1,
+      max: 100,
+      idleTimeoutMillis: 30000
+    }
+  }).connect()
 
-	// TODO
-	//await BeiweMigrate([ 'UmVzZWFyY2hlcjozOQ~~', 'UmVzZWFyY2hlcjo0Nw~~', 'UmVzZWFyY2hlcjo0OA~~' ])
+  // Begin listener on port 3000.
+  _server.listen(process.env.PORT || 3000)
+}
 
-	// Begin listener on port 3000.
-	_server.listen(process.env.PORT || 3000)
-})()
+// GO!
+main()

@@ -65,5 +65,9 @@
       "node_modules/vm2/lib/*.js"
     ],
     "assets": "public/**/*"
+  },
+  "prettier": {
+    "semi": false,
+    "printWidth": 120
   }
 }
