@@ -120,10 +120,10 @@ export class ParticipantRepository {
     return result.recordset[0].map((raw: any) => {
       let obj = new Participant()
       obj.id = Decrypt(raw.id)
-      obj.language = raw.language || "en"
-      obj.theme = !!raw.theme ? Decrypt(raw.theme!) : undefined
-      obj.emergency_contact = raw.emergency_contact
-      obj.helpline = raw.helpline
+      //obj.language = raw.language || "en"
+      //obj.theme = !!raw.theme ? Decrypt(raw.theme!) : undefined
+      //obj.emergency_contact = raw.emergency_contact
+      //obj.helpline = raw.helpline
       return obj
     })
   }
@@ -145,7 +145,9 @@ export class ParticipantRepository {
     let admin_id = StudyRepository._unpack_id(study_id).admin_id
 
     // Create a fake email and study ID to allow login on the client app.
-    let _id = "U" + Math.floor(Math.random() * 100000000) /* rand(000000, 999999) */
+    let _id = `U${Math.random()
+      .toFixed(10)
+      .slice(2, 12)}`
 
     // Prepare the likely required SQL column changes as above.
     let study_code = !!object.study_code ? `'${Encrypt(object.study_code)}'` : `'${Encrypt("001")}'`
@@ -227,7 +229,10 @@ export class ParticipantRepository {
      */
     object: Participant
   ): Promise<{}> {
-    let user_id = Encrypt(ParticipantRepository._unpack_id(participant_id).study_id)
+    // TODO: Objects here are immutable!
+    throw new Error("503.unimplemented")
+
+    /*let user_id = Encrypt(ParticipantRepository._unpack_id(participant_id).study_id)
 
     // Prepare the minimal SQL column changes from the provided fields.
     let updatesA = [],
@@ -259,7 +264,7 @@ export class ParticipantRepository {
     ).recordset
 
     // Return whether the operation was successful.
-    return result1.length && result2.length ? {} : {}
+    return result1.length && result2.length ? {} : {}*/
   }
 
   /**
