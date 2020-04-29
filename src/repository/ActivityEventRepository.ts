@@ -105,7 +105,7 @@ export class ActivityEventRepository {
      */
     objects: ActivityEvent[]
   ): Promise<{}> {
-    _migrate_activity_event()
+    //_migrate_activity_event()
     const data = await Database.use("activity_event").bulk({
       docs: objects.map((x) => ({
         "#parent": participant_id,

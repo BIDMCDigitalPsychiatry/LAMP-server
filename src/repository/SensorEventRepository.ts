@@ -105,7 +105,7 @@ export class SensorEventRepository {
      */
     objects: SensorEvent[]
   ): Promise<{}> {
-    _migrate_sensor_event()
+    //_migrate_sensor_event()
     const data = await Database.use("sensor_event").bulk({
       docs: (objects as any[]).map((x) => ({
         "#parent": participant_id,
