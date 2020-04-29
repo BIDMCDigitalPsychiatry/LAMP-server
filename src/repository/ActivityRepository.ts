@@ -282,7 +282,8 @@ export class ActivityRepository {
         ('ctest') AS type,
         CTestID AS ctest_id
 			FROM Admin_CTestSettings
-			WHERE Status IN (1, NULL)
+      WHERE Status IN (1, NULL)
+        AND CTestID NOT IN (4, 13)
         ${(survey_id ?? 0) > 0 || (group_id ?? 0) > 0 ? `AND 1=0` : ``}
 				${ctest_id ?? 0 > 0 ? `AND AdminCTestSettingID = '${ctest_id}'` : ``}
 				${admin_id ?? 0 > 0 ? `AND AdminID = '${admin_id}'` : ``}
@@ -330,8 +331,7 @@ export class ActivityRepository {
     const resultTestSchedule = (
       await SQL!.request().query(`
 			SELECT
-				CTestID as lid,
-				AdminID AS aid, 
+				AdminCTestSettingID as setting_id,
 				ScheduleDate as start_date,
 				Time as time,
 				CHOOSE(RepeatID, 
@@ -346,11 +346,12 @@ export class ActivityRepository {
 					WHERE Admin_CTestScheduleCustomTime.AdminCTestSchId = Admin_CTestSchedule.AdminCTestSchId
 					FOR JSON PATH, INCLUDE_NULL_VALUES
 				) AS custom_time
-			FROM Admin_CTestSchedule
+      FROM Admin_CTestSchedule
+      JOIN Admin_CTestSettings 
+        ON Admin_CTestSettings.AdminID = Admin_CTestSchedule.AdminID 
+        AND Admin_CTestSettings.CTestID = Admin_CTestSchedule.CTestID
 			WHERE IsDeleted = 0 
-				AND CONCAT('', CTestID, AdminID) IN (${
-          resultTest.length === 0 ? "NULL" : resultTest.map((x) => `'${x.ctest_id}${x.aid}'`).join(",")
-        })
+				AND AdminCTestSettingID IN (${resultTest.length === 0 ? "NULL" : resultTest.map((x) => x.id)})
 		;`)
     ).recordset
 
@@ -406,23 +407,25 @@ export class ActivityRepository {
         obj.id = ActivityRepository._pack_id({
           ctest_id: raw.id,
         })
-        obj.spec = raw.name
-        obj.name = spec_map[<string>raw.name]
-        if (raw.name === "lamp.jewels_a") {
+
+        // FIXME: account for Forward/Backward variants that are not mapped!
+        const specEntry = ActivityIndex.find((x) => x.LegacyCTestID === Number.parse(raw.ctest_id))
+        obj.spec = specEntry.Name
+        obj.name = spec_map[specEntry.Name]
+        if (specEntry.Name === "lamp.jewels_a") {
           obj.settings = resultTestJewelsSettings
             .filter((x) => x.type === "a")
             .map((x) => ({ ...x, type: undefined }))[0] as any
-        } else if (raw.name === "lamp.jewels_b") {
+        } else if (specEntry.Name === "lamp.jewels_b") {
           obj.settings = resultTestJewelsSettings
             .filter((x) => x.type === "b")
             .map((x) => ({ ...x, type: undefined }))[0] as any
         } else obj.settings = {}
         obj.schedule = resultTestSchedule
-          .filter((x) => x.aid == raw.aid && x.lid == raw.lid)
+          .filter((x) => x.setting_id == raw.id)
           .map((x) => ({
             ...x,
-            aid: undefined,
-            lid: undefined,
+            setting_id: undefined,
             custom_time: !x.custom_time ? null : JSON.parse(x.custom_time).map((y: any) => y.t),
           })) as any
       }

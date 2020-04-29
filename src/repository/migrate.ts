@@ -319,7 +319,7 @@ export async function _migrate_activity_event(): Promise<void> {
         if (!!entry.Slot5ColumnName) activity_event.static_data[entry.Slot5Name] = row[`static_data.${entry.Slot5Name}`]
 
         // Decrypt all static data properties if known to be encrypted.
-        // TODO: Encryption of fields should also be found in the ActivityIndex table!
+        // TODO: Encryption of fields should also be found in the activity index table!
         //if (!!activity_event.static_data.survey_name)
         //  activity_event.static_data.survey_name = "___DEPRECATED_USE_ACTIVITY_ID_INSTEAD___"
         //activity_event.static_data.survey_id = undefined
@@ -365,7 +365,7 @@ export async function _migrate_activity_event(): Promise<void> {
           temporal_slice.level = slice_row.level
 
           // Special treatment for surveys with encrypted answers.
-          if (entry.ActivityIndexID === "1") {
+          if (entry.LegacyCTestID === null) {
             // survey
             temporal_slice.item = Decrypt(temporal_slice.item) || temporal_slice.item
             temporal_slice.value = Decrypt(temporal_slice.value) || temporal_slice.value
