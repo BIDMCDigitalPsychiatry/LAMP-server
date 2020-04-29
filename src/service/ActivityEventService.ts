@@ -10,7 +10,7 @@ ActivityEventService.post("/participant/:participant_id/activity_event", async (
     let participant_id = req.params.participant_id
     const activity_event = req.body
     participant_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], participant_id)
-    const output = { data: await ActivityEventRepository._insert(participant_id, ae2re(req, [activity_event])[0]) }
+    const output = { data: await ActivityEventRepository._insert(participant_id, ae2re(req, [activity_event])) }
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
