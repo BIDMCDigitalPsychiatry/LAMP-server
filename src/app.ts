@@ -10,6 +10,8 @@ import _Docker from "dockerode"
 import ScriptRunner from "./utils/ScriptRunner"
 import LegacyAPI from "./utils/legacy/route"
 import nano from "nano"
+import cors from "cors"
+import morgan from "morgan"
 
 // FIXME: Support application/json;indent=:spaces format mime type!
 
@@ -24,8 +26,8 @@ export const app: Application = express()
 app.set("json spaces", 2)
 app.use(bodyParser.json({ limit: "50mb", strict: false }))
 app.use(bodyParser.text())
-app.use(require("cors")())
-app.use(require("morgan")(":method :url :status - :response-time ms"))
+app.use(cors())
+app.use(morgan(":method :url :status - :response-time ms"))
 
 //
 const _server =
@@ -120,7 +122,7 @@ fgd43mHp6Q4taQ3Mm2+9K5E7EQL06BP2OWF2fRm2G8bQ9XJgV0q8kpc96ZblgGuy
 bUFnraLvMJAzLQNN7BrrbdFTot7viPmZYe1Y12unlZ+yqHtusO5AdLF7p0F/t5k/
 R/mQB9d2LJUy81BZrO05VHrz91sHSDRRPg4lDw2GVSFtUE1ILDc3usb7JwJYZIXT
 fARYG40rIsYJipV76ICGNXSp
------END CERTIFICATE-----`
+-----END CERTIFICATE-----`,
         },
         app
       )
@@ -133,7 +135,7 @@ export let SQL: sql.ConnectionPool | undefined
 /**
  *
  */
-export let Root = { id: "root", password: process.env.ROOT_PASSWORD || "" }
+export const Root = { id: "root", password: process.env.ROOT_PASSWORD || "" }
 
 /**
  * If the data could not be encrypted or is invalid, returns `undefined`.
@@ -141,11 +143,11 @@ export let Root = { id: "root", password: process.env.ROOT_PASSWORD || "" }
 export const Encrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"): string | undefined => {
   try {
     if (mode === "Rijndael") {
-      let cipher = crypto.createCipheriv("aes-256-ecb", process.env.DB_KEY || "", "")
+      const cipher = crypto.createCipheriv("aes-256-ecb", process.env.DB_KEY || "", "")
       return cipher.update(data, "utf8", "base64") + cipher.final("base64")
     } else if (mode === "AES256") {
-      let ivl = crypto.randomBytes(16)
-      let cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(process.env.ROOT_KEY || "", "hex"), ivl)
+      const ivl = crypto.randomBytes(16)
+      const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(process.env.ROOT_KEY || "", "hex"), ivl)
       return Buffer.concat([ivl, cipher.update(Buffer.from(data, "utf16le")), cipher.final()]).toString("base64")
     }
   } catch {}
@@ -158,11 +160,11 @@ export const Encrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"):
 export const Decrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"): string | undefined => {
   try {
     if (mode === "Rijndael") {
-      let cipher = crypto.createDecipheriv("aes-256-ecb", process.env.DB_KEY || "", "")
+      const cipher = crypto.createDecipheriv("aes-256-ecb", process.env.DB_KEY || "", "")
       return cipher.update(data, "base64", "utf8") + cipher.final("utf8")
     } else if (mode === "AES256") {
-      let dat = Buffer.from(data, "base64")
-      let cipher = crypto.createDecipheriv(
+      const dat = Buffer.from(data, "base64")
+      const cipher = crypto.createDecipheriv(
         "aes-256-cbc",
         Buffer.from(process.env.ROOT_KEY || "", "hex"),
         dat.slice(0, 16)
@@ -176,17 +178,17 @@ export const Decrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"):
 /**
  *
  */
-export const Download = function(url: string): Promise<Buffer> {
+export const Download = function (url: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const lib = url.startsWith("https") ? https : http
-    const request = lib.get(url, response => {
+    const request = lib.get(url, (response) => {
       if ((response.statusCode || 0) < 200 || (response.statusCode || 0) > 299)
         reject(new Error("" + response.statusCode))
       const body: Buffer[] = []
-      response.on("data", chunk => body.push(Buffer.from(chunk)))
+      response.on("data", (chunk) => body.push(Buffer.from(chunk)))
       response.on("end", () => resolve(Buffer.concat(body)))
     })
-    request.on("error", err => reject(err))
+    request.on("error", (err) => reject(err))
   })
 }
 
@@ -195,7 +197,7 @@ async function main() {
   const _openAPIschema = {
     ...(await Database.use("root").get("#schema")),
     _id: undefined,
-    _rev: undefined
+    _rev: undefined,
   }
 
   // Establish the API routes.
@@ -225,13 +227,13 @@ async function main() {
       encrypt: true,
       appName: "LAMP-server",
       enableArithAbort: false,
-      abortTransactionOnError: true
+      abortTransactionOnError: true,
     },
     pool: {
       min: 1,
       max: 100,
-      idleTimeoutMillis: 30000
-    }
+      idleTimeoutMillis: 30000,
+    },
   }).connect()
 
   // Begin listener on port 3000.

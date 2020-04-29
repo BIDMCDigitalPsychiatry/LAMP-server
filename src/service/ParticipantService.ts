@@ -8,9 +8,9 @@ export const ParticipantService = Router()
 ParticipantService.post("/study/:study_id/participant", async (req: Request, res: Response) => {
   try {
     let study_id = req.params.study_id
-    let participant = req.body
+    const participant = req.body
     study_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], study_id)
-    let output = { data: await ParticipantRepository._insert(study_id, participant) }
+    const output = { data: await ParticipantRepository._insert(study_id, participant) }
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -20,9 +20,9 @@ ParticipantService.post("/study/:study_id/participant", async (req: Request, res
 ParticipantService.put("/participant/:participant_id", async (req: Request, res: Response) => {
   try {
     let participant_id = req.params.participant_id
-    let participant = req.body
+    const participant = req.body
     participant_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], participant_id)
-    let output = { data: await ParticipantRepository._update(participant_id, participant) }
+    const output = { data: await ParticipantRepository._update(participant_id, participant) }
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -33,7 +33,7 @@ ParticipantService.delete("/participant/:participant_id", async (req: Request, r
   try {
     let participant_id = req.params.participant_id
     participant_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], participant_id)
-    let output = { data: await ParticipantRepository._delete(participant_id) }
+    const output = { data: await ParticipantRepository._delete(participant_id) }
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -78,7 +78,7 @@ ParticipantService.get("/researcher/:researcher_id/participant", async (req: Req
 })
 ParticipantService.get("/participant", async (req: Request, res: Response) => {
   try {
-    let _ = await _verify(req.get("Authorization"), [])
+    const _ = await _verify(req.get("Authorization"), [])
     let output = { data: await ParticipantRepository._select() }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)

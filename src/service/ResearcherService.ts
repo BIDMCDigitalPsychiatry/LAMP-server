@@ -7,9 +7,9 @@ import jsonata from "jsonata"
 export const ResearcherService = Router()
 ResearcherService.post("/researcher", async (req: Request, res: Response) => {
   try {
-    let researcher = req.body
-    let _ = await _verify(req.get("Authorization"), [])
-    let output = { data: await ResearcherRepository._insert(researcher) }
+    const researcher = req.body
+    const _ = await _verify(req.get("Authorization"), [])
+    const output = { data: await ResearcherRepository._insert(researcher) }
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -19,9 +19,9 @@ ResearcherService.post("/researcher", async (req: Request, res: Response) => {
 ResearcherService.put("/researcher/:researcher_id", async (req: Request, res: Response) => {
   try {
     let researcher_id = req.params.researcher_id
-    let researcher = req.body
+    const researcher = req.body
     researcher_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], researcher_id)
-    let output = { data: await ResearcherRepository._update(researcher_id, researcher) }
+    const output = { data: await ResearcherRepository._update(researcher_id, researcher) }
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -32,7 +32,7 @@ ResearcherService.delete("/researcher/:researcher_id", async (req: Request, res:
   try {
     let researcher_id = req.params.researcher_id
     researcher_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], researcher_id)
-    let output = { data: await ResearcherRepository._delete(researcher_id) }
+    const output = { data: await ResearcherRepository._delete(researcher_id) }
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -53,7 +53,7 @@ ResearcherService.get("/researcher/:researcher_id", async (req: Request, res: Re
 })
 ResearcherService.get("/researcher", async (req: Request, res: Response) => {
   try {
-    let _ = await _verify(req.get("Authorization"), [])
+    const _ = await _verify(req.get("Authorization"), [])
     let output = { data: await ResearcherRepository._select() }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)

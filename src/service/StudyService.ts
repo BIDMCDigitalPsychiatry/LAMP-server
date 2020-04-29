@@ -8,9 +8,9 @@ export const StudyService = Router()
 StudyService.post("/researcher/:researcher_id/study", async (req: Request, res: Response) => {
   try {
     let researcher_id = req.params.researcher_id
-    let study = req.body
+    const study = req.body
     researcher_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], researcher_id)
-    let output = { data: await StudyRepository._insert(researcher_id, study) }
+    const output = { data: await StudyRepository._insert(researcher_id, study) }
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -20,9 +20,9 @@ StudyService.post("/researcher/:researcher_id/study", async (req: Request, res: 
 StudyService.put("/study/:study_id", async (req: Request, res: Response) => {
   try {
     let study_id = req.params.study_id
-    let study = req.body
+    const study = req.body
     study_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], study_id)
-    let output = { data: await StudyRepository._update(study_id, study) }
+    const output = { data: await StudyRepository._update(study_id, study) }
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -67,7 +67,7 @@ StudyService.get("/researcher/:researcher_id/study", async (req: Request, res: R
 })
 StudyService.get("/study", async (req: Request, res: Response) => {
   try {
-    let _ = await _verify(req.get("Authorization"), [])
+    const _ = await _verify(req.get("Authorization"), [])
     let output = { data: await StudyRepository._select() }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)

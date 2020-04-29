@@ -24,7 +24,7 @@ export async function _verify(
     try {
       rootPassword = ((await Database.use("root").get("#master_config")) as any).data.password
     } catch (e) {
-      let random = crypto.randomBytes(32).toString("hex")
+      const random = crypto.randomBytes(32).toString("hex")
       console.dir(`Because no master configuration could be located, a temporary root password \
 was generated for this session.`)
       console.table({ "Root Password": random })
@@ -35,12 +35,12 @@ was generated for this session.`)
   // Get the authorization components from the header and tokenize them.
   // TODO: ignoring the other authorization location stuff for now...
   let authStr = (authHeader ?? "").replace("Basic", "").trim()
-  let cosignData = authStr.startsWith("LAMP") ? JSON.parse(Decrypt(authStr.slice(4)) || "") : undefined
+  const cosignData = authStr.startsWith("LAMP") ? JSON.parse(Decrypt(authStr.slice(4)) || "") : undefined
   if (cosignData !== undefined)
     // FIXME !?
     authStr = Object.values(cosignData.cosigner).join(":")
   else authStr = authStr.indexOf(":") >= 0 ? authStr : Buffer.from(authStr, "base64").toString()
-  let auth = authStr.split(":", 2)
+  const auth = authStr.split(":", 2)
 
   // If no authorization is provided, ask for something.
   if (auth.length !== 2 || !auth[1]) {
@@ -59,7 +59,7 @@ was generated for this session.`)
 
     if (TypeRepository._self_type(from) === "Participant") {
       // Authenticate as a Participant.
-      let result = (
+      const result = (
         await SQL!.request().query(`
 	            SELECT Password 
 	            FROM Users
@@ -70,7 +70,7 @@ was generated for this session.`)
         throw new Error("403.invalid-credentials") /* authorization-failed */
     } else if (TypeRepository._self_type(from) === "Researcher") {
       // Authenticate as a Researcher.
-      let result = (
+      const result = (
         await SQL!.request().query(`
 	            SELECT AdminID, Password 
 	            FROM Admin
@@ -107,7 +107,7 @@ was generated for this session.`)
   // FIXME: clean this up...
   // Handle the above normal login cases if we're cosigned by root.
   if (!!cosignData) {
-    let from = cosignData.identity.from
+    const from = cosignData.identity.from
     let to = auth_value
 
     // Patch in the special-cased "me" to the actual authenticated credential.

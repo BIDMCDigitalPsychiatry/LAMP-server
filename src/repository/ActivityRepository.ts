@@ -11,6 +11,7 @@ import { StudyRepository } from "../repository/StudyRepository"
 import { ParticipantRepository } from "../repository/ParticipantRepository"
 import { TypeRepository } from "../repository/TypeRepository"
 import { Identifier_unpack, Identifier_pack } from "../repository/TypeRepository"
+import { ActivityIndex } from "./migrate"
 
 export class ActivityRepository {
   /**
@@ -20,23 +21,23 @@ export class ActivityRepository {
     /**
      *
      */
-    activity_spec_id?: number
-
-    /**
-     *
-     */
-    admin_id?: number
+    ctest_id?: number
 
     /**
      *
      */
     survey_id?: number
+
+    /**
+     *
+     */
+    group_id?: number
   }): string {
     return Identifier_pack([
       (<any>Activity).name,
-      components.activity_spec_id || 0,
-      components.admin_id || 0,
-      components.survey_id || 0
+      components.ctest_id || 0,
+      components.survey_id || 0,
+      components.group_id || 0,
     ])
   }
 
@@ -49,25 +50,25 @@ export class ActivityRepository {
     /**
      *
      */
-    activity_spec_id: number
-
-    /**
-     *
-     */
-    admin_id: number
+    ctest_id: number
 
     /**
      *
      */
     survey_id: number
+
+    /**
+     *
+     */
+    group_id: number
   } {
-    let components = Identifier_unpack(id)
+    const components = Identifier_unpack(id)
     if (components[0] !== (<any>Activity).name) throw new Error("400.invalid-identifier")
-    let result = components.slice(1).map(x => parseInt(x))
+    const result = components.slice(1).map((x) => Number.parse(x) ?? 0)
     return {
-      activity_spec_id: !isNaN(result[0]) ? result[0] : 0,
-      admin_id: !isNaN(result[1]) ? result[1] : 0,
-      survey_id: !isNaN(result[2]) ? result[2] : 0
+      ctest_id: result[0],
+      survey_id: result[1],
+      group_id: result[2],
     }
   }
 
@@ -75,12 +76,12 @@ export class ActivityRepository {
    *
    */
   public static async _parent_id(id: string, type: Function): Promise<string | undefined> {
-    let { activity_spec_id, admin_id, survey_id } = ActivityRepository._unpack_id(id)
+    const { ctest_id, survey_id, group_id } = ActivityRepository._unpack_id(id)
     switch (type) {
       case StudyRepository:
       case ResearcherRepository:
-        if (activity_spec_id === 1 /* survey */) {
-          let result = (
+        if (survey_id > 0 /* survey */) {
+          const result = (
             await SQL!.request().query(`
 						SELECT AdminID AS value
 						FROM Survey
@@ -90,23 +91,35 @@ export class ActivityRepository {
           return result.length === 0
             ? undefined
             : (type === ResearcherRepository ? ResearcherRepository : StudyRepository)._pack_id({
-                admin_id: result[0].value
+                admin_id: result[0].value,
               })
-        } else {
-          // Only "Survey" types lack an encoded AdminID; regardless, verify their deletion.
-          let result = (
+        } else if (ctest_id > 0 /* ctest */) {
+          const result = (
             await SQL!.request().query(`
 						SELECT AdminID AS value
-						FROM Admin
-						WHERE IsDeleted = 0 AND AdminID = '${admin_id}'
+						FROM Admin_CTestSettings
+						WHERE Status = 1 AND AdminCTestSettingID = '${ctest_id}'
 					;`)
           ).recordset
           return result.length === 0
             ? undefined
             : (type === ResearcherRepository ? ResearcherRepository : StudyRepository)._pack_id({
-                admin_id: result[0].value
+                admin_id: result[0].value,
               })
-        }
+        } else if (group_id > 0 /* group */) {
+          const result = (
+            await SQL!.request().query(`
+						SELECT AdminID AS value
+						FROM Admin_BatchSchedule
+						WHERE IsDeleted = 0 AND AdminBatchSchID = '${ctest_id}'
+					;`)
+          ).recordset
+          return result.length === 0
+            ? undefined
+            : (type === ResearcherRepository ? ResearcherRepository : StudyRepository)._pack_id({
+                admin_id: result[0].value,
+              })
+        } else return undefined
       default:
         throw new Error("400.invalid-identifier")
     }
@@ -126,20 +139,21 @@ export class ActivityRepository {
     // Get the correctly scoped identifier to search within.
     let ctest_id: number | undefined
     let survey_id: number | undefined
+    let group_id: number | undefined
     let admin_id: number | undefined
     if (!!id && Identifier_unpack(id)[0] === (<any>Researcher).name)
       admin_id = ResearcherRepository._unpack_id(id).admin_id
     else if (!!id && Identifier_unpack(id)[0] === (<any>Study).name) admin_id = StudyRepository._unpack_id(id).admin_id
     else if (!!id && Identifier_unpack(id)[0] === (<any>Activity).name) {
-      let c = ActivityRepository._unpack_id(id)
-      ctest_id = c.activity_spec_id
+      const c = ActivityRepository._unpack_id(id)
+      ctest_id = c.ctest_id
       survey_id = c.survey_id
-      admin_id = c.admin_id
+      group_id = c.group_id
     } else if (!!id && Identifier_unpack(id).length === 0 /* Participant */)
       admin_id = ResearcherRepository._unpack_id((<any>await TypeRepository._parent(<string>id))["Researcher"]).admin_id
     else if (!!id) throw new Error("400.invalid-identifier")
 
-    let resultBatch = (
+    const resultBatch = (
       await SQL!.request().query(`
 			SELECT 
 				AdminBatchSchID AS id, 
@@ -147,36 +161,40 @@ export class ActivityRepository {
 				BatchName AS name, 
 				('batch') AS type
 			FROM Admin_BatchSchedule
-			WHERE IsDeleted = 0 
-				${!ctest_id ? "" : ctest_id === 0 /* batch */ ? "" : `AND 1=0`}
-				${!survey_id ? "" : `AND AdminBatchSchID = '${survey_id}'`}
-				${!admin_id ? "" : `AND AdminID = '${admin_id}'`}
+      WHERE IsDeleted = 0 
+        ${(ctest_id ?? 0) > 0 || (survey_id ?? 0) > 0 ? `AND 1=0` : ``}
+				${group_id ?? 0 > 0 ? `AND AdminBatchSchID = '${group_id}'` : ``}
+				${admin_id ?? 0 > 0 ? `AND AdminID = '${admin_id}'` : ``}
 		;`)
     ).recordset
-    let resultBatchCTestSettings = (
+    const resultBatchCTestSettings = (
       await SQL!.request().query(`
 			SELECT 
-				AdminBatchSchID AS id, 
-				ActivityIndexID AS ctest_id,
-				Version AS version, 
+				Admin_BatchScheduleCTest.AdminBatchSchID AS id, 
+				Admin_CTestSettings.AdminCTestSettingID AS ctest_id,
 				[Order] AS [order]
-			FROM Admin_BatchScheduleCTest
-			JOIN LAMP_Aux.dbo.ActivityIndex
-				ON LegacyCTestID = CTestID
-			WHERE AdminBatchSchID IN (${resultBatch.length === 0 ? "NULL" : resultBatch.map(x => x.id).join(",")})
+      FROM Admin_BatchScheduleCTest
+      JOIN Admin_BatchSchedule
+        ON Admin_BatchSchedule.AdminBatchSchID = Admin_BatchScheduleCTest.AdminBatchSchID
+			JOIN Admin_CTestSettings
+        ON Admin_CTestSettings.CTestID = Admin_BatchScheduleCTest.CTestID 
+        AND Admin_CTestSettings.AdminID = Admin_BatchSchedule.AdminID
+			WHERE Admin_BatchScheduleCTest.AdminBatchSchID IN (${
+        resultBatch.length === 0 ? "NULL" : resultBatch.map((x) => x.id).join(",")
+      })
 		;`)
     ).recordset
-    let resultBatchSurveySettings = (
+    const resultBatchSurveySettings = (
       await SQL!.request().query(`
 			SELECT 
 				AdminBatchSchID AS id, 
 				SurveyID AS survey_id, 
 				[Order] AS [order]
 			FROM Admin_BatchScheduleSurvey
-			WHERE AdminBatchSchID IN (${resultBatch.length === 0 ? "NULL" : resultBatch.map(x => x.id).join(",")})
+			WHERE AdminBatchSchID IN (${resultBatch.length === 0 ? "NULL" : resultBatch.map((x) => x.id).join(",")})
 		;`)
     ).recordset
-    let resultBatchSchedule = (
+    const resultBatchSchedule = (
       await SQL!.request().query(`
 			SELECT
 				AdminBatchSchID AS id, 
@@ -196,10 +214,10 @@ export class ActivityRepository {
 				) AS custom_time
 			FROM Admin_BatchSchedule
 			WHERE IsDeleted = 0 
-				AND AdminBatchSchID IN (${resultBatch.length === 0 ? "NULL" : resultBatch.map(x => x.id).join(",")})
+				AND AdminBatchSchID IN (${resultBatch.length === 0 ? "NULL" : resultBatch.map((x) => x.id).join(",")})
 		;`)
     ).recordset
-    let resultSurvey = (
+    const resultSurvey = (
       await SQL!.request().query(`
 			SELECT 
 				SurveyID AS id, 
@@ -208,12 +226,12 @@ export class ActivityRepository {
 				('survey') AS type
 			FROM Survey
 			WHERE IsDeleted = 0 
-				${!ctest_id ? "" : ctest_id === 1 /* survey */ ? "" : `AND 1=0`}
-				${!survey_id ? "" : `AND SurveyID = '${survey_id}'`}
-				${!admin_id ? "" : `AND AdminID = '${admin_id}'`}
+        ${(ctest_id ?? 0) > 0 || (group_id ?? 0) > 0 ? `AND 1=0` : ``}
+				${survey_id ?? 0 > 0 ? `AND SurveyID = '${survey_id}'` : ``}
+				${admin_id ?? 0 > 0 ? `AND AdminID = '${admin_id}'` : ``}
 		;`)
     ).recordset
-    let resultSurveyQuestions = (
+    const resultSurveyQuestions = (
       await SQL!.request().query(`
 			SELECT 
 				SurveyID AS id,
@@ -230,10 +248,10 @@ export class ActivityRepository {
 				) AS options
 				FROM SurveyQuestions
 				WHERE IsDeleted = 0 
-					AND SurveyID IN (${resultSurvey.length === 0 ? "NULL" : resultSurvey.map(x => x.id).join(",")})
+					AND SurveyID IN (${resultSurvey.length === 0 ? "NULL" : resultSurvey.map((x) => x.id).join(",")})
 		;`)
     ).recordset
-    let resultSurveySchedule = (
+    const resultSurveySchedule = (
       await SQL!.request().query(`
 			SELECT
 				SurveyID AS id, 
@@ -253,35 +271,24 @@ export class ActivityRepository {
 				) AS custom_time
 			FROM Admin_SurveySchedule
 			WHERE IsDeleted = 0 
-				AND Admin_SurveySchedule.SurveyID IN (${resultSurvey.length === 0 ? "NULL" : resultSurvey.map(x => x.id).join(",")})
+				AND Admin_SurveySchedule.SurveyID IN (${resultSurvey.length === 0 ? "NULL" : resultSurvey.map((x) => x.id).join(",")})
 		;`)
     ).recordset
-    let resultTest = (
+    const resultTest = (
       await SQL!.request().query(`
-			SELECT 
-				Admin.AdminID AS aid,
-				('ctest') AS type,
-				CTest.*
-			FROM Admin
-			CROSS APPLY 
-			(
-				SELECT 
-					ActivityIndexID AS id,
-					LegacyCTestID AS lid,
-					Name AS name
-				FROM LAMP_Aux.dbo.ActivityIndex
-				WHERE LegacyCTestID IS NOT NULL
-			) AS CTest
-			JOIN Admin_CTestSettings
-				ON Admin_CTestSettings.AdminID = Admin.AdminID
-				AND Admin_CTestSettings.CTestID = CTest.lid
-			WHERE IsDeleted = 0 
-				AND Status IN (1, NULL)
-				${!ctest_id ? "" : `AND CTest.id = '${ctest_id}'`}
-				${!admin_id ? "" : `AND Admin.AdminID = '${admin_id}'`}
+      SELECT 
+        AdminCTestSettingID AS id,
+				AdminID AS aid,
+        ('ctest') AS type,
+        CTestID AS ctest_id
+			FROM Admin_CTestSettings
+			WHERE Status IN (1, NULL)
+        ${(survey_id ?? 0) > 0 || (group_id ?? 0) > 0 ? `AND 1=0` : ``}
+				${ctest_id ?? 0 > 0 ? `AND AdminCTestSettingID = '${ctest_id}'` : ``}
+				${admin_id ?? 0 > 0 ? `AND AdminID = '${admin_id}'` : ``}
 		;`)
     ).recordset
-    let resultTestJewelsSettings = (
+    const resultTestJewelsSettings = (
       await SQL!.request().query(`
 			SELECT 
 				('a') AS type,
@@ -298,7 +305,7 @@ export class ActivityRepository {
 				Y_NoOfShapes AS y_shape_count
 			FROM Admin_JewelsTrailsASettings
 			WHERE Admin_JewelsTrailsASettings.AdminID IN (${
-        resultTest.length === 0 ? "NULL" : resultTest.map(x => x.aid).join(",")
+        resultTest.length === 0 ? "NULL" : resultTest.map((x) => x.aid).join(",")
       })
 			UNION ALL
 			SELECT 
@@ -316,11 +323,11 @@ export class ActivityRepository {
 				Y_NoOfShapes AS y_shape_count
 			FROM Admin_JewelsTrailsBSettings
 			WHERE Admin_JewelsTrailsBSettings.AdminID IN (${
-        resultTest.length === 0 ? "NULL" : resultTest.map(x => x.aid).join(",")
+        resultTest.length === 0 ? "NULL" : resultTest.map((x) => x.aid).join(",")
       })
 		;`)
     ).recordset
-    let resultTestSchedule = (
+    const resultTestSchedule = (
       await SQL!.request().query(`
 			SELECT
 				CTestID as lid,
@@ -342,7 +349,7 @@ export class ActivityRepository {
 			FROM Admin_CTestSchedule
 			WHERE IsDeleted = 0 
 				AND CONCAT('', CTestID, AdminID) IN (${
-          resultTest.length === 0 ? "NULL" : resultTest.map(x => `'${x.lid}${x.aid}'`).join(",")
+          resultTest.length === 0 ? "NULL" : resultTest.map((x) => `'${x.ctest_id}${x.aid}'`).join(",")
         })
 		;`)
     ).recordset
@@ -350,80 +357,73 @@ export class ActivityRepository {
     // FIXME: Shouldn't return deleted surveys/ctests in group settings.
 
     return [...resultBatch, ...resultSurvey, ...resultTest].map((raw: any) => {
-      let obj = new Activity()
+      const obj = new Activity()
       if (raw.type === "batch") {
         obj.id = ActivityRepository._pack_id({
-          activity_spec_id: 0 /* batch */,
-          admin_id: raw.aid,
-          survey_id: raw.id
+          group_id: raw.id,
         })
         obj.spec = "lamp.group"
         obj.name = raw.name
         obj.settings = [
-          ...resultBatchSurveySettings.filter(x => x.id === raw.id),
-          ...resultBatchCTestSettings.filter(x => x.id === raw.id)
+          ...resultBatchSurveySettings.filter((x) => x.id === raw.id),
+          ...resultBatchCTestSettings.filter((x) => x.id === raw.id),
         ]
           .sort((x: any, y: any) => x.order - y.order)
           .map((x: any) =>
             ActivityRepository._pack_id({
-              activity_spec_id: !x.survey_id ? x.ctest_id : 1 /* survey */,
-              admin_id: raw.aid,
-              survey_id: !x.survey_id ? undefined : x.survey_id
+              ctest_id: !x.ctest_id ? undefined : x.ctest_id,
+              survey_id: !x.survey_id ? undefined : x.survey_id,
             })
           )
         obj.schedule = resultBatchSchedule
-          .filter(x => x.id === raw.id)
-          .map(x => ({
+          .filter((x) => x.id === raw.id)
+          .map((x) => ({
             ...x,
             id: undefined,
-            custom_time: !x.custom_time ? null : JSON.parse(x.custom_time).map((y: any) => y.t)
+            custom_time: !x.custom_time ? null : JSON.parse(x.custom_time).map((y: any) => y.t),
           })) as any
       } else if (raw.type === "survey") {
         obj.id = ActivityRepository._pack_id({
-          activity_spec_id: 1 /* survey */,
-          admin_id: raw.aid,
-          survey_id: raw.id
+          survey_id: raw.id,
         })
         obj.spec = "lamp.survey"
         obj.name = raw.name
         obj.settings = resultSurveyQuestions
-          .filter(x => x.id === raw.id)
-          .map(x => ({
+          .filter((x) => x.id === raw.id)
+          .map((x) => ({
             ...x,
             id: undefined,
-            options: !x.options ? null : JSON.parse(x.options).map((y: any) => y.opt)
+            options: !x.options ? null : JSON.parse(x.options).map((y: any) => y.opt),
           })) as any
         obj.schedule = resultSurveySchedule
-          .filter(x => x.id === raw.id)
-          .map(x => ({
+          .filter((x) => x.id === raw.id)
+          .map((x) => ({
             ...x,
             id: undefined,
-            custom_time: !x.custom_time ? null : JSON.parse(x.custom_time).map((y: any) => y.t)
+            custom_time: !x.custom_time ? null : JSON.parse(x.custom_time).map((y: any) => y.t),
           })) as any
       } else if (raw.type === "ctest") {
         obj.id = ActivityRepository._pack_id({
-          activity_spec_id: raw.id,
-          admin_id: raw.aid
-          //survey_id: raw.id
+          ctest_id: raw.id,
         })
         obj.spec = raw.name
         obj.name = spec_map[<string>raw.name]
         if (raw.name === "lamp.jewels_a") {
           obj.settings = resultTestJewelsSettings
-            .filter(x => x.type === "a")
-            .map(x => ({ ...x, type: undefined }))[0] as any
+            .filter((x) => x.type === "a")
+            .map((x) => ({ ...x, type: undefined }))[0] as any
         } else if (raw.name === "lamp.jewels_b") {
           obj.settings = resultTestJewelsSettings
-            .filter(x => x.type === "b")
-            .map(x => ({ ...x, type: undefined }))[0] as any
+            .filter((x) => x.type === "b")
+            .map((x) => ({ ...x, type: undefined }))[0] as any
         } else obj.settings = {}
         obj.schedule = resultTestSchedule
-          .filter(x => x.aid == raw.aid && x.lid == raw.lid)
-          .map(x => ({
+          .filter((x) => x.aid == raw.aid && x.lid == raw.lid)
+          .map((x) => ({
             ...x,
             aid: undefined,
             lid: undefined,
-            custom_time: !x.custom_time ? null : JSON.parse(x.custom_time).map((y: any) => y.t)
+            custom_time: !x.custom_time ? null : JSON.parse(x.custom_time).map((y: any) => y.t),
           })) as any
       }
       return obj
@@ -444,8 +444,8 @@ export class ActivityRepository {
      */
     object: Activity
   ): Promise<string> {
-    let { admin_id } = StudyRepository._unpack_id(study_id)
-    let transaction = SQL!.transaction()
+    const { admin_id } = StudyRepository._unpack_id(study_id)
+    const transaction = SQL!.transaction()
     await transaction.begin()
     try {
       // Set the deletion flag, without actually deleting the row.
@@ -456,7 +456,7 @@ export class ActivityRepository {
           throw new Error("400.settings-not-specified")
 
         // Create the schedule.
-        let result1 = await transaction.request().query(`
+        const result1 = await transaction.request().query(`
 					INSERT INTO Admin_BatchSchedule (
 						AdminID,
 						BatchName,
@@ -467,48 +467,50 @@ export class ActivityRepository {
 					OUTPUT INSERTED.AdminBatchSchId
 					VALUES ${object.schedule
             .map(
-              sched => `(
+              (sched) => `(
 						${admin_id}, 
 						'${object.name ? _escapeMSSQL(object.name) : "new_group"}',
 						'${sched.start_date}',
 						'${sched.time}',
-						${[
-              "hourly",
-              "every3h",
-              "every6h",
-              "every12h",
-              "daily",
-              "biweekly",
-              "triweekly",
-              "weekly",
-              "bimonthly",
-              "monthly",
-              "custom",
-              "none"
-            ].indexOf(sched.repeat_interval) + 1}
+						${
+              [
+                "hourly",
+                "every3h",
+                "every6h",
+                "every12h",
+                "daily",
+                "biweekly",
+                "triweekly",
+                "weekly",
+                "bimonthly",
+                "monthly",
+                "custom",
+                "none",
+              ].indexOf(sched.repeat_interval) + 1
+            }
 					)`
             )
             .join(", ")}
 				;`)
         if (result1.rowsAffected[0] !== object.schedule.length)
           throw new Error("400.create-failed-due-to-malformed-parameters-schedule")
-        let batch_id = result1.recordset[0]["AdminBatchSchId"]
+        const batch_id = Number.parse(result1.recordset[0]["AdminBatchSchId"]) ?? -1
 
-        let ctime = [].concat(
+        const ctime = [].concat(
           ...object.schedule
             .map((x, idx) => [x.custom_time, idx])
-            .filter(x => !!x[0])
-            .map(x => x[0].map((y: any) => [y, x[1]]))
+            .filter((x) => !!x[0])
+            .map((x) => x[0].map((y: any) => [y, x[1]]))
         )
         if (ctime.length > 0) {
-          let result2 = await transaction.request().query(`
+          const result2 = await transaction.request().query(`
 						INSERT INTO Admin_BatchScheduleCustomTime (
 							AdminBatchSchId,
 							Time
 						)
 						VALUES ${ctime
               .map(
-                x => `(
+                (x) => `(
 							${result1.recordset[x[1]]["AdminBatchSchId"]},
 							'${x[0]}'
 						)`
@@ -519,50 +521,38 @@ export class ActivityRepository {
         }
 
         // Get CTest spec list.
-        let spec = (
-          await transaction.request().query(`
-					SELECT 
-						ActivityIndexID AS id, 
-						LegacyCTestID AS lid
-					FROM LAMP_Aux.dbo.ActivityIndex
-				;`)
-        ).recordset
-        let items = object.settings
-          .map((x, idx) => ({ ...ActivityRepository._unpack_id(x), idx }))
-          .map(x => ({
-            ...x,
-            lid: (spec.find(a => a["ActivityIndexID"] === x.activity_spec_id) || {})["LegacyCTestID"]
-          }))
-        if (items.filter(x => x.activity_spec_id === 0).length > 0) throw new Error("400.nested-objects-unsupported")
-
-        // FIXME: Shouldn't be able to add deleted surveys/ctests.
+        const items = object.settings.map((x, idx) => ({ ...ActivityRepository._unpack_id(x), idx }))
+        if (items.filter((x) => x.group_id > 0).length > 0) throw new Error("400.nested-objects-unsupported")
 
         // Create the CTest and Survey lists.
-        if (items.filter(x => x.activity_spec_id > 1).length > 0) {
-          let result3 = await transaction.request().query(`
+        const _ctest_select = (x_ctest_id: number): string =>
+          `SELECT CTestID FROM Admin_CTestSettings WHERE AdminCTestSettingID = ${x_ctest_id} AND Status = 1`
+        if (items.filter((x) => x.ctest_id > 0).length > 0) {
+          const result3 = await transaction.request().query(`
 						INSERT INTO Admin_BatchScheduleCTest (AdminBatchSchID, CTestID, Version, [Order]) 
 						VALUES ${items
-              .filter(x => x.activity_spec_id > 1)
+              .filter((x) => x.ctest_id > 0)
               .map(
-                x => `(
+                (x) => `(
 							${batch_id},
-							${x.lid || "NULL"},
+							(${_ctest_select(x.ctest_id)}),
 							-1,
 							${x.idx + 1}
 						)`
               )
               .join(", ")}
 					;`)
-          if (result3.rowsAffected[0] !== items.filter(x => x.activity_spec_id > 1).length)
+          if (result3.rowsAffected[0] !== items.filter((x) => x.ctest_id > 0).length)
             throw new Error("400.create-failed-due-to-malformed-parameters-settings")
         }
-        if (items.filter(x => x.activity_spec_id === 1).length > 0) {
-          let result4 = await transaction.request().query(`
+        if (items.filter((x) => x.survey_id > 0).length > 0) {
+          // FIXME: Shouldn't be able to add deleted surveys.
+          const result4 = await transaction.request().query(`
 						INSERT INTO Admin_BatchScheduleSurvey (AdminBatchSchID, SurveyID, [Order]) 
 						VALUES ${items
-              .filter(x => x.activity_spec_id === 1)
+              .filter((x) => x.survey_id > 0)
               .map(
-                x => `(
+                (x) => `(
 							${batch_id},
 							${x.survey_id},
 							${x.idx + 1}
@@ -570,29 +560,27 @@ export class ActivityRepository {
               )
               .join(", ")}
 					;`)
-          if (result4.rowsAffected[0] !== items.filter(x => x.activity_spec_id === 1).length)
+          if (result4.rowsAffected[0] !== items.filter((x) => x.survey_id > 0).length)
             throw new Error("400.create-failed-due-to-malformed-parameters-settings")
         }
 
         // Return the new ID.
         await transaction.commit()
         return ActivityRepository._pack_id({
-          activity_spec_id: 0 /* batch */,
-          admin_id: admin_id,
-          survey_id: batch_id
+          group_id: batch_id,
         })
       } else if (object.spec === "lamp.survey" /* survey */) {
-        let result1 = await transaction.request().query(`
+        const result1 = await transaction.request().query(`
 					INSERT INTO Survey (AdminID, SurveyName) 
 					OUTPUT INSERTED.SurveyID
 					VALUES (${admin_id}, '${object.name ? _escapeMSSQL(object.name) : "new_survey"}')
 				;`)
         if (result1.rowsAffected[0] === 0) throw new Error("400.create-failed")
-        let survey_id = result1.recordset[0]["SurveyID"]
+        const survey_id = Number.parse(result1.recordset[0]["SurveyID"]) ?? -1
 
         // Create the questions.
         if (Array.isArray(object.settings) && object.settings.length > 0) {
-          let result2 = await transaction.request().query(`
+          const result2 = await transaction.request().query(`
 						INSERT INTO SurveyQuestions (
 							SurveyID, QuestionText, AnswerType, 
 							Threshold, Operator, Message
@@ -600,7 +588,7 @@ export class ActivityRepository {
 						OUTPUT INSERTED.QuestionID
 						VALUES ${object.settings
               .map(
-                q => `(
+                (q) => `(
 							${survey_id},
 							'${_escapeMSSQL(q.text)}',
 							${["likert", "list", "boolean", "clock", "years", "months", "days", "text"].indexOf(q.type) + 1},
@@ -614,18 +602,18 @@ export class ActivityRepository {
           if (result2.rowsAffected[0] !== object.settings.length)
             throw new Error("400.create-failed-due-to-malformed-parameters-settings")
 
-          let opts = [].concat(
+          const opts = [].concat(
             ...object.settings
               .map((x, idx) => [x.options, idx])
-              .filter(x => !!x[0])
-              .map(x => x[0].map((y: any) => [y, x[1]]))
+              .filter((x) => !!x[0])
+              .map((x) => x[0].map((y: any) => [y, x[1]]))
           )
           if (opts.length > 0) {
-            let result21 = await transaction.request().query(`
+            const result21 = await transaction.request().query(`
 							INSERT INTO SurveyQuestionOptions (QuestionID, OptionText) 
 							VALUES ${opts
                 .map(
-                  q => `(
+                  (q) => `(
 								${result2.recordset[q[1]]["QuestionID"]},
 								'${_escapeMSSQL(q[0])}'
 							)`
@@ -639,7 +627,7 @@ export class ActivityRepository {
 
         // Create the schedule.
         if (Array.isArray(object.schedule) && object.schedule.length > 0) {
-          let result3 = await transaction.request().query(`
+          const result3 = await transaction.request().query(`
 						INSERT INTO Admin_SurveySchedule (
 							AdminID,
 							SurveyID,
@@ -650,25 +638,27 @@ export class ActivityRepository {
 						OUTPUT INSERTED.AdminSurveySchId
 						VALUES ${object.schedule
               .map(
-                sched => `(
+                (sched) => `(
 							${admin_id}, 
 							${survey_id},
 							'${sched.start_date}',
 							'${sched.time}',
-							${[
-                "hourly",
-                "every3h",
-                "every6h",
-                "every12h",
-                "daily",
-                "biweekly",
-                "triweekly",
-                "weekly",
-                "bimonthly",
-                "monthly",
-                "custom",
-                "none"
-              ].indexOf(sched.repeat_interval) + 1}
+							${
+                [
+                  "hourly",
+                  "every3h",
+                  "every6h",
+                  "every12h",
+                  "daily",
+                  "biweekly",
+                  "triweekly",
+                  "weekly",
+                  "bimonthly",
+                  "monthly",
+                  "custom",
+                  "none",
+                ].indexOf(sched.repeat_interval) + 1
+              }
 						)`
               )
               .join(", ")}
@@ -676,21 +666,21 @@ export class ActivityRepository {
           if (result3.rowsAffected[0] !== object.schedule.length)
             throw new Error("400.create-failed-due-to-malformed-parameters-schedule")
 
-          let ctime = [].concat(
+          const ctime = [].concat(
             ...object.schedule
               .map((x, idx) => [x.custom_time, idx])
-              .filter(x => !!x[0])
-              .map(x => x[0].map((y: any) => [y, x[1]]))
+              .filter((x) => !!x[0])
+              .map((x) => x[0].map((y: any) => [y, x[1]]))
           )
           if (ctime.length > 0) {
-            let result4 = await transaction.request().query(`
+            const result4 = await transaction.request().query(`
 							INSERT INTO Admin_SurveyScheduleCustomTime (
 								AdminSurveySchId,
 								Time
 							)
 							VALUES ${ctime
                 .map(
-                  x => `(
+                  (x) => `(
 								${result3.recordset[x[1]]["AdminSurveySchId"]},
 								'${x[0]}'
 							)`
@@ -704,37 +694,27 @@ export class ActivityRepository {
         // Return the new ID.
         await transaction.commit()
         return ActivityRepository._pack_id({
-          activity_spec_id: 1 /* survey */,
-          admin_id: admin_id,
-          survey_id: survey_id
+          survey_id: survey_id,
         })
       } /* cognitive test */ else {
-        // Get the right ActivitySpec IDs.
-        let spec = (
-          await transaction.request().query(`
-					SELECT 
-						ActivityIndexID AS id, 
-						LegacyCTestID AS lid
-					FROM LAMP_Aux.dbo.ActivityIndex
-					WHERE Name = '${object.spec}'
-				;`)
-        ).recordset[0]
-        if (!spec) throw new Error("404.object-not-found")
+        const ctest_id = ActivityIndex.find((x) => x.Name === object.spec)?.[0]?.LegacyCTestID ?? -1
 
         // First activate the CTest if previously inactive.
-        let result = await transaction.request().query(`
+        const result = await transaction.request().query(`
 					UPDATE Admin_CTestSettings 
 					SET Status = 1 
 					WHERE Status = 0
-						AND AdminID = ${admin_id} 
-						AND CTestID = ${spec.lid}
+            AND AdminID = ${admin_id} 
+            AND CTestID = ${ctest_id}
+          OUTPUT UPDATED.*
 				;`)
         if (result.rowsAffected[0] === 0) throw new Error("400.activity-exists-cannot-overwrite")
+        const _actual_setting_id = Number.parse(result.recordset[0]["AdminCTestSettingID"]) ?? 0
 
         // Configure Jewels A or B if needed.
-        if ((object.spec === "lamp.jewels_a" || object.spec === "lamp.jewels_b") && !!object.settings) {
-          let isA = object.spec === "lamp.jewels_a"
-          let result2 = await transaction.request().query(`
+        if ((ctest_id === 17 || ctest_id === 18) && !!object.settings) {
+          const isA = ctest_id === 17
+          const result2 = await transaction.request().query(`
 						MERGE Admin_JewelsTrails${isA ? "A" : "B"}Settings WITH (HOLDLOCK) AS Target
 						USING (VALUES (${admin_id})) AS Source(AdminID)
 							ON Target.AdminID = ${admin_id}
@@ -777,7 +757,7 @@ export class ActivityRepository {
 
         // Create the schedule.
         if (Array.isArray(object.schedule) && object.schedule.length > 0) {
-          let result3 = await transaction.request().query(`
+          const result3 = await transaction.request().query(`
 						INSERT INTO Admin_CTestSchedule (
 							AdminID,
 							CTestID,
@@ -789,26 +769,28 @@ export class ActivityRepository {
 						OUTPUT INSERTED.AdminCTestSchId
 						VALUES ${object.schedule
               .map(
-                sched => `(
+                (sched) => `(
 							${admin_id}, 
-							${spec.lid},
+							${ctest_id},
 							-1,
 							'${sched.start_date}',
 							'${sched.time}',
-							${[
-                "hourly",
-                "every3h",
-                "every6h",
-                "every12h",
-                "daily",
-                "biweekly",
-                "triweekly",
-                "weekly",
-                "bimonthly",
-                "monthly",
-                "custom",
-                "none"
-              ].indexOf(sched.repeat_interval) + 1}
+							${
+                [
+                  "hourly",
+                  "every3h",
+                  "every6h",
+                  "every12h",
+                  "daily",
+                  "biweekly",
+                  "triweekly",
+                  "weekly",
+                  "bimonthly",
+                  "monthly",
+                  "custom",
+                  "none",
+                ].indexOf(sched.repeat_interval) + 1
+              }
 						)`
               )
               .join(", ")}
@@ -816,21 +798,21 @@ export class ActivityRepository {
           if (result3.rowsAffected[0] !== object.schedule.length)
             throw new Error("400.create-failed-due-to-malformed-parameters-schedule")
 
-          let ctime = [].concat(
+          const ctime = [].concat(
             ...object.schedule
               .map((x, idx) => [x.custom_time, idx])
-              .filter(x => !!x[0])
-              .map(x => x[0].map((y: any) => [y, x[1]]))
+              .filter((x) => !!x[0])
+              .map((x) => x[0].map((y: any) => [y, x[1]]))
           )
           if (ctime.length > 0) {
-            let result4 = await transaction.request().query(`
+            const result4 = await transaction.request().query(`
 							INSERT INTO Admin_CTestScheduleCustomTime (
 								AdminCTestSchId,
 								Time
 							)
 							VALUES ${ctime
                 .map(
-                  x => `(
+                  (x) => `(
 								${result3.recordset[x[1]]["AdminCTestSchId"]},
 								'${x[0]}'
 							)`
@@ -844,9 +826,7 @@ export class ActivityRepository {
         // Return the new ID.
         await transaction.commit()
         return ActivityRepository._pack_id({
-          activity_spec_id: spec.id,
-          admin_id: admin_id
-          //survey_id: raw.id
+          ctest_id: _actual_setting_id,
         })
       }
     } catch (e) {
@@ -870,21 +850,21 @@ export class ActivityRepository {
      */
     object: any
   ): Promise<{}> {
-    let { activity_spec_id, admin_id, survey_id } = ActivityRepository._unpack_id(activity_id)
+    const { ctest_id, survey_id, group_id } = ActivityRepository._unpack_id(activity_id)
 
     if (typeof object.spec === "string") throw new Error("400.update-failed-modifying-activityspec-is-illegal")
 
-    let transaction = SQL!.transaction()
+    const transaction = SQL!.transaction()
     await transaction.begin()
     try {
       // Set the deletion flag, without actually deleting the row.
-      if (activity_spec_id === 0 /* group */) {
+      if (group_id > 0 /* group */) {
         // Verify that the item exists.
-        let result = await transaction.request().query(`
+        const result = await transaction.request().query(`
 					SELECT AdminBatchSchID 
 					FROM Admin_BatchSchedule 
 					WHERE IsDeleted = 0
-						AND AdminBatchSchID = ${survey_id}
+						AND AdminBatchSchID = ${group_id}
 				;`)
         if (result.recordset.length === 0) throw new Error("404.object-not-found")
 
@@ -893,49 +873,51 @@ export class ActivityRepository {
           if (Array.isArray(object.schedule) && object.schedule.length !== 1)
             throw new Error("400.empty-duration-unsupported")
 
-          let result1 = await transaction.request().query(`
+          const result1 = await transaction.request().query(`
 						UPDATE Admin_BatchSchedule SET 
 							${[
                 !!object.name ? `BatchName = '${object.name}'` : null,
                 !!object.schedule[0].start_date ? `ScheduleDate = '${object.schedule[0].start_date}'` : null,
                 !!object.schedule[0].time ? `Time = '${object.schedule[0].time}'` : null,
                 !!object.schedule[0].repeat_interval
-                  ? `RepeatID = ${[
-                      "hourly",
-                      "every3h",
-                      "every6h",
-                      "every12h",
-                      "daily",
-                      "biweekly",
-                      "triweekly",
-                      "weekly",
-                      "bimonthly",
-                      "monthly",
-                      "custom",
-                      "none"
-                    ].indexOf(object.schedule[0].repeat_interval) + 1}`
-                  : null
+                  ? `RepeatID = ${
+                      [
+                        "hourly",
+                        "every3h",
+                        "every6h",
+                        "every12h",
+                        "daily",
+                        "biweekly",
+                        "triweekly",
+                        "weekly",
+                        "bimonthly",
+                        "monthly",
+                        "custom",
+                        "none",
+                      ].indexOf(object.schedule[0].repeat_interval) + 1
+                    }`
+                  : null,
               ]
-                .filter(x => x !== null)
+                .filter((x) => x !== null)
                 .join(", ")}
 						WHERE IsDeleted = 0
-							AND AdminBatchSchID = ${survey_id}
+							AND AdminBatchSchID = ${group_id}
 					;`)
 
           // Modify custom times.
           if (Array.isArray(object.schedule[0].custom_time)) {
-            let ctime = object.schedule[0].custom_time
-            let result2 = await transaction.request().query(`
+            const ctime = object.schedule[0].custom_time
+            const result2 = await transaction.request().query(`
 							MERGE INTO Admin_BatchScheduleCustomTime Target
 							USING (VALUES
-								${ctime.length === 0 ? "(NULL, NULL)" : ctime.map((x: any) => `(${survey_id}, '${_escapeMSSQL(x)}')`).join(", ")}
+								${ctime.length === 0 ? "(NULL, NULL)" : ctime.map((x: any) => `(${group_id}, '${_escapeMSSQL(x)}')`).join(", ")}
 							) AS Source(AdminBatchSchID, Time)
 								ON Target.AdminBatchSchID = Source.AdminBatchSchID 
 								AND Target.Time = Source.Time
 							WHEN NOT MATCHED BY Target THEN
 								INSERT (AdminBatchSchID, Time) 
 								VALUES (Source.AdminBatchSchID, Source.Time)
-							WHEN NOT MATCHED BY Source AND Target.AdminBatchSchID = ${survey_id} THEN 
+							WHEN NOT MATCHED BY Source AND Target.AdminBatchSchID = ${group_id} THEN 
 								DELETE
 							OUTPUT $ACTION, INSERTED.*, DELETED.*
 						;`)
@@ -944,32 +926,27 @@ export class ActivityRepository {
 
         // Modify batch settings.
         if (Array.isArray(object.settings)) {
-          let spec = (
-            await transaction.request().query(`
-						SELECT 
-							ActivityIndexID AS id, 
-							LegacyCTestID AS lid
-						FROM LAMP_Aux.dbo.ActivityIndex
-					;`)
-          ).recordset
-          let items = (object.settings as Array<string>)
-            .map((x, idx) => ({ ...ActivityRepository._unpack_id(x), idx }))
-            .map(x => ({ ...x, lid: (spec.find(a => a["id"] === `${x.activity_spec_id}`) || {})["lid"] }))
+          const items = (object.settings as Array<string>).map((x, idx) => ({
+            ...ActivityRepository._unpack_id(x),
+            idx,
+          }))
 
-          if (items.filter(x => x.activity_spec_id === 0).length > 0) throw new Error("400.nested-object-unsupported")
-          if (items.filter(x => x.activity_spec_id !== 0).length === 0) throw new Error("400.empty-array-unsupported")
-          let ctest = items.filter(x => x.activity_spec_id > 1)
-          let survey = items.filter(x => x.activity_spec_id === 1)
+          if (items.filter((x) => x.group_id > 0).length > 0) throw new Error("400.nested-activity-groups-unsupported")
+          if (items.filter((x) => x.group_id === 0).length === 0)
+            throw new Error("400.empty-activity-group-settings-array-unsupported")
+          const ctest = items.filter((x) => x.ctest_id > 0)
+          const survey = items.filter((x) => x.survey_id > 0)
 
           // FIXME: confirm survey/ctest not deleted first + exists!
 
-          let result3 = await transaction.request().query(`
+          const _ctest_select = `SELECT CTestID FROM Admin_CTestSettings WHERE AdminCTestSettingID = ${ctest_id}`
+          const result3 = await transaction.request().query(`
 						MERGE INTO Admin_BatchScheduleCTest Target
 						USING (VALUES
 							${
                 ctest.length === 0
                   ? "(NULL, NULL, NULL)"
-                  : ctest.map(x => `(${survey_id}, ${x.lid || "NULL"}, ${x.idx + 1})`).join(", ")
+                  : ctest.map((x) => `(${group_id}, (${_ctest_select}), ${x.idx + 1})`).join(", ")
               }
 						) AS Source(AdminBatchSchID, CTestID, [Order])
 							ON Target.AdminBatchSchID = Source.AdminBatchSchID 
@@ -979,18 +956,18 @@ export class ActivityRepository {
 						WHEN NOT MATCHED BY Target THEN
 							INSERT (AdminBatchSchID, CTestID, Version, [Order]) 
 							VALUES (Source.AdminBatchSchID, Source.CTestID, -1, Source.[Order])
-						WHEN NOT MATCHED BY Source AND Target.AdminBatchSchID = ${survey_id} THEN 
+						WHEN NOT MATCHED BY Source AND Target.AdminBatchSchID = ${group_id} THEN 
 							DELETE
 						OUTPUT $ACTION, INSERTED.*, DELETED.*
 					;`)
 
-          let result4 = await transaction.request().query(`
+          const result4 = await transaction.request().query(`
 						MERGE INTO Admin_BatchScheduleSurvey Target
 						USING (VALUES
 							${
                 survey.length === 0
                   ? "(NULL, NULL, NULL)"
-                  : survey.map((x: any) => `(${survey_id}, ${x.survey_id}, ${x.idx + 1})`).join(", ")
+                  : survey.map((x: any) => `(${group_id}, ${x.survey_id}, ${x.idx + 1})`).join(", ")
               }
 						) AS Source(AdminBatchSchID, SurveyID, [Order])
 							ON Target.AdminBatchSchID = Source.AdminBatchSchID 
@@ -1000,7 +977,7 @@ export class ActivityRepository {
 						WHEN NOT MATCHED BY Target THEN
 							INSERT (AdminBatchSchID, SurveyID, [Order]) 
 							VALUES (Source.AdminBatchSchID, Source.SurveyID, Source.[Order])
-						WHEN NOT MATCHED BY Source AND Target.AdminBatchSchID = ${survey_id} THEN 
+						WHEN NOT MATCHED BY Source AND Target.AdminBatchSchID = ${group_id} THEN 
 							DELETE
 						OUTPUT $ACTION, INSERTED.*, DELETED.*
 					;`)
@@ -1008,10 +985,10 @@ export class ActivityRepository {
 
         await transaction.commit()
         return {}
-      } else if (activity_spec_id === 1 /* survey */) {
+      } else if (survey_id > 0 /* survey */) {
         // Modify survey name or verify that the item exists.
         if (typeof object.name === "string") {
-          let result0 = await transaction.request().query(`
+          const result0 = await transaction.request().query(`
 						UPDATE Survey SET 
 							SurveyName = '${_escapeMSSQL(object.name)}'
 						WHERE IsDeleted = 0
@@ -1019,7 +996,7 @@ export class ActivityRepository {
 					;`)
           if (result0.rowsAffected[0] === 0) throw new Error("404.object-not-found")
         } else {
-          let result0 = await transaction.request().query(`
+          const result0 = await transaction.request().query(`
 						SELECT SurveyID 
 						FROM Survey 
 						WHERE IsDeleted = 0
@@ -1030,15 +1007,14 @@ export class ActivityRepository {
 
         // Modify survey schedule.
         if (Array.isArray(object.schedule)) {
-          let result2 = await transaction.request().query(`
+          const result2 = await transaction.request().query(`
 						UPDATE Admin_SurveySchedule 
 						SET IsDeleted = 1
 						WHERE IsDeleted = 0
-							AND AdminID = ${admin_id} 
 							AND SurveyID = ${survey_id}
 					;`)
           if (object.schedule.length > 0) {
-            let result3 = await transaction.request().query(`
+            const result3 = await transaction.request().query(`
 							INSERT INTO Admin_SurveySchedule (
 								AdminID,
 								SurveyID,
@@ -1050,24 +1026,30 @@ export class ActivityRepository {
 							VALUES ${object.schedule
                 .map(
                   (sched: any) => `(
-								${admin_id}, 
+								(
+                  SELECT AdminID
+                  FROM Survey
+                  WHERE SurveyID = ${survey_id}
+							  ),
 								${survey_id},
 								'${sched.start_date}',
 								'${sched.time}',
-								${[
-                  "hourly",
-                  "every3h",
-                  "every6h",
-                  "every12h",
-                  "daily",
-                  "biweekly",
-                  "triweekly",
-                  "weekly",
-                  "bimonthly",
-                  "monthly",
-                  "custom",
-                  "none"
-                ].indexOf(sched.repeat_interval) + 1}
+								${
+                  [
+                    "hourly",
+                    "every3h",
+                    "every6h",
+                    "every12h",
+                    "daily",
+                    "biweekly",
+                    "triweekly",
+                    "weekly",
+                    "bimonthly",
+                    "monthly",
+                    "custom",
+                    "none",
+                  ].indexOf(sched.repeat_interval) + 1
+                }
 							)`
                 )
                 .join(", ")}
@@ -1075,21 +1057,21 @@ export class ActivityRepository {
             if (result3.rowsAffected[0] !== object.schedule.length)
               throw new Error("400.create-failed-due-to-malformed-parameters-schedule")
 
-            let ctime = [].concat(
+            const ctime = [].concat(
               ...object.schedule
                 .map((x: any, idx: number) => [x.custom_time, idx])
                 .filter((x: any) => !!x[0])
                 .map((x: any) => x[0].map((y: any) => [y, x[1]]))
             )
             if (ctime.length > 0) {
-              let result4 = await transaction.request().query(`
+              const result4 = await transaction.request().query(`
 								INSERT INTO Admin_SurveyScheduleCustomTime (
 									AdminSurveySchId,
 									Time
 								)
 								VALUES ${ctime
                   .map(
-                    x => `(
+                    (x) => `(
 									${result3.recordset[x[1]]["AdminSurveySchId"]},
 									'${x[0]}'
 								)`
@@ -1103,14 +1085,14 @@ export class ActivityRepository {
 
         // Modify survey questions.
         if (Array.isArray(object.settings)) {
-          let result3 = await transaction.request().query(`
+          const result3 = await transaction.request().query(`
 						UPDATE SurveyQuestions 
 						SET IsDeleted = 1
 						WHERE IsDeleted = 0
 							AND SurveyID = ${survey_id}
 					;`)
           if (object.settings.length > 0) {
-            let result2 = await transaction.request().query(`
+            const result2 = await transaction.request().query(`
 							INSERT INTO SurveyQuestions (SurveyID, QuestionText, AnswerType) 
 							OUTPUT INSERTED.QuestionID
 							VALUES ${object.settings
@@ -1126,18 +1108,18 @@ export class ActivityRepository {
             if (result2.rowsAffected[0] !== object.settings.length)
               throw new Error("400.create-failed-due-to-malformed-parameters-settings")
 
-            let opts = [].concat(
+            const opts = [].concat(
               ...object.settings
                 .map((x: any, idx: number) => [x.options, idx])
                 .filter((x: any) => !!x[0])
                 .map((x: any) => x[0].map((y: any) => [y, x[1]]))
             )
             if (opts.length > 0) {
-              let result21 = await transaction.request().query(`
+              const result21 = await transaction.request().query(`
 								INSERT INTO SurveyQuestionOptions (QuestionID, OptionText) 
 								VALUES ${opts
                   .map(
-                    q => `(
+                    (q) => `(
 									${result2.recordset[q[1]]["QuestionID"]},
 									'${_escapeMSSQL(q[0])}'
 								)`
@@ -1150,168 +1132,37 @@ export class ActivityRepository {
           }
         }
 
-        /*
-				// Modify survey schedule.
-				if (Array.isArray(object.schedule)) {
-					let result1 = await transaction.request().query(`
-						MERGE INTO Admin_SurveySchedule Target
-						USING (VALUES
-							${object.schedule.length === 0 ? '(NULL, NULL, NULL, NULL)' : object.schedule.map((x: any, idx: number) => `(
-								${idx}, ${admin_id}, ${survey_id}, '${x.start_date}', '${x.time}', ${[
-									'hourly', 'every3h', 'every6h', 'every12h', 'daily', 
-									'biweekly', 'triweekly', 'weekly', 'bimonthly', 
-									'monthly', 'custom', 'none'
-								].indexOf(x.repeat_interval) + 1}
-							)`).join(', ')}
-						) AS Source(Idx, AdminID, SurveyID, ScheduleDate, Time, RepeatID)
-							ON Target.AdminID = Source.AdminID 
-							AND Target.SurveyID = Source.SurveyID 
-							AND Target.ScheduleDate = Source.ScheduleDate
-							AND Target.Time = Source.Time
-							AND Target.RepeatID = Source.RepeatID
-							AND Source.SurveyID IS NOT NULL
-						WHEN NOT MATCHED BY Target THEN
-							INSERT (AdminID, SurveyID, ScheduleDate, Time, RepeatID) 
-							VALUES (Source.AdminID, Source.SurveyID, Source.ScheduleDate, Source.Time, Source.RepeatID)
-						WHEN NOT MATCHED BY Source 
-							AND Target.AdminID = ${admin_id} 
-							AND Target.SurveyID = ${survey_id} 
-							AND Target.IsDeleted = 0 
-						THEN 
-							UPDATE SET IsDeleted = 1
-						WHEN MATCHED AND Target.IsDeleted = 1 THEN
-							UPDATE SET IsDeleted = 0
-						OUTPUT $ACTION, INSERTED.*, DELETED.*, Source.Idx
-					;`)
-
-					// FIXME: changing ctime requires changing something else as well, or it won't activate the below
-					
-					// Modify custom times.
-					let ctime = [].concat(...object.schedule
-									.map((x: any | null, idx: number) => (x.custom_time || [])
-										.map((y: string) => ({ idx: idx, value: y }))))
-									.map((x: any) => ({ ...x, idx: (result1.recordset
-										.find(y => !!y['Idx'] && (parseInt(y['Idx']) + 1) === x.idx) || { AdminSurveySchID: [] })['AdminSurveySchID'][0] }))
-									.filter(x => !!x.idx)
-					if (ctime.length > 0) {
-						let result2 = await transaction.request().query(`
-							MERGE INTO Admin_SurveyScheduleCustomTime Target
-							USING (VALUES
-								${ctime.length === 0 ? '(NULL, NULL)' : ctime.map((x: any) => `(${x.idx}, '${x.value}')`).join(', ')}
-							) AS Source(AdminSurveySchID, Time)
-								ON Target.AdminSurveySchID = Source.AdminSurveySchID 
-								AND Target.Time = Source.Time
-								AND Source.AdminSurveySchID IS NOT NULL
-							WHEN NOT MATCHED BY Target THEN
-								INSERT (AdminSurveySchID, Time) 
-								VALUES (Source.AdminSurveySchID, Source.Time)
-							WHEN NOT MATCHED BY Source AND Target.AdminSurveySchID = ${survey_id} THEN 
-								DELETE
-							OUTPUT $ACTION, INSERTED.*, DELETED.*
-						;`)
-					}
-				}
-
-				// FIXME: Cannot preserve question ordering using this method
-
-				// Modify batch settings.
-				if (Array.isArray(object.settings)) {
-					let result1 = await transaction.request().query(`
-						MERGE INTO SurveyQuestions Target
-						USING (VALUES
-							${object.settings.length === 0 ? '(NULL, NULL, NULL, NULL)' : object.settings.map((x: any, idx: number) => `(
-								${idx}, ${survey_id}, '${x.text}',
-								${['likert', 'list', 'boolean', 'clock', 'years', 'months', 'days', 'text'].indexOf(x.type) + 1}
-							)`).join(', ')}
-						) AS Source(Idx, SurveyID, QuestionText, AnswerType)
-							ON Target.SurveyID = Source.SurveyID 
-							AND Target.QuestionText = Source.QuestionText
-							AND Target.AnswerType = Source.AnswerType
-							AND Source.SurveyID IS NOT NULL
-						WHEN NOT MATCHED BY Target THEN
-							INSERT (SurveyID, QuestionText, AnswerType) 
-							VALUES (Source.SurveyID, Source.QuestionText, Source.AnswerType)
-						WHEN NOT MATCHED BY Source 
-							AND Target.SurveyID = ${survey_id} 
-							AND Target.IsDeleted = 0 
-						THEN 
-							UPDATE SET IsDeleted = 1
-						WHEN MATCHED AND Target.IsDeleted = 1 THEN
-							UPDATE SET IsDeleted = 0
-						OUTPUT $ACTION, INSERTED.*, DELETED.*, Source.Idx
-					;`)
-
-					// FIXME: changing options requires changing something else as well, or it won't activate the below
-					
-					// Modify custom times.
-					let opts = [].concat(...object.settings
-									.map((x: any | null, idx: number) => (x.options || [])
-										.map((y: string) => ({ idx: idx, value: y }))))
-									.map((x: any) => ({ ...x, idx: (result1.recordset
-										.find(y => !!y['Idx'] && (parseInt(y['Idx']) + 1) === x.idx) || { OptionID: [] })['OptionID'][0] }))
-									.filter(x => !!x.idx)
-					if (opts.length > 0) {
-						let result2 = await transaction.request().query(`
-							MERGE INTO SurveyQuestionOptions Target
-							USING (VALUES
-								${opts.length === 0 ? '(NULL, NULL)' : opts.map((x: any) => `(${x.idx}, '${x.value}')`).join(', ')}
-							) AS Source(QuestionID, OptionText)
-								ON Target.QuestionID = Source.QuestionID 
-								AND Target.OptionText = Source.OptionText
-								AND Source.QuestionID IS NOT NULL
-							WHEN NOT MATCHED BY Target THEN
-								INSERT (QuestionID, OptionText) 
-								VALUES (Source.QuestionID, Source.OptionText)
-							WHEN NOT MATCHED BY Source AND Target.QuestionID = ${survey_id} THEN 
-								DELETE
-							OUTPUT $ACTION, INSERTED.*, DELETED.*
-						;`)
-						console.dir(result2)
-					}
-				}
-				*/
-
         await transaction.commit()
         return {}
       } /* cognitive test */ else {
-        // Get the right ActivitySpec IDs.
-        let spec = (
-          await transaction.request().query(`
-					SELECT 
-						ActivityIndexID AS id, 
-						LegacyCTestID AS lid, 
-						Name AS name
-					FROM LAMP_Aux.dbo.ActivityIndex
-					WHERE ActivityIndexID = '${activity_spec_id}'
-				;`)
-        ).recordset[0]
-        if (!spec) throw new Error("404.object-not-found")
-
         // Verify that the item exists.
-        let result = await transaction.request().query(`
+        const result = await transaction.request().query(`
 					SELECT AdminID, CTestID 
 					FROM Admin_CTestSettings 
 					WHERE Status = 1
-						AND AdminID = ${admin_id}
-						AND CTestID = ${survey_id}
+						AND AdminCTestSettingID = ${ctest_id}
 				;`)
         if (result.recordset.length === 0) throw new Error("404.object-not-found")
 
         // Modify ctest schedule.
         if (Array.isArray(object.schedule)) {
-          let result2 = await transaction.request().query(`
+          const result2 = await transaction.request().query(`
 						UPDATE Admin_CTestSchedule 
 						SET IsDeleted = 1
 						WHERE IsDeleted = 0
-							AND AdminID = ${admin_id} 
+							AND AdminID IN (
+								SELECT AdminID
+								FROM Admin_CTestSettings
+								WHERE AdminCTestSettingID = ${ctest_id}
+							)
 							AND CTestID IN (
-								SELECT LegacyCTestID
-								FROM LAMP_Aux.dbo.ActivityIndex
-								WHERE ActivityIndexID = ${activity_spec_id}
+								SELECT CTestID
+								FROM Admin_CTestSettings
+								WHERE AdminCTestSettingID = ${ctest_id}
 							)
 					;`)
           if (object.schedule.length > 0) {
-            let result3 = await transaction.request().query(`
+            const result3 = await transaction.request().query(`
 							INSERT INTO Admin_CTestSchedule (
 								AdminID,
 								CTestID,
@@ -1324,25 +1175,35 @@ export class ActivityRepository {
 							VALUES ${object.schedule
                 .map(
                   (sched: any) => `(
-								${admin_id}, 
-								${spec.lid},
+								(
+                  SELECT AdminID
+                  FROM Admin_CTestSettings
+                  WHERE AdminCTestSettingID = ${ctest_id}
+							  ), 
+								(
+                  SELECT CTestID
+                  FROM Admin_CTestSettings
+                  WHERE AdminCTestSettingID = ${ctest_id}
+							  ), 
 								-1,
 								'${sched.start_date}',
 								'${sched.time}',
-								${[
-                  "hourly",
-                  "every3h",
-                  "every6h",
-                  "every12h",
-                  "daily",
-                  "biweekly",
-                  "triweekly",
-                  "weekly",
-                  "bimonthly",
-                  "monthly",
-                  "custom",
-                  "none"
-                ].indexOf(sched.repeat_interval) + 1}
+								${
+                  [
+                    "hourly",
+                    "every3h",
+                    "every6h",
+                    "every12h",
+                    "daily",
+                    "biweekly",
+                    "triweekly",
+                    "weekly",
+                    "bimonthly",
+                    "monthly",
+                    "custom",
+                    "none",
+                  ].indexOf(sched.repeat_interval) + 1
+                }
 							)`
                 )
                 .join(", ")}
@@ -1350,21 +1211,21 @@ export class ActivityRepository {
             if (result3.rowsAffected[0] !== object.schedule.length)
               throw new Error("400.create-failed-due-to-malformed-parameters-schedule")
 
-            let ctime = [].concat(
+            const ctime = [].concat(
               ...object.schedule
                 .map((x: any, idx: number) => [x.custom_time, idx])
                 .filter((x: any) => !!x[0])
                 .map((x: any) => x[0].map((y: any) => [y, x[1]]))
             )
             if (ctime.length > 0) {
-              let result4 = await transaction.request().query(`
+              const result4 = await transaction.request().query(`
 								INSERT INTO Admin_CTestScheduleCustomTime (
 									AdminCTestSchId,
 									Time
 								)
 								VALUES ${ctime
                   .map(
-                    x => `(
+                    (x) => `(
 									${result3.recordset[x[1]]["AdminCTestSchId"]},
 									'${x[0]}'
 								)`
@@ -1376,10 +1237,17 @@ export class ActivityRepository {
           }
         }
 
-        // Modify survey questions.
-        if (typeof object.settings === "object" && (spec.name === "lamp.jewels_a" || spec.name === "lamp.jewels_b")) {
-          let isA = spec.name === "lamp.jewels_a"
-          let result2 = await transaction.request().query(`
+        // Modify jewels ctest questions.
+        const checkJewels = await transaction.request().query(`
+            SELECT AdminID, CTestID 
+            FROM Admin_CTestSettings
+            WHERE AdminCTestSettingID = ${ctest_id}
+          ;`)
+        const adminID = Number.parse(checkJewels.recordset[0]["AdminID"]) ?? 0
+        const actualID = Number.parse(checkJewels.recordset[0]["CTestID"]) ?? 0
+        if (typeof object.settings === "object" && (actualID === 17 || actualID === 18)) {
+          const isA = actualID === 17
+          const result2 = await transaction.request().query(`
 						UPDATE Admin_JewelsTrails${isA ? "A" : "B"}Settings SET
 							NoOfSeconds_Beg = ${object.settings.beginner_seconds || (isA ? 90 : 180)},
 							NoOfSeconds_Int = ${object.settings.intermediate_seconds || (isA ? 30 : 90)},
@@ -1392,7 +1260,7 @@ export class ActivityRepository {
 							X_NoOfDiamonds = ${object.settings.x_diamond_count || (isA ? 1 : 1)},
 							Y_NoOfChangesInLevel = ${object.settings.y_changes_in_level_count || (isA ? 1 : 1)},
 							Y_NoOfShapes = ${object.settings.y_shape_count || (isA ? 1 : 2)}
-						WHERE Admin_JewelsTrails${isA ? "A" : "B"}Settings.AdminID = ${admin_id}
+						WHERE Admin_JewelsTrails${isA ? "A" : "B"}Settings.AdminID = ${adminID}
 					;`)
           if (result2.rowsAffected[0] === 0) throw new Error("400.create-failed-due-to-malformed-parameters-settings")
         }
@@ -1416,66 +1284,63 @@ export class ActivityRepository {
      */
     activity_id: string
   ): Promise<{}> {
-    let { activity_spec_id, admin_id, survey_id } = ActivityRepository._unpack_id(activity_id)
-    let transaction = SQL!.transaction()
+    const { ctest_id, survey_id, group_id } = ActivityRepository._unpack_id(activity_id)
+    const transaction = SQL!.transaction()
     await transaction.begin()
     try {
       // Set the deletion flag, without actually deleting the row.
-      if (activity_spec_id === 0 /* group */) {
-        let result = await transaction.request().query(`
+      if (group_id > 0 /* group */) {
+        const result = await transaction.request().query(`
 					UPDATE Admin_BatchSchedule 
 					SET IsDeleted = 1 
 					WHERE IsDeleted = 0
-						AND AdminBatchSchID = ${survey_id}
+						AND AdminBatchSchID = ${group_id}
 				;`)
         if (result.rowsAffected[0] === 0) throw new Error("404.object-not-found")
-      } else if (activity_spec_id === 1 /* survey */) {
-        let result = await transaction.request().query(`
+      } else if (survey_id > 0 /* survey */) {
+        const result = await transaction.request().query(`
 					UPDATE Survey 
 					SET IsDeleted = 1 
 					WHERE IsDeleted = 0 
-						AND AdminID = ${admin_id} 
 						AND SurveyID = ${survey_id}
 				;`)
         if (result.rowsAffected[0] === 0) throw new Error("404.object-not-found")
 
-        let result2 = await transaction.request().query(`
+        const result2 = await transaction.request().query(`
 					UPDATE Admin_SurveySchedule 
 					SET IsDeleted = 1
 					WHERE IsDeleted = 0
-						AND AdminID = ${admin_id} 
 						AND SurveyID = ${survey_id}
 				;`)
 
-        let result3 = await transaction.request().query(`
+        const result3 = await transaction.request().query(`
 					UPDATE SurveyQuestions 
 					SET IsDeleted = 1
 					WHERE IsDeleted = 0
 						AND SurveyID = ${survey_id}
 				;`)
       } /* cognitive test */ else {
-        let result1 = await transaction.request().query(`
+        const result1 = await transaction.request().query(`
 					UPDATE Admin_CTestSettings 
 					SET Status = 0 
 					WHERE Status = 1
-						AND AdminID = ${admin_id} 
-						AND CTestID IN (
-							SELECT LegacyCTestID
-							FROM LAMP_Aux.dbo.ActivityIndex
-							WHERE ActivityIndexID = ${activity_spec_id}
-						)
+						AND AdminCTestSettingID = ${ctest_id}
 				;`)
         if (result1.rowsAffected[0] === 0) throw new Error("404.object-not-found")
 
-        let result2 = await transaction.request().query(`
+        const result2 = await transaction.request().query(`
 					UPDATE Admin_CTestSchedule 
 					SET IsDeleted = 1
 					WHERE IsDeleted = 0
-						AND AdminID = ${admin_id} 
+						AND AdminID IN (
+							SELECT AdminID
+							FROM Admin_CTestSettings
+							WHERE AdminCTestSettingID = ${ctest_id}
+						)
 						AND CTestID IN (
-							SELECT LegacyCTestID
-							FROM LAMP_Aux.dbo.ActivityIndex
-							WHERE ActivityIndexID = ${activity_spec_id}
+							SELECT CTestID
+							FROM Admin_CTestSettings
+							WHERE AdminCTestSettingID = ${ctest_id}
 						)
 				;`)
       }
@@ -1510,7 +1375,7 @@ const spec_map: { [string: string]: any } = {
   "lamp.jewels_a": "Jewels Trails A",
   "lamp.jewels_b": "Jewels Trails B",
   "lamp.scratch_image": "Scratch Image",
-  "lamp.spin_wheel": "Spin Wheel"
+  "lamp.spin_wheel": "Spin Wheel",
 }
 
 const _escapeMSSQL = (val: string) =>
@@ -1543,8 +1408,8 @@ const _opMatch = (val: string) =>
     "Today I have thoughts of self-harm": {
       tr: 1,
       op: `'1'`,
-      msg: `'Please remember that this app is not monitored.  If you are having thoughts of suicide or self-harm, please call 1-800-273-8255.'`
-    }
+      msg: `'Please remember that this app is not monitored.  If you are having thoughts of suicide or self-harm, please call 1-800-273-8255.'`,
+    },
   })[val]
 
 /**
@@ -1563,7 +1428,7 @@ function jewelsMap(
   /**
    * Either false for column mapping, or true for defaults mapping.
    */
-  variety: boolean = false
+  variety = false
 ) {
   return (<any>(!variety
     ? {
@@ -1577,7 +1442,7 @@ function jewelsMap(
         x_changes_in_level_count: "X_NoOfChangesInLevel",
         x_diamond_count: "X_NoOfDiamonds",
         y_changes_in_level_count: "Y_NoOfChangesInLevel",
-        y_shape_count: "Y_NoOfShapes"
+        y_shape_count: "Y_NoOfShapes",
       }
     : {
         beginner_seconds: 0,
@@ -1590,6 +1455,6 @@ function jewelsMap(
         x_changes_in_level_count: 0,
         x_diamond_count: 0,
         y_changes_in_level_count: 0,
-        y_shape_count: 0
+        y_shape_count: 0,
       }))[key]
 }

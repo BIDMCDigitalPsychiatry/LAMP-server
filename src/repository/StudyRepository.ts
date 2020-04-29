@@ -33,11 +33,11 @@ export class StudyRepository {
      */
     admin_id: number
   } {
-    let components = Identifier_unpack(id)
+    const components = Identifier_unpack(id)
     if (components[0] !== (<any>Study).name) throw new Error("400.invalid-identifier")
-    let result = components.slice(1).map(x => parseInt(x))
+    const result = components.slice(1).map((x) => Number.parse(x) ?? 0)
     return {
-      admin_id: !isNaN(result[0]) ? result[0] : 0
+      admin_id: result[0],
     }
   }
 
@@ -45,7 +45,7 @@ export class StudyRepository {
    *
    */
   public static async _parent_id(id: string, type: Function): Promise<string | undefined> {
-    let { admin_id } = StudyRepository._unpack_id(id)
+    const { admin_id } = StudyRepository._unpack_id(id)
     switch (type) {
       case ResearcherRepository:
         return ResearcherRepository._pack_id({ admin_id: admin_id })
@@ -70,7 +70,7 @@ export class StudyRepository {
     else if (!!id && Identifier_unpack(id)[0] === (<any>Study).name) admin_id = StudyRepository._unpack_id(id).admin_id
     else if (!!id) throw new Error("400.invalid-identifier")
 
-    let result = await SQL!.request().query(`
+    const result = await SQL!.request().query(`
 			SELECT 
                 Admin.AdminID AS id, 
                 ('Default Study') AS name, 
@@ -84,8 +84,7 @@ export class StudyRepository {
                 ) AS participants,
                 (
                     SELECT 
-                        SurveyID AS id,
-                        Admin.AdminID AS aid
+                        SurveyID AS id
                     FROM Survey
                     WHERE IsDeleted = 0 
                         AND Survey.AdminID = Admin.AdminID
@@ -93,12 +92,18 @@ export class StudyRepository {
                 ) AS surveys,
                 (
                     SELECT 
-                        ActivityIndexID AS id,
-                        Admin.AdminID AS aid
-                    FROM LAMP_Aux.dbo.ActivityIndex
-                    WHERE ActivityIndexID > 1
+                        AdminCTestSettingID AS id
+                    FROM Admin_CTestSettings
+                    WHERE Status = 1
                     FOR JSON PATH, INCLUDE_NULL_VALUES
-                ) AS ctests
+                ) AS ctests,
+                (
+                    SELECT 
+                        AdminBatchSchID AS id
+                    FROM Admin_BatchSchedule
+                    WHERE IsDeleted = 0
+                    FOR JSON PATH, INCLUDE_NULL_VALUES
+                ) AS groups
             FROM Admin
             LEFT JOIN Admin_Settings
                 ON Admin_Settings.AdminID = Admin.AdminID
@@ -111,7 +116,7 @@ export class StudyRepository {
     if (result.recordset.length === 0) return []
 
     return result.recordset[0].map((raw: any) => {
-      let obj = new Study()
+      const obj = new Study()
       obj.id = StudyRepository._pack_id({ admin_id: raw.id })
       obj.name = raw.name
       obj.participants = (raw.participants || []).map((x: any) => {
@@ -120,16 +125,23 @@ export class StudyRepository {
       obj.activities = [].concat(
         (raw.surveys || []).map((x: any) => {
           return ActivityRepository._pack_id({
-            activity_spec_id: 1 /* survey */,
-            admin_id: <number>x.aid,
-            survey_id: <number>x.id
+            ctest_id: 0,
+            survey_id: <number>x.id,
+            group_id: 0,
           })
         }),
         (raw.ctests || []).map((x: any) => {
           return ActivityRepository._pack_id({
-            activity_spec_id: <number>x.id,
-            admin_id: <number>x.aid,
-            survey_id: 0 /* SurveyID */
+            ctest_id: <number>x.id,
+            survey_id: 0,
+            group_id: 0,
+          })
+        }),
+        (raw.groups || []).map((x: any) => {
+          return ActivityRepository._pack_id({
+            ctest_id: 0,
+            survey_id: 0,
+            group_id: <number>x.id,
           })
         })
       )

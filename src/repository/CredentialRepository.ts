@@ -15,43 +15,43 @@ export class CredentialRepository {
   // DANGER: This decrypts and dumps EVERY SINGLE CREDENTIAL!!! DO NOT USE EXCEPT FOR DEBUGGING!
   public static async _showAll(): Promise<any[]> {
     // Reset the legacy/default credential as a Researcher.
-    let result1 = await SQL!.request().query(`
+    const result1 = await SQL!.request().query(`
 			SELECT AdminID, Email, Password
 			FROM Admin
 			WHERE IsDeleted = 0
 		;`)
 
-    let out1 = result1.recordset.map(x => ({
-      origin: ResearcherRepository._pack_id({ admin_id: parseInt(x["AdminID"]) }),
+    const out1 = result1.recordset.map((x) => ({
+      origin: ResearcherRepository._pack_id({ admin_id: Number.parse(x["AdminID"]) ?? 0 }),
       access_key: Decrypt(x["Email"]),
       secret_key: Decrypt(x["Password"], "AES256"),
-      description: "Default Credential"
+      description: "Default Credential",
     }))
 
     // Reset the legacy/default credential as a Participant.
-    let result2 = await SQL!.request().query(`
+    const result2 = await SQL!.request().query(`
 			SELECT StudyId, Email, Password
 			FROM Users
 			WHERE IsDeleted = 0
 		;`)
 
-    let out2 = result2.recordset.map(x => ({
+    const out2 = result2.recordset.map((x) => ({
       origin: Decrypt(x["StudyId"]),
       access_key: Decrypt(x["Email"]),
       secret_key: Decrypt(x["Password"], "AES256"),
-      description: "Default Credential"
+      description: "Default Credential",
     }))
 
     // Get any API credentials.
-    let result3 = await SQL!.request().query(`
+    const result3 = await SQL!.request().query(`
             SELECT ObjectID, Value
             FROM LAMP_Aux.dbo.OOLAttachment
             WHERE ObjectType = 'Credential'
 		;`)
 
-    let out3 = result3.recordset
-      .map(x => JSON.parse(x["Value"]))
-      .map(x => ({ ...x, secret_key: Decrypt(x.secret_key, "AES256") }))
+    const out3 = result3.recordset
+      .map((x) => JSON.parse(x["Value"]))
+      .map((x) => ({ ...x, secret_key: Decrypt(x.secret_key, "AES256") }))
     return [...out1, ...out2, ...out3]
   }
 
@@ -90,7 +90,7 @@ export class CredentialRepository {
     if (result.rowsAffected[0] > 0) {
       if (!!secret_key && secret_key !== Decrypt(result.recordset[0]["Password"], "AES256"))
         throw new Error("403.no-such-credentials")
-      return ResearcherRepository._pack_id({ admin_id: parseInt(result.recordset[0]["AdminID"]) })
+      return ResearcherRepository._pack_id({ admin_id: Number.parse(result.recordset[0]["AdminID"]) ?? 0 })
     }
 
     // Reset the legacy/default credential as a Participant.
@@ -124,7 +124,7 @@ export class CredentialRepository {
     let legacy_key: Credential | undefined = undefined
     if (!!admin_id) {
       // Reset the legacy/default credential as a Researcher.
-      let result = await SQL!.request().query(`
+      const result = await SQL!.request().query(`
 				SELECT Email
 				FROM Admin
 				WHERE IsDeleted = 0 
@@ -136,11 +136,11 @@ export class CredentialRepository {
           origin: <string>type_id,
           access_key: Decrypt(result.recordset[0]["Email"]) || "",
           secret_key: null,
-          description: "Default Credential"
+          description: "Default Credential",
         }
     } else if (!!user_id) {
       // Reset the legacy/default credential as a Participant.
-      let result = await SQL!.request().query(`
+      const result = await SQL!.request().query(`
 				SELECT Email
 				FROM Users
 				WHERE IsDeleted = 0 
@@ -152,12 +152,12 @@ export class CredentialRepository {
           origin: <string>type_id,
           access_key: Decrypt(result.recordset[0]["Email"]) || "",
           secret_key: null,
-          description: "Default Credential"
+          description: "Default Credential",
         }
     }
 
     // Get any API credentials.
-    let result = (
+    const result = (
       await SQL!.request().query(`
             SELECT [Key], Value
             FROM LAMP_Aux.dbo.OOLAttachment
@@ -169,8 +169,8 @@ export class CredentialRepository {
     ).recordset
 
     //
-    return [legacy_key, ...result.map(x => JSON.parse(x["Value"])).map(x => ({ ...x, secret_key: null }))].filter(
-      x => !!x
+    return [legacy_key, ...result.map((x) => JSON.parse(x["Value"])).map((x) => ({ ...x, secret_key: null }))].filter(
+      (x) => !!x
     )
   }
 
@@ -193,19 +193,24 @@ export class CredentialRepository {
       credential = {
         origin: type_id,
         access_key: "",
-        secret_key: credential
+        secret_key: credential,
       }
       if (!!admin_id) {
-        let result = await SQL!.request().query(`
+        const result = await SQL!.request().query(`
 					SELECT Email FROM Admin WHERE IsDeleted = 0 AND AdminID = ${admin_id}
 				;`)
         credential.access_key = Decrypt(result.recordset[0]["Email"])
       } else if (!!user_id) {
-        let result = await SQL!.request().query(`
+        const result = await SQL!.request().query(`
 					SELECT Email FROM Users WHERE IsDeleted = 0 AND StudyId = '${Encrypt(user_id)}'
 				;`)
         credential.access_key = Decrypt(result.recordset[0]["Email"])
       }
+    }
+    // HOTFIX ONLY!
+    if (credential.origin === "me") {
+      // context substitution doesn't actually work within the object here, so do it manually.
+      credential.origin = type_id
     }
 
     // If it's not our credential, don't mess with it!
@@ -220,7 +225,7 @@ export class CredentialRepository {
 
     if (!!admin_id) {
       // Reset the legacy/default credential as a Researcher.
-      let result = await SQL!.request().query(`
+      const result = await SQL!.request().query(`
 				UPDATE Admin 
 				SET 
 					Email = '${Encrypt(credential.access_key)}',
@@ -232,7 +237,7 @@ export class CredentialRepository {
       if (result.rowsAffected[0] > 0) return {}
     } else if (!!user_id) {
       // Reset the legacy/default credential as a Participant.
-      let result = await SQL!.request().query(`
+      const result = await SQL!.request().query(`
 				UPDATE Users 
 				SET 
 					Email = '${Encrypt(credential.access_key)}',
@@ -246,9 +251,9 @@ export class CredentialRepository {
 
     // Reset an API credential as either a Researcher or Participant.
     credential.secret_key = Encrypt(credential.secret_key, "AES256")
-    let req = SQL!.request()
+    const req = SQL!.request()
     req.input("json_value", JSON.stringify(credential))
-    let result = await req.query(`
+    const result = await req.query(`
             INSERT INTO LAMP_Aux.dbo.OOLAttachment (
                 ObjectType, ObjectID, [Key], Value
             )
@@ -284,7 +289,7 @@ export class CredentialRepository {
 
     if (!!admin_id) {
       // Reset the legacy/default credential as a Researcher.
-      let result = await SQL!.request().query(`
+      const result = await SQL!.request().query(`
 				UPDATE Admin 
 				SET 
 					Password = '${Encrypt(credential.secret_key, "AES256")}'
@@ -296,7 +301,7 @@ export class CredentialRepository {
       if (result.rowsAffected[0] > 0) return {}
     } else if (!!user_id) {
       // Reset the legacy/default credential as a Participant.
-      let result = await SQL!.request().query(`
+      const result = await SQL!.request().query(`
 				UPDATE Users 
 				SET 
 					Password = '${Encrypt(credential.secret_key, "AES256")}'
@@ -310,9 +315,9 @@ export class CredentialRepository {
 
     // Reset an API credential as either a Researcher or Participant.
     credential.secret_key = Encrypt(credential.secret_key, "AES256")
-    let req = SQL!.request()
+    const req = SQL!.request()
     req.input("json_value", JSON.stringify(credential))
-    let result = await req.query(`
+    const result = await req.query(`
             UPDATE LAMP_Aux.dbo.OOLAttachment SET
 	            Value = @json_value
             WHERE ObjectType = 'Credential'
@@ -339,7 +344,7 @@ export class CredentialRepository {
 
     if (!!admin_id) {
       // Reset the legacy/default credential as a Researcher.
-      let result = await SQL!.request().query(`
+      const result = await SQL!.request().query(`
 				UPDATE Admin 
 				SET Password = '' 
 				WHERE IsDeleted = 0 
@@ -350,7 +355,7 @@ export class CredentialRepository {
       if (result.rowsAffected[0] > 0) return {}
     } else if (!!user_id) {
       // Reset the legacy/default credential as a Participant.
-      let result = await SQL!.request().query(`
+      const result = await SQL!.request().query(`
 				UPDATE Users 
 				SET Password = '' 
 				WHERE IsDeleted = 0 
@@ -362,7 +367,7 @@ export class CredentialRepository {
     }
 
     // Reset an API credential as either a Researcher or Participant.
-    let result = await SQL!.request().query(`
+    const result = await SQL!.request().query(`
 	        DELETE FROM LAMP_Aux.dbo.OOLAttachment
             WHERE 
                 ObjectID = '${type_id}'

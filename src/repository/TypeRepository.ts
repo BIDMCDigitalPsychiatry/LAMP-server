@@ -13,9 +13,7 @@ import { ActivityRepository } from "../repository/ActivityRepository"
 
 export function Identifier_pack(components: any[]): string {
   if (components.length === 0) return ""
-  return Buffer.from(components.join(":"))
-    .toString("base64")
-    .replace(/=/g, "~")
+  return Buffer.from(components.join(":")).toString("base64").replace(/=/g, "~")
 }
 export function Identifier_unpack(components: string): any[] {
   if (components.match(/^G?U\d+$/)) return []
@@ -26,8 +24,8 @@ export function Identifier_unpack(components: string): any[] {
 
 export class TypeRepository {
   public static async _parent(type_id: string): Promise<{}> {
-    let result: any = {} // obj['#parent'] === [null, undefined] -> top-level object
-    for (let parent_type of TypeRepository._parent_type(type_id))
+    const result: any = {} // obj['#parent'] === [null, undefined] -> top-level object
+    for (const parent_type of TypeRepository._parent_type(type_id))
       result[parent_type] = await TypeRepository._parent_id(type_id, parent_type)
     return result
   }
@@ -36,8 +34,8 @@ export class TypeRepository {
    * Get the self type of a given ID.
    */
   public static _self_type(type_id: string): string {
-    let components = Identifier_unpack(type_id)
-    let from_type: string = components.length === 0 ? (<any>Participant).name : components[0]
+    const components = Identifier_unpack(type_id)
+    const from_type: string = components.length === 0 ? (<any>Participant).name : components[0]
     return from_type
   }
 
@@ -49,7 +47,7 @@ export class TypeRepository {
       Researcher: [],
       Study: ["Researcher"],
       Participant: ["Study", "Researcher"],
-      Activity: ["Study", "Researcher"]
+      Activity: ["Study", "Researcher"],
     }
     /*
 		// TODO:
@@ -75,7 +73,7 @@ export class TypeRepository {
       Researcher: ResearcherRepository,
       Study: StudyRepository,
       Participant: ParticipantRepository,
-      Activity: ActivityRepository
+      Activity: ActivityRepository,
     }
     return await (<any>self_type[TypeRepository._self_type(type_id)])._parent_id(type_id, self_type[type])
   }
@@ -94,7 +92,7 @@ export class TypeRepository {
 	                AND ObjectType = '${type}';
 			`)
     } else if (mode === "a" && !!value /* JSON value */) {
-      /* INSERT or UPDATE */ let req = SQL!.request()
+      /* INSERT or UPDATE */ const req = SQL!.request()
       req.input("json_value", sql.NVarChar, JSON.stringify(value))
       result = await req.query(`
 	            MERGE INTO LAMP_Aux.dbo.OOLAttachment
@@ -128,11 +126,11 @@ export class TypeRepository {
 	                AND ChildObjectType = '${type}';
 			`)
     } else if (mode === "b" && !!value /* DynamicAttachment */) {
-      /* INSERT or UPDATE */ let { triggers, language, contents, requirements } = value
-      let script_type = JSON.stringify({ language, triggers })
-      let packages = JSON.stringify(requirements) || ""
+      /* INSERT or UPDATE */ const { triggers, language, contents, requirements } = value
+      const script_type = JSON.stringify({ language, triggers })
+      const packages = JSON.stringify(requirements) || ""
 
-      let req = SQL!.request()
+      const req = SQL!.request()
       req.input("script_contents", sql.NVarChar, contents)
       result = await req.query(`
 	            MERGE INTO LAMP_Aux.dbo.OOLAttachmentLinker 
@@ -170,13 +168,13 @@ export class TypeRepository {
    * TODO: if key is undefined just return every item instead as an array
    */
   public static async _get(mode: "a" | "b", id: string, key: string): Promise<DynamicAttachment[] | any | undefined> {
-    let components = Identifier_unpack(id)
-    let from_type: string = components.length === 0 ? (<any>Participant).name : components[0]
+    const components = Identifier_unpack(id)
+    const from_type: string = components.length === 0 ? (<any>Participant).name : components[0]
     let parents = await TypeRepository._parent(<string>id)
     if (Object.keys(parents).length === 0) parents = { " ": " " } // for the SQL 'IN' operator
 
     if (mode === "a") {
-      let result = (
+      const result = (
         await SQL!.request().query(`
 	            SELECT TOP 1 * 
 	            FROM LAMP_Aux.dbo.OOLAttachment
@@ -186,7 +184,7 @@ export class TypeRepository {
 	                	AND ObjectType = 'me'
 	                ) OR (
 	                	ObjectID IN (${Object.values(parents)
-                      .map(x => `'${x}'`)
+                      .map((x) => `'${x}'`)
                       .join(", ")})
 	                	AND ObjectType IN ('${from_type}', '${id}')
 	                ));
@@ -196,7 +194,7 @@ export class TypeRepository {
       if (result.length === 0) throw new Error("404.object-not-found")
       return JSON.parse(result[0].Value)
     } else if (mode === "b") {
-      let result = (
+      const result = (
         await SQL!.request().query(`
 	            SELECT TOP 1 * 
 	            FROM LAMP_Aux.dbo.OOLAttachmentLinker
@@ -206,7 +204,7 @@ export class TypeRepository {
 	                	AND ChildObjectType = 'me'
 	                ) OR (
 	                	ObjectID IN (${Object.values(parents)
-                      .map(x => `'${x}'`)
+                      .map((x) => `'${x}'`)
                       .join(", ")})
 	                	AND ChildObjectType IN ('${from_type}', '${id}')
 	                ));
@@ -215,12 +213,12 @@ export class TypeRepository {
       if (result.length === 0) throw new Error("404.object-not-found")
 
       // Convert all to DynamicAttachments.
-      return result.map(x => {
-        let script_type = x.ScriptType.startsWith("{")
+      return result.map((x) => {
+        const script_type = x.ScriptType.startsWith("{")
           ? JSON.parse(x.ScriptType)
           : { triggers: [], language: x.ScriptType }
 
-        let obj = new DynamicAttachment()
+        const obj = new DynamicAttachment()
         obj.key = x.AttachmentKey
         obj.from = x.ObjectID
         obj.to = x.ChildObjectType
@@ -235,8 +233,8 @@ export class TypeRepository {
 
   public static async _list(mode: "a" | "b", id: string): Promise<string[]> {
     // Determine the parent type(s) of `type_id` first.
-    let components = Identifier_unpack(id)
-    let from_type: string = components.length === 0 ? (<any>Participant).name : components[0]
+    const components = Identifier_unpack(id)
+    const from_type: string = components.length === 0 ? (<any>Participant).name : components[0]
     let parents = await TypeRepository._parent(<string>id)
     if (Object.keys(parents).length === 0) parents = { " ": " " } // for the SQL 'IN' operator
 
@@ -251,12 +249,12 @@ export class TypeRepository {
 	                	AND ObjectType = 'me'
 	                ) OR (
 	                	ObjectID IN (${Object.values(parents)
-                      .map(x => `'${x}'`)
+                      .map((x) => `'${x}'`)
                       .join(", ")})
 	                	AND ObjectType IN ('${from_type}', '${id}')
 	                );
 			`)
-      ).recordset.map(x => x.Key)
+      ).recordset.map((x) => x.Key)
     } else {
       // Request all dynamic attachments.
       return (
@@ -268,12 +266,12 @@ export class TypeRepository {
 	                	AND ChildObjectType = 'me'
 	                ) OR (
 	                	ObjectID IN (${Object.values(parents)
-                      .map(x => `'${x}'`)
+                      .map((x) => `'${x}'`)
                       .join(", ")})
 	                	AND ChildObjectType IN ('${from_type}', '${id}')
 	                );
 			`)
-      ).recordset.map(x => x.AttachmentKey)
+      ).recordset.map((x) => x.AttachmentKey)
     }
   }
 
@@ -313,7 +311,7 @@ export class TypeRepository {
     console.log("Processing accumulated attachment triggers...")
 
     // Request the set of all updates.
-    let accumulated_set = (
+    const accumulated_set = (
       await SQL!.request().query(`
 			SELECT 
 				Type, ID, Subtype, 
@@ -325,7 +323,7 @@ export class TypeRepository {
 				ON Type = 'Participant' AND Users.UserID = ID
 			ORDER BY LastUpdate DESC;
 		`)
-    ).recordset.map(x => ({
+    ).recordset.map((x) => ({
       ...x,
       _id:
         x.Type === "Participant"
@@ -334,13 +332,13 @@ export class TypeRepository {
       _admin:
         x.Type === "Participant"
           ? ResearcherRepository._pack_id({ admin_id: x._AID })
-          : ResearcherRepository._pack_id({ admin_id: x.ID })
+          : ResearcherRepository._pack_id({ admin_id: x.ID }),
     }))
-    let ax_set1 = accumulated_set.map(x => x._id)
-    let ax_set2 = accumulated_set.map(x => x._admin)
+    const ax_set1 = accumulated_set.map((x) => x._id)
+    const ax_set2 = accumulated_set.map((x) => x._admin)
 
     // Request the set of event masks prepared.
-    let registered_set = (
+    const registered_set = (
       await SQL!.request().query(`
 			SELECT * FROM LAMP_Aux.dbo.OOLAttachmentLinker; 
 		`)
@@ -348,30 +346,30 @@ export class TypeRepository {
 
     // Diff the masks against all updates.
     let working_set = registered_set.filter(
-      x =>
+      (x) =>
         /* Attachment from self -> self. */
         (x.ChildObjectType === "me" && ax_set1.indexOf(x.ObjectID) >= 0) ||
         /* Attachment from self -> children of type Participant */
         (x.ChildObjectType === "Participant" && ax_set2.indexOf(x.ObjectID) >= 0) ||
         /* Attachment from self -> specific child Participant matching an ID */
-        accumulated_set.find(y => y._id === x.ChildObjectType && y._admin === x.ObjectID) !== undefined
+        accumulated_set.find((y) => y._id === x.ChildObjectType && y._admin === x.ObjectID) !== undefined
     )
 
     // Completely delete all updates; we're done collecting the working set.
     // TODO: Maybe don't delete before execution?
-    let result = await SQL!.request().query(`
+    const result = await SQL!.request().query(`
             DELETE FROM LAMP_Aux.dbo.UpdateCounter;
 		`)
     console.log("Resolved " + JSON.stringify(result.recordset) + " events.")
 
     // Duplicate the working set into specific entries.
     working_set = working_set
-      .map(x => {
-        let script_type = x.ScriptType.startsWith("{")
+      .map((x) => {
+        const script_type = x.ScriptType.startsWith("{")
           ? JSON.parse(x.ScriptType)
           : { triggers: [], language: x.ScriptType }
 
-        let obj = new DynamicAttachment()
+        const obj = new DynamicAttachment()
         obj.key = x.AttachmentKey
         obj.from = x.ObjectID
         obj.to = x.ChildObjectType
@@ -381,16 +379,16 @@ export class TypeRepository {
         obj.requirements = JSON.parse(x.ReqPackages)
         return obj
       })
-      .map(x => {
+      .map((x) => {
         // Apply a subgroup transformation only if we're targetting all
         // child resources of a type (i.e. 'Participant').
         if (x.to === "Participant")
           return accumulated_set
-            .filter(y => y.Type === "Participant" && y._admin === x.from && y._id !== y._admin)
-            .map(y => ({ ...x, to: y._id }))
+            .filter((y) => y.Type === "Participant" && y._admin === x.from && y._id !== y._admin)
+            .map((y) => ({ ...x, to: y._id }))
         return [{ ...x, to: <string>x.from }]
       })
-    ;(<any[]>[]).concat(...working_set).forEach(x =>
+    ;(<any[]>[]).concat(...working_set).forEach((x) =>
       TypeRepository._invoke(x, {
         /* The security context originator for the script 
 				   with a magic placeholder to indicate to the LAMP server
@@ -400,23 +398,23 @@ export class TypeRepository {
           Encrypt(
             JSON.stringify({
               identity: { from: x.from, to: x.to },
-              cosigner: Root
+              cosigner: Root,
             })
           ),
 
         /* What object was this automation run for on behalf of an agent? */
         object: {
           id: x.to,
-          type: TypeRepository._self_type(x.to)
+          type: TypeRepository._self_type(x.to),
         },
 
         /* Currently meaningless but does signify what caused the IA to run. */
-        event: ["ActivityEvent", "SensorEvent"]
+        event: ["ActivityEvent", "SensorEvent"],
       })
-        .then(y => {
+        .then((y) => {
           TypeRepository._set("a", x.to!, <string>x.from!, x.key! + "/output", y)
         })
-        .catch(err => {
+        .catch((err) => {
           TypeRepository._set(
             "a",
             x.to!,

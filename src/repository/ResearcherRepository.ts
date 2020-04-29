@@ -30,11 +30,11 @@ export class ResearcherRepository {
      */
     admin_id: number
   } {
-    let components = Identifier_unpack(id)
+    const components = Identifier_unpack(id)
     if (components[0] !== (<any>Researcher).name) throw new Error("400.invalid-identifier")
-    let result = components.slice(1).map(x => parseInt(x))
+    const result = components.slice(1).map((x) => Number.parse(x) ?? 0)
     return {
-      admin_id: !isNaN(result[0]) ? result[0] : 0
+      admin_id: result[0],
     }
   }
 
@@ -42,7 +42,7 @@ export class ResearcherRepository {
    *
    */
   public static async _parent_id(id: string, type: Function): Promise<string | undefined> {
-    let { admin_id } = ResearcherRepository._unpack_id(id)
+    const { admin_id } = ResearcherRepository._unpack_id(id)
     switch (type) {
       default:
         return undefined // throw new Error('400.invalid-identifier')
@@ -64,7 +64,7 @@ export class ResearcherRepository {
       admin_id = ResearcherRepository._unpack_id(id).admin_id
     else if (!!id) throw new Error("400.invalid-identifier")
 
-    let result = await SQL!.request().query(`
+    const result = await SQL!.request().query(`
 			SELECT 
                 AdminID as id, 
                 FirstName AS name, 
@@ -83,7 +83,7 @@ export class ResearcherRepository {
 		`)
     if (result.recordset.length === 0 || result.recordset[0] === null) return []
     return result.recordset[0].map((raw: any) => {
-      let obj = new Researcher()
+      const obj = new Researcher()
       obj.id = ResearcherRepository._pack_id({ admin_id: raw.id })
       obj.name = [Decrypt(raw.name), Decrypt(raw.lname)].join(" ")
       obj.email = Decrypt(raw.email)
@@ -103,7 +103,7 @@ export class ResearcherRepository {
   ): Promise<string> {
     // Prepare SQL row-columns from JSON object-fields.
     //password: Encrypt((<any>object).password, 'AES256')
-    let result = await SQL!.request().query(`
+    const result = await SQL!.request().query(`
 			INSERT INTO Admin (
                 Email, 
                 FirstName, 
@@ -115,19 +115,14 @@ export class ResearcherRepository {
 			VALUES (
 		        '${Encrypt(object.email!)}',
 		        '${Encrypt(object.name!.split(" ")[0])}',
-		        '${Encrypt(
-              object
-                .name!.split(" ")
-                .slice(1)
-                .join(" ")
-            )}',
+		        '${Encrypt(object.name!.split(" ").slice(1).join(" "))}',
 		        GETDATE(), 
 		        2
 			);
 		`)
     if (result.recordset.length === 0) throw new Error("400.create-failed")
 
-    let result2 = await SQL!.request().query(`
+    const result2 = await SQL!.request().query(`
 			INSERT INTO Admin_CTestSettings (
 				AdminID,
 				CTestID,
@@ -160,20 +155,13 @@ export class ResearcherRepository {
      */
     object: Researcher
   ): Promise<{}> {
-    let admin_id = ResearcherRepository._unpack_id(researcher_id).admin_id
+    const admin_id = ResearcherRepository._unpack_id(researcher_id).admin_id
 
     // Prepare the minimal SQL column changes from the provided fields.
-    let updates: string[] = []
+    const updates: string[] = []
     if (!!object.name) {
       updates.push(`FirstName = '${Encrypt(object.name.split(" ")[0])}'`)
-      updates.push(
-        `LastName = '${Encrypt(
-          object.name
-            .split(" ")
-            .slice(1)
-            .join(" ")
-        )}'`
-      )
+      updates.push(`LastName = '${Encrypt(object.name.split(" ").slice(1).join(" "))}'`)
     }
     if (!!object.email) updates.push(`Email = '${Encrypt(object.email)}'`)
     //if (!!(<any>object).password)
@@ -182,7 +170,7 @@ export class ResearcherRepository {
     if (updates.length == 0) throw new Error("400.updates-failed")
 
     // Update the specified fields on the selected Admin row.
-    let result = await SQL!.request().query(`
+    const result = await SQL!.request().query(`
 			UPDATE Admin SET ${updates.join(", ")} WHERE AdminID = ${admin_id};
 		`)
 
@@ -198,11 +186,11 @@ export class ResearcherRepository {
      */
     researcher_id: string
   ): Promise<{}> {
-    let admin_id = ResearcherRepository._unpack_id(researcher_id).admin_id
+    const admin_id = ResearcherRepository._unpack_id(researcher_id).admin_id
     if (admin_id === 1) throw new Error("400.delete-failed")
 
     // Set the deletion flag, without actually deleting the row.
-    let result = await SQL!.request().query(`
+    const result = await SQL!.request().query(`
 			UPDATE Admin SET IsDeleted = 1 WHERE AdminID = ${admin_id} AND IsDeleted = 0;
 		`)
     if (result.rowsAffected[0] === 0) throw new Error("404.object-not-found")

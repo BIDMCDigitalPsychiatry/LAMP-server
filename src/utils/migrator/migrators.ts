@@ -26,38 +26,23 @@ WHERE AdminID = 99;
 */
 
 export const Setup = async (key: string) => {
-  SQL = await new sql.ConnectionPool({
-    user: process.env.DB_USERNAME || "",
-    password: process.env.DB_PASSWORD || "",
-    server: process.env.DB_SERVER || "",
-    port: parseInt(process.env.DB_PORT || "") || 1433,
-    database: process.env.DB_NAME || "LAMP",
-    parseJSON: true,
-    options: {
-      encrypt: true,
-      appName: "LAMP-server",
-      abortTransactionOnError: true
-    },
-    pool: {
-      min: 0,
-      max: 10,
-      idleTimeoutMillis: 30000
-    }
-  }).connect()
+  // FIXME
 }
 
 export const Changes = async () => {
-  return "" + parseInt((await SQL!.request().query(`SELECT CHANGE_TRACKING_CURRENT_VERSION();`)).recordset[0][""])
+  return (
+    "" + (Number.parse((await SQL!.request().query(`SELECT CHANGE_TRACKING_CURRENT_VERSION();`)).recordset[0][""]) ?? 0)
+  )
 }
 
 export const Encrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"): string | undefined => {
   try {
     if (mode === "Rijndael") {
-      let cipher = crypto.createCipheriv("aes-256-ecb", process.env.DB_KEY || "", "")
+      const cipher = crypto.createCipheriv("aes-256-ecb", process.env.DB_KEY || "", "")
       return cipher.update(data, "utf8", "base64") + cipher.final("base64")
     } else if (mode === "AES256") {
-      let ivl = crypto.randomBytes(16)
-      let cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(process.env.ROOT_KEY || "", "hex"), ivl)
+      const ivl = crypto.randomBytes(16)
+      const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(process.env.ROOT_KEY || "", "hex"), ivl)
       return Buffer.concat([ivl, cipher.update(Buffer.from(data, "utf16le")), cipher.final()]).toString("base64")
     }
   } catch {}
@@ -67,11 +52,11 @@ export const Encrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"):
 export const Decrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"): string | undefined => {
   try {
     if (mode === "Rijndael") {
-      let cipher = crypto.createDecipheriv("aes-256-ecb", process.env.DB_KEY || "", "")
+      const cipher = crypto.createDecipheriv("aes-256-ecb", process.env.DB_KEY || "", "")
       return cipher.update(data, "base64", "utf8") + cipher.final("utf8")
     } else if (mode === "AES256") {
-      let dat = Buffer.from(data, "base64")
-      let cipher = crypto.createDecipheriv(
+      const dat = Buffer.from(data, "base64")
+      const cipher = crypto.createDecipheriv(
         "aes-256-cbc",
         Buffer.from(process.env.ROOT_KEY || "", "hex"),
         dat.slice(0, 16)
@@ -85,9 +70,7 @@ export const Decrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"):
 class Identifier {
   public static pack(components: any[]): string {
     if (components.length === 0) return ""
-    return Buffer.from(components.join(":"))
-      .toString("base64")
-      .replace(/=/g, "~")
+    return Buffer.from(components.join(":")).toString("base64").replace(/=/g, "~")
   }
   public static unpack(components: string): any[] {
     if (components.match(/^G?U\d+$/)) return []
@@ -99,22 +82,22 @@ class Identifier {
     return Identifier.pack([(<any>Researcher).name, components.admin_id || 0])
   }
   public static researcher_unpack(id: string): { admin_id: number } {
-    let components = Identifier.unpack(id)
+    const components = Identifier.unpack(id)
     if (components[0] !== (<any>Researcher).name) throw new Error("invalid identifier")
-    let result = components.slice(1).map(x => parseInt(x))
+    const result = components.slice(1).map((x) => parseInt(x))
     return {
-      admin_id: !isNaN(result[0]) ? result[0] : 0
+      admin_id: !isNaN(result[0]) ? result[0] : 0,
     }
   }
   public static study_pack(components: { admin_id?: number }): string {
     return Identifier.pack([(<any>Study).name, components.admin_id || 0])
   }
   public static study_unpack(id: string): { admin_id: number } {
-    let components = Identifier.unpack(id)
+    const components = Identifier.unpack(id)
     if (components[0] !== (<any>Study).name) throw new Error("invalid identifier")
-    let result = components.slice(1).map(x => parseInt(x))
+    const result = components.slice(1).map((x) => parseInt(x))
     return {
-      admin_id: !isNaN(result[0]) ? result[0] : 0
+      admin_id: !isNaN(result[0]) ? result[0] : 0,
     }
   }
   public static participant_pack(components: { study_id?: string }): string {
@@ -132,17 +115,17 @@ class Identifier {
       (<any>Activity).name,
       components.activity_spec_id || 0,
       components.admin_id || 0,
-      components.survey_id || 0
+      components.survey_id || 0,
     ])
   }
   public static activity_unpack(id: string): { activity_spec_id: number; admin_id: number; survey_id: number } {
-    let components = Identifier.unpack(id)
+    const components = Identifier.unpack(id)
     if (components[0] !== (<any>Activity).name) throw new Error("invalid identifier")
-    let result = components.slice(1).map(x => parseInt(x))
+    const result = components.slice(1).map((x) => parseInt(x))
     return {
       activity_spec_id: !isNaN(result[0]) ? result[0] : 0,
       admin_id: !isNaN(result[1]) ? result[1] : 0,
-      survey_id: !isNaN(result[2]) ? result[2] : 0
+      survey_id: !isNaN(result[2]) ? result[2] : 0,
     }
   }
 }
@@ -178,7 +161,7 @@ export class Researcher {
               }
 		;`)
     ).recordset.map((raw: any) => {
-      let obj = {} as any
+      const obj = {} as any
       obj._id = Identifier.researcher_pack({ admin_id: raw.id })
       obj._deleted = raw.deleted
       obj.$_sync_id = raw.id
@@ -196,7 +179,7 @@ export class Researcher {
 				WITH (HOLDLOCK) AS Target
 			USING (VALUES ${documents
         .map(
-          x => `(
+          (x) => `(
 				${!!x._id ? `'${x._id}'` : "NULL"},
 				${!!x.$_sync_id ? x.$_sync_id : "NULL"},
 				${typeof x._deleted === "boolean" ? (x._deleted === true ? "1" : "0") : "NULL"},
@@ -291,7 +274,7 @@ export class Study {
               }
 		;`)
     ).recordset.map((raw: any) => {
-      let obj = {} as any
+      const obj = {} as any
       obj._id = Identifier.study_pack({ admin_id: raw.id })
       obj._deleted = raw.deleted
       obj.$_sync_id = raw.id
@@ -309,7 +292,7 @@ export class Study {
 				WITH (HOLDLOCK) AS Target
 			USING (VALUES ${documents
         .map(
-          x => `(
+          (x) => `(
 				${!!x._id ? `'${x._id}'` : "NULL"},
 				${!!x.$_sync_id ? x.$_sync_id : "NULL"},
 				${typeof x._deleted === "boolean" ? (x._deleted === true ? "1" : "0") : "NULL"},
@@ -417,7 +400,7 @@ export class Participant {
               }
 	    ;`)
     ).recordset.map((raw: any) => {
-      let obj = {} as any
+      const obj = {} as any
       obj._id = Decrypt(raw.id)
       obj._deleted = raw.deleted
       obj.$_sync_id = raw._id
@@ -427,13 +410,13 @@ export class Participant {
   }
 
   public static async _upsert(documents: any[]): Promise<any[]> {
-    let result = await SQL!.request().query(`
+    const result = await SQL!.request().query(`
 			WITH CHANGE_TRACKING_CONTEXT(0xC0DED00D)
 			MERGE INTO LAMP.dbo.Users
 				WITH (HOLDLOCK) AS Target
 			USING (VALUES ${documents
         .map(
-          x => `(
+          (x) => `(
 				'${x._id}',
 				'${Encrypt(x._id)}',
 				'${Encrypt(x._id + "@lamp.com")}',
@@ -481,7 +464,7 @@ export class Participant {
 				INSERTED.UserID AS TargetID
 		;`)
 
-    let created = result.recordset.filter(x => x.Action === "INSERT")
+    const created = result.recordset.filter((x) => x.Action === "INSERT")
     if (created.length === 0) return result.recordset
     try {
       await SQL!.request().query(`
@@ -501,7 +484,7 @@ export class Participant {
 	            )
 				VALUES ${created
           .map(
-            x => `(
+            (x) => `(
 				    ${x.TargetID},
 			        '${Encrypt("#359FFE")}',
 			        1,
@@ -560,10 +543,10 @@ export class Activity {
       "lamp.jewels_a": "Jewels Trails A",
       "lamp.jewels_b": "Jewels Trails B",
       "lamp.scratch_image": "Scratch Image",
-      "lamp.spin_wheel": "Spin Wheel"
+      "lamp.spin_wheel": "Spin Wheel",
     }
 
-    let ctest = await SQL!.request().query(`
+    const ctest = await SQL!.request().query(`
 			SELECT 
 				AdminID AS aid,
 				Admin.IsDeleted AS deleted,
@@ -641,7 +624,7 @@ export class Activity {
 			FOR JSON PATH, INCLUDE_NULL_VALUES, WITHOUT_ARRAY_WRAPPER
 		;`)
 
-    let result = await SQL!.request().query(`
+    const result = await SQL!.request().query(`
 		WITH A(value) AS (
 			SELECT 
 				AdminID AS aid,
@@ -774,11 +757,11 @@ export class Activity {
 		FROM A, B
 		;`)
     return JSON.parse(result.recordset[0][""]).map((raw: any) => {
-      let obj = {} as any
+      const obj = {} as any
       if (raw.type === "ctest") {
         obj._id = Identifier.activity_pack({
           activity_spec_id: raw.id,
-          admin_id: raw.aid
+          admin_id: raw.aid,
         })
         obj._deleted = raw.deleted
         obj.$_sync_id = [raw.id, raw.aid, null]
@@ -787,13 +770,13 @@ export class Activity {
         obj.name = spec_map[<string>raw.name]
         obj.settings = {
           ...(raw.settings.jewelsA || { "0": {} })["0"],
-          ...(raw.settings.jewelsB || { "0": {} })["0"]
+          ...(raw.settings.jewelsB || { "0": {} })["0"],
         }
       } else if (raw.type === "survey") {
         obj._id = Identifier.activity_pack({
           activity_spec_id: 1 /* survey */,
           admin_id: raw.aid,
-          survey_id: raw.id
+          survey_id: raw.id,
         })
         obj._deleted = raw.deleted
         obj.$_sync_id = [1, raw.aid, raw.id]
@@ -807,7 +790,7 @@ export class Activity {
   }
 
   public static async _upsert(documents: any[]): Promise<any[]> {
-    documents = documents.filter(x => x.spec === "lamp.survey")
+    documents = documents.filter((x) => x.spec === "lamp.survey")
 
     // TODO... use schedule + settings for survey config!
     // TODO: ActivitySpec::_jewelsMap('key', null)
@@ -821,10 +804,10 @@ export class Activity {
 
 export class ActivityEvent {
   public static async _select(change_version?: string): Promise<any[]> {
-    let id: string | undefined = undefined
-    let activity_id_or_spec: string | undefined = undefined
-    let from_date: number | undefined = undefined
-    let to_date: number | undefined = undefined
+    const id: string | undefined = undefined
+    const activity_id_or_spec: string | undefined = undefined
+    const from_date: number | undefined = undefined
+    const to_date: number | undefined = undefined
 
     // Get the correctly scoped identifier to search within.
     let user_id: string | undefined
@@ -836,22 +819,22 @@ export class ActivityEvent {
     else if (!!id) throw new Error()
 
     user_id = !!user_id ? Encrypt(user_id) : user_id
-    let conds = [
+    const conds = [
       !!user_id ? `Users.StudyId = '${user_id}'` : null,
       !!admin_id ? `Users.AdminID = '${admin_id}'` : null,
       !!from_date ? `DATEDIFF_BIG(MS, '1970-01-01', timestamp) >= ${from_date}` : null,
-      !!to_date ? `DATEDIFF_BIG(MS, '1970-01-01', timestamp) <= ${to_date}` : null
-    ].filter(x => !!x)
-    let str = conds.length > 0 ? "WHERE " + conds.join(" AND ") : ""
+      !!to_date ? `DATEDIFF_BIG(MS, '1970-01-01', timestamp) <= ${to_date}` : null,
+    ].filter((x) => !!x)
+    const str = conds.length > 0 ? "WHERE " + conds.join(" AND ") : ""
 
     // Collect the set of legacy Activity tables and stitch the full query.
-    let result = (
+    const result = (
       await SQL!.request().query(`
 			SELECT * FROM LAMP_Aux.dbo.ActivityIndex;
 		`)
     ).recordset.map(async (entry: any) => {
       // Perform the result lookup for every Activity table.
-      let events = (
+      const events = (
         await SQL!.request().query(`
 				SELECT
 					Users.StudyId AS uid,
@@ -928,11 +911,11 @@ export class ActivityEvent {
       }
 
       // Map from SQL DB to the local ActivityEvent type.
-      let res = events.map(async (row: any) => {
-        let activity_event = {} as any
+      const res = events.map(async (row: any) => {
+        const activity_event = {} as any
         activity_event.$_parent_id = Decrypt(row.uid)
-        activity_event.timestamp = parseInt(row.timestamp)
-        activity_event.duration = parseInt(row.duration)
+        activity_event.timestamp = Number.parse(row.timestamp) ?? 0
+        activity_event.duration = Number.parse(row.duration) ?? 0
 
         // Map internal ID sub-components into the single mangled ID form.
         // FIXME: Currently it's not feasible to map SurveyID from SurveyName.
@@ -955,14 +938,14 @@ export class ActivityEvent {
           activity_event.static_data.survey_name =
             Decrypt(activity_event.static_data.survey_name) || activity_event.static_data.survey_name
         if (!!activity_event.static_data.drawn_fig_file_name) {
-          let fname =
+          const fname =
             "https://psych.digital/LampWeb/Games/User3DFigures/" +
             (Decrypt(activity_event.static_data.drawn_fig_file_name) || activity_event.static_data.drawn_fig_file_name)
           activity_event.static_data.drawn_figure = fname //(await Download(fname)).toString('base64')
           activity_event.static_data.drawn_fig_file_name = undefined
         }
         if (!!activity_event.static_data.scratch_file_name) {
-          let fname =
+          const fname =
             "https://psych.digital/LampWeb/Games/UserScratchImages/" +
             (Decrypt(activity_event.static_data.scratch_file_name) || activity_event.static_data.scratch_file_name)
           activity_event.static_data.scratch_figure = fname //(await Download(fname)).toString('base64')
@@ -989,13 +972,13 @@ export class ActivityEvent {
         // Copy all temporal events for this result event by matching parent ID.
         if (!!slices) {
           activity_event.temporal_slices = slices
-            .filter(slice_row => slice_row.parent_id === row.id)
-            .map(slice_row => {
-              let temporal_slice = {} as any
+            .filter((slice_row) => slice_row.parent_id === row.id)
+            .map((slice_row) => {
+              const temporal_slice = {} as any
               temporal_slice.item = slice_row.item
               temporal_slice.value = slice_row.value
               temporal_slice.type = slice_row.type
-              temporal_slice.duration = parseInt(slice_row.duration)
+              temporal_slice.duration = Number.parse(slice_row.duration) ?? 0
               temporal_slice.level = slice_row.level
 
               // Special treatment for surveys with encrypted answers.
@@ -1034,24 +1017,24 @@ export class ActivityEvent {
 
 export class SensorEvent {
   public static async _select(change_version?: string): Promise<any[]> {
-    let id: string | undefined = undefined
-    let activity_id_or_spec: string | undefined = undefined
-    let from_date: number | undefined = undefined
-    let to_date: number | undefined = undefined
+    const id: string | undefined = undefined
+    const activity_id_or_spec: string | undefined = undefined
+    const from_date: number | undefined = undefined
+    const to_date: number | undefined = undefined
 
-    const _decrypt = function(str: string) {
-      let v = Decrypt(str)
+    const _decrypt = function (str: string) {
+      const v = Decrypt(str)
       return !v || v === "" || v === "NA" ? null : v.toLowerCase()
     }
-    const _convert = function(x: string | null, strip_suffix: string = "", convert_number: boolean = false) {
+    const _convert = function (x: string | null, strip_suffix = "", convert_number = false) {
       return !x ? null : convert_number ? parseFloat(x.replace(strip_suffix, "")) : x.replace(strip_suffix, "")
     }
-    const _clean = function(x: any) {
+    const _clean = function (x: any) {
       return x === 0 ? null : x
     }
     const toLAMP = (value?: string): [string?, string?] => {
       if (!value) return []
-      let matches =
+      const matches =
         (Decrypt(value) || value).toLowerCase().match(/(?:i am )([ \S\/]+)(alone|in [ \S\/]*|with [ \S\/]*)/) || []
       return [
         (<any>{
@@ -1061,15 +1044,15 @@ export class SensorEvent {
           "in clinic/hospital": "hospital",
           outside: "outside",
           "shopping/dining": "shopping",
-          "in bus/train/car": "transit"
+          "in bus/train/car": "transit",
         })[(matches[1] || " ").slice(0, -1)],
         (<any>{
           alone: "alone",
           "with friends": "friends",
           "with family": "family",
           "with peers": "peers",
-          "in crowd": "crowd"
-        })[matches[2] || ""]
+          "in crowd": "crowd",
+        })[matches[2] || ""],
       ]
     }
     const fromLAMP = (value: [string?, string?]): string | undefined => {
@@ -1083,14 +1066,14 @@ export class SensorEvent {
             hospital: " in clinic/hospital",
             outside: " outside",
             shopping: " shopping/dining",
-            transit: " in bus/train/car"
+            transit: " in bus/train/car",
           })[value[0] || ""] +
           (<any>{
             alone: "alone",
             friends: "with friends",
             family: "with family",
             peers: "with peers",
-            crowd: "in crowd"
+            crowd: "in crowd",
           })[value[1] || ""]
       )
     }
@@ -1101,16 +1084,16 @@ export class SensorEvent {
       "lamp.blood_pressure": (raw: string): any => ({ value: _convert(_decrypt(raw), " mmhg", false), units: "mmHg" }),
       "lamp.respiratory_rate": (raw: string): any => ({
         value: _convert(_decrypt(raw), " breaths/min", true),
-        units: "bpm"
+        units: "bpm",
       }),
       "lamp.sleep": (raw: string): any => ({ value: _decrypt(raw), units: "" }),
       "lamp.steps": (raw: string): any => ({ value: _clean(_convert(_decrypt(raw), " steps", true)), units: "steps" }),
       "lamp.flights": (raw: string): any => ({
         value: _clean(_convert(_decrypt(raw), " steps", true)),
-        units: "flights"
+        units: "flights",
       }),
       "lamp.segment": (raw: string): any => ({ value: _convert(_decrypt(raw), "", true), units: "" }),
-      "lamp.distance": (raw: string): any => ({ value: _convert(_decrypt(raw), " meters", true), units: "meters" })
+      "lamp.distance": (raw: string): any => ({ value: _convert(_decrypt(raw), " meters", true), units: "meters" }),
     }
     const LAMP_to_HK = {
       // TODO: Consider 0/NA values
@@ -1123,7 +1106,7 @@ export class SensorEvent {
       "lamp.steps": (obj: { value: any; units: string }): string => `${Encrypt(obj.value)} steps`,
       "lamp.flights": (obj: { value: any; units: string }): string => `${Encrypt(obj.value)} steps`,
       "lamp.segment": (obj: { value: any; units: string }): string => `${Encrypt(obj.value)}`,
-      "lamp.distance": (obj: { value: any; units: string }): string => `${Encrypt(obj.value)} meters`
+      "lamp.distance": (obj: { value: any; units: string }): string => `${Encrypt(obj.value)} meters`,
     }
     const HK_LAMP_map = {
       "lamp.height": "Height",
@@ -1145,7 +1128,7 @@ export class SensorEvent {
       Steps: "lamp.steps",
       FlightClimbed: "lamp.flights",
       Segment: "lamp.segment",
-      Distance: "lamp.distance"
+      Distance: "lamp.distance",
     }
 
     enum SensorName {
@@ -1168,7 +1151,7 @@ export class SensorEvent {
       Steps = "lamp.steps",
       Flights = "lamp.flights",
       Segment = "lamp.segment",
-      Distance = "lamp.distance"
+      Distance = "lamp.distance",
     }
 
     // Get the correctly scoped identifier to search within.
@@ -1181,7 +1164,7 @@ export class SensorEvent {
     else if (!!id) throw new Error()
     user_id = !!user_id ? Encrypt(user_id) : undefined
 
-    let result1 = (
+    const result1 = (
       await SQL!.request().query(`
 				SELECT timestamp, type, data, X.StudyId AS parent
 				FROM (
@@ -1228,14 +1211,14 @@ export class SensorEvent {
                 ${!!to_date ? `AND X.timestamp <= ${to_date}` : ""}
 		;`)
     ).recordset.map((raw: any) => {
-      let obj = {} as any
+      const obj = {} as any
       obj.$_parent_id = Decrypt(raw.parent)
       obj.timestamp = raw.timestamp
-      obj.sensor = <SensorName>Object.entries(HK_LAMP_map).filter(x => x[1] === <string>raw.type)[0][0]
+      obj.sensor = <SensorName>Object.entries(HK_LAMP_map).filter((x) => x[1] === <string>raw.type)[0][0]
       obj.data = ((<any>HK_to_LAMP)[obj.sensor!] || ((x: any) => x))(raw.data)
       return obj
     })
-    let result2 = (
+    const result2 = (
       await SQL!.request().query(`
 			SELECT 
                 DATEDIFF_BIG(MS, '1970-01-01', Locations.CreatedOn) AS timestamp,
@@ -1258,8 +1241,8 @@ export class SensorEvent {
                 }
 		;`)
     ).recordset.map((raw: any) => {
-      let x = toLAMP(raw.location_name)
-      let obj = {} as any
+      const x = toLAMP(raw.location_name)
+      const obj = {} as any
       obj.$_parent_id = Decrypt(raw.parent)
       obj.timestamp = raw.timestamp
       obj.sensor = "lamp.gps.contextual"
@@ -1269,8 +1252,8 @@ export class SensorEvent {
         accuracy: 1,
         context: {
           environment: x[0] || null,
-          social: x[1] || null
-        }
+          social: x[1] || null,
+        },
       }
       return obj
     })

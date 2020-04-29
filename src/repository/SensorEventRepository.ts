@@ -1,14 +1,14 @@
-import { Database, SQL, Encrypt, Decrypt } from "../app"
-import { IResult } from "mssql"
-import { Participant } from "../model/Participant"
+import { Database } from "../app"
 import { Study } from "../model/Study"
 import { Researcher } from "../model/Researcher"
-import { SensorEvent, SensorName, LocationContext, SocialContext } from "../model/SensorEvent"
+import { SensorEvent } from "../model/SensorEvent"
 import { ResearcherRepository } from "../repository/ResearcherRepository"
 import { StudyRepository } from "../repository/StudyRepository"
 import { ParticipantRepository } from "../repository/ParticipantRepository"
-import { Identifier_unpack, Identifier_pack } from "../repository/TypeRepository"
+import { Identifier_unpack } from "../repository/TypeRepository"
 import { _migrate_sensor_event } from "./migrate"
+
+// FIXME: does not support filtering by Sensor yet.
 
 export class SensorEventRepository {
   /**
@@ -48,9 +48,9 @@ export class SensorEventRepository {
     else if (!!id && Identifier_unpack(id).length === 0 /* Participant */)
       user_id = ParticipantRepository._unpack_id(id).study_id
     else if (!!id) throw new Error("400.invalid-identifier")
-    user_id = !!user_id ? Encrypt(user_id) : undefined
+    //user_id = !!user_id ? Encrypt(user_id) : undefined
 
-    return (
+    const all_res = (
       await Database.use("sensor_event").find({
         selector: {
           "#parent": id!,
@@ -60,42 +60,35 @@ export class SensorEventRepository {
               ? (undefined as any)
               : {
                   $gte: from_date,
-                  $lt: from_date === to_date ? to_date! + 1 : to_date
-                }
+                  $lt: from_date === to_date ? to_date! + 1 : to_date,
+                },
         },
         sort: [
           {
-            timestamp: !!limit && limit < 0 ? "asc" : "desc"
-          }
+            timestamp: !!limit && limit < 0 ? "asc" : "desc",
+          },
         ],
-        limit: Math.abs(limit ?? 1000)
+        limit: Math.abs(limit ?? 1000),
       })
-    ).docs.map(x => ({
+    ).docs.map((x) => ({
       ...x,
       _id: undefined,
       _rev: undefined,
-      "#parent": undefined
+      "#parent": undefined,
     })) as any
-
-    let result1 = []
-    return []
-    let result2 = []
-
-    let result3 = []
-
-    let all_res = [...result1, ...result2, ...result3].sort((a, b) => <number>a.timestamp - <number>b.timestamp)
+    return all_res
 
     // Perform a group-by operation on the participant ID if needed.
-    return !admin_id
+    /*return !admin_id
       ? all_res
-      : all_res.reduce((prev, curr: any) => {
+      : all_res.reduce((prev: any, curr: any) => {
           let key = (<any>curr).parent
           ;(prev[key] ? prev[key] : (prev[key] = null || [])).push({
             ...curr,
-            parent: undefined
+            '#parent': undefined
           })
           return prev
-        }, <any>{})
+        }, <any>{})*/
   }
 
   /**
@@ -112,11 +105,18 @@ export class SensorEventRepository {
      */
     objects: SensorEvent[]
   ): Promise<{}> {
-    let data = await Database.use("sensor_event").bulk({
-      docs: (objects as any[]).map(x => ({ "#parent": participant_id, ...x }))
+    _migrate_sensor_event()
+    const data = await Database.use("sensor_event").bulk({
+      docs: (objects as any[]).map((x) => ({
+        "#parent": participant_id,
+        timestamp: Number.parse(x.timestamp),
+        sensor: String(x.sensor),
+        data: x.data ?? {},
+      })),
     })
-    console.error(data.filter(x => !!x.error))
-    return { data: data.filter(x => !!x.error) }
+    const output = data.filter((x) => !!x.error)
+    if (output.length > 0) console.error(output)
+    return {}
   }
 
   /**

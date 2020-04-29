@@ -20,9 +20,9 @@ CredentialService.get("/type/:type_id/credential", async (req: Request, res: Res
 CredentialService.post("/type/:type_id/credential", async (req: Request, res: Response) => {
   try {
     let type_id = req.params.type_id
-    let credential = req.body
+    const credential = req.body
     type_id = await _verify(req.get("Authorization"), ["self", "parent"], type_id)
-    let output = { data: await CredentialRepository._insert(type_id, credential) }
+    const output = { data: await CredentialRepository._insert(type_id, credential) }
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -32,10 +32,10 @@ CredentialService.post("/type/:type_id/credential", async (req: Request, res: Re
 CredentialService.put("/type/:type_id/credential/:access_key", async (req: Request, res: Response) => {
   try {
     let type_id = req.params.type_id
-    let access_key = req.params.access_key
-    let credential = req.body
+    const access_key = req.params.access_key
+    const credential = req.body
     type_id = await _verify(req.get("Authorization"), ["self", "parent"], type_id)
-    let output = { data: await CredentialRepository._update(type_id, access_key, credential) }
+    const output = { data: await CredentialRepository._update(type_id, access_key, credential) }
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -45,9 +45,9 @@ CredentialService.put("/type/:type_id/credential/:access_key", async (req: Reque
 CredentialService.delete("/type/:type_id/credential/:access_key", async (req: Request, res: Response) => {
   try {
     let type_id = req.params.type_id
-    let access_key = req.params.access_key
+    const access_key = req.params.access_key
     type_id = await _verify(req.get("Authorization"), ["self", "parent"], type_id)
-    let output = { data: await CredentialRepository._delete(type_id, access_key) }
+    const output = { data: await CredentialRepository._delete(type_id, access_key) }
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)

@@ -38,11 +38,11 @@ export class ParticipantRepository {
    *
    */
   public static async _parent_id(id: string, type: Function): Promise<string | undefined> {
-    let { study_id } = ParticipantRepository._unpack_id(id)
+    const { study_id } = ParticipantRepository._unpack_id(id)
     switch (type) {
       case StudyRepository:
       case ResearcherRepository:
-        let result = (
+        const result = (
           await SQL!.request().query(`
                     SELECT AdminID AS value
                     FROM Users
@@ -52,7 +52,7 @@ export class ParticipantRepository {
         return result.length === 0
           ? undefined
           : (type === ResearcherRepository ? ResearcherRepository : StudyRepository)._pack_id({
-              admin_id: result[0].value
+              admin_id: result[0].value,
             })
 
       default:
@@ -79,16 +79,9 @@ export class ParticipantRepository {
       user_id = ParticipantRepository._unpack_id(id).study_id
     else if (!!id) throw new Error("400.invalid-identifier")
 
-    // Collect the set of legacy Activity tables and stitch the full query.
-    let activities_list = (
-      await SQL!.request().query(`
-			SELECT * FROM LAMP_Aux.dbo.ActivityIndex;
-		`)
-    ).recordset
-
     // Construct N sub-objects for each of N activities.
     // Perform complex lookup, returning a JSON object set.
-    let result = await SQL!.request().query(`
+    const result = await SQL!.request().query(`
             SELECT 
                 StudyId AS id, 
                 StudyCode AS study_code, 
@@ -118,7 +111,7 @@ export class ParticipantRepository {
 
     // Map from SQL DB to the local Participant type.
     return result.recordset[0].map((raw: any) => {
-      let obj = new Participant()
+      const obj = new Participant()
       obj.id = Decrypt(raw.id)
       //obj.language = raw.language || "en"
       //obj.theme = !!raw.theme ? Decrypt(raw.theme!) : undefined
@@ -142,22 +135,20 @@ export class ParticipantRepository {
      */
     object: Participant
   ): Promise<any> {
-    let admin_id = StudyRepository._unpack_id(study_id).admin_id
+    const admin_id = StudyRepository._unpack_id(study_id).admin_id
 
     // Create a fake email and study ID to allow login on the client app.
-    let _id = `U${Math.random()
-      .toFixed(10)
-      .slice(2, 12)}`
+    const _id = `U${Math.random().toFixed(10).slice(2, 12)}`
 
     // Prepare the likely required SQL column changes as above.
-    let study_code = !!object.study_code ? `'${Encrypt(object.study_code)}'` : `'${Encrypt("001")}'`
-    let theme = !!object.theme ? `'${Encrypt(object.theme!)}'` : `'dJjw5FK/FXK6qU32frXHvg=='`
-    let language = !!object.language ? `'${Encrypt(object.language!)}'` : `'en'`
-    let emergency_contact = !!object.emergency_contact ? `'${Encrypt(object.emergency_contact!)}'` : `''`
-    let helpline = !!object.helpline ? `'${Encrypt(object.helpline!)}'` : `''`
+    const study_code = !!object.study_code ? `'${Encrypt(object.study_code)}'` : `'${Encrypt("001")}'`
+    const theme = !!object.theme ? `'${Encrypt(object.theme!)}'` : `'dJjw5FK/FXK6qU32frXHvg=='`
+    const language = !!object.language ? `'${Encrypt(object.language!)}'` : `'en'`
+    const emergency_contact = !!object.emergency_contact ? `'${Encrypt(object.emergency_contact!)}'` : `''`
+    const helpline = !!object.helpline ? `'${Encrypt(object.helpline!)}'` : `''`
 
     // Insert row, returning the generated primary key ID.
-    let result1 = await SQL!.request().query(`
+    const result1 = await SQL!.request().query(`
 			INSERT INTO Users (
                 Email, 
                 Password,
@@ -182,7 +173,7 @@ export class ParticipantRepository {
     // Bail early if we failed to create a User row.
     if (result1.recordset.length === 0) throw new Error("404.object-not-found")
 
-    let result2 = await SQL!.request().query(`
+    const result2 = await SQL!.request().query(`
             INSERT INTO UserSettings (
                 UserID, 
                 AppColor,
@@ -276,10 +267,10 @@ export class ParticipantRepository {
      */
     participant_id: string
   ): Promise<{}> {
-    let user_id = Encrypt(ParticipantRepository._unpack_id(participant_id).study_id)
+    const user_id = Encrypt(ParticipantRepository._unpack_id(participant_id).study_id)
 
     // Set the deletion flag, without actually deleting the row.
-    let res = await SQL!.request().query(`
+    const res = await SQL!.request().query(`
 			IF EXISTS(SELECT UserID FROM Users WHERE StudyId = '${user_id}' AND IsDeleted != 1)
 				UPDATE Users SET IsDeleted = 1 WHERE StudyId = '${user_id}';
 		`)

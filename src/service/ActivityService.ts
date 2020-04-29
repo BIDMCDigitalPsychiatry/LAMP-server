@@ -8,9 +8,9 @@ export const ActivityService = Router()
 ActivityService.post("/study/:study_id/activity", async (req: Request, res: Response) => {
   try {
     let study_id = req.params.study_id
-    let activity = req.body
+    const activity = req.body
     study_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], study_id)
-    let output = { data: await ActivityRepository._insert(study_id, activity) }
+    const output = { data: await ActivityRepository._insert(study_id, activity) }
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -20,9 +20,9 @@ ActivityService.post("/study/:study_id/activity", async (req: Request, res: Resp
 ActivityService.put("/activity/:activity_id", async (req: Request, res: Response) => {
   try {
     let activity_id = req.params.activity_id
-    let activity = req.body
+    const activity = req.body
     activity_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], activity_id)
-    let output = { data: await ActivityRepository._update(activity_id, activity) }
+    const output = { data: await ActivityRepository._update(activity_id, activity) }
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -33,7 +33,7 @@ ActivityService.delete("/activity/:activity_id", async (req: Request, res: Respo
   try {
     let activity_id = req.params.activity_id
     activity_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], activity_id)
-    let output = { data: await ActivityRepository._delete(activity_id) }
+    const output = { data: await ActivityRepository._delete(activity_id) }
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -90,7 +90,7 @@ ActivityService.get("/researcher/:researcher_id/activity", async (req: Request, 
 })
 ActivityService.get("/activity", async (req: Request, res: Response) => {
   try {
-    let _ = await _verify(req.get("Authorization"), ["parent"])
+    const _ = await _verify(req.get("Authorization"), ["parent"])
     let output = { data: await ActivityRepository._select() }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)

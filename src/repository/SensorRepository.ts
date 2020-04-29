@@ -11,12 +11,12 @@ export class SensorRepository {
      */
     id?: string
   ): Promise<Sensor[]> {
-    let data = await Database.use("sensor").list({ include_docs: true, start_key: id, end_key: id })
+    const data = await Database.use("sensor").list({ include_docs: true, start_key: id, end_key: id })
     return (data.rows as any).map((x: any) => ({
       id: x.doc._id,
       ...x.doc,
       _id: undefined,
-      _rev: undefined
+      _rev: undefined,
     }))
   }
 

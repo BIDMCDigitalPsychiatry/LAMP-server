@@ -1,9 +1,9 @@
-import { Participant } from './Participant'
-import { Study } from './Study'
-import { Researcher } from './Researcher'
+import { Participant } from "./Participant"
+import { Study } from "./Study"
+import { Researcher } from "./Researcher"
 export class Credential {
-	public origin: string = ''
-	public access_key: string = ''
-	public secret_key: string | null = ''
-	public description: string = ''
+  public origin = ""
+  public access_key = ""
+  public secret_key: string | null = ""
+  public description = ""
 }

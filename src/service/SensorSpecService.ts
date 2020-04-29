@@ -7,9 +7,9 @@ import jsonata from "jsonata"
 export const SensorSpecService = Router()
 SensorSpecService.post("/sensor_spec", async (req: Request, res: Response) => {
   try {
-    let sensor_spec = req.body
-    let _ = await _verify(req.get("Authorization"), ["self", "sibling", "parent"])
-    let output = { data: await SensorSpecRepository._insert(sensor_spec) }
+    const sensor_spec = req.body
+    const _ = await _verify(req.get("Authorization"), ["self", "sibling", "parent"])
+    const output = { data: await SensorSpecRepository._insert(sensor_spec) }
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -18,10 +18,10 @@ SensorSpecService.post("/sensor_spec", async (req: Request, res: Response) => {
 })
 SensorSpecService.put("/sensor_spec/:sensor_spec_name", async (req: Request, res: Response) => {
   try {
-    let sensor_spec_name = req.params.sensor_spec_name
-    let sensor_spec = req.body
-    let _ = await _verify(req.get("Authorization"), ["self", "sibling", "parent"])
-    let output = { data: await SensorSpecRepository._update(sensor_spec_name, sensor_spec) }
+    const sensor_spec_name = req.params.sensor_spec_name
+    const sensor_spec = req.body
+    const _ = await _verify(req.get("Authorization"), ["self", "sibling", "parent"])
+    const output = { data: await SensorSpecRepository._update(sensor_spec_name, sensor_spec) }
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -30,8 +30,8 @@ SensorSpecService.put("/sensor_spec/:sensor_spec_name", async (req: Request, res
 })
 SensorSpecService.delete("/sensor_spec/:sensor_spec_name", async (req: Request, res: Response) => {
   try {
-    let sensor_spec_name = req.params.sensor_spec_name
-    let _ = await _verify(req.get("Authorization"), ["self", "sibling", "parent"])
+    const sensor_spec_name = req.params.sensor_spec_name
+    const _ = await _verify(req.get("Authorization"), ["self", "sibling", "parent"])
     let output = { data: await SensorSpecRepository._delete(sensor_spec_name) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
@@ -42,8 +42,8 @@ SensorSpecService.delete("/sensor_spec/:sensor_spec_name", async (req: Request, 
 })
 SensorSpecService.get("/sensor_spec/:sensor_spec_name", async (req: Request, res: Response) => {
   try {
-    let sensor_spec_name = req.params.sensor_spec_name
-    let _ = await _verify(req.get("Authorization"), ["self", "sibling", "parent"])
+    const sensor_spec_name = req.params.sensor_spec_name
+    const _ = await _verify(req.get("Authorization"), ["self", "sibling", "parent"])
     let output = { data: await SensorSpecRepository._select(sensor_spec_name) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
@@ -54,7 +54,7 @@ SensorSpecService.get("/sensor_spec/:sensor_spec_name", async (req: Request, res
 })
 SensorSpecService.get("/sensor_spec", async (req: Request, res: Response) => {
   try {
-    let _ = await _verify(req.get("Authorization"), ["self", "sibling", "parent"])
+    const _ = await _verify(req.get("Authorization"), ["self", "sibling", "parent"])
     let output = { data: await SensorSpecRepository._select() }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)

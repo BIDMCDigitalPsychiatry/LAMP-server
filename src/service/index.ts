@@ -23,7 +23,7 @@ import { StudyRepository } from "../repository/StudyRepository"
 import { TypeRepository } from "../repository/TypeRepository"
 import { ResearcherRepository } from "../repository/ResearcherRepository"
 
-export async function Query(query: string, auth: string | undefined, verify: boolean = true): Promise<any> {
+export async function Query(query: string, auth: string | undefined, verify = true): Promise<any> {
   return new Promise((resolve, reject) => {
     jsonata(query).evaluate(
       {},
@@ -81,7 +81,7 @@ export async function Query(query: string, auth: string | undefined, verify: boo
           if (verify) type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
           return (<string[]>[]).concat(
             await TypeRepository._list("a", <string>type_id),
-            (await TypeRepository._list("b", <string>type_id)).map(x => "dynamic/" + x)
+            (await TypeRepository._list("b", <string>type_id)).map((x) => "dynamic/" + x)
           )
         },
         Tags_view: async (type_id: string, attachment_key: string) => {
@@ -91,7 +91,7 @@ export async function Query(query: string, auth: string | undefined, verify: boo
             x = await TypeRepository._get("a", <string>type_id, attachment_key)
           } catch (e) {}
           return x
-        }
+        },
       },
       (error, result) => {
         if (error) reject(error)
@@ -116,7 +116,7 @@ API.use(SensorSpecService)
 API.use(SensorEventService)
 API.post("/", async (req, res) => {
   try {
-    let data = await Query(req.body ?? "", req.get("Authorization"))
+    const data = await Query(req.body ?? "", req.get("Authorization"))
     res.status(200).json(data)
   } catch (e) {
     res.status(500).json({ error: e.message })

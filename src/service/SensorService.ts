@@ -8,9 +8,9 @@ export const SensorService = Router()
 SensorService.post("/study/:study_id/sensor", async (req: Request, res: Response) => {
   try {
     let study_id = req.params.study_id
-    let sensor = req.body
+    const sensor = req.body
     study_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], study_id)
-    let output = { data: await SensorRepository._insert(study_id, sensor) }
+    const output = { data: await SensorRepository._insert(study_id, sensor) }
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -20,9 +20,9 @@ SensorService.post("/study/:study_id/sensor", async (req: Request, res: Response
 SensorService.put("/sensor/:sensor_id", async (req: Request, res: Response) => {
   try {
     let sensor_id = req.params.sensor_id
-    let sensor = req.body
+    const sensor = req.body
     sensor_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], sensor_id)
-    let output = { data: await SensorRepository._update(sensor_id, sensor) }
+    const output = { data: await SensorRepository._update(sensor_id, sensor) }
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -33,7 +33,7 @@ SensorService.delete("/sensor/:sensor_id", async (req: Request, res: Response) =
   try {
     let sensor_id = req.params.sensor_id
     sensor_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], sensor_id)
-    let output = { data: await SensorRepository._delete(sensor_id) }
+    const output = { data: await SensorRepository._delete(sensor_id) }
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -90,7 +90,7 @@ SensorService.get("/researcher/:researcher_id/sensor", async (req: Request, res:
 })
 SensorService.get("/sensor", async (req: Request, res: Response) => {
   try {
-    let _ = await _verify(req.get("Authorization"), ["parent"])
+    const _ = await _verify(req.get("Authorization"), ["parent"])
     let output = { data: await SensorRepository._select() }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
