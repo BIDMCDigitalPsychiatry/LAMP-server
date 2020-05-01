@@ -6,7 +6,7 @@ import { ResearcherRepository } from "../repository/ResearcherRepository"
 import { StudyRepository } from "../repository/StudyRepository"
 import { ParticipantRepository } from "../repository/ParticipantRepository"
 import { Identifier_unpack } from "../repository/TypeRepository"
-import { _migrate_activity_event, _migrator_export_table } from "./migrate"
+import { _migrate_activity_event, _migrator_lookup_table, _migrator_export_table } from "./migrate"
 
 // FIXME: does not support filtering by ActivitySpec yet.
 
@@ -106,12 +106,13 @@ export class ActivityEventRepository {
     objects: ActivityEvent[]
   ): Promise<{}> {
     //_migrate_activity_event()
+    const _lookup_table = await _migrator_lookup_table() // FIXME
     const data = await Database.use("activity_event").bulk({
       docs: objects.map((x) => ({
         "#parent": participant_id,
         timestamp: Number.parse(x.timestamp) ?? 0,
         duration: Number.parse(x.duration) ?? 0,
-        activity: String(x.activity),
+        activity: _lookup_table[String(x.activity)] ?? '__broken_link__',
         static_data: x.static_data ?? {},
         temporal_slices: x.temporal_slices ?? [],
       })),
