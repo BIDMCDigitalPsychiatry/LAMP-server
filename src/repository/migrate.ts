@@ -406,14 +406,25 @@ export async function _migrate_activity_event(): Promise<void> {
   }
 }
 
+// old ID (table PK) -> new ID (random UUID)
 export const _migrator_lookup_table = async (): Promise<{ [key: string]: string }> => {
-  const _res = await Database.use("root").baseView("", "", { viewPath: "_local_docs" }, { include_docs: true })
-  return _res.rows.reduce((z: any, x: any) => ({ ...z, [x.id.replace("_local/", "")]: x.doc.value }), {})
+  return (await _migrator_dual_table())[0]
 }
 
+// new ID (random UUID) -> old ID (table PK)
 export const _migrator_export_table = async (): Promise<{ [key: string]: string }> => {
+  return (await _migrator_dual_table())[1]
+}
+
+// BOTH of the above; more performant as well
+export const _migrator_dual_table = async (): Promise<[{ [key: string]: string }, { [key: string]: string }]> => {
   const _res = await Database.use("root").baseView("", "", { viewPath: "_local_docs" }, { include_docs: true })
-  return _res.rows.reduce((z: any, x: any) => ({ ...z, [x.doc.value]: x.id.replace("_local/", "") }), {})
+  const output: { [key: string]: string }[] = [{}, {}]
+  for (const x of _res.rows) {
+    output[0][x.id.replace("_local/", "")] = x.doc.value
+    output[1][x.doc.value] = x.id.replace("_local/", "")
+  }
+  return output as any
 }
 
 /**
