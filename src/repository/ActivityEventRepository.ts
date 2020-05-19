@@ -7,6 +7,8 @@ import { StudyRepository } from "../repository/StudyRepository"
 import { ParticipantRepository } from "../repository/ParticipantRepository"
 import { Identifier_unpack } from "../repository/TypeRepository"
 import { _migrate_activity_event, _migrator_lookup_table, _migrator_export_table } from "./migrate"
+import { customAlphabet } from "nanoid"
+const uuid = customAlphabet("1234567890abcdefghjkmnpqrstvwxyz", 20) // crockford-32
 
 // FIXME: does not support filtering by ActivitySpec yet.
 
@@ -107,12 +109,23 @@ export class ActivityEventRepository {
   ): Promise<{}> {
     //_migrate_activity_event()
     const _lookup_table = await _migrator_lookup_table() // FIXME
+    const _lookup_migrator_id = (legacyID: string): string => {
+      let match = _lookup_table[legacyID]
+      if (match === undefined) {
+        match = uuid() // 20-char id for non-Participant objects
+        _lookup_table[legacyID] = match
+        console.log(`inserting migrator link: ${legacyID} => ${match}`)
+        Database.use("root").insert({ _id: `_local/${legacyID}`, value: match } as any)
+      }
+      return match
+    }
+
     const data = await Database.use("activity_event").bulk({
       docs: objects.map((x) => ({
         "#parent": participant_id,
         timestamp: Number.parse(x.timestamp) ?? 0,
         duration: Number.parse(x.duration) ?? 0,
-        activity: _lookup_table[String(x.activity)] ?? '__broken_link__',
+        activity: _lookup_migrator_id(String(x.activity)),
         static_data: x.static_data ?? {},
         temporal_slices: x.temporal_slices ?? [],
       })),
