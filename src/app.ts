@@ -12,6 +12,8 @@ import LegacyAPI from "./utils/legacy/route"
 import nano from "nano"
 import cors from "cors"
 import morgan from "morgan"
+import { activityData } from "./repository/pouchRepository/Syncronisation"
+const PouchDB = require('pouchdb')
 
 // FIXME: Support application/json;indent=:spaces format mime type!
 
@@ -34,9 +36,9 @@ const _server =
   process.env.HTTPS === "off"
     ? app
     : https.createServer(
-        {
-          passphrase: "localhost",
-          key: `-----BEGIN ENCRYPTED PRIVATE KEY-----
+      {
+        passphrase: "localhost",
+        key: `-----BEGIN ENCRYPTED PRIVATE KEY-----
 MIIJnzBJBgkqhkiG9w0BBQ0wPDAbBgkqhkiG9w0BBQwwDgQIaFkMFRUDC9ACAggA
 MB0GCWCGSAFlAwQBKgQQIQEojG1jyAGIj6ebAp2YxASCCVA17+SUVb47fzWz7QKH
 Tg5DzKrpwmpdEx7ciSKU73uOilaUoNXBIyQxApapv7+2Sr3kYZbGO8wWLFW2Gb4I
@@ -90,7 +92,7 @@ twURZdb16W/vgtXUwafAvLmoYmWJsIjVVwj6p0QuNDrnEN9BOXhLBGUTe10wawRu
 hTRQKgLH/OqovKqPQGfAwd3njxJjtlcfAzlXzML23Pnixov+ohKlGpoEXWttjtLx
 6CMlq+Yko7ZnovATOHp44BrCmg==
 -----END ENCRYPTED PRIVATE KEY-----`,
-          cert: `-----BEGIN CERTIFICATE-----
+        cert: `-----BEGIN CERTIFICATE-----
 MIIFrjCCA5YCCQD+q//Qt55eFTANBgkqhkiG9w0BAQsFADCBlzELMAkGA1UEBhMC
 VVMxCzAJBgNVBAgMAk1BMQ8wDQYDVQQHDAZCb3N0b24xLTArBgNVBAoMJEJldGgg
 SXNyYWVsIERlYWNvbmVzcyBNZWRpY2FsIENlbnRlcjEnMCUGA1UECwweRGl2aXNp
@@ -123,9 +125,9 @@ bUFnraLvMJAzLQNN7BrrbdFTot7viPmZYe1Y12unlZ+yqHtusO5AdLF7p0F/t5k/
 R/mQB9d2LJUy81BZrO05VHrz91sHSDRRPg4lDw2GVSFtUE1ILDc3usb7JwJYZIXT
 fARYG40rIsYJipV76ICGNXSp
 -----END CERTIFICATE-----`,
-        },
-        app
-      )
+      },
+      app
+    )
 
 /**
  *
@@ -150,7 +152,7 @@ export const Encrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"):
       const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(process.env.ROOT_KEY || "", "hex"), ivl)
       return Buffer.concat([ivl, cipher.update(Buffer.from(data, "utf16le")), cipher.final()]).toString("base64")
     }
-  } catch {}
+  } catch { }
   return undefined
 }
 
@@ -171,7 +173,7 @@ export const Decrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"):
       )
       return Buffer.concat([cipher.update(dat.slice(16)), cipher.final()]).toString("utf16le")
     }
-  } catch {}
+  } catch { }
   return undefined
 }
 
@@ -203,7 +205,40 @@ async function main() {
   // Establish the API routes.
   app.use("/", API)
   app.use("/v0", LegacyAPI)
+  // TEST
+  app.get("/getalldoc", async (req, res) => {
+    try {
 
+      const db = new PouchDB('activity_event');
+      const result: any = await db.allDocs({
+        include_docs: true,
+        attachments: true
+      });
+      // tslint:disable-next-line:no-console
+      console.log(result);
+      res.json(result);
+    } catch (err) {
+      res.status(404).json({ error: err.message });
+    }
+
+
+  });
+
+  // define a route handler for the default home page
+  app.post("/deletedb", async (req, res) => {
+    try {
+      const db = new PouchDB('activity_event');
+
+      const response = await db.destroy();
+
+      res.json(response);
+
+    } catch (err) {
+      // tslint:disable-next-line:no-console
+      console.log(err);
+      res.status(404).json({ error: err.message });
+    }
+  });
   // Establish misc. routes.
   app.get("/", async (req, res) => res.json(_openAPIschema))
   app.get("/favicon.ico", (req, res) => res.status(204))
@@ -216,29 +251,43 @@ async function main() {
   })
   app.all("*", (req, res) => res.status(404).json({ message: "404.api-endpoint-unimplemented" }))
 
+
   // Establish the SQL connection.
   SQL = await new sql.ConnectionPool({
-    ...require("mssql/lib/connectionstring").resolve(process.env.DB || "mssql://"),
+    user: 'lampsa',
+    password: 'Lmp!dbsa#2020',
+    server: 'moplmssql.c2engehb1emz.ap-south-1.rds.amazonaws.com',
+    port: 56732,
+    database: 'LAMP_V2',
     parseJSON: true,
     stream: true,
     requestTimeout: 30000,
     connectionTimeout: 30000,
     options: {
       encrypt: true,
-      appName: "LAMP-server",
-      enableArithAbort: false,
+      appName: 'LAMP-legacy',
       abortTransactionOnError: true,
+      // enableArithAbort:false
     },
     pool: {
       min: 1,
       max: 100,
-      idleTimeoutMillis: 30000,
-    },
+      idleTimeoutMillis: 30000
+    }
   }).connect()
 
   // Begin listener on port 3000.
   _server.listen(process.env.PORT || 3000)
 }
 
+// replicate the data from remote 
+async function replicate() {
+  if (process.env.LOCAL_DATA === "true") {
+    let userId = 'U680546029';
+    const activity = await activityData(userId);
+
+  }
+}
 // GO!
 main()
+replicate();

@@ -1,0 +1,6 @@
+{
+  "_id": "_design/userfilter",
+  "filters": {
+    "by_user": "\n function(doc, req){if(req.query.parent!==undefined){if(doc['#parent'] === req.query.parent){return true;}else{return false;}}}"
+  }
+}
