@@ -2,7 +2,7 @@ import { Request, Response, Router } from "express"
 import { ActivityEvent } from "../model/ActivityEvent"
 import { ActivityEventRepository } from "../repository/ActivityEventRepository"
 
-import { ActivityEventPouchRepository }  from "../repository/pouchRepository/ActivityEventRepository" 
+import { ActivityEventRepository as activityPouchRepo }   from "../repository/pouchRepository/ActivityEventRepository" 
 import { SecurityContext, ActionContext, _verify } from "./Security"
 import jsonata from "jsonata"
 
@@ -13,6 +13,10 @@ ActivityEventService.post("/participant/:participant_id/activity_event", async (
     let participant_id = req.params.participant_id
     const activity_event = req.body
     participant_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], participant_id)
+    if(process.env.LOCAL_DATA==="true") {
+      const outputLocal = { data: await activityPouchRepo._insert(participant_id, ae2re(req, [activity_event])) }
+      res.json(outputLocal)
+    }
     const output = { data: await ActivityEventRepository._insert(participant_id, ae2re(req, [activity_event])) }
     res.json(output)
   } catch (e) {
@@ -44,7 +48,7 @@ ActivityEventService.get("/participant/:participant_id/activity_event", async (r
     const to: number | undefined = Number.parse(req.query.to)
     const limit = Math.min(Math.max(Number.parse(req.query.limit) ?? 1000, -1000), 1000) // clamped to [-1000, 1000]
     if(process.env.LOCAL_DATA==="true") {
-      let outputLocal =  { data: re2ae(req, await ActivityEventPouchRepository._select(participant_id, origin, from, to, limit)) }
+      let outputLocal =  { data: re2ae(req, await activityPouchRepo._select(participant_id, origin, from, to, limit)) }
       outputLocal = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(outputLocal) : outputLocal
       res.json(outputLocal)
     }

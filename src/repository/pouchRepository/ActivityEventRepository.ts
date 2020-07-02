@@ -13,7 +13,7 @@ const PouchDB = require('pouchdb')
 
 // FIXME: does not support filtering by ActivitySpec yet.
 
-export class ActivityEventPouchRepository {
+export class ActivityEventRepository {
   /**
    * Get a set of `ActivityEvent`s matching the criteria parameters.
    */
