@@ -854,7 +854,7 @@ LegacyAPI.post("/SaveUserSetting", [_authorize], async (req: Request, res: Respo
   }
   const requestData: APIRequest = req.body
   const UserID: any = requestData.UserID
-  if (!UserID || !Number.isInteger(UserID) || UserID == 0) {
+  if (!UserID || !Number.isInteger(Number(UserID)) || UserID == 0) {
     return res.status(422).json({
       ErrorCode: 2031,
       ErrorMessage: "Specify valid User Id.",
@@ -987,7 +987,7 @@ LegacyAPI.post("/GetUserSetting", [_authorize], async (req: Request, res: Respon
   }
   const requestData: APIRequest = req.body
   const UserID: any = requestData.UserID
-  if (!UserID || !Number.isInteger(UserID) || UserID == 0) {
+  if (!UserID || !Number.isInteger(Number(UserID)) || UserID == 0) {
     return res.status(422).json({
       Data: {},
       ErrorCode: 2031,
@@ -1042,7 +1042,7 @@ LegacyAPI.post("/SaveUserCTestsFavourite", [_authorize], async (req: Request, re
   }
   const requestData: APIRequest = req.body
   const UserID: any = requestData.UserId
-  if (!UserID || !Number.isInteger(UserID) || UserID == 0) {
+  if (!UserID || !Number.isInteger(Number(UserID)) || UserID == 0) {
     return res.status(422).json({
       ErrorCode: 2031,
       ErrorMessage: "Specify valid User Id.",
@@ -1115,7 +1115,7 @@ LegacyAPI.post("/GetTips", [_authorize], async (req: Request, res: Response) => 
   }
   const requestData: APIRequest = req.body
   const UserID: any = requestData.UserID
-  if (!UserID || !Number.isInteger(UserID) || UserID == 0) {
+  if (!UserID || !Number.isInteger(Number(UserID)) || UserID == 0) {
     return res.status(422).json({
       ErrorCode: 2031,
       ErrorMessage: "Specify valid User Id.",
@@ -1156,7 +1156,7 @@ LegacyAPI.post("/GetBlogs", [_authorize], async (req: Request, res: Response) =>
   }
   const requestData: APIRequest = req.body
   const UserID: any = requestData.UserID
-  if (!UserID || !Number.isInteger(UserID) || UserID == 0) {
+  if (!UserID || !Number.isInteger(Number(UserID)) || UserID == 0) {
     return res.status(422).json({
       ErrorCode: 2031,
       ErrorMessage: "Specify valid User Id.",
@@ -1201,7 +1201,7 @@ LegacyAPI.post("/GetTipsandBlogUpdates", [_authorize], async (req: Request, res:
   }
   const requestData: APIRequest = req.body
   const UserID: any = requestData.UserID
-  if (!UserID || !Number.isInteger(UserID) || UserID == 0) {
+  if (!UserID || !Number.isInteger(Number(UserID)) || UserID == 0) {
     return res.status(422).json({
       ErrorCode: 2031,
       ErrorMessage: "Specify valid User Id.",
@@ -1271,7 +1271,7 @@ LegacyAPI.post("/GetAppHelp", [_authorize], async (req: Request, res: Response) 
   }
   const requestData: APIRequest = req.body
   const UserID: any = requestData.UserID
-  if (!UserID || !Number.isInteger(UserID) || UserID == 0) {
+  if (!UserID || !Number.isInteger(Number(UserID)) || UserID == 0) {
     return res.status(422).json({
       ErrorCode: 2031,
       ErrorMessage: "Specify valid User Id.",
@@ -1420,7 +1420,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
   }
   const requestData: APIRequest = req.body
   const UserID: any = requestData.UserID
-  if (!UserID || !Number.isInteger(UserID) || UserID == 0) {
+  if (!UserID || !Number.isInteger(Number(UserID)) || UserID == 0) {
     return res.status(422).json({
       ErrorCode: 2031,
       ErrorMessage: "Specify valid User Id.",
@@ -1898,7 +1898,7 @@ LegacyAPI.post("/GetDistractionSurveys", [_authorize], async (req: Request, res:
   const requestData: APIRequest = req.body
   let SurveysList: APIResponse["Surveys"] = []
   const UserID: any = requestData.UserId
-  if (!UserID || !Number.isInteger(UserID) || UserID == 0) {
+  if (!UserID || !Number.isInteger(Number(UserID)) || UserID == 0) {
     return res.status(422).json({
       ErrorCode: 2031,
       ErrorMessage: "Specify valid User Id.",
@@ -1968,7 +1968,7 @@ LegacyAPI.post("/GetSurveys", [_authorize], async (req: Request, res: Response) 
   }
   const requestData: APIRequest = req.body
   const UserID: any = requestData.UserID
-  if (!UserID || !Number.isInteger(UserID) || UserID == 0) {
+  if (!UserID || !Number.isInteger(Number(UserID)) || UserID == 0) {
     return res.status(422).json({
       ErrorCode: 2031,
       ErrorMessage: "Specify valid User Id.",
@@ -2161,7 +2161,6 @@ LegacyAPI.post("/SaveUserHealthKit", [_authorize], async (req: Request, res: Res
         units: value.split(" ")[1] ?? "",
       },
     }))
-  console.log(JSON.stringify(sensorEvents, null, 2))
   const out = await Database.use("sensor_event").bulk({ docs: sensorEvents })
   console.dir(out.filter((x) => !!x.error))
   return res.status(200).json({
@@ -2210,7 +2209,6 @@ LegacyAPI.post("/SaveUserHealthKitV2", [_authorize], async (req: Request, res: R
       units: param.Value!.split(" ")[1] ?? "",
     },
   }))
-  console.log(JSON.stringify(sensorEvents, null, 2))
   const out = await Database.use("sensor_event").bulk({ docs: sensorEvents })
   console.dir(out.filter((x) => !!x.error))
   return res.status(200).json({
