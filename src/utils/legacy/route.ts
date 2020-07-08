@@ -2149,7 +2149,6 @@ LegacyAPI.post("/SaveUserHealthKit", [_authorize], async (req: Request, res: Res
     Distance: "lamp.distance",
   }
   const data = req.body as APIRequest
-  console.dir(data)
   const sensorEvents = Object.entries(data)
     .filter(([key, value]) => Object.keys(ParamIDLookup).includes(key) && (value?.length ?? 0 > 0))
     .map(([key, value]) => ({
@@ -2199,7 +2198,6 @@ LegacyAPI.post("/SaveUserHealthKitV2", [_authorize], async (req: Request, res: R
     Distance: "lamp.distance",
   }
   const data = req.body as APIRequest
-  console.dir(data)
   const sensorEvents = data.HealthKitParams!.map((param) => ({
     "#parent": (req as any).AuthUser.StudyId,
     timestamp: new Date().getTime(), // use NOW, as no date is provided
