@@ -8,10 +8,11 @@ import http from "http"
 import https from "https"
 import _Docker from "dockerode"
 import ScriptRunner from "./utils/ScriptRunner"
-import LegacyAPI from "./utils/legacy/route"
+import { LegacyAPI } from "./utils/legacy/route"
 import nano from "nano"
 import cors from "cors"
 import morgan from "morgan"
+import AWS from "aws-sdk"
 
 // FIXME: Support application/json;indent=:spaces format mime type!
 
@@ -19,7 +20,14 @@ import morgan from "morgan"
 export const Docker = new _Docker({ host: "localhost", port: 2375 })
 
 //
-export const Database = nano(process.env.CDB || "")
+export const Database = nano(process.env.CDB ?? "")
+
+//
+export const AWSBucketName = process.env.S3_BUCKET ?? ""
+export const S3 = new AWS.S3({
+  accessKeyId: process.env.S3_ACCESS_KEY ?? "",
+  secretAccessKey: process.env.S3_ACCESS_KEY ?? "",
+})
 
 // Configure the base Express app and middleware.
 export const app: Application = express()
@@ -28,6 +36,7 @@ app.use(bodyParser.json({ limit: "50mb", strict: false }))
 app.use(bodyParser.text())
 app.use(cors())
 app.use(morgan(":method :url :status - :response-time ms"))
+app.use(express.urlencoded({ extended: true }))
 
 //
 const _server =

@@ -427,6 +427,16 @@ export const _migrator_dual_table = async (): Promise<[{ [key: string]: string }
   return output as any
 }
 
+// TODO: DELETE
+function Identifier_pack(components: any[]): string {
+  if (components.length === 0) return ""
+  return Buffer.from(components.join(":")).toString("base64").replace(/=/g, "~")
+}
+// TODO: DELETE
+export function Activity_pack_id(components: { ctest_id?: number; survey_id?: number; group_id?: number }): string {
+  return Identifier_pack(["Activity", components.ctest_id || 0, components.survey_id || 0, components.group_id || 0])
+}
+
 /**
  *
  */
