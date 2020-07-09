@@ -1993,6 +1993,7 @@ LegacyAPI.post("/GetSurveys", [_authorize], async (req: Request, res: Response) 
                         WHEN AnswerType = 5 THEN 'Years'
                         WHEN AnswerType = 6 THEN 'Months'
                         WHEN AnswerType = 7 THEN 'Days'
+                        WHEN AnswerType = 8 THEN 'Textbox' 
                     END) AS AnswerType,
                     IsDeleted,
                     (
