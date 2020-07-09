@@ -18,6 +18,9 @@ const _authorize = async (req: Request, res: Response, next: any): Promise<void>
       ErrorMessage: "Your session has expired.",
     })
   }
+  // SessionToken Format:
+  // [OLD] Encrypt('UserID|Email|Password')
+  // [NEW] Encrypt('Email:Password')
   const result = await SQL!.request().query(`
         SELECT 
             UserID, StudyId, Email, FirstName, LastName 
@@ -380,7 +383,8 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
             device_id: requestData.DeviceID!,
             device_token: requestData.DeviceToken!,
             os_version: requestData.OSVersion!,
-            device_mode: requestData.DeviceModel!,
+            app_version: requestData.APPVersion!,
+            device_model: requestData.DeviceModel!,
           },
         }
         const out = await Database.use("sensor_event").bulk({ docs: [loginEvent] })
