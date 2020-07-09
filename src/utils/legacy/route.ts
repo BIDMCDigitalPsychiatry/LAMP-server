@@ -369,6 +369,23 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
                 "' ) "
             )
         }
+        // Save login as an event.
+        const loginEvent = {
+          "#parent": StudyId,
+          timestamp: new Date().getTime(),
+          sensor: "lamp.analytics",
+          data: {
+            device_type: requestData.DeviceType! == 1 ? "iOS" : requestData.DeviceType! == 2 ? "Android" : "Unknown",
+            event_type: "login",
+            device_id: requestData.DeviceID!,
+            device_token: requestData.DeviceToken!,
+            os_version: requestData.OSVersion!,
+            device_mode: requestData.DeviceModel!,
+          },
+        }
+        const out = await Database.use("sensor_event").bulk({ docs: [loginEvent] })
+        console.dir(out.filter((x) => !!x.error))
+
         // User CTests Favourite
         const FavouriteCtestQuery: any = await SQL!
           .request()
