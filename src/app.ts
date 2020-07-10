@@ -1,4 +1,5 @@
 require("dotenv").config()
+
 import API from "./service"
 import express, { Application } from "express"
 import bodyParser from "body-parser"
@@ -13,6 +14,8 @@ import nano from "nano"
 import cors from "cors"
 import morgan from "morgan"
 import { activityData } from "./repository/pouchRepository/Syncronisation"
+import { indexCreate } from "./repository/pouchRepository/Syncronisation"
+import { indexDelete } from "./repository/pouchRepository/Syncronisation"
 const PouchDB = require('pouchdb')
 
 // FIXME: Support application/json;indent=:spaces format mime type!
@@ -202,13 +205,15 @@ async function main() {
     _rev: undefined,
   }
 
+  app.get("/testgetdoc", async (req, res) => {
+    res.json("good to go");
+  })
   // Establish the API routes.
   app.use("/", API)
   app.use("/v0", LegacyAPI)
   // TEST
   app.get("/getalldoc", async (req, res) => {
     try {
-
       const db = new PouchDB('activity_event');
       const result: any = await db.allDocs({
         include_docs: true,
@@ -254,11 +259,11 @@ async function main() {
 
   // Establish the SQL connection.
   SQL = await new sql.ConnectionPool({
-    user: 'lampsa',
-    password: 'Lmp!dbsa#2020',
-    server: 'moplmssql.c2engehb1emz.ap-south-1.rds.amazonaws.com',
-    port: 56732,
-    database: 'LAMP_V2',
+    user: '',
+    password: '',
+    server: '',
+    port: ,
+    database: '',
     parseJSON: true,
     stream: true,
     requestTimeout: 30000,
@@ -291,3 +296,7 @@ async function replicate() {
 // GO!
 main()
 replicate();
+// indexCreate('activity_event');
+// indexCreate('sensor_event');
+//  indexCreate('activity_event');
+//  indexCreate('sensor_event');
