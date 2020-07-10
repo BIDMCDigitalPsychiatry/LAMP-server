@@ -259,26 +259,22 @@ async function main() {
 
   // Establish the SQL connection.
   SQL = await new sql.ConnectionPool({
-    user: '',
-    password: '',
-    server: '',
-    port: ,
-    database: '',
+    ...require("mssql/lib/connectionstring").resolve(process.env.DB || "mssql://"),
     parseJSON: true,
     stream: true,
     requestTimeout: 30000,
     connectionTimeout: 30000,
     options: {
       encrypt: true,
-      appName: 'LAMP-legacy',
+      appName: "LAMP-server",
+      enableArithAbort: false,
       abortTransactionOnError: true,
-      // enableArithAbort:false
     },
     pool: {
       min: 1,
       max: 100,
-      idleTimeoutMillis: 30000
-    }
+      idleTimeoutMillis: 30000,
+    },
   }).connect()
 
   // Begin listener on port 3000.

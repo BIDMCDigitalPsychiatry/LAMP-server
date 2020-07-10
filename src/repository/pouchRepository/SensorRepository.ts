@@ -1,6 +1,6 @@
 import { Database } from "../../app"
 import { Sensor } from "../../model/Sensor"
-
+const PouchDB = require('pouchdb')
 export class SensorRepository {
   /**
    * Get a set of `Sensor`s matching the criteria parameters.
@@ -11,7 +11,10 @@ export class SensorRepository {
      */
     id?: string
   ): Promise<Sensor[]> {
-    const data = await Database.use("sensor").list({ include_docs: true, start_key: id, end_key: id })
+    console.log("SensorPouch");
+    PouchDB.plugin(require('pouchdb-find'));
+    const db = new PouchDB('sensor');
+    const data = await db.allDocs({ include_docs: true, start_key: id, end_key: id })
     return (data.rows as any).map((x: any) => ({
       id: x.doc._id,
       ...x.doc,

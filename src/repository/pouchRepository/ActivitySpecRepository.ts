@@ -1,6 +1,6 @@
 import { Database } from "../../app"
 import { ActivitySpec } from "../../model/ActivitySpec"
-
+const PouchDB = require('pouchdb')
 export class ActivitySpecRepository {
   /**
    * Get a set of `ActivitySpec`s matching the criteria parameters.
@@ -11,7 +11,10 @@ export class ActivitySpecRepository {
      */
     id?: string
   ): Promise<ActivitySpec[]> {
-    const data = await Database.use("activity_spec").list({ include_docs: true, start_key: id, end_key: id })
+    console.log("ActivitySPECPouch");
+    PouchDB.plugin(require('pouchdb-find'));
+    const db = new PouchDB('activity_spec');
+    const data = await db.allDocs({ include_docs: true, start_key: id, end_key: id })
     return (data.rows as any).map((x: any) => ({
       id: x.doc._id,
       name: x.doc.id,

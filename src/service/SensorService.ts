@@ -43,10 +43,17 @@ SensorService.delete("/sensor/:sensor_id", async (req: Request, res: Response) =
 SensorService.get("/sensor/:sensor_id", async (req: Request, res: Response) => {
   try {
     let sensor_id = req.params.sensor_id
+    if (process.env.LOCAL_DATA === "true") {
+      let outputLocal = { data: await SensorRepository._select(sensor_id) }
+      outputLocal = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(outputLocal) : outputLocal
+      res.json(outputLocal)
+
+    }else {
     sensor_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], sensor_id)
     let output = { data: await SensorRepository._select(sensor_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
+    }
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
@@ -90,10 +97,16 @@ SensorService.get("/researcher/:researcher_id/sensor", async (req: Request, res:
 })
 SensorService.get("/sensor", async (req: Request, res: Response) => {
   try {
+    if (process.env.LOCAL_DATA === "true") {
+      let output = { data: await SensorRepository._select() }
+    output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
+    res.json(output)
+    }else {
     const _ = await _verify(req.get("Authorization"), ["parent"])
     let output = { data: await SensorRepository._select() }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
+    }
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })

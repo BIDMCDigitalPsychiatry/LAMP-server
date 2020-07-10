@@ -5,17 +5,17 @@ const CDB = process.env.CDB;
 const onSyncError = () => {
   // tslint:disable-next-line:no-console
   console.log("error");
- 
+
 }
 const onSyncChange = () => {
   //tslint:disable-next-line:no-console
   console.log("changed");
-  
+
 }
 const onSyncPaused = () => {
   // tslint:disable-next-line:no-console
   console.log("paused");
- 
+
 }
 
 // sync user data bidirectional
@@ -72,36 +72,47 @@ const replicateFrom = async (db: string) => {
   }
 }
 
+//Create appropriate indexing for pouch db
+export const indexDelete = async (dbAct: string) => {
+  try {
+    PouchDB.plugin(require('pouchdb-find'));
+    let db = new PouchDB(dbAct)
+    let indexesResult = await db.getIndexes();
+    // var result = await db.deleteIndex( { ddoc: null, name: '_all_docs', type: 'special', def: [Object] });
+     // tslint:disable-next-line:no-console
+     console.log(indexesResult)
+  } catch (err) {
+      // tslint:disable-next-line:no-console
+      console.log(err)
+  }
+ ;
+  
+}
 
 //Create appropriate indexing for pouch db
-const indexCreate = async (dbAct: string) => {
+export const indexCreate = async (dbAct: string) => {
   PouchDB.plugin(require('pouchdb-find'));
   let db = new PouchDB('sensor_event')
   try {
     if (dbAct === "activity_event") {
       db = new PouchDB(dbAct);
-      await db.createIndex({
+      let indexCreatedAct = await db.createIndex({
         index: {
-          fields: ['timestamp']
+          fields: ['timestamp','activity']
         }
       });
-      await db.createIndex({
-        index: {
-          fields: ['activity']
-        }
-      });
+
+      // tslint:disable-next-line:no-console
+      console.log(indexCreatedAct);
+
     } else {
       db = new PouchDB('sensor_event');
-      await db.createIndex({
+      let indexCreatedSen = await db.createIndex({
         index: {
-          fields: ['timestamp']
+          fields: ['timestamp','origin']
         }
       });
-      await db.createIndex({
-        index: {
-          fields: ['sensor']
-        }
-      });
+      console.log(indexCreatedSen);
     }
 
   } catch (err) {
@@ -111,13 +122,21 @@ const indexCreate = async (dbAct: string) => {
 }
 
 //Sync between database, while handling API
-export const sync = (from: string, to: string): string | undefined => {
-  const status: any = false;
+export const sync =async (from: string, to: string) => {
+  
   try {
-    const rep = PouchDB.replicate(from, `${CDB}${to}`);
-    // tslint:disable-next-line:no-console
-    console.log(`${CDB}${to}`);
-    return status;
+    let local = new PouchDB(from);
+    let remote = new PouchDB(`${CDB}/${to}`);
+    let repl: any = await local.replicate.to(remote).on('complete', () => {
+      // tslint:disable-next-line:no-console
+      console.log("synced on api");
+    }).on('change', onSyncChange);
+ // tslint:disable-next-line:no-console
+ console.log(`${CDB}/${to}`);
+    return repl;
+   
+   
+   
   } catch (error) {
     return error;
   }

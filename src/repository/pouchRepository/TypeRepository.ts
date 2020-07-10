@@ -13,6 +13,8 @@ import { ActivityRepository } from "../../repository/ActivityRepository"
 
 export function Identifier_pack(components: any[]): string {
   if (components.length === 0) return ""
+
+  console.log(Buffer.from(components.join(":")).toString("base64").replace(/=/g, "~"));
   return Buffer.from(components.join(":")).toString("base64").replace(/=/g, "~")
 }
 export function Identifier_unpack(components: string): any[] {
