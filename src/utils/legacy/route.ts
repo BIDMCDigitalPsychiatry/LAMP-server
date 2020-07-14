@@ -233,12 +233,12 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
           userSettingsData.UserID = userSetting.UserID
           userSettingsData.AppColor = Decrypt(userSetting.AppColor)
           if (userSetting.SympSurvey_SlotID != null) userSettingsData.SympSurveySlotID = userSetting.SympSurvey_SlotID
-          if (userSetting.SympSurvey_Time == null) userSettingsData.SympSurveySlotTime = ""
+          if (userSetting.SympSurvey_Time == null) userSettingsData.SympSurveySlotTime = null
           else userSettingsData.SympSurveySlotTime = userSetting.SympSurvey_Time
           if (userSetting.SympSurvey_RepeatID != null)
             userSettingsData.SympSurveyRepeatID = userSetting.SympSurvey_RepeatID
           if (userSetting.CognTest_SlotID != null) userSettingsData.CognTestSlotID = userSetting.CognTest_SlotID
-          if (userSetting.CognTest_Time == null) userSettingsData.CognTestSlotTime = ""
+          if (userSetting.CognTest_Time == null) userSettingsData.CognTestSlotTime = null
           else userSettingsData.CognTestSlotTime = userSetting.CognTest_Time
           if (userSetting.CognTest_RepeatID != null) userSettingsData.CognTestRepeatID = userSetting.CognTest_RepeatID
           userSettingsData.ContactNo =
@@ -290,12 +290,12 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
             userSettingsData.UserID = userSetting.UserID
             userSettingsData.AppColor = Decrypt(userSetting.AppColor)
             if (userSetting.SympSurvey_SlotID != null) userSettingsData.SympSurveySlotID = userSetting.SympSurvey_SlotID
-            if (userSetting.SympSurvey_Time == null) userSettingsData.SympSurveySlotTime = ""
+            if (userSetting.SympSurvey_Time == null) userSettingsData.SympSurveySlotTime = null
             else userSettingsData.SympSurveySlotTime = userSetting.SympSurvey_Time.Value
             if (userSetting.SympSurvey_RepeatID != null)
               userSettingsData.SympSurveyRepeatID = userSetting.SympSurvey_RepeatID
             if (userSetting.CognTest_SlotID != null) userSettingsData.CognTestSlotID = userSetting.CognTest_SlotID
-            if (userSetting.CognTest_Time == null) userSettingsData.CognTestSlotTime = ""
+            if (userSetting.CognTest_Time == null) userSettingsData.CognTestSlotTime = null
             else userSettingsData.CognTestSlotTime = userSetting.CognTest_Time.Value
             if (userSetting.CognTest_RepeatID != null) userSettingsData.CognTestRepeatID = userSetting.CognTest_RepeatID
             userSettingsData.ContactNo =
@@ -2000,7 +2000,7 @@ LegacyAPI.post("/GetSurveys", [_authorize], async (req: Request, res: Response) 
             SurveyID, 
             SurveyName, 
             Instructions AS Instruction, 
-            Language AS LanguageCode, 
+            ISNULL(Language, 'en') AS LanguageCode, 
             IsDeleted, 
             (
                 SELECT 
@@ -2033,7 +2033,8 @@ LegacyAPI.post("/GetSurveys", [_authorize], async (req: Request, res: Response) 
                 FOR JSON AUTO, INCLUDE_NULL_VALUES
             ) AS Questions
         FROM Survey 
-        WHERE AdminID IN (
+        WHERE IsDeleted = 0
+        AND AdminID IN (
             SELECT 
                 AdminID 
             FROM Users 
