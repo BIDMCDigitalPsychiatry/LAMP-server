@@ -176,9 +176,7 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
   const resultQuery: any = await SQL!
     .request()
     .query(
-      "SELECT UserID, AdminID, StudyId, Status, Password, IsDeleted, IsGuestUser FROM Users WHERE  Email = '" +
-        EncryptEmail +
-        "'"
+      `SELECT UserID, AdminID, StudyId, Status, Password, IsDeleted, IsGuestUser FROM Users WHERE (ISNULL(Email, '') = '${EncryptEmail}'`
     )
   const resultLength = resultQuery.recordset.length
   if (resultLength > 0) {
@@ -2046,7 +2044,7 @@ LegacyAPI.post("/GetSurveys", [_authorize], async (req: Request, res: Response) 
   return res.status(200).json({
     ErrorCode: 0,
     ErrorMessage: "Get surveys detail.",
-    Survey: resultQuery2.recordset[0],
+    Survey: resultQuery2.recordset?.[0] ?? [],
     LastUpdatedDate: new Date().toISOString().replace(/T/, " ").replace(/\..+/, ""),
   } as APIResponse)
 })
