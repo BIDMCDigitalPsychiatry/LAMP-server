@@ -175,8 +175,8 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
   }
   console.log("SIGNIN-PHASE-1")
   const resultQuery: any = await SQL!.request().query(`
-    SELECT UserID, AdminID, StudyId, Status, Password, IsDeleted, IsGuestUser FROM Users WHERE (ISNULL(Email, '') = '${EncryptEmail}'
-  ;`)
+    SELECT UserID, AdminID, StudyId, Status, Password, IsDeleted, IsGuestUser FROM Users WHERE ISNULL(Email, '') = '${EncryptEmail}'
+  `)
   const resultLength = resultQuery.recordset.length
   if (resultLength > 0) {
     const userObj = resultQuery.recordset[0]
@@ -216,7 +216,7 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
           UPDATE UserSettings
           SET Language = '${Language}' 
           WHERE UserID = ${UserId}
-        ;`)
+        `)
         console.log("SIGNIN-PHASE-3")
         const userSettingsQuery: any = await SQL!.request().query(`
           SELECT
@@ -238,7 +238,7 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
             ProtocolDate
           FROM UserSettings
           WHERE UserID = ${UserId}
-        ;`)
+        `)
         const userSettingsLength = userSettingsQuery.recordset.length
         if (userSettingsLength > 0) {
           const userSetting: any = userSettingsQuery.recordset[0]
