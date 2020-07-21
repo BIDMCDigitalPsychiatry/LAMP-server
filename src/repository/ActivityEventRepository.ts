@@ -6,7 +6,7 @@ import { ResearcherRepository } from "../repository/ResearcherRepository"
 import { StudyRepository } from "../repository/StudyRepository"
 import { ParticipantRepository } from "../repository/ParticipantRepository"
 import { Identifier_unpack } from "../repository/TypeRepository"
-import { _migrate_activity_event, _migrator_lookup_table, _migrator_export_table } from "./migrate"
+import { _migrator_lookup_table, _migrator_export_table } from "./migrate"
 import { customAlphabet } from "nanoid"
 const uuid = customAlphabet("1234567890abcdefghjkmnpqrstvwxyz", 20) // crockford-32
 
@@ -39,7 +39,6 @@ export class ActivityEventRepository {
 
     limit?: number
   ): Promise<ActivityEvent[]> {
-    _migrate_activity_event()
     const _lookup_table = await _migrator_export_table()
 
     // Get the correctly scoped identifier to search within.
@@ -107,7 +106,6 @@ export class ActivityEventRepository {
      */
     objects: ActivityEvent[]
   ): Promise<{}> {
-    //_migrate_activity_event()
     const _lookup_table = await _migrator_lookup_table() // FIXME
     const _lookup_migrator_id = (legacyID: string): string => {
       let match = _lookup_table[legacyID]

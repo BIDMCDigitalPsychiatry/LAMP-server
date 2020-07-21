@@ -729,7 +729,7 @@ LegacyAPI.post("/GetProtocolDate", [_authorize], async (req: Request, res: Respo
     ErrorMessage?: string
   }
   return res.status(200).json({
-    ProtocolDate: new Date(0).toString(),
+    ProtocolDate: new Date(0).toISOString().replace(/T/, " ").replace(/\..+/, ""),
     ErrorCode: 0,
     ErrorMessage: "Disabled",
   } as APIResponse)
@@ -1276,7 +1276,7 @@ LegacyAPI.post("/GetTipsandBlogUpdates", [_authorize], async (req: Request, res:
   } as APIResponse)
 })
 
-// Route: /GetAppHelp // USES SQL
+// Route: /GetAppHelp
 LegacyAPI.post("/GetAppHelp", [_authorize], async (req: Request, res: Response) => {
   interface APIRequest {
     UserID?: number
@@ -1288,37 +1288,12 @@ LegacyAPI.post("/GetAppHelp", [_authorize], async (req: Request, res: Response) 
     ErrorCode?: number
     ErrorMessage?: string
   }
-  const requestData: APIRequest = req.body
-  const UserID: any = requestData.UserID
-  if (!UserID || !Number.isInteger(Number(UserID)) || UserID == 0) {
-    return res.status(422).json({
-      ErrorCode: 2031,
-      ErrorMessage: "Specify valid User Id.",
-    } as APIResponse)
-  }
-  let HelpText: APIResponse["HelpText"],
-    Content: APIResponse["Content"],
-    ImageURL: APIResponse["ImageURL"] = ""
-  const result = await SQL!
-    .request()
-    .query(
-      "SELECT HelpText, Content, ImageURL FROM AppHelp WHERE IsDeleted = 0 AND AdminID IN (SELECT AdminID FROM Users WHERE UserID = " +
-        UserID +
-        ");"
-    )
-  if (result.recordset.length >= 0 && result.recordset[0] != null) {
-    HelpText = result.recordset[0].HelpText
-    Content = result.recordset[0].Content
-    ImageURL = `https://s3.us-east-2.amazonaws.com/${AWSBucketName}/AppHelpImages/${Decrypt(
-      result.recordset[0].ImageURL
-    )}`
-  }
   return res.status(200).json({
-    HelpText: HelpText,
-    Content: Content,
-    ImageURL: ImageURL,
+    HelpText: "",
+    Content: "",
+    ImageURL: "",
     ErrorCode: 0,
-    ErrorMessage: "Listing the App Help Details.",
+    ErrorMessage: "Disabled",
   } as APIResponse)
 })
 
@@ -2041,10 +2016,11 @@ LegacyAPI.post("/GetSurveys", [_authorize], async (req: Request, res: Response) 
         )
         FOR JSON AUTO, INCLUDE_NULL_VALUES
     ;`)
+
   return res.status(200).json({
     ErrorCode: 0,
     ErrorMessage: "Get surveys detail.",
-    Survey: resultQuery2.recordset?.[0] ?? [],
+    Survey: resultQuery2.recordset.length > 0 ? resultQuery2.recordset[0] : [],
     LastUpdatedDate: new Date().toISOString().replace(/T/, " ").replace(/\..+/, ""),
   } as APIResponse)
 })

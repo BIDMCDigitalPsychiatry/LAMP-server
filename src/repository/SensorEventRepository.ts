@@ -6,7 +6,6 @@ import { ResearcherRepository } from "../repository/ResearcherRepository"
 import { StudyRepository } from "../repository/StudyRepository"
 import { ParticipantRepository } from "../repository/ParticipantRepository"
 import { Identifier_unpack } from "../repository/TypeRepository"
-import { _migrate_sensor_event } from "./migrate"
 
 // FIXME: does not support filtering by Sensor yet.
 
@@ -37,8 +36,6 @@ export class SensorEventRepository {
 
     limit?: number
   ): Promise<SensorEvent[]> {
-    _migrate_sensor_event()
-
     // Get the correctly scoped identifier to search within.
     let user_id: string | undefined
     let admin_id: number | undefined
