@@ -173,7 +173,6 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
       ErrorMessage: "Specify Password.",
     } as APIResponse)
   }
-  console.log("SIGNIN-PHASE-1")
   const resultQuery: any = await SQL!.request().query(`
     SELECT UserID, AdminID, StudyId, Status, Password, IsDeleted, IsGuestUser FROM Users WHERE ISNULL(Email, '') = '${EncryptEmail}'
   `)
@@ -210,14 +209,12 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
         const appendedSession = Username + ":" + Password
         SessionToken = Encrypt(appendedSession)
         const Type = userObj.IsGuestUser == 1 ? userObj.IsGuestUser : 0
-        console.log("SIGNIN-PHASE-2")
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const updateUserSettings = await SQL!.request().query(`
           UPDATE UserSettings
           SET Language = '${Language}' 
           WHERE UserID = ${UserId}
         `)
-        console.log("SIGNIN-PHASE-3")
         const userSettingsQuery: any = await SQL!.request().query(`
           SELECT
             UserSettingID,
@@ -274,7 +271,6 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
         } else {
           const defaultLanguage = Language != "" ? Language : "en"
           const AppColor = Encrypt("#359FFE")
-          console.log("SIGNIN-PHASE-4")
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const result = await SQL!
             .request()
@@ -287,7 +283,6 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
                 defaultLanguage +
                 "' ) "
             )
-          console.log("SIGNIN-PHASE-5")
           const userSettingsQuery: any = await SQL!
             .request()
             .query(
@@ -333,7 +328,6 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
         }
         Data = userSettingsData
         const APPVersion: APIRequest["APPVersion"] = Encrypt(requestData.APPVersion!)
-        console.log("SIGNIN-PHASE-6")
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const updateUserData = await SQL!
           .request()
@@ -345,12 +339,10 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
               "' , EditedOn = GETUTCDATE() WHERE UserID = " +
               UserId
           )
-        console.log("SIGNIN-PHASE-7")
         const userDeviceQuery: any = await SQL!
           .request()
           .query("SELECT UserDeviceID FROM UserDevices WHERE UserID = " + UserId + " ORDER By LastLoginOn DESC")
         if (userDeviceQuery.recordset.length > 0) {
-          console.log("SIGNIN-PHASE-8")
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const updateUserDevice = await SQL!
             .request()
@@ -369,7 +361,6 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
                 userDeviceQuery.recordset[0].UserDeviceID
             )
         } else {
-          console.log("SIGNIN-PHASE-9")
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const insertUserDevice = await SQL!
             .request()
@@ -382,9 +373,9 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
                 Encrypt(requestData.DeviceID!) +
                 "', '" +
                 Encrypt(requestData.DeviceToken!) +
-                "', GETUTCDATE() , " +
+                "', GETUTCDATE() , '" +
                 requestData.OSVersion +
-                ", '" +
+                "', '" +
                 requestData.DeviceModel +
                 "' ) "
             )
@@ -408,21 +399,18 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
         console.dir(out.filter((x) => !!x.error))
 
         // User CTests Favourite
-        console.log("SIGNIN-PHASE-10")
         const FavouriteCtestQuery: any = await SQL!
           .request()
           .query("SELECT UserID, CTestID, FavType FROM UserFavouriteCTests WHERE UserID = " + UserId)
         CTestsFavouriteList = FavouriteCtestQuery.recordset.length > 0 ? FavouriteCtestQuery.recordset : []
 
         // User Survey Favourite
-        console.log("SIGNIN-PHASE-11")
         const FavouriteSurveyQuery: any = await SQL!
           .request()
           .query("SELECT UserID, SurveyID, FavType FROM UserFavouriteSurveys WHERE UserID = " + UserId)
         SurveyFavouriteList = FavouriteSurveyQuery.recordset.length > 0 ? FavouriteSurveyQuery.recordset : []
 
         // Get Admin WelcomeText & InstructionVideoLink
-        console.log("SIGNIN-PHASE-12")
         const AdminSettingsQuery: any = await SQL!
           .request()
           .query("SELECT WelcomeMessage, InstructionVideoLink FROM Admin_Settings WHERE AdminID = " + AdminID)
@@ -431,7 +419,6 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
           AdminSettingsQuery.recordset.length > 0 ? AdminSettingsQuery.recordset[0].InstructionVideoLink : ""
 
         //CognitionSettings
-        console.log("SIGNIN-PHASE-13")
         const CognitionSettingsQuery: any = await SQL!
           .request()
           .query(
