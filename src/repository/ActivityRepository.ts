@@ -700,17 +700,17 @@ export class ActivityRepository {
           survey_id: survey_id,
         })
       } /* cognitive test */ else {
-        const ctest_id = ActivityIndex.find((x) => x.Name === object.spec)?.[0]?.LegacyCTestID ?? -1
+        const ctest_id = ActivityIndex.find((x) => x.Name === object.spec)?.LegacyCTestID ?? -1
 
         // First activate the CTest if previously inactive.
         const result = await transaction.request().query(`
 					UPDATE Admin_CTestSettings 
 					SET Status = 1 
+          OUTPUT INSERTED.*, DELETED.*
 					WHERE Status = 0
             AND AdminID = ${admin_id} 
             AND CTestID = ${ctest_id}
-          OUTPUT UPDATED.*
-				;`)
+        ;`)
         if (result.rowsAffected[0] === 0) throw new Error("400.activity-exists-cannot-overwrite")
         const _actual_setting_id = Number.parse(result.recordset[0]["AdminCTestSettingID"]) ?? 0
 
