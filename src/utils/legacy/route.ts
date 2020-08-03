@@ -1430,7 +1430,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
       ErrorMessage: "Specify valid User Id.",
     } as APIResponse)
   }
-  let ReminderClearInterval: APIResponse["ReminderClearInterval"] = 0
+  let ReminderClearInterval: APIResponse["ReminderClearInterval"] = 1
   let JewelsTrailsASettings: APIResponse["JewelsTrailsASettings"] = {}
   let JewelsTrailsBSettings: APIResponse["JewelsTrailsASettings"] = {}
   let CognitionOffList: APIResponse["CognitionOffList"] = []
@@ -1471,8 +1471,9 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
     const AdminSettingsQuery: any = await SQL!
       .request()
       .query("SELECT ReminderClearInterval FROM Admin_Settings WHERE AdminID = " + AdminID)
-    ReminderClearInterval =
-      AdminSettingsQuery.recordset.length > 0 ? AdminSettingsQuery.recordset[0].ReminderClearInterval : 0
+    ReminderClearInterval = AdminSettingsQuery.recordset.length > 0 ? 
+							((AdminSettingsQuery.recordset[0].ReminderClearInterval !== null) 
+								? parseInt(AdminSettingsQuery.recordset[0].ReminderClearInterval) : 1): 1;
 
     // JewelsTrailsASettings
     const JewelsASettingQuery: any = await SQL!
