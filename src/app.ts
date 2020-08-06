@@ -13,6 +13,7 @@ import nano from "nano"
 import cors from "cors"
 import morgan from "morgan"
 import AWS from "aws-sdk"
+import Ajv from 'ajv';
 
 // FIXME: Support application/json;indent=:spaces format mime type!
 
@@ -199,6 +200,16 @@ export const Download = function (url: string): Promise<Buffer> {
     })
     request.on("error", (err) => reject(err))
   })
+}
+
+export async function ApiSchemaLAMP(): Promise<string> {
+  return ((await Database.use("root").get("#schema")) as any)
+}
+
+export const AjvValidator = () => {
+  let ajv = new Ajv({allErrors: true, unknownFormats: ['int64']});
+  ajv.addMetaSchema(require('ajv/lib/refs/json-schema-draft-06.json'));
+  return ajv;
 }
 
 // Initialize and configure the application.
