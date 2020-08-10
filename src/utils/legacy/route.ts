@@ -1812,7 +1812,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
                   })
                 }
               })
-            }
+            } 
             batchScheduleArray.push({
               BatchScheduleId: parseInt(eachBatchSchedule.ScheduleID),
               BatchName: eachBatchSchedule.BatchName,
@@ -1824,7 +1824,11 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
                 eachBatchSchedule.Time != null
                   ? new Date(eachBatchSchedule.Time).toISOString().replace(/T/, " ").replace(/\..+/, "")
                   : null,
-              RepeatID: parseInt(eachBatchSchedule.RepeatID),
+              SlotTime:
+                eachBatchSchedule.Time != null
+                  ? new Date(eachBatchSchedule.Time).toISOString().replace(/T/, " ").replace(/\..+/, "")
+                  : null,
+              RepeatId: parseInt(eachBatchSchedule.RepeatID),
               IsDeleted: eachBatchSchedule.IsDeleted,
               IconBlob:
                 eachBatchSchedule.IconBlob != null ? Buffer.from(eachBatchSchedule.IconBlob).toString("base64") : null,
