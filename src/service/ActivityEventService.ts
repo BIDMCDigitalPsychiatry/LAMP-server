@@ -3,7 +3,7 @@ import { ActivityEvent } from "../model/ActivityEvent"
 import { ActivityEventRepository } from "../repository/ActivityEventRepository"
 import { SecurityContext, ActionContext, _verify } from "./Security"
 import jsonata from "jsonata"
-import { ApiSchemaLAMP, AjvValidator } from "../app"; 
+import { ApiSchemaLAMP, AjvValidator } from "../app"
 
 export const ActivityEventService = Router()
 
@@ -11,6 +11,15 @@ ActivityEventService.post("/participant/:participant_id/activity_event", async (
   try {
     let ajv = AjvValidator()
     let api_schema: any = await ApiSchemaLAMP()
+    let api_params = api_schema.paths["/participant/{participant_id}/activity_event"].post.parameters
+    let req_properties: any = {}
+    let request_required: any = []
+    api_params.forEach((element: any) => {
+      req_properties[element.name] = element.schema
+      if (element.required !== undefined) {
+        request_required.push(element.name)
+      }
+    })
     let request_schema: any = api_schema.components.schemas.ActivityEvent
     request_schema.components = {
       schemas: {
@@ -18,12 +27,17 @@ ActivityEventService.post("/participant/:participant_id/activity_event", async (
         Identifier: api_schema.components.schemas.Identifier,
       },
     }
+    if (request_required.length > 0) {
+      request_schema.required = request_required
+    }
+    Object.assign(request_schema.properties, req_properties)
+    let participant_id = req.params.participant_id
     const activity_event = req.body
+    Object.assign(activity_event, { participant_id: participant_id })
     var validate_request = ajv.validate(request_schema, activity_event)
     if (!validate_request) {
       res.status(500).json({ error: ajv.errorsText() })
     }
-    let participant_id = req.params.participant_id
     participant_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], participant_id)
     const output = { data: await ActivityEventRepository._insert(participant_id, ae2re(req, [activity_event])) }
     res.json(output)
