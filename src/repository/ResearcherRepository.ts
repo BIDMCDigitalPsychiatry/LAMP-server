@@ -136,7 +136,7 @@ export class ResearcherRepository {
 				0
 			FROM CTest;
     `)
-    
+
     // Default value for Saving JewelsTrailsASettings
     const result3 = await SQL!.request().query(`
 			INSERT INTO Admin_JewelsTrailsASettings (
@@ -168,7 +168,7 @@ export class ResearcherRepository {
         ${result.recordset[0]["id"]}
       )
     `)
-    
+
     // Default value for Saving JewelsTrailsBSettings
     const result4 = await SQL!.request().query(`
 			INSERT INTO Admin_JewelsTrailsBSettings (
@@ -200,7 +200,7 @@ export class ResearcherRepository {
         ${result.recordset[0]["id"]}
       )
     `)
-    
+
     // Return the new row's ID.
     return ResearcherRepository._pack_id({ admin_id: result.recordset[0]["id"] })
   }
