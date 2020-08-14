@@ -136,71 +136,7 @@ export class ResearcherRepository {
 				0
 			FROM CTest;
     `)
-
-    // Default value for Saving JewelsTrailsASettings
-    const result3 = await SQL!.request().query(`
-			INSERT INTO Admin_JewelsTrailsASettings (
-				NoOfSeconds_Adv,
-				NoOfSeconds_Beg,
-        NoOfSeconds_Exp,
-        NoOfSeconds_Int,
-        NoOfDiamonds,
-        NoOfShapes,
-        NoOfBonusPoints,
-        X_NoOfChangesInLevel,
-        X_NoOfDiamonds,
-        Y_NoOfChangesInLevel,
-        Y_NoOfShapes,
-        AdminID
-			)
-      VALUES (
-        25,
-        90,
-        15,
-        30,
-        25,
-        1,
-        50,
-        1,
-        1,
-        1,
-        1,
-        ${result.recordset[0]["id"]}
-      )
-    `)
-
-    // Default value for Saving JewelsTrailsBSettings
-    const result4 = await SQL!.request().query(`
-			INSERT INTO Admin_JewelsTrailsBSettings (
-				NoOfSeconds_Adv,
-				NoOfSeconds_Beg,
-        NoOfSeconds_Exp,
-        NoOfSeconds_Int,
-        NoOfDiamonds,
-        NoOfShapes,
-        NoOfBonusPoints,
-        X_NoOfChangesInLevel,
-        X_NoOfDiamonds,
-        Y_NoOfChangesInLevel,
-        Y_NoOfShapes,
-        AdminID
-			)
-      VALUES (
-        60,
-        180,
-        45,
-        90,
-        25,
-        2,
-        50,
-        1,
-        1,
-        1,
-        2,
-        ${result.recordset[0]["id"]}
-      )
-    `)
-
+        
     // Return the new row's ID.
     return ResearcherRepository._pack_id({ admin_id: result.recordset[0]["id"] })
   }

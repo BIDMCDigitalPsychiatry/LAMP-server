@@ -1471,9 +1471,12 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
     const AdminSettingsQuery: any = await SQL!
       .request()
       .query("SELECT ReminderClearInterval FROM Admin_Settings WHERE AdminID = " + AdminID)
-    ReminderClearInterval = AdminSettingsQuery.recordset.length > 0 ? 
-							((AdminSettingsQuery.recordset[0].ReminderClearInterval !== null) 
-								? parseInt(AdminSettingsQuery.recordset[0].ReminderClearInterval) : 1): 1;
+    ReminderClearInterval =
+      AdminSettingsQuery.recordset.length > 0
+        ? AdminSettingsQuery.recordset[0].ReminderClearInterval !== null
+          ? parseInt(AdminSettingsQuery.recordset[0].ReminderClearInterval)
+          : 1
+        : 1
 
     // JewelsTrailsASettings
     const JewelsASettingQuery: any = await SQL!
@@ -1482,7 +1485,22 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
         "SELECT NoOfSeconds_Beg, NoOfSeconds_Int, NoOfSeconds_Adv, NoOfSeconds_Exp, NoOfDiamonds, NoOfShapes, NoOfBonusPoints, X_NoOfChangesInLevel, X_NoOfDiamonds, Y_NoOfChangesInLevel, Y_NoOfShapes FROM Admin_JewelsTrailsASettings WHERE AdminID = " +
           AdminID
       )
-    JewelsTrailsASettings = JewelsASettingQuery.recordset.length > 0 ? JewelsASettingQuery.recordset[0] : {}
+    JewelsTrailsASettings =
+      JewelsASettingQuery.recordset.length > 0
+        ? JewelsASettingQuery.recordset[0]
+        : {
+            NoOfSeconds_Beg: 90,
+            NoOfSeconds_Int: 30,
+            NoOfSeconds_Adv: 25,
+            NoOfSeconds_Exp: 15,
+            NoOfDiamonds: 25,
+            NoOfShapes: 1,
+            NoOfBonusPoints: 50,
+            X_NoOfChangesInLevel: 1,
+            X_NoOfDiamonds: 1,
+            Y_NoOfChangesInLevel: 1,
+            Y_NoOfShapes: 1,
+          }
 
     // JewelsTrailsBSettings
     const JewelsBSettingQuery: any = await SQL!
@@ -1491,7 +1509,22 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
         "SELECT NoOfSeconds_Beg, NoOfSeconds_Int, NoOfSeconds_Adv, NoOfSeconds_Exp, NoOfDiamonds, NoOfShapes, NoOfBonusPoints, X_NoOfChangesInLevel, X_NoOfDiamonds, Y_NoOfChangesInLevel, Y_NoOfShapes FROM Admin_JewelsTrailsBSettings WHERE AdminID = " +
           AdminID
       )
-    JewelsTrailsBSettings = JewelsBSettingQuery.recordset.length > 0 ? JewelsBSettingQuery.recordset[0] : {}
+    JewelsTrailsBSettings =
+      JewelsBSettingQuery.recordset.length > 0
+        ? JewelsBSettingQuery.recordset[0]
+        : {
+            NoOfSeconds_Beg: 180,
+            NoOfSeconds_Int: 90,
+            NoOfSeconds_Adv: 60,
+            NoOfSeconds_Exp: 45,
+            NoOfDiamonds: 25,
+            NoOfShapes: 2,
+            NoOfBonusPoints: 50,
+            X_NoOfChangesInLevel: 1,
+            X_NoOfDiamonds: 1,
+            Y_NoOfChangesInLevel: 1,
+            Y_NoOfShapes: 2,
+          }
 
     // CognitionOffList
     const CognitionOffListQuery: any = await SQL!
