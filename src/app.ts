@@ -15,7 +15,6 @@ import morgan from "morgan"
 import AWS from "aws-sdk"
 import { activityData } from "./repository/pouchRepository/Syncronisation"
 import { dataSync } from "./repository/pouchRepository/Syncronisation"
-import { Version } from "./model/Version"
 import { promises } from "dns"
 export const PouchDB = require("pouchdb")
 
