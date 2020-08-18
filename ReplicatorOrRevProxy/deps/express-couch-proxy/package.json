@@ -1,0 +1,48 @@
+{
+  "_args": [
+    [
+      "express-couch-proxy@0.1.0",
+      "D:\\wamp64\\www\\LampRevProxy"
+    ]
+  ],
+  "_from": "express-couch-proxy@0.1.0",
+  "_id": "express-couch-proxy@0.1.0",
+  "_inBundle": false,
+  "_integrity": "sha1-sVhiogi0Ry0eTOPEJGNQ7PzLFeA=",
+  "_location": "/express-couch-proxy",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "version",
+    "registry": true,
+    "raw": "express-couch-proxy@0.1.0",
+    "name": "express-couch-proxy",
+    "escapedName": "express-couch-proxy",
+    "rawSpec": "0.1.0",
+    "saveSpec": null,
+    "fetchSpec": "0.1.0"
+  },
+  "_requiredBy": [
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/express-couch-proxy/-/express-couch-proxy-0.1.0.tgz",
+  "_spec": "0.1.0",
+  "_where": "D:\\wamp64\\www\\LampRevProxy",
+  "author": {
+    "name": "Amir Malik",
+    "url": "http://amirmalik.net/"
+  },
+  "dependencies": {},
+  "description": "CouchDB reverse proxy middleware for Express.",
+  "engines": {
+    "npm": "1.1.x"
+  },
+  "homepage": "https://github.com/ammmir/express-couch-proxy",
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "https://github.com/ammmir/express-couch-proxy/blob/master/LICENSE"
+    }
+  ],
+  "name": "express-couch-proxy",
+  "version": "0.1.0"
+}
