@@ -217,7 +217,7 @@ function VersionCheck(req: any, res: any, next: any) {
     const sharedKey = process.env.ROOT_KEY
     const device_id = req.get("device_id")
     // const test= crypto.createHash('md5').update("123").digest("hex");
-    const computedSignature = crypto.createHmac("sha256", `"sharedKey"`).update(device_id).digest("hex")
+    const computedSignature = crypto.createHmac("sha256", `${sharedKey}`).update(device_id).digest("hex")
     const token = req.get("Authorization")?.split(" ")[1]
     if (computedSignature === token) {
       next()
