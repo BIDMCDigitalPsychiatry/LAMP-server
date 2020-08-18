@@ -214,10 +214,12 @@ export const Download = function (url: string): Promise<Buffer> {
  */
 function VersionCheck(req: any, res: any, next: any) {
   try {
-    const sharedKey = process.env.ROOT_KEY
+    const sharedKey:any = process.env.ROOT_KEY
     const device_id = req.get("device_id")
+    
     // const test= crypto.createHash('md5').update("123").digest("hex");
-    const computedSignature = crypto.createHmac("sha256", `"sharedKey"`).update(device_id).digest("hex")
+    const computedSignature = crypto.createHmac("sha256", sharedKey).update(device_id).digest("hex")
+    console.log(computedSignature);
     const token = req.get("Authorization")?.split(" ")[1]
     if (computedSignature === token) {
       next()
@@ -278,7 +280,7 @@ async function main() {
     let inputVersion: string | undefined = req.params.ver
     console.log(inputVersion)
     try {
-      const Version: [] = (
+      const Version = (
         await Database.use("version").find({
           selector: { version: inputVersion === undefined ? (undefined as any) : { $eq: inputVersion } },
           fields: ["version", "url"],
@@ -293,7 +295,7 @@ async function main() {
         version: x.version,
         url: x.url,
       })) as any
-      res.json(Version)
+      res.json(Version[0])
     } catch (err) {
       res.status(404).json({ error: err.message })
     }
