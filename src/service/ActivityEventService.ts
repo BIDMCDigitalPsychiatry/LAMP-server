@@ -12,14 +12,7 @@ ActivityEventService.post(
   async (req: Request, res: Response) => {
     try {
       let participant_id = req.params.participant_id;
-      const activity_event = req.body;
-      // if(activity_event.data && activity_event.data.action) {
-      //   if(activity_event.data.action==='login') {
-      //     //insert device info data
-      //     let output_device_info=await ActivityEventRepository._insert(participant_id, activity_event.data)
-      //   }
-      // }
-      // participant_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], participant_id)
+      const activity_event = req.body;           
       if (process.env.LOCAL_DATA === 'true') {
         const outputLocal = {
           data: await ActivityPouchRepo._insert(
@@ -29,7 +22,8 @@ ActivityEventService.post(
         };
         res.json(outputLocal);
       } else {
-        const output = {
+         participant_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], participant_id)
+         const output = {
           data: await ActivityEventRepository._insert(
             participant_id,
             ae2re(req, [activity_event]),

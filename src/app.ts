@@ -1,56 +1,58 @@
-require('dotenv').config();
-import API from './service';
-import express, { Application } from 'express';
-import bodyParser from 'body-parser';
-import sql from 'mssql';
-import crypto from 'crypto';
-import http from 'http';
-import https from 'https';
-import _Docker from 'dockerode';
-import ScriptRunner from './utils/ScriptRunner';
-import { LegacyAPI } from './utils/legacy/route';
-import nano from 'nano';
-import cors from 'cors';
-import morgan from 'morgan';
-import AWS from 'aws-sdk';
-import { activityData } from './repository/pouchRepository/Syncronisation';
-import { dataSync } from './repository/pouchRepository/Syncronisation';
-export const PouchDB = require('pouchdb');
+require("dotenv").config()
+import API from "./service"
+import express, { Application } from "express"
+import bodyParser from "body-parser"
+import sql from "mssql"
+import crypto from "crypto"
+import http from "http"
+import https from "https"
+import _Docker from "dockerode"
+import ScriptRunner from "./utils/ScriptRunner"
+import { LegacyAPI } from "./utils/legacy/route"
+import nano from "nano"
+import cors from "cors"
+import morgan from "morgan"
+import AWS from "aws-sdk"
+import { activityData } from "./repository/pouchRepository/Syncronisation"
+import { dataSync } from "./repository/pouchRepository/Syncronisation"
+import { Version } from "./model/Version"
+import { promises } from "dns"
+export const PouchDB = require("pouchdb")
 
 // FIXME: Support application/json;indent=:spaces format mime type!
 
 //
-export const Docker = new _Docker({ host: 'localhost', port: 2375 });
+export const Docker = new _Docker({ host: "localhost", port: 2375 })
 
 //
-export const Database = nano(process.env.CDB ?? '');
+export const Database = nano(process.env.CDB ?? "")
 
-export const MSSQL_USER = process.env.MSSQL_USER;
-export const MSSQL_PASS = process.env.MSSQL_PASS;
+export const MSSQL_USER = process.env.MSSQL_USER
+export const MSSQL_PASS = process.env.MSSQL_PASS
 
 //
-export const AWSBucketName = process.env.S3_BUCKET ?? '';
+export const AWSBucketName = process.env.S3_BUCKET ?? ""
 export const S3 = new AWS.S3({
-  accessKeyId: process.env.S3_ACCESS_KEY ?? '',
-  secretAccessKey: process.env.S3_ACCESS_KEY ?? '',
-});
+  accessKeyId: process.env.S3_ACCESS_KEY ?? "",
+  secretAccessKey: process.env.S3_ACCESS_KEY ?? "",
+})
 
 // Configure the base Express app and middleware.
-export const app: Application = express();
-app.set('json spaces', 2);
-app.use(bodyParser.json({ limit: '50mb', strict: false }));
-app.use(bodyParser.text());
-app.use(cors());
-app.use(morgan(':method :url :status - :response-time ms'));
-app.use(express.urlencoded({ extended: true }));
+export const app: Application = express()
+app.set("json spaces", 2)
+app.use(bodyParser.json({ limit: "50mb", strict: false }))
+app.use(bodyParser.text())
+app.use(cors())
+app.use(morgan(":method :url :status - :response-time ms"))
+app.use(express.urlencoded({ extended: true }))
 
 //
 const _server =
-  process.env.HTTPS === 'off'
+  process.env.HTTPS === "off"
     ? app
     : https.createServer(
         {
-          passphrase: 'localhost',
+          passphrase: "localhost",
           key: `-----BEGIN ENCRYPTED PRIVATE KEY-----
 MIIJnzBJBgkqhkiG9w0BBQ0wPDAbBgkqhkiG9w0BBQwwDgQIaFkMFRUDC9ACAggA
 MB0GCWCGSAFlAwQBKgQQIQEojG1jyAGIj6ebAp2YxASCCVA17+SUVb47fzWz7QKH
@@ -139,155 +141,214 @@ R/mQB9d2LJUy81BZrO05VHrz91sHSDRRPg4lDw2GVSFtUE1ILDc3usb7JwJYZIXT
 fARYG40rIsYJipV76ICGNXSp
 -----END CERTIFICATE-----`,
         },
-        app,
-      );
+        app
+      )
 
 /**
  *
  */
-export let SQL: sql.ConnectionPool | undefined;
+export let SQL: sql.ConnectionPool | undefined
 
 /**
  *
  */
-export const Root = { id: 'root', password: process.env.ROOT_PASSWORD || '' };
+export const Root = { id: "root", password: process.env.ROOT_PASSWORD || "" }
 
 /**
  * If the data could not be encrypted or is invalid, returns `undefined`.
  */
-export const Encrypt = (
-  data: string,
-  mode: 'Rijndael' | 'AES256' = 'Rijndael',
-): string | undefined => {
+export const Encrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"): string | undefined => {
   try {
-    if (mode === 'Rijndael') {
-      const cipher = crypto.createCipheriv(
-        'aes-256-ecb',
-        process.env.DB_KEY || '',
-        '',
-      );
-      return cipher.update(data, 'utf8', 'base64') + cipher.final('base64');
-    } else if (mode === 'AES256') {
-      const ivl = crypto.randomBytes(16);
-      const cipher = crypto.createCipheriv(
-        'aes-256-cbc',
-        Buffer.from(process.env.ROOT_KEY || '', 'hex'),
-        ivl,
-      );
-      return Buffer.concat([
-        ivl,
-        cipher.update(Buffer.from(data, 'utf16le')),
-        cipher.final(),
-      ]).toString('base64');
+    if (mode === "Rijndael") {
+      const cipher = crypto.createCipheriv("aes-256-ecb", process.env.DB_KEY || "", "")
+      return cipher.update(data, "utf8", "base64") + cipher.final("base64")
+    } else if (mode === "AES256") {
+      const ivl = crypto.randomBytes(16)
+      const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(process.env.ROOT_KEY || "", "hex"), ivl)
+      return Buffer.concat([ivl, cipher.update(Buffer.from(data, "utf16le")), cipher.final()]).toString("base64")
     }
   } catch {}
-  return undefined;
-};
+  return undefined
+}
 
 /**
  * If the data could not be decrypted or is invalid, returns `undefined`.
  */
-export const Decrypt = (
-  data: string,
-  mode: 'Rijndael' | 'AES256' = 'Rijndael',
-): string | undefined => {
+export const Decrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"): string | undefined => {
   try {
-    if (mode === 'Rijndael') {
+    if (mode === "Rijndael") {
+      const cipher = crypto.createDecipheriv("aes-256-ecb", process.env.DB_KEY || "", "")
+      return cipher.update(data, "base64", "utf8") + cipher.final("utf8")
+    } else if (mode === "AES256") {
+      const dat = Buffer.from(data, "base64")
       const cipher = crypto.createDecipheriv(
-        'aes-256-ecb',
-        process.env.DB_KEY || '',
-        '',
-      );
-      return cipher.update(data, 'base64', 'utf8') + cipher.final('utf8');
-    } else if (mode === 'AES256') {
-      const dat = Buffer.from(data, 'base64');
-      const cipher = crypto.createDecipheriv(
-        'aes-256-cbc',
-        Buffer.from(process.env.ROOT_KEY || '', 'hex'),
-        dat.slice(0, 16),
-      );
-      return Buffer.concat([
-        cipher.update(dat.slice(16)),
-        cipher.final(),
-      ]).toString('utf16le');
+        "aes-256-cbc",
+        Buffer.from(process.env.ROOT_KEY || "", "hex"),
+        dat.slice(0, 16)
+      )
+      return Buffer.concat([cipher.update(dat.slice(16)), cipher.final()]).toString("utf16le")
     }
   } catch {}
-  return undefined;
-};
+  return undefined
+}
 
 /**
  *
  */
 export const Download = function (url: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const lib = url.startsWith('https') ? https : http;
+    const lib = url.startsWith("https") ? https : http
     const request = lib.get(url, (response) => {
       if ((response.statusCode || 0) < 200 || (response.statusCode || 0) > 299)
-        reject(new Error('' + response.statusCode));
-      const body: Buffer[] = [];
-      response.on('data', (chunk) => body.push(Buffer.from(chunk)));
-      response.on('end', () => resolve(Buffer.concat(body)));
-    });
-    request.on('error', (err) => reject(err));
-  });
-};
-
+        reject(new Error("" + response.statusCode))
+      const body: Buffer[] = []
+      response.on("data", (chunk) => body.push(Buffer.from(chunk)))
+      response.on("end", () => resolve(Buffer.concat(body)))
+    })
+    request.on("error", (err) => reject(err))
+  })
+}
+/*Middleware for version check
+ *@param req OBJECT
+ *@param res OBJECT
+ *@param next FUNCTION
+ */
+function VersionCheck(req: any, res: any, next: any) {
+  try {
+    const sharedKey = process.env.ROOT_KEY
+    const device_id = req.get("device_id")
+    // const test= crypto.createHash('md5').update("123").digest("hex");
+    const computedSignature = crypto.createHmac("sha256", `"sharedKey"`).update(device_id).digest("hex")
+    const token = req.get("Authorization")?.split(" ")[1]
+    if (computedSignature === token) {
+      next()
+    } else {
+      res.status(404).json({})
+    }
+  } catch (err) {
+    res.status(404).json({ error: err.message })
+  }
+}
 // Initialize and configure the application.
 async function main() {
   const _openAPIschema = {
-    ...(await Database.use('root').get('#schema')),
+    ...(await Database.use("root").get("#schema")),
     _id: undefined,
     _rev: undefined,
-  };
+  }
 
   // Establish the API routes.
-  app.use('/', API);
-  app.use('/v0', LegacyAPI);
+  app.use("/", API)
+  app.use("/v0", LegacyAPI)
 
-  app.get('/getuser/:participant_id', async (req, res) => {
-    let participant_id = req.params.participant_id;
-    const activity = await activityData(participant_id);
+  /*check whether activity data exists for the participant. sync data, if not exists
+   *
+   */
+  app.get("/getuser/:participant_id", async (req, res) => {
+    let participant_id = req.params.participant_id
+    const activity = await activityData(participant_id)
     if (!activity) {
-      dataSync(participant_id);
+      dataSync(participant_id)
     }
-    res.json(true);
-  });
+    res.json(true)
+  })
+
+  // TEST
+  app.get("/getalldoc", async (req, res) => {
+    try {
+      console.log("apigetalldoc")
+
+      const db = new PouchDB("credential")
+      const result: any = await db.allDocs({
+        include_docs: true,
+        attachments: true,
+      })
+      // tslint:disable-next-line:no-console
+      console.log(result)
+      res.json(result)
+    } catch (err) {
+      res.status(404).json({ error: err.message })
+    }
+  })
+
+  /*Check for version and returns the download url for input version
+   *
+   *
+   */
+  app.get("/version/get/:ver", VersionCheck, async (req, res, next) => {
+    let inputVersion: string | undefined = req.params.ver
+    console.log(inputVersion)
+    try {
+      const Version: [] = (
+        await Database.use("version").find({
+          selector: { version: inputVersion === undefined ? (undefined as any) : { $eq: inputVersion } },
+          fields: ["version", "url"],
+          sort: [
+            {
+              version: "desc",
+            },
+          ],
+        })
+      ).docs.map((x: any) => ({
+        ...x,
+        version: x.version,
+        url: x.url,
+      })) as any
+      res.json(Version)
+    } catch (err) {
+      res.status(404).json({ error: err.message })
+    }
+  })
+
+  /*Check for latest version and returns the download url for latest
+   *
+   *
+   */
+  app.get("/version/get", VersionCheck, async (req, res, next) => {
+    try {
+      const Version = (
+        await Database.use("version").find({
+          selector: {},
+          fields: ["version", "url"],
+          sort: [
+            {
+              version: "desc",
+            },
+          ],
+        })
+      ).docs[0]
+      res.json(Version)
+    } catch (err) {
+      res.status(404).json({ error: err.message })
+    }
+  })
+
   // Establish misc. routes.
-  app.get('/', async (req, res) => res.json(_openAPIschema));
-  app.get('/favicon.ico', (req, res) => res.status(204));
-  app.get('/service-worker.js', (req, res) => res.status(204));
-  app.get('/_utils', (req, res) => {
-    if (req.query.key !== Root.password)
-      return res.status(400).json({ message: 'invalid credentials' });
-    if (req.query.func === 'crypto')
-      return res
-        .status(200)
-        .json(
-          (req.query.type === 'encrypt' ? Encrypt : Decrypt)(
-            req.query.data,
-            req.query.mode,
-          ),
-        );
-    return res.status(400).json({ message: 'invalid utility function' });
-  });
-  app.all('*', (req, res) =>
-    res.status(404).json({ message: '404.api-endpoint-unimplemented' }),
-  );
+  app.get("/", async (req, res) => res.json(_openAPIschema))
+  app.get("/favicon.ico", (req, res) => res.status(204))
+  app.get("/service-worker.js", (req, res) => res.status(204))
+  app.get("/_utils", (req, res) => {
+    if (req.query.key !== Root.password) return res.status(400).json({ message: "invalid credentials" })
+    if (req.query.func === "crypto")
+      return res.status(200).json((req.query.type === "encrypt" ? Encrypt : Decrypt)(req.query.data, req.query.mode))
+    return res.status(400).json({ message: "invalid utility function" })
+  })
+  app.all("*", (req, res) => res.status(404).json({ message: "404.api-endpoint-unimplemented" }))
 
   // Establish the SQL connection.
   SQL = await new sql.ConnectionPool({
     user: MSSQL_USER,
     password: MSSQL_PASS,
-    server: 'moplmssql.c2engehb1emz.ap-south-1.rds.amazonaws.com',
+    server: "moplmssql.c2engehb1emz.ap-south-1.rds.amazonaws.com",
     port: 56732,
-    database: 'LAMP_V2',
+    database: "LAMP_V2",
     parseJSON: true,
     stream: true,
     requestTimeout: 30000,
     connectionTimeout: 30000,
     options: {
       encrypt: true,
-      appName: 'LAMP-legacy',
+      appName: "LAMP-legacy",
       abortTransactionOnError: true,
       // enableArithAbort:false
     },
@@ -296,12 +357,12 @@ async function main() {
       max: 100,
       idleTimeoutMillis: 30000,
     },
-  }).connect();
+  }).connect()
   // tslint:disable-next-line:no-console
-  console.log(`Lamp server running in ${process.env.PORT}`);
+  console.log(`Lamp server running in ${process.env.PORT}`)
   // Begin listener on port 3000.
-  _server.listen(process.env.PORT || 3000);
+  _server.listen(process.env.PORT || 3000)
 }
 
 // GO!
-main();
+main()
