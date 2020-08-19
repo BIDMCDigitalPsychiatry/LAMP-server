@@ -58,7 +58,7 @@ ActivitySpecService.put("/activity_spec/:activity_spec_name", async (req: Reques
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
-})  
+})
 ActivitySpecService.delete("/activity_spec/:activity_spec_name", async (req: Request, res: Response) => {
   try {
     const activity_spec_name = req.params.activity_spec_name

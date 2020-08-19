@@ -3,6 +3,7 @@ import { DynamicAttachment } from "../model/Type"
 import { TypeRepository } from "../repository/TypeRepository"
 import { SecurityContext, ActionContext, _verify } from "./Security"
 import jsonata from "jsonata"
+import { ApiSchemaLAMP, AjvValidator } from "../app"
 
 export const TypeService = Router()
 TypeService.get("/type/:type_id/parent", async (req: Request, res: Response) => {
@@ -56,10 +57,36 @@ TypeService.get("/type/:type_id/attachment/:attachment_key?/:index?", async (req
 })
 TypeService.put("/type/:type_id/attachment/:attachment_key/:target", async (req: Request, res: Response) => {
   try {
+    let ajv = AjvValidator()
+    let api_schema: any = await ApiSchemaLAMP()
+    let api_params = api_schema.paths["/type/{type_id}/attachment/{attachment_key}/{target}"].put.parameters
+    let req_properties: any = {}
+    let request_required: any = []
+    api_params.forEach((element: any) => {
+      req_properties[element.name] = element.schema
+      if (element.required !== undefined) {
+        request_required.push(element.name)
+      }
+    })
+    let request_schema: any = api_schema.components.schemas.Type
+    request_schema.components = {
+      schemas: {
+        Identifier: api_schema.components.schemas.Identifier,
+      },
+    }
+    if (request_required.length > 0) {
+      request_schema.required = request_required
+    }
+    Object.assign(request_schema.properties, req_properties)
     let type_id = req.params.type_id
     const attachment_key = req.params.attachment_key
     const target = req.params.target
     const attachment_value = req.body
+    Object.assign(attachment_value, { type_id: type_id, target: target, attachment_key: attachment_key })
+    var validate_request = ajv.validate(request_schema, attachment_value)
+    if (!validate_request) {
+      res.status(500).json({ error: ajv.errorsText() })
+    }
     type_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], type_id)
     const output = {
       data: (await TypeRepository._set("a", target, <string>type_id, attachment_key, attachment_value))
@@ -108,13 +135,43 @@ TypeService.get("/type/:type_id/attachment/dynamic/:attachment_key", async (req:
 })
 TypeService.put("/type/:type_id/attachment/dynamic/:attachment_key/:target", async (req: Request, res: Response) => {
   try {
+    let ajv = AjvValidator()
+    let api_schema: any = await ApiSchemaLAMP()
+    let api_params = api_schema.paths["/type/{type_id}/attachment/dynamic/{attachment_key}/{target}"].put.parameters
+    let req_properties: any = {}
+    let request_required: any = []
+    api_params.forEach((element: any) => {
+      req_properties[element.name] = element.schema
+      if (element.required !== undefined) {
+        request_required.push(element.name)
+      }
+    })
+    let request_schema: any = api_schema.components.schemas.DynamicAttachment
+    request_schema.components = {
+      schemas: {
+        Identifier: api_schema.components.schemas.Identifier,
+      },
+    }
+    if (request_required.length > 0) {
+      request_schema.required = request_required
+    }
+    Object.assign(request_schema.properties, req_properties)
     let type_id = req.params.type_id
     const attachment_key = req.params.attachment_key
     const target = req.params.target
     const attachment_value = req.body
     const invoke_once = req.query.invoke_once
+    Object.assign(attachment_value, {
+      type_id: type_id,
+      target: target,
+      attachment_key: attachment_key,
+      invoke_once: invoke_once,
+    })
+    var validate_request = ajv.validate(request_schema, attachment_value)
+    if (!validate_request) {
+      res.status(500).json({ error: ajv.errorsText() })
+    }
     type_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], type_id)
-
     let result: any = null /* error */
     if (TypeRepository._set("b", target, <string>type_id, attachment_key, attachment_value)) {
       // If needed, invoke the attachment now.

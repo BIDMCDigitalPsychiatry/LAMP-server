@@ -181,7 +181,7 @@ ActivityService.get("/activity/:activity_id", async (req: Request, res: Response
   }
 })
 ActivityService.get("/participant/:participant_id/activity", async (req: Request, res: Response) => {
-  try {    
+  try {
     let participant_id = req.params.participant_id
     participant_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], participant_id)
     let output = { data: await ActivityRepository._select(participant_id) }

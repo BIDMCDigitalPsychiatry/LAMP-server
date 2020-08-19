@@ -3,12 +3,39 @@ import { Sensor } from "../model/Sensor"
 import { SensorRepository } from "../repository/SensorRepository"
 import { SecurityContext, ActionContext, _verify } from "./Security"
 import jsonata from "jsonata"
+import { ApiSchemaLAMP, AjvValidator } from "../app"
 
 export const SensorService = Router()
 SensorService.post("/study/:study_id/sensor", async (req: Request, res: Response) => {
   try {
+    let ajv = AjvValidator()
+    let api_schema: any = await ApiSchemaLAMP()
+    let api_params = api_schema.paths["/study/{study_id}/sensor"].post.parameters
+    let req_properties: any = {}
+    let request_required: any = []
+    api_params.forEach((element: any) => {
+      req_properties[element.name] = element.schema
+      if (element.required !== undefined) {
+        request_required.push(element.name)
+      }
+    })
+    let request_schema: any = api_schema.components.schemas.Sensor
+    request_schema.components = {
+      schemas: {
+        Identifier: api_schema.components.schemas.Identifier,
+      },
+    }
+    if (request_required.length > 0) {
+      request_schema.required = request_required
+    }
+    Object.assign(request_schema.properties, req_properties)
     let study_id = req.params.study_id
     const sensor = req.body
+    Object.assign(sensor, { study_id: study_id })
+    var validate_request = ajv.validate(request_schema, sensor)
+    if (!validate_request) {
+      res.status(500).json({ error: ajv.errorsText() })
+    }
     study_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], study_id)
     const output = { data: await SensorRepository._insert(study_id, sensor) }
     res.json(output)
@@ -19,8 +46,34 @@ SensorService.post("/study/:study_id/sensor", async (req: Request, res: Response
 })
 SensorService.put("/sensor/:sensor_id", async (req: Request, res: Response) => {
   try {
+    let ajv = AjvValidator()
+    let api_schema: any = await ApiSchemaLAMP()
+    let api_params = api_schema.paths["/sensor/{sensor_id}"].put.parameters
+    let req_properties: any = {}
+    let request_required: any = []
+    api_params.forEach((element: any) => {
+      req_properties[element.name] = element.schema
+      if (element.required !== undefined) {
+        request_required.push(element.name)
+      }
+    })
+    let request_schema: any = api_schema.components.schemas.Sensor
+    request_schema.components = {
+      schemas: {
+        Identifier: api_schema.components.schemas.Identifier,
+      },
+    }
+    if (request_required.length > 0) {
+      request_schema.required = request_required
+    }
+    Object.assign(request_schema.properties, req_properties)
     let sensor_id = req.params.sensor_id
     const sensor = req.body
+    Object.assign(sensor, { sensor_id: sensor_id })
+    var validate_request = ajv.validate(request_schema, sensor)
+    if (!validate_request) {
+      res.status(500).json({ error: ajv.errorsText() })
+    }
     sensor_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], sensor_id)
     const output = { data: await SensorRepository._update(sensor_id, sensor) }
     res.json(output)
