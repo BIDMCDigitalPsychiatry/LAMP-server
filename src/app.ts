@@ -214,14 +214,18 @@ export const Download = function (url: string): Promise<Buffer> {
  */
 function VersionCheck(req: any, res: any, next: any) {
   try {
-    const sharedKey:any = process.env.ROOT_KEY
+    const sharedKey:any = process.env.ENC_KEY
     const device_id = req.get("device_id")
-    
-    // const test= crypto.createHash('md5').update("123").digest("hex");
-    const computedSignature = crypto.createHmac("sha256", sharedKey).update(device_id).digest("hex")
-    console.log(computedSignature);
+    const iv = req.get("iv")
     const token = req.get("Authorization")?.split(" ")[1]
-    if (computedSignature === token) {
+    const decipher = crypto.createDecipheriv('aes-256-cbc',sharedKey, iv);
+    const dec= Buffer.concat([
+      decipher.update(token,'base64'), // Expect `text` to be a base64 string
+      decipher.final()
+    ]).toString();
+    
+    //compare the device id against decrypted
+    if (dec === device_id) {
       next()
     } else {
       res.status(404).json({})
@@ -337,28 +341,28 @@ async function main() {
   app.all("*", (req, res) => res.status(404).json({ message: "404.api-endpoint-unimplemented" }))
 
   // Establish the SQL connection.
-  SQL = await new sql.ConnectionPool({
-    user: MSSQL_USER,
-    password: MSSQL_PASS,
-    server: "moplmssql.c2engehb1emz.ap-south-1.rds.amazonaws.com",
-    port: 56732,
-    database: "LAMP_V2",
-    parseJSON: true,
-    stream: true,
-    requestTimeout: 30000,
-    connectionTimeout: 30000,
-    options: {
-      encrypt: true,
-      appName: "LAMP-legacy",
-      abortTransactionOnError: true,
-      // enableArithAbort:false
-    },
-    pool: {
-      min: 1,
-      max: 100,
-      idleTimeoutMillis: 30000,
-    },
-  }).connect()
+  // SQL = await new sql.ConnectionPool({
+  //   user: MSSQL_USER,
+  //   password: MSSQL_PASS,
+  //   server: "moplmssql.c2engehb1emz.ap-south-1.rds.amazonaws.com",
+  //   port: 56732,
+  //   database: "LAMP_V2",
+  //   parseJSON: true,
+  //   stream: true,
+  //   requestTimeout: 30000,
+  //   connectionTimeout: 30000,
+  //   options: {
+  //     encrypt: true,
+  //     appName: "LAMP-legacy",
+  //     abortTransactionOnError: true,
+  //     // enableArithAbort:false
+  //   },
+  //   pool: {
+  //     min: 1,
+  //     max: 100,
+  //     idleTimeoutMillis: 30000,
+  //   },
+  // }).connect()
   // tslint:disable-next-line:no-console
   console.log(`Lamp server running in ${process.env.PORT}`)
   // Begin listener on port 3000.
