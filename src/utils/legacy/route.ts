@@ -1849,14 +1849,8 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
             batchScheduleArray.push({
               BatchScheduleId: parseInt(eachBatchSchedule.ScheduleID),
               BatchName: eachBatchSchedule.BatchName,
-              ScheduleDate:
-                eachBatchSchedule.ScheduleDate != null
-                  ? new Date(eachBatchSchedule.ScheduleDate).toISOString().replace(/T/, " ").replace(/\..+/, "")
-                  : null,
-              Time:
-                eachBatchSchedule.Time != null
-                  ? new Date(eachBatchSchedule.Time).toISOString().replace(/T/, " ").replace(/\..+/, "")
-                  : null,
+              ScheduleDate: eachBatchSchedule.ScheduleDate,
+              Time: eachBatchSchedule.Time,
               SlotTime:
                 eachBatchSchedule.Time != null
                   ? new Date(eachBatchSchedule.Time).toISOString().replace(/T/, " ").replace(/\..+/, "")
