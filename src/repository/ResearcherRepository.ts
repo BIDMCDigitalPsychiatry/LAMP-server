@@ -135,8 +135,8 @@ export class ResearcherRepository {
 				0,
 				0
 			FROM CTest;
-		`)
-
+    `)
+        
     // Return the new row's ID.
     return ResearcherRepository._pack_id({ admin_id: result.recordset[0]["id"] })
   }
