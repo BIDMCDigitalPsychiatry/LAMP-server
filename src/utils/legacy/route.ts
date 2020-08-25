@@ -1845,12 +1845,12 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
                   })
                 }
               })
-            } 
+            }
             batchScheduleArray.push({
               BatchScheduleId: parseInt(eachBatchSchedule.ScheduleID),
               BatchName: eachBatchSchedule.BatchName,
-			  ScheduleDate: eachBatchSchedule.ScheduleDate,
-			  Time: eachBatchSchedule.Time,
+              ScheduleDate: eachBatchSchedule.ScheduleDate,
+              Time: eachBatchSchedule.Time,
               SlotTime:
                 eachBatchSchedule.Time != null
                   ? new Date(eachBatchSchedule.Time).toISOString().replace(/T/, " ").replace(/\..+/, "")
