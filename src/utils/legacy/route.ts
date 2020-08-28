@@ -1845,7 +1845,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
                   })
                 }
               })
-            }
+            } 
             batchScheduleArray.push({
               BatchScheduleId: parseInt(eachBatchSchedule.ScheduleID),
               BatchName: eachBatchSchedule.BatchName,
