@@ -1012,7 +1012,7 @@ export class ActivityRepository {
         if (Array.isArray(object.schedule)) {
           const result2 = await transaction.request().query(`
 						UPDATE Admin_SurveySchedule 
-						SET IsDeleted = 1
+						SET IsDeleted = 1, EditedOn = GETDATE()
 						WHERE IsDeleted = 0
 							AND SurveyID = ${survey_id}
 					;`)
@@ -1151,7 +1151,7 @@ export class ActivityRepository {
         if (Array.isArray(object.schedule)) {
           const result2 = await transaction.request().query(`
 						UPDATE Admin_CTestSchedule 
-						SET IsDeleted = 1
+						SET IsDeleted = 1, EditedOn = GETDATE()
 						WHERE IsDeleted = 0
 							AND AdminID IN (
 								SELECT AdminID
