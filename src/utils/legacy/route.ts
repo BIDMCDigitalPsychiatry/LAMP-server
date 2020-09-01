@@ -5,6 +5,9 @@ import sql from "mssql"
 import { Request, Response, Router } from "express"
 import { v4 as uuidv4 } from "uuid"
 import { customAlphabet } from "nanoid"
+import { ActivityRepository } from "../../repository/ActivityRepository"
+import fetch from "node-fetch"
+const app_url = process.env.API_URL
 const uuid = customAlphabet("1234567890abcdefghjkmnpqrstvwxyz", 20) // crockford-32
 
 export const LegacyAPI = Router()
@@ -23,7 +26,7 @@ const _authorize = async (req: Request, res: Response, next: any): Promise<void>
   // [NEW] Encrypt('Email:Password')
   const result = await SQL!.request().query(`
         SELECT 
-            UserID, StudyId, Email, FirstName, LastName 
+            UserID, StudyId, Email, FirstName, LastName, Password
         FROM Users 
         WHERE SessionToken = '${token[1]}'
     ;`)
@@ -35,6 +38,7 @@ const _authorize = async (req: Request, res: Response, next: any): Promise<void>
   } else {
     ;(req as any).AuthUser = result.recordset[0]
     ;(req as any).AuthUser.StudyId = Decrypt((req as any).AuthUser.StudyId)?.replace(/^G/, "")
+    ;(req as any).AuthorizationData = "Basic " + token[1]
     next()
   }
 }
@@ -1845,7 +1849,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
                   })
                 }
               })
-            } 
+            }
             batchScheduleArray.push({
               BatchScheduleId: parseInt(eachBatchSchedule.ScheduleID),
               BatchName: eachBatchSchedule.BatchName,
@@ -2010,61 +2014,71 @@ LegacyAPI.post("/GetSurveys", [_authorize], async (req: Request, res: Response) 
       ErrorMessage: "Specify valid User Id.",
     } as APIResponse)
   }
-  const resultQuery2 = await SQL!.request().query(`
-        SELECT 
-            SurveyID, 
-            SurveyName, 
-            Instructions AS Instruction, 
-            ISNULL(Language, 'en') AS LanguageCode, 
-            IsDeleted, 
-            (
-                SELECT 
-                    QuestionID AS QuestionId,
-                    QuestionText,
-                    (CASE 
-                        WHEN AnswerType = 1 THEN 'LikertResponse'
-                        WHEN AnswerType = 2 THEN 'ScrollWheels'
-                        WHEN AnswerType = 3 THEN 'YesNO'
-                        WHEN AnswerType = 4 THEN 'Clock'
-                        WHEN AnswerType = 5 THEN 'Years'
-                        WHEN AnswerType = 6 THEN 'Months'
-                        WHEN AnswerType = 7 THEN 'Days'
-                        WHEN AnswerType = 8 THEN 'Textbox' 
-                    END) AS AnswerType,
-                    IsDeleted,
-                    (
-                        SELECT 
-                            OptionText
-                        FROM SurveyQuestionOptions
-                        WHERE SurveyQuestions.QuestionID = SurveyQuestionOptions.QuestionID
-                        FOR JSON AUTO, INCLUDE_NULL_VALUES
-                    ) AS QuestionOptions,
-                    CAST(0 AS BIT) AS EnableCustomPopup,
-                    Threshold AS ThresholdId,
-                    Operator AS OperatorId,
-                    Message AS CustomPopupMessage
-                FROM SurveyQuestions
-                WHERE Survey.SurveyID = SurveyQuestions.SurveyID
-                FOR JSON AUTO, INCLUDE_NULL_VALUES
-            ) AS Questions
-        FROM Survey 
-        WHERE IsDeleted = 0
-        AND AdminID IN (
-            SELECT 
-                AdminID 
-            FROM Users 
-            WHERE IsDeleted = 0 
-                AND UserID = ${UserID}
-        )
-        FOR JSON AUTO, INCLUDE_NULL_VALUES
-    ;`)
 
-  return res.status(200).json({
-    ErrorCode: 0,
-    ErrorMessage: "Get surveys detail.",
-    Survey: resultQuery2.recordset.length > 0 ? resultQuery2.recordset[0] : [],
-    LastUpdatedDate: new Date().toISOString().replace(/T/, " ").replace(/\..+/, ""),
-  } as APIResponse)
+  let userData = (req as any).AuthUser
+  let decryptedUser = Decrypt(userData.Email) + ":" + Decrypt(userData.Password, "AES256")
+  let encryptUserData = Buffer.from(decryptedUser).toString("base64")
+  let surveyArray: any = []
+  ;(async () => {
+    const response = await fetch(app_url + "/activity", {
+      method: "GET",
+      headers: { Authorization: "Basic " + encryptUserData },
+    })
+    if (response.status === 200) {
+      let response_data: any = await response.json()
+      let surveyFiltered = response_data.data.filter((x: any) => x.spec === "lamp.survey")
+      let surveyObj = {}
+      surveyFiltered.forEach((item: any, index: any) => {
+        let settingsArray: any = []
+        let settingsObj = {}
+        if (item.settings.length > 0) {
+          item.settings.forEach((settingItem: any, settingIndex: any) => {
+            let questionOptions: any = []
+            if (settingItem.options !== null) {
+              settingItem.options.forEach((optionItem: any, optionIndex: any) => {
+                questionOptions.push({ OptionText: optionItem })
+              })
+            }
+            settingsObj = {
+              QuestionId: settingIndex,
+              QuestionText: settingItem.text,
+              AnswerType: settingItem.type,
+              IsDeleted: false,
+              QuestionOptions: questionOptions.length > 0 ? questionOptions : null,
+              EnableCustomPopup: false,
+              ThresholdId: null,
+              OperatorId: null,
+              CustomPopupMessage: null,
+            }
+            settingsArray.push(settingsObj)
+          })
+        }
+        surveyObj = {
+          SurveyID: ActivityRepository._unpack_id(item.id).survey_id,
+          SurveyName: item.name,
+          Instruction: null,
+          LanguageCode: "en",
+          IsDeleted: false,
+          Questions: settingsArray,
+        }
+        surveyArray.push(surveyObj)
+      })
+      res.status(200).json({
+        ErrorCode: 0,
+        ErrorMessage: "Get surveys detail.",
+        Survey: surveyArray.length > 0 ? [surveyArray] : [],
+        LastUpdatedDate: new Date().toISOString().replace(/T/, " ").replace(/\..+/, ""),
+      } as APIResponse)
+    } else {
+      res.status(500).json({
+        ErrorCode: 2030,
+        ErrorMessage: "An error occured while fetching the data.",
+        Survey: [],
+        LastUpdatedDate: new Date().toISOString().replace(/T/, " ").replace(/\..+/, ""),
+      } as APIResponse)
+    }
+  })()
+  return
 })
 
 // Route: /SaveUserSurvey
