@@ -6,6 +6,7 @@ import { Request, Response, Router } from "express"
 import { v4 as uuidv4 } from "uuid"
 import { customAlphabet } from "nanoid"
 import { ActivityRepository } from "../../repository/ActivityRepository"
+import { TypeRepository } from "../../repository/TypeRepository"
 import fetch from "node-fetch"
 const app_url = process.env.API_URL
 const uuid = customAlphabet("1234567890abcdefghjkmnpqrstvwxyz", 20) // crockford-32
@@ -1018,47 +1019,31 @@ LegacyAPI.post("/GetUserSetting", [_authorize], async (req: Request, res: Respon
     ErrorCode?: number
     ErrorMessage?: string
   }
-  const requestData: APIRequest = req.body
-  const UserID: any = requestData.UserID
-  if (!UserID || !Number.isInteger(Number(UserID)) || UserID == 0) {
-    return res.status(422).json({
+  try{
+    const requestData: APIRequest = req.body
+    const UserID: any = requestData.UserID
+    if (!UserID || !Number.isInteger(Number(UserID)) || UserID == 0) {
+      return res.status(422).json({
+        Data: {},
+        ErrorCode: 2031,
+        ErrorMessage: "Specify valid User Id.",
+      } as APIResponse)
+    }
+    let userData = (req as any).AuthUser
+    let output = {};
+    output = await TypeRepository._get("a", userData.StudyId, 'lamp.legacy_adapter');
+    return res.status(200).json({
+      Data: output,
+      ErrorCode: 0,
+      ErrorMessage: "User Setting Details",
+    } as APIResponse)
+  }catch(e) {
+    return res.status(500).json({
       Data: {},
-      ErrorCode: 2031,
-      ErrorMessage: "Specify valid User Id.",
+      ErrorCode: 2030,
+      ErrorMessage: "An error occured while fetching data.",
     } as APIResponse)
   }
-  const result = await SQL!
-    .request()
-    .query(
-      'SELECT UserSettingID, UserID, AppColor, SympSurvey_SlotID SympSurveySlotID, SympSurvey_Time SympSurveySlotTime, SympSurvey_RepeatID SympSurveyRepeatID, CognTest_SlotID CognTestSlotID, CognTest_Time CognTestSlotTime, CognTest_RepeatID CognTestRepeatID, "24By7ContactNo" ContactNo, PersonalHelpline, PrefferedSurveys, PrefferedCognitions, Protocol, ProtocolDate, Language FROM UserSettings WHERE UserID =' +
-        UserID
-    )
-  let objData: APIResponse["Data"] = {}
-  if (result.recordset.length >= 0 && result.recordset[0] != null) {
-    const resultData: any = result.recordset[0]
-    const appColor = resultData.AppColor
-    const ContactNo = resultData.ContactNo
-    const PersonalHelpline = resultData.PersonalHelpline
-    const PrefferedSurveys = resultData.PrefferedSurveys
-    const PrefferedCognitions = resultData.PrefferedCognitions
-    const objData1 = resultData
-    delete objData1.AppColor
-    delete objData1.ContactNo
-    delete objData1.PersonalHelpline
-    delete objData1.PrefferedSurveys
-    delete objData1.PrefferedCognitions
-    objData1.AppColor = Decrypt(appColor)
-    objData1.ContactNo = Decrypt(ContactNo)
-    objData1.PersonalHelpline = Decrypt(PersonalHelpline)
-    objData1.PrefferedSurveys = Decrypt(PrefferedSurveys)
-    objData1.PrefferedCognitions = Decrypt(PrefferedCognitions)
-    objData = objData1
-  }
-  return res.status(200).json({
-    Data: objData,
-    ErrorCode: 0,
-    ErrorMessage: "User Setting Details",
-  } as APIResponse)
 })
 
 // Route: /SaveUserCTestsFavourite // USES SQL
@@ -1310,7 +1295,7 @@ LegacyAPI.post("/GetAppHelp", [_authorize], async (req: Request, res: Response) 
     ErrorMessage: "Disabled",
   } as APIResponse)
 })
-
+  
 // Route: /GetSurveyAndGameSchedule // USES SQL
 LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, res: Response) => {
   interface APIRequest {
@@ -2014,71 +1999,52 @@ LegacyAPI.post("/GetSurveys", [_authorize], async (req: Request, res: Response) 
       ErrorMessage: "Specify valid User Id.",
     } as APIResponse)
   }
-
   let userData = (req as any).AuthUser
-  let decryptedUser = Decrypt(userData.Email) + ":" + Decrypt(userData.Password, "AES256")
-  let encryptUserData = Buffer.from(decryptedUser).toString("base64")
   let surveyArray: any = []
-  ;(async () => {
-    const response = await fetch(app_url + "/activity", {
-      method: "GET",
-      headers: { Authorization: "Basic " + encryptUserData },
-    })
-    if (response.status === 200) {
-      let response_data: any = await response.json()
-      let surveyFiltered = response_data.data.filter((x: any) => x.spec === "lamp.survey")
-      let surveyObj = {}
-      surveyFiltered.forEach((item: any, index: any) => {
-        let settingsArray: any = []
-        let settingsObj = {}
-        if (item.settings.length > 0) {
-          item.settings.forEach((settingItem: any, settingIndex: any) => {
-            let questionOptions: any = []
-            if (settingItem.options !== null) {
-              settingItem.options.forEach((optionItem: any, optionIndex: any) => {
-                questionOptions.push({ OptionText: optionItem })
-              })
-            }
-            settingsObj = {
-              QuestionId: settingIndex,
-              QuestionText: settingItem.text,
-              AnswerType: settingItem.type,
-              IsDeleted: false,
-              QuestionOptions: questionOptions.length > 0 ? questionOptions : null,
-              EnableCustomPopup: false,
-              ThresholdId: null,
-              OperatorId: null,
-              CustomPopupMessage: null,
-            }
-            settingsArray.push(settingsObj)
+  let output = await ActivityRepository._select(userData.StudyId) 
+  let surveyFiltered = output.filter((x: any) => x.spec === "lamp.survey")  
+  let surveyObj = {}
+  surveyFiltered.forEach((item: any, index: any) => {
+    let settingsArray: any = []
+    let settingsObj = {}
+    if (item.settings.length > 0) {
+      item.settings.forEach((settingItem: any, settingIndex: any) => {
+        let questionOptions: any = []
+        if (settingItem.options !== null) {
+          settingItem.options.forEach((optionItem: any, optionIndex: any) => {
+            questionOptions.push({ OptionText: optionItem })
           })
         }
-        surveyObj = {
-          SurveyID: ActivityRepository._unpack_id(item.id).survey_id,
-          SurveyName: item.name,
-          Instruction: null,
-          LanguageCode: "en",
+        settingsObj = {
+          QuestionId: settingIndex,
+          QuestionText: settingItem.text,
+          AnswerType: settingItem.type,
           IsDeleted: false,
-          Questions: settingsArray,
+          QuestionOptions: questionOptions.length > 0 ? questionOptions : null,
+          EnableCustomPopup: false,
+          ThresholdId: null,
+          OperatorId: null,
+          CustomPopupMessage: null,
         }
-        surveyArray.push(surveyObj)
+        settingsArray.push(settingsObj)
       })
-      res.status(200).json({
-        ErrorCode: 0,
-        ErrorMessage: "Get surveys detail.",
-        Survey: surveyArray.length > 0 ? [surveyArray] : [],
-        LastUpdatedDate: new Date().toISOString().replace(/T/, " ").replace(/\..+/, ""),
-      } as APIResponse)
-    } else {
-      res.status(500).json({
-        ErrorCode: 2030,
-        ErrorMessage: "An error occured while fetching the data.",
-        Survey: [],
-        LastUpdatedDate: new Date().toISOString().replace(/T/, " ").replace(/\..+/, ""),
-      } as APIResponse)
     }
-  })()
-  return
+    surveyObj = {
+      SurveyID: ActivityRepository._unpack_id(item.id).survey_id,
+      SurveyName: item.name,
+      Instruction: null,
+      LanguageCode: "en",
+      IsDeleted: false,
+      Questions: settingsArray,
+    }
+    surveyArray.push(surveyObj)
+  })
+  return res.status(200).json({
+    ErrorCode: 0,
+    ErrorMessage: "Get surveys detail.",
+    Survey: surveyArray.length > 0 ? [surveyArray] : [],
+    LastUpdatedDate: new Date().toISOString().replace(/T/, " ").replace(/\..+/, ""),
+  } as APIResponse)
 })
 
 // Route: /SaveUserSurvey
