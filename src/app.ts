@@ -13,10 +13,10 @@ import nano from "nano"
 import cors from "cors"
 import morgan from "morgan"
 import AWS from "aws-sdk"
-import { activityData } from "./repository/pouchRepository/Syncronisation"
-import { dataSync } from "./repository/pouchRepository/Syncronisation"
-import { promises } from "dns"
-export const PouchDB = require("pouchdb")
+export const basepath = __dirname
+import { ActivityScheduler } from "./utils/Jobs/ActivitySchedulerJob"
+export const MSSQL_USER = process.env.MSSQL_USER
+export const MSSQL_PASS = process.env.MSSQL_PASS
 
 // FIXME: Support application/json;indent=:spaces format mime type!
 
@@ -25,9 +25,6 @@ export const Docker = new _Docker({ host: "localhost", port: 2375 })
 
 //
 export const Database = nano(process.env.CDB ?? "")
-
-export const MSSQL_USER = process.env.MSSQL_USER
-export const MSSQL_PASS = process.env.MSSQL_PASS
 
 //
 export const AWSBucketName = process.env.S3_BUCKET ?? ""
@@ -207,33 +204,7 @@ export const Download = function (url: string): Promise<Buffer> {
     request.on("error", (err) => reject(err))
   })
 }
-/*Middleware for version check
- *@param req OBJECT
- *@param res OBJECT
- *@param next FUNCTION
- */
-function VersionCheck(req: any, res: any, next: any) {
-  try {
-    const sharedKey:any = process.env.ENC_KEY
-    const device_id = req.get("device_id")
-    const iv = req.get("iv")
-    const token = req.get("Authorization")?.split(" ")[1]
-    const decipher = crypto.createDecipheriv('aes-256-cbc',sharedKey, iv);
-    const dec= Buffer.concat([
-      decipher.update(token,'base64'), // Expect `text` to be a base64 string
-      decipher.final()
-    ]).toString();
-    
-    //compare the device id against decrypted
-    if (dec === device_id) {
-      next()
-    } else {
-      res.status(404).json({})
-    }
-  } catch (err) {
-    res.status(404).json({ error: err.message })
-  }
-}
+
 // Initialize and configure the application.
 async function main() {
   const _openAPIschema = {
@@ -246,88 +217,18 @@ async function main() {
   app.use("/", API)
   app.use("/v0", LegacyAPI)
 
-  /*check whether activity data exists for the participant. sync data, if not exists
-   *
-   */
-  app.get("/getuser/:participant_id", async (req, res) => {
-    let participant_id = req.params.participant_id
-    const activity = await activityData(participant_id)
-    if (!activity) {
-      dataSync(participant_id)
-    }
-    res.json(true)
-  })
-
-  // TEST
-  app.get("/getalldoc", async (req, res) => {
+  //cron in the form of route (eg: * * * * * localhost:3000/activityschedulenotify)
+  app.get("/activityschedulenotify", async (req, res) => {
     try {
-      console.log("apigetalldoc")
+      const act_feed = await ActivityScheduler()
 
-      const db = new PouchDB("credential")
-      const result: any = await db.allDocs({
-        include_docs: true,
-        attachments: true,
-      })
-      // tslint:disable-next-line:no-console
-      console.log(result)
-      res.json(result)
+      res.status(200).json(act_feed)
     } catch (err) {
+      console.log("error", err)
       res.status(404).json({ error: err.message })
     }
   })
-
-  /*Check for version and returns the download url for input version
-   *
-   *
-   */
-  app.get("/version/get/:ver", VersionCheck, async (req, res, next) => {
-    let inputVersion: string | undefined = req.params.ver
-    console.log(inputVersion)
-    try {
-      const Version = (
-        await Database.use("version").find({
-          selector: { version: inputVersion === undefined ? (undefined as any) : { $eq: inputVersion } },
-          fields: ["version", "url"],
-          sort: [
-            {
-              version: "desc",
-            },
-          ],
-        })
-      ).docs.map((x: any) => ({
-        ...x,
-        version: x.version,
-        url: x.url,
-      })) as any
-      res.json(Version[0])
-    } catch (err) {
-      res.status(404).json({ error: err.message })
-    }
-  })
-
-  /*Check for latest version and returns the download url for latest
-   *
-   *
-   */
-  app.get("/version/get", VersionCheck, async (req, res, next) => {
-    try {
-      const Version = (
-        await Database.use("version").find({
-          selector: {},
-          fields: ["version", "url"],
-          sort: [
-            {
-              version: "desc",
-            },
-          ],
-        })
-      ).docs[0]
-      res.json(Version)
-    } catch (err) {
-      res.status(404).json({ error: err.message })
-    }
-  })
-
+  
   // Establish misc. routes.
   app.get("/", async (req, res) => res.json(_openAPIschema))
   app.get("/favicon.ico", (req, res) => res.status(204))
@@ -340,31 +241,30 @@ async function main() {
   })
   app.all("*", (req, res) => res.status(404).json({ message: "404.api-endpoint-unimplemented" }))
 
-  // Establish the SQL connection.
-  // SQL = await new sql.ConnectionPool({
-  //   user: MSSQL_USER,
-  //   password: MSSQL_PASS,
-  //   server: "moplmssql.c2engehb1emz.ap-south-1.rds.amazonaws.com",
-  //   port: 56732,
-  //   database: "LAMP_V2",
-  //   parseJSON: true,
-  //   stream: true,
-  //   requestTimeout: 30000,
-  //   connectionTimeout: 30000,
-  //   options: {
-  //     encrypt: true,
-  //     appName: "LAMP-legacy",
-  //     abortTransactionOnError: true,
-  //     // enableArithAbort:false
-  //   },
-  //   pool: {
-  //     min: 1,
-  //     max: 100,
-  //     idleTimeoutMillis: 30000,
-  //   },
-  // }).connect()
+  SQL = await new sql.ConnectionPool({
+    user: MSSQL_USER,
+    password: MSSQL_PASS,
+    server: "db.lamp.digital",
+    port: 143,
+    database: "LAMP",
+    parseJSON: true,
+    stream: true,
+    requestTimeout: 30000,
+    connectionTimeout: 30000,
+    options: {
+      encrypt: true,
+      appName: "LAMP-legacy",
+      abortTransactionOnError: true,
+      // enableArithAbort:false
+    },
+    pool: {
+      min: 1,
+      max: 100,
+      idleTimeoutMillis: 30000,
+    },
+  }).connect()
   // tslint:disable-next-line:no-console
-  console.log(`Lamp server running in ${process.env.PORT}`)
+   console.log(`Lamp server running in ${process.env.PORT}`)
   // Begin listener on port 3000.
   _server.listen(process.env.PORT || 3000)
 }
