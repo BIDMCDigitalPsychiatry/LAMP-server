@@ -36,7 +36,7 @@
     "vhost": "^3.0.2",
     "vm2": "^3.8.4",
     "node-cron": "^2.0.3",
-    "jsonwebtoken": "^8.5.1",
+    "jsonwebtoken": "^8.5.1"
   },
   "devDependencies": {
     "@types/aws-sdk": "^2.7.0",
