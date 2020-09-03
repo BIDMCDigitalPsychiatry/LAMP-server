@@ -17,7 +17,7 @@ export const basepath = __dirname
 import { ActivityScheduler } from "./utils/Jobs/ActivitySchedulerJob"
 export const MSSQL_USER = process.env.MSSQL_USER
 export const MSSQL_PASS = process.env.MSSQL_PASS
-
+const cron = require("node-cron");
 // FIXME: Support application/json;indent=:spaces format mime type!
 
 //
@@ -217,17 +217,11 @@ async function main() {
   app.use("/", API)
   app.use("/v0", LegacyAPI)
 
-  //cron in the form of route (eg: * * * * * localhost:3000/activityschedulenotify)
-  app.get("/activityschedulenotify", async (req, res) => {
-    try {
-      const act_feed = await ActivityScheduler()
-
-      res.status(200).json(act_feed)
-    } catch (err) {
-      console.log("error", err)
-      res.status(404).json({ error: err.message })
-    }
-  })
+  //cron for activityscheduler  
+  cron.schedule("* * * * *", async function() {
+    console.log("Activity scheduler cron running every minute");
+    await ActivityScheduler("U3998365801")
+  });
   
   // Establish misc. routes.
   app.get("/", async (req, res) => res.json(_openAPIschema))
