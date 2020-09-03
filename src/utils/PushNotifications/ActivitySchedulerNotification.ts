@@ -69,7 +69,7 @@ export async function prepareNotifications(subject: string, feed: any) {
           if (currentUtcTime == feedHmiUtcTime) {
             //prepare notifications array
             current_feed = { title: subject, message: prepareNotifyMessage(subject) }
-            // sendNotifications(current_feed)
+            sendNotifications(current_feed)
           }
         }
         break
@@ -77,7 +77,7 @@ export async function prepareNotifications(subject: string, feed: any) {
         if (currentUtcTime === feedHmiUtcTime) {
           //prepare notifications array
           current_feed = { title: subject, message: prepareNotifyMessage(subject) }
-          // sendNotifications(current_feed)
+          sendNotifications(current_feed)
         }
         break
       case "custom":
@@ -98,7 +98,7 @@ export async function prepareNotifications(subject: string, feed: any) {
           if (currentUtcTime === customHmiUtcTime) {
             //prepare notifications array
             current_feed = { title: subject, message: prepareNotifyMessage(subject) }
-            // sendNotifications(current_feed)
+            sendNotifications(current_feed)
           }
         })
         break
@@ -106,28 +106,28 @@ export async function prepareNotifications(subject: string, feed: any) {
         if ((currentTime - feedTime) % (60 * 60 * 1000) === 0) {
           //prepare notifications array
           current_feed = { title: subject, message: prepareNotifyMessage(subject) }
-          // sendNotifications(current_feed)
+          sendNotifications(current_feed)
         }
         break
       case "every3h":
         if ((currentTime - feedTime) % (3 * 60 * 60 * 1000) === 0) {
           //prepare notifications array
           current_feed = { title: subject, message: prepareNotifyMessage(subject) }
-          // sendNotifications(current_feed)
+          sendNotifications(current_feed)
         }
         break
       case "every6h":
         if ((currentTime - feedTime) % (6 * 60 * 60 * 1000) === 0) {
           //prepare notifications array
           current_feed = { title: subject, message: prepareNotifyMessage(subject) }
-          // sendNotifications(current_feed)
+          sendNotifications(current_feed)
         }
         break
       case "every12h":
         if ((currentTime - feedTime) % (12 * 60 * 60 * 1000) === 0) {
           //prepare notifications array
           current_feed = { title: subject, message: prepareNotifyMessage(subject) }
-          // sendNotifications(current_feed)
+          sendNotifications(current_feed)
         }
         break
       case "monthly":
@@ -135,7 +135,7 @@ export async function prepareNotifications(subject: string, feed: any) {
           if (currentUtcTime === feedHmiUtcTime) {
             //prepare notifications array
             current_feed = { title: subject, message: prepareNotifyMessage(subject) }
-            // sendNotifications(current_feed)
+            sendNotifications(current_feed)
           }
         }
         break
@@ -143,14 +143,14 @@ export async function prepareNotifications(subject: string, feed: any) {
         if ([10, 20].indexOf(currentDate) > -1) {
           //prepare notifications array
           current_feed = { title: subject, message: prepareNotifyMessage(subject) }
-          // sendNotifications(current_feed)
+          sendNotifications(current_feed)
         }
         break
       case "none":
         if (feedDateTime === currentDateTime) {
           //prepare notifications array
           current_feed = { title: subject, message: prepareNotifyMessage(subject) }
-          // sendNotifications(current_feed)
+          sendNotifications(current_feed)
         }
         break
 
