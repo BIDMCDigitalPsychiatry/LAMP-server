@@ -2,7 +2,7 @@ import { Request, Response, Router } from 'express';
 import { ActivityEvent } from '../model/ActivityEvent';
 import { ActivityEventRepository } from '../repository/ActivityEventRepository';
 
-import { ActivityEventRepository as ActivityPouchRepo } from '../repository/pouchRepository/ActivityEventRepository';
+// import { ActivityEventRepository as ActivityJsonRepo } from '../repository/jsonRepository/ActivityEventRepository';
 import { SecurityContext, ActionContext, _verify } from './Security';
 import jsonata from 'jsonata';
 
@@ -13,15 +13,16 @@ ActivityEventService.post(
     try {
       let participant_id = req.params.participant_id;
       const activity_event = req.body;           
-      if (process.env.LOCAL_DATA === 'true') {
-        const outputLocal = {
-          data: await ActivityPouchRepo._insert(
-            participant_id,
-            ae2re(req, [activity_event]),
-          ),
-        };
-        res.json(outputLocal);
-      } else {
+      // if (process.env.LOCAL_DATA === 'true') {
+      //   const outputLocal = {
+      //     data: await ActivityJsonRepo._insert(
+      //       participant_id,
+      //       ae2re(req, [activity_event]),
+      //     ),
+      //   };
+      //   res.json(outputLocal);
+      // } 
+      // else {
          participant_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], participant_id)
          const output = {
           data: await ActivityEventRepository._insert(
@@ -30,7 +31,7 @@ ActivityEventService.post(
           ),
         };
         res.json(output);
-      }
+      // }
     } catch (e) {
       if (e.message === '401.missing-credentials')
         res.set('WWW-Authenticate', `Basic realm="LAMP" charset="UTF-8"`);
@@ -83,25 +84,26 @@ ActivityEventService.get(
         Math.max(Number.parse(req.query.limit) ?? 1000, -1000),
         1000,
       ); // clamped to [-1000, 1000]
-      if (process.env.LOCAL_DATA === 'true') {
-        let outputLocal = {
-          data: re2ae(
-            req,
-            await ActivityPouchRepo._select(
-              participant_id,
-              origin,
-              from,
-              to,
-              limit,
-            ),
-          ),
-        };
-        outputLocal =
-          typeof req.query.transform === 'string'
-            ? jsonata(req.query.transform).evaluate(outputLocal)
-            : outputLocal;
-        res.json(outputLocal);
-      } else {
+      // if (process.env.LOCAL_DATA === 'true') {
+      //   let outputLocal = {
+      //     data: re2ae(
+      //       req,
+      //       await ActivityJsonRepo._select(
+      //         participant_id,
+      //         origin,
+      //         from,
+      //         to,
+      //         limit,
+      //       ),
+      //     ),
+      //   };
+      //   outputLocal =
+      //     typeof req.query.transform === 'string'
+      //       ? jsonata(req.query.transform).evaluate(outputLocal)
+      //       : outputLocal;
+      //   res.json(outputLocal);
+      // } 
+      // else {
         participant_id = await _verify(
           req.get('Authorization'),
           ['self', 'sibling', 'parent'],
@@ -125,7 +127,7 @@ ActivityEventService.get(
             : output;
 
         res.json(output);
-      }
+      // }
     } catch (e) {
       if (e.message === '401.missing-credentials')
         res.set('WWW-Authenticate', `Basic realm="LAMP" charset="UTF-8"`);
