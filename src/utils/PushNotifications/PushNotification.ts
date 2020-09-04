@@ -17,6 +17,7 @@ const GCM_AUTH = `AAAAxB2qYw4:APA91bHJC87y9yx3tlZb2XQP-hYUMmb3pmXgOA1BLzqrtPzJJU
 
 // Send an APNS push using `certificate` to `device` containing `payload`.
 async function APNSpush(certificate: any, device: string, payload: any) {
+  console.log("iospaylod",payload)
   const TOKEN = jwt.sign(
     {
       iss: certificate.teamID,
@@ -32,7 +33,7 @@ async function APNSpush(certificate: any, device: string, payload: any) {
   // Development: https://api.sandbox.push.apple.com:443
   // Production: https://api.push.apple.com:443
   const client = http2.connect("https://api.push.apple.com:443/")
-  const buffer = Buffer.from(JSON.stringify(JSON.parse(payload)))
+  const buffer = Buffer.from(JSON.stringify(JSON.parse(`${payload}`)))
   const request = client.request({
     [":method"]: "POST",
     [":path"]: `/3/device/${device}`,
@@ -42,15 +43,21 @@ async function APNSpush(certificate: any, device: string, payload: any) {
     "apns-topic": certificate.bundleID,
   })
   return new Promise((resolve, reject) => {
-    let data: [] = []
+    let data: any = []
     request.setEncoding("utf8")
     request.on("response", (headers: any) => {
       if (headers[":status"] !== 200) reject()
     })
     request.on("data", (chunk: any) => {
-      data += chunk
+        data.push(chunk)
     })
-    request.on("end", () => resolve(data.join()))
+    // request.on("end", () => resolve(data.join()))
+    request.on("end", () => {
+      let response = JSON.parse(data.join())
+      console.log("dataCHunk",data)
+      if (response.success == 0) {reject(response)}
+      else {resolve(response)}
+    })
     request.write(buffer)
     request.end()
   })
@@ -58,9 +65,10 @@ async function APNSpush(certificate: any, device: string, payload: any) {
 
 async function GCMpush(certificate: any, device: string, payload: any) {
   const client = http2.connect("https://fcm.googleapis.com:443")
+  console.log("paylod",payload)
   const buffer = Buffer.from(
     JSON.stringify({
-      payload,
+       ...JSON.parse(`${payload}`),
       to: device,
     })
   )
@@ -72,18 +80,21 @@ async function GCMpush(certificate: any, device: string, payload: any) {
     Authorization: `Bearer ${certificate}`,
   })
   return new Promise((resolve, reject) => {
-    let data: [] = []
+    let data: any = []
     request.setEncoding("utf8")
     request.on("response", (headers: any) => {
+      
       if (headers[":status"] !== 200) reject()
     })
-    request.on("data", (chunk: any) => {
-      data += chunk
+    request.on("data", (chunk:any) => {
+      data.push(chunk)
     })
+   
     request.on("end", () => {
       let response = JSON.parse(data.join())
-      if (response.success == 0) reject(response)
-      else resolve(response)
+      console.log("dataCHunk",data)
+      if (response.success == 0) {reject(response)}
+      else {resolve(response)}
     })
     request.write(buffer)
     request.end()
@@ -93,23 +104,28 @@ async function GCMpush(certificate: any, device: string, payload: any) {
 /*send to device with payload and device token given 
 *
 */
-export async function deviceNotification(device_id: string, device_type: string, payload: {}) {
-  console.log(device_id)
-  console.log(device_type)
-  console.log(payload)
+export async function deviceNotification(device_id: string, device_type: string, payload: any) {
+
+  let payload_data:any={};
   try {
     switch (device_type) {
+      
       case "Android.Watch":
-        GCMpush(GCM_AUTH, device_id, payload)
+        
+        payload_data=`"{priority:high,data:{title:${payload.title},message:${payload.message},page:https://www.google.com,notificationId:${payload.title},actions:[{name:Open App,page:https://www.android.com}],expiry:360000}}"`
+       await GCMpush(GCM_AUTH, device_id, payload_data)
         break
       case "Android":
-        GCMpush(GCM_AUTH, device_id, payload)
+        payload_data=`"{priority:high,data:{title:${payload.title},message:${payload.message},page:https://www.google.com,notificationId:${payload.title},actions:[{name:Open App,page:https://www.android.com}],expiry:360000}}"`
+        GCMpush(GCM_AUTH, device_id, payload_data)
         break
       case "IOS.Watch":
-        APNSpush(P8, device_id, payload)
+        payload_data=`"{aps:{alert:${payload.message},badge:0,sound:default,mutable-content:1,content-available:1},notificationId:${payload.title},expiry:60000,page:https://www.google.com,actions:[{name:Open App,page:https://www.apple.com}]}"`
+        APNSpush(P8, device_id, payload_data)
         break
       case "IOS":
-        APNSpush(P8, device_id, payload)
+        payload_data=`"{aps:{alert:${payload.message},badge:0,sound:default,mutable-content:1,content-available:1},notificationId:${payload.title},expiry:60000,page:https://www.google.com,actions:[{name:Open App,page:https://www.apple.com}]}"`
+        APNSpush(P8, device_id, payload_data)
         break
       default:
         break

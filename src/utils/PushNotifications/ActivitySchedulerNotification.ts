@@ -189,5 +189,5 @@ async function sendNotifications(notifications: {}) {
  *
  */
 async function prepareNotifyMessage(title: string) {
-  return `${title} scheduled for you`
+  return `Activity/Survey-${title} scheduled for you`
 }
