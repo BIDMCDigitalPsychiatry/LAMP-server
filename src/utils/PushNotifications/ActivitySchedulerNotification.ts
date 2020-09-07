@@ -1,6 +1,6 @@
 import { Database } from "../../app"
 import { deviceNotification } from "./PushNotification"
-const triweekly = [1, 4, 5]
+const triweekly = [1, 3, 5]
 const biweekly = [2, 4]
 const daily = [0, 1, 2, 3, 4, 5, 6]
 
@@ -8,6 +8,7 @@ const daily = [0, 1, 2, 3, 4, 5, 6]
  *
  */
 export async function prepareNotifications(subject: string, feed: any) {
+  
   let current_feed: {} = {}
   //current date time
   let currentDateTime = new Date()
@@ -21,8 +22,6 @@ export async function prepareNotifications(subject: string, feed: any) {
   let feedTime = feedDateTime.getTime()
   //feed date
   let feedDate = feedDateTime.getDate()
-  // console.log("feedDate", feedDate)
-  // console.log("currentDate", currentDate)
   //find day number  (eg:Mon,Tue,Wed...)
   let dayNumber = getDayNumber(currentDateTime)
 
@@ -51,24 +50,24 @@ export async function prepareNotifications(subject: string, feed: any) {
 
   //get h:m:s format for feed date time
   let feedHmiUtcTime = `${feedHoursUtc}:${feedMinutesUtc}:${feedSecondsUtc}`
-
+  
   //check whether current date time is greater than the start date of activity
   if (currentDateTime >= new Date(feed.start_date)) {
     switch (feed.repeat_interval) {
       case "triweekly":
         if (triweekly.indexOf(dayNumber) > -1) {
-          // if (currentUtcTime == feedHmiUtcTime) {
+          if (currentUtcTime === feedHmiUtcTime) {
           //prepare notifications array
           current_feed = { title: subject, message: await prepareNotifyMessage(subject) }
           sendNotifications(current_feed)
-          // }
+          }
         }
         break
       case "biweekly":
         if (biweekly.indexOf(dayNumber) > -1) {
-          if (currentUtcTime == feedHmiUtcTime) {
+          if (currentUtcTime === feedHmiUtcTime) {
             //prepare notifications array
-            current_feed = { title: subject, message: prepareNotifyMessage(subject) }
+            current_feed = { title: subject, message: await prepareNotifyMessage(subject) }
             sendNotifications(current_feed)
           }
         }
@@ -76,11 +75,12 @@ export async function prepareNotifications(subject: string, feed: any) {
       case "daily":
         if (currentUtcTime === feedHmiUtcTime) {
           //prepare notifications array
-          current_feed = { title: subject, message: prepareNotifyMessage(subject) }
+          current_feed = { title: subject, message: await prepareNotifyMessage(subject) }
           sendNotifications(current_feed)
         }
         break
       case "custom":
+        if(feed.custom_time!==undefined) {
         feed.custom_time.map((time: any) => {
           current_feed = {}
           //get hour,minute,second formatted time from custom date time
@@ -101,32 +101,34 @@ export async function prepareNotifications(subject: string, feed: any) {
             sendNotifications(current_feed)
           }
         })
+      }
+
         break
       case "hourly":
         if ((currentTime - feedTime) % (60 * 60 * 1000) === 0) {
           //prepare notifications array
-          current_feed = { title: subject, message: prepareNotifyMessage(subject) }
+          current_feed = { title: subject, message: await prepareNotifyMessage(subject) }
           sendNotifications(current_feed)
         }
         break
       case "every3h":
         if ((currentTime - feedTime) % (3 * 60 * 60 * 1000) === 0) {
           //prepare notifications array
-          current_feed = { title: subject, message: prepareNotifyMessage(subject) }
+          current_feed = { title: subject, message:  await prepareNotifyMessage(subject) }
           sendNotifications(current_feed)
         }
         break
       case "every6h":
         if ((currentTime - feedTime) % (6 * 60 * 60 * 1000) === 0) {
           //prepare notifications array
-          current_feed = { title: subject, message: prepareNotifyMessage(subject) }
+          current_feed = { title: subject, message:await  prepareNotifyMessage(subject) }
           sendNotifications(current_feed)
         }
         break
       case "every12h":
         if ((currentTime - feedTime) % (12 * 60 * 60 * 1000) === 0) {
           //prepare notifications array
-          current_feed = { title: subject, message: prepareNotifyMessage(subject) }
+          current_feed = { title: subject, message:await prepareNotifyMessage(subject) }
           sendNotifications(current_feed)
         }
         break
@@ -134,7 +136,7 @@ export async function prepareNotifications(subject: string, feed: any) {
         if (currentDate === feedDate) {
           if (currentUtcTime === feedHmiUtcTime) {
             //prepare notifications array
-            current_feed = { title: subject, message: prepareNotifyMessage(subject) }
+            current_feed = { title: subject, message: await prepareNotifyMessage(subject) }
             sendNotifications(current_feed)
           }
         }
@@ -142,14 +144,14 @@ export async function prepareNotifications(subject: string, feed: any) {
       case "bimonthly":
         if ([10, 20].indexOf(currentDate) > -1) {
           //prepare notifications array
-          current_feed = { title: subject, message: prepareNotifyMessage(subject) }
+          current_feed = { title: subject, message: await prepareNotifyMessage(subject) }
           sendNotifications(current_feed)
         }
         break
       case "none":
         if (feedDateTime === currentDateTime) {
           //prepare notifications array
-          current_feed = { title: subject, message: prepareNotifyMessage(subject) }
+          current_feed = { title: subject, message:await prepareNotifyMessage(subject) }
           sendNotifications(current_feed)
         }
         break
@@ -175,11 +177,19 @@ async function sendNotifications(notifications: {}) {
   
   try {
     //find device details, device class function need to be substituted in future
-    (await Database.use("sensor_event").find({ selector: { sensor: "lamp.analytics" } })).docs.map((x: any) => {
-      deviceNotification(x.data.device_token, x.data.device_type, notifications)
-    })
+   const device_info =  (await Database.use("sensor_event").find({
+       selector: { sensor: "lamp.analytics" },
+       fields: [ 
+       "sensor",
+       "#parent",
+       "data",
+       "timestamp"],
+      })).docs.map((x: any) => {
+          deviceNotification(x.data.device_token, x.data.device_type, notifications)
+        });
+    
   } catch (error) {
-    console.log("errorfetching device", error.message)
+    console.log("error fetching device", error.message)
   }
 
   //push notifications

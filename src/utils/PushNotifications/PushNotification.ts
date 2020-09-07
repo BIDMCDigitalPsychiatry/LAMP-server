@@ -17,7 +17,7 @@ const GCM_AUTH = `AAAAxB2qYw4:APA91bHJC87y9yx3tlZb2XQP-hYUMmb3pmXgOA1BLzqrtPzJJU
 
 // Send an APNS push using `certificate` to `device` containing `payload`.
 async function APNSpush(certificate: any, device: string, payload: any) {
-  console.log("iospaylod",payload)
+ 
   const TOKEN = jwt.sign(
     {
       iss: certificate.teamID,
@@ -33,8 +33,8 @@ async function APNSpush(certificate: any, device: string, payload: any) {
   // Development: https://api.sandbox.push.apple.com:443
   // Production: https://api.push.apple.com:443
   const client = http2.connect("https://api.push.apple.com:443/")
-  const buffer = Buffer.from(JSON.stringify(JSON.parse(`${payload}`)))
-  const request = client.request({
+  const buffer = Buffer.from(JSON.stringify(payload))
+  const request = await client.request({
     [":method"]: "POST",
     [":path"]: `/3/device/${device}`,
     "Content-Type": "application/json",
@@ -51,24 +51,18 @@ async function APNSpush(certificate: any, device: string, payload: any) {
     request.on("data", (chunk: any) => {
         data.push(chunk)
     })
-    // request.on("end", () => resolve(data.join()))
-    request.on("end", () => {
-      let response = JSON.parse(data.join())
-      console.log("dataCHunk",data)
-      if (response.success == 0) {reject(response)}
-      else {resolve(response)}
-    })
-    request.write(buffer)
+    request.on("end", () => resolve(data.join()))     
+    request.write(buffer)       
     request.end()
   })
 }
 
 async function GCMpush(certificate: any, device: string, payload: any) {
   const client = http2.connect("https://fcm.googleapis.com:443")
-  console.log("paylod",payload)
+ 
   const buffer = Buffer.from(
     JSON.stringify({
-       ...JSON.parse(`${payload}`),
+       ...payload,
       to: device,
     })
   )
@@ -92,7 +86,7 @@ async function GCMpush(certificate: any, device: string, payload: any) {
    
     request.on("end", () => {
       let response = JSON.parse(data.join())
-      console.log("dataCHunk",data)
+      
       if (response.success == 0) {reject(response)}
       else {resolve(response)}
     })
@@ -107,28 +101,38 @@ async function GCMpush(certificate: any, device: string, payload: any) {
 export async function deviceNotification(device_id: string, device_type: string, payload: any) {
 
   let payload_data:any={};
+
   try {
     switch (device_type) {
       
-      case "Android.Watch":
-        
-        payload_data=`"{priority:high,data:{title:${payload.title},message:${payload.message},page:https://www.google.com,notificationId:${payload.title},actions:[{name:Open App,page:https://www.android.com}],expiry:360000}}"`
+      case "Android.Watch":        
+        payload_data={"priority":"high","data":{"title":`${payload.title}`,"message":`${payload.message}`,"page":"https://www.google.com","notificationId":`${payload.title}`,"actions":[{"name":"Open App","page":"https://www.android.com"}],"expiry":360000}}
        await GCMpush(GCM_AUTH, device_id, payload_data)
+       console.log('Successfully sent push notification.')
         break
+
       case "Android":
-        payload_data=`"{priority:high,data:{title:${payload.title},message:${payload.message},page:https://www.google.com,notificationId:${payload.title},actions:[{name:Open App,page:https://www.android.com}],expiry:360000}}"`
+        payload_data={"priority":"high","data":{"title":`${payload.title}`,"message":`${payload.message}`,"page":"https://www.google.com","notificationId":`${payload.title}`,"actions":[{"name":"Open App","page":"https://www.android.com"}],"expiry":360000}}
         GCMpush(GCM_AUTH, device_id, payload_data)
+        console.log('Successfully sent push notification.')
         break
+
       case "IOS.Watch":
-        payload_data=`"{aps:{alert:${payload.message},badge:0,sound:default,mutable-content:1,content-available:1},notificationId:${payload.title},expiry:60000,page:https://www.google.com,actions:[{name:Open App,page:https://www.apple.com}]}"`
+        payload_data={"aps":{"alert":`${payload.message}`,"badge":0,"sound":"default","mutable-content":1,"content-available":1},"notificationId":`${payload.title}`,"expiry":60000,"page":"https://www.google.com","actions":[{"name":"Open App","page":"https://www.apple.com"}]}
         APNSpush(P8, device_id, payload_data)
+        console.log('Successfully sent push notification.')
         break
-      case "IOS":
-        payload_data=`"{aps:{alert:${payload.message},badge:0,sound:default,mutable-content:1,content-available:1},notificationId:${payload.title},expiry:60000,page:https://www.google.com,actions:[{name:Open App,page:https://www.apple.com}]}"`
+
+      case "iOS":
+       payload_data={"aps":{"alert":`${payload.message}`,"badge":0,"sound":"default","mutable-conten":1,"content-available":1},"notificationId":`${payload.title}`,"expiry":60000,"page":"https://www.google.com","actions":[{"name":"Open App","page":"https://www.apple.com"}]}
         APNSpush(P8, device_id, payload_data)
+        console.log('Successfully sent push notification.')
         break
+        
       default:
         break
+
+        
     }
   } catch (error) {
     console.log(error)
