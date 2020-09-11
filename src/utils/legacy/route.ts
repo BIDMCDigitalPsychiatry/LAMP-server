@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-import { SQL, Database, Encrypt, Decrypt, S3, AWSBucketName, ConvertIdFromV1ToV2 } from "../../app"
+import { SQL, Database, Encrypt, Decrypt, S3, AWSBucketName } from "../../app"
 import { _migrator_lookup_table, Activity_pack_id, ActivityIndex } from "../../repository/migrate"
 import sql from "mssql"
 import { Request, Response, Router } from "express"
@@ -7,14 +7,26 @@ import { v4 as uuidv4 } from "uuid"
 import { customAlphabet } from "nanoid"
 import { ActivityRepository } from "../../repository/ActivityRepository"
 import { TypeRepository } from "../../repository/TypeRepository"
-import { CredentialRepository } from "../../repository/CredentialRepository"
-import { ParticipantRepository } from "../../repository/ParticipantRepository"
-import fetch from "node-fetch"
-const app_url = process.env.API_URL
 const uuid = customAlphabet("1234567890abcdefghjkmnpqrstvwxyz", 20) // crockford-32
 
 export const LegacyAPI = Router()
 
+/** 
+ * To convert string from v1 to v2 https://github.com/darkskyapp/string-hash/blob/master/index.js
+ * @param id string
+ */ 
+export const ConvertIdFromV1ToV2 = (str: any) =>  {
+  let hash = 5381,
+  i = str.length;
+  while(i) {
+    hash = (hash * 33) ^ str.charCodeAt(--i);
+  }
+  /* JavaScript does bitwise operations (like XOR, above) on 32-bit signed
+  * integers. Since we want the results to be always positive, convert the
+  * signed int to an unsigned by doing an unsigned bitshift. */
+  return hash >>> 0;
+}
+    
 // Authenticate against legacy Bearer session tokens.
 const _authorize = async (req: Request, res: Response, next: any): Promise<void> => {
   const token = (req.headers["authorization"] ?? "").split(" ")
@@ -41,7 +53,6 @@ const _authorize = async (req: Request, res: Response, next: any): Promise<void>
   } else {
     ;(req as any).AuthUser = result.recordset[0]
     ;(req as any).AuthUser.StudyId = Decrypt((req as any).AuthUser.StudyId)?.replace(/^G/, "")
-    ;(req as any).AuthorizationData = "Basic " + token[1]
     next()
   }
 }
