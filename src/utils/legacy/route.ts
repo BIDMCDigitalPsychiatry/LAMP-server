@@ -7,26 +7,28 @@ import { v4 as uuidv4 } from "uuid"
 import { customAlphabet } from "nanoid"
 import { ActivityRepository } from "../../repository/ActivityRepository"
 import { TypeRepository } from "../../repository/TypeRepository"
+import { CredentialRepository } from "../../repository/CredentialRepository"
 const uuid = customAlphabet("1234567890abcdefghjkmnpqrstvwxyz", 20) // crockford-32
 
 export const LegacyAPI = Router()
 
-/** 
+/**
  * To convert string from v1 to v2 https://github.com/darkskyapp/string-hash/blob/master/index.js
  * @param id string
- */ 
-export const ConvertIdFromV1ToV2 = (str: any) =>  {
+ */
+
+export const ConvertIdFromV1ToV2 = (str: any) => {
   let hash = 5381,
-  i = str.length;
-  while(i) {
-    hash = (hash * 33) ^ str.charCodeAt(--i);
+    i = str.length
+  while (i) {
+    hash = (hash * 33) ^ str.charCodeAt(--i)
   }
   /* JavaScript does bitwise operations (like XOR, above) on 32-bit signed
-  * integers. Since we want the results to be always positive, convert the
-  * signed int to an unsigned by doing an unsigned bitshift. */
-  return hash >>> 0;
+   * integers. Since we want the results to be always positive, convert the
+   * signed int to an unsigned by doing an unsigned bitshift. */
+  return hash >>> 0
 }
-    
+
 // Authenticate against legacy Bearer session tokens.
 const _authorize = async (req: Request, res: Response, next: any): Promise<void> => {
   const token = (req.headers["authorization"] ?? "").split(" ")
@@ -159,7 +161,9 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
       CTestName?: string
       Status?: boolean
       Notification?: boolean
-      IconBlob?: number[]
+      IconBlob?: number[] | null
+      Version: string | null
+      MaxVersion: string | null
     }[]
     CTestsFavouriteList?: {
       UserID?: number
@@ -174,9 +178,11 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
     ErrorCode?: number
     ErrorMessage?: string
   }
+  try {
+    
+  
   const requestData: APIRequest = req.body
   const Username: APIRequest["Username"] = requestData.Username
-  const EncryptEmail: APIRequest["Username"] = Encrypt(requestData.Username!)
   const Email: APIRequest["Username"] = requestData.Username
   const Password: APIRequest["Password"] = requestData.Password
   if (!Username) {
@@ -191,316 +197,147 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
       ErrorMessage: "Specify Password.",
     } as APIResponse)
   }
-  const resultQuery: any = await SQL!.request().query(`
-    SELECT UserID, AdminID, StudyId, Status, Password, IsDeleted, IsGuestUser FROM Users WHERE ISNULL(Email, '') = '${EncryptEmail}'
-  `)
-  const resultLength = resultQuery.recordset.length
-  if (resultLength > 0) {
-    const userObj = resultQuery.recordset[0]
-    if (userObj.Status == null || userObj.Status == 0) {
-      return res.status(200).json({
-        ErrorCode: 2044,
-        ErrorMessage: "This user has been deactivated. Please contact the administrator.",
-      } as APIResponse)
+
+  //get study id
+  const ParticipantId: any = await CredentialRepository._find(Username, Password)
+  //get usersettings
+  let userSettings = await TypeRepository._get("a", ParticipantId, "lamp.legacy_adapter")
+  const Language: APIRequest["Language"] = requestData.Language
+  let defaultLanguage = Language != "" ? Language : "en"
+  let AppColor = Encrypt("#359FFE")
+  if (userSettings.UserSettings !== undefined) {
+    AppColor = userSettings.UserSettings.AppColor
+    defaultLanguage = Language != "" ? Language : "en"
+  } else {
+    await TypeRepository._set("a", "me", ParticipantId, "lamp.legacy_adapter", {
+      UserSettings: {
+        AppColor: `${AppColor}`,
+        Language: `${defaultLanguage}`,
+        SympSurvey_SlotID: 1,
+        SympSurvey_RepeatID: 1,
+        CognTest_SlotID: 1,
+        CognTest_RepeatID: 1,
+        "24By7ContactNo": "",
+        PersonalHelpline: "",
+        PrefferedSurveys: "",
+        PrefferedCognitions: "",
+      },
+    })
+    userSettings = await TypeRepository._get("a", ParticipantId, "lamp.legacy_adapter")
+  }
+  //take userid from participant id
+  const UserId: APIResponse["UserId"] = ParticipantId.match(/\d+/)[0]
+
+  const AdminID = 0 //EDIT THIS
+  const StudyId: APIResponse["StudyId"] = Decrypt(ParticipantId)
+  let CTestsFavouriteList: APIResponse["CTestsFavouriteList"] = []
+  let WelcomeText: APIResponse["WelcomeText"] = ""
+  let InstructionVideoLink: APIResponse["InstructionVideoLink"] = ""
+  let SurveyFavouriteList: APIResponse["SurveyFavouriteList"] = []
+  let CognitionSettings: APIResponse["CognitionSettings"] = []
+  let Data: APIResponse["Data"] = {}
+  let SessionToken: APIResponse["SessionToken"] = ""
+  if (userSettings.UserSettings !== undefined) {
+    const Type = 0 //non-guest user
+    Data = userSettings
+    const APPVersion: APIRequest["APPVersion"] = Encrypt(requestData.APPVersion!)
+    // Save login as an event.
+    const loginEvent = {
+      "#parent": StudyId,
+      timestamp: new Date().getTime(),
+      sensor: "lamp.analytics",
+      data: {
+        device_type: requestData.DeviceType! == 1 ? "iOS" : requestData.DeviceType! == 2 ? "Android" : "Unknown",
+        event_type: "login",
+        device_id: requestData.DeviceID!,
+        device_token: requestData.DeviceToken!,
+        os_version: requestData.OSVersion!,
+        app_version: requestData.APPVersion!,
+        device_model: requestData.DeviceModel!,
+      },
     }
-    const UserId: APIResponse["UserId"] = userObj.UserID
-    const AdminID = userObj.AdminID
-    const StudyId: APIResponse["StudyId"] = Decrypt(userObj.StudyId)
-    const Language: APIRequest["Language"] = requestData.Language
-    const userSettingsData: any = {}
-    let CTestsFavouriteList: APIResponse["CTestsFavouriteList"] = []
-    let WelcomeText: APIResponse["WelcomeText"] = ""
-    let InstructionVideoLink: APIResponse["InstructionVideoLink"] = ""
-    let SurveyFavouriteList: APIResponse["SurveyFavouriteList"] = []
-    let CognitionSettings: APIResponse["CognitionSettings"] = []
-    let Data: APIResponse["Data"] = {}
-    let SessionToken: APIResponse["SessionToken"] = ""
-    const DecryptedPswd = Decrypt(userObj.Password, "AES256")
-    if (DecryptedPswd == Password) {
-      // Decrypt password and check
-      if (userObj.IsDeleted == 1) {
-        return res.status(200).json({
-          ErrorCode: 2050,
-          ErrorMessage: "User account has been deleted.",
-        } as APIResponse)
-      } else {
-        const appendedSession = Username + ":" + Password
-        SessionToken = Encrypt(appendedSession)
-        const Type = userObj.IsGuestUser == 1 ? userObj.IsGuestUser : 0
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const updateUserSettings = await SQL!.request().query(`
-          UPDATE UserSettings
-          SET Language = '${Language}' 
-          WHERE UserID = ${UserId}
-        `)
-        const userSettingsQuery: any = await SQL!.request().query(`
-          SELECT
-            UserSettingID,
-            UserID,
-            AppColor,
-            SympSurvey_SlotID,
-            SympSurvey_Time,
-            SympSurvey_RepeatID,
-            CognTest_SlotID,
-            CognTest_Time,
-            CognTest_RepeatID,
-            [24By7ContactNo] ContactNo,
-            PersonalHelpline,
-            PrefferedSurveys,
-            PrefferedCognitions,
-            Protocol,
-            Language,
-            ProtocolDate
-          FROM UserSettings
-          WHERE UserID = ${UserId}
-        `)
-        const userSettingsLength = userSettingsQuery.recordset.length
-        if (userSettingsLength > 0) {
-          const userSetting: any = userSettingsQuery.recordset[0]
-          userSettingsData.UserSettingID = userSetting.UserSettingID
-          userSettingsData.UserID = userSetting.UserID
-          userSettingsData.AppColor = Decrypt(userSetting.AppColor)
-          if (userSetting.SympSurvey_SlotID != null) userSettingsData.SympSurveySlotID = userSetting.SympSurvey_SlotID
-          if (userSetting.SympSurvey_Time == null) userSettingsData.SympSurveySlotTime = null
-          else userSettingsData.SympSurveySlotTime = userSetting.SympSurvey_Time
-          if (userSetting.SympSurvey_RepeatID != null)
-            userSettingsData.SympSurveyRepeatID = userSetting.SympSurvey_RepeatID
-          if (userSetting.CognTest_SlotID != null) userSettingsData.CognTestSlotID = userSetting.CognTest_SlotID
-          if (userSetting.CognTest_Time == null) userSettingsData.CognTestSlotTime = null
-          else userSettingsData.CognTestSlotTime = userSetting.CognTest_Time
-          if (userSetting.CognTest_RepeatID != null) userSettingsData.CognTestRepeatID = userSetting.CognTest_RepeatID
-          userSettingsData.ContactNo =
-            userSetting.ContactNo === null || userSetting.ContactNo === "" ? "" : Decrypt(userSetting.ContactNo)
-          userSettingsData.PersonalHelpline =
-            userSetting.PersonalHelpline === null || userSetting.PersonalHelpline === ""
-              ? ""
-              : Decrypt(userSetting.PersonalHelpline)
-          userSettingsData.PrefferedSurveys =
-            userSetting.PrefferedSurveys === null || userSetting.PrefferedSurveys === ""
-              ? ""
-              : Decrypt(userSetting.PrefferedSurveys)
-          userSettingsData.PrefferedCognitions =
-            userSetting.PrefferedCognitions === null || userSetting.PrefferedCognitions === ""
-              ? ""
-              : Decrypt(userSetting.PrefferedCognitions)
-          userSettingsData.Protocol = userSetting.Protocol
-          userSettingsData.Language = userSetting.Language
-          userSettingsData.ProtocolDate = new Date(0).toISOString().replace(/T/, " ").replace(/\..+/, "")
-        } else {
-          const defaultLanguage = Language != "" ? Language : "en"
-          const AppColor = Encrypt("#359FFE")
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const result = await SQL!
-            .request()
-            .query(
-              "INSERT into UserSettings (UserID, AppColor, SympSurvey_SlotID, SympSurvey_RepeatID, CognTest_SlotID, CognTest_RepeatID, [24By7ContactNo], PersonalHelpline, PrefferedSurveys, PrefferedCognitions, Language) VALUES (" +
-                UserId +
-                ", '" +
-                AppColor +
-                "', 1, 1, 1, 1, '', '', '', '', '" +
-                defaultLanguage +
-                "' ) "
-            )
-          const userSettingsQuery: any = await SQL!
-            .request()
-            .query(
-              "SELECT UserSettingID, UserID, AppColor, SympSurvey_SlotID, SympSurvey_Time, SympSurvey_RepeatID, " +
-                " CognTest_SlotID, CognTest_Time, CognTest_RepeatID, [24By7ContactNo] ContactNo, PersonalHelpline, PrefferedSurveys, " +
-                " PrefferedCognitions, Protocol, Language, ProtocolDate " +
-                " FROM UserSettings WHERE UserID = " +
-                UserId
-            )
-          const userSettingsLength = userSettingsQuery.recordset.length
-          if (userSettingsLength > 0) {
-            const userSetting: any = userSettingsQuery.recordset[0]
-            userSettingsData.UserSettingID = userSetting.UserSettingID
-            userSettingsData.UserID = userSetting.UserID
-            userSettingsData.AppColor = Decrypt(userSetting.AppColor)
-            if (userSetting.SympSurvey_SlotID != null) userSettingsData.SympSurveySlotID = userSetting.SympSurvey_SlotID
-            if (userSetting.SympSurvey_Time == null) userSettingsData.SympSurveySlotTime = null
-            else userSettingsData.SympSurveySlotTime = userSetting.SympSurvey_Time.Value
-            if (userSetting.SympSurvey_RepeatID != null)
-              userSettingsData.SympSurveyRepeatID = userSetting.SympSurvey_RepeatID
-            if (userSetting.CognTest_SlotID != null) userSettingsData.CognTestSlotID = userSetting.CognTest_SlotID
-            if (userSetting.CognTest_Time == null) userSettingsData.CognTestSlotTime = null
-            else userSettingsData.CognTestSlotTime = userSetting.CognTest_Time.Value
-            if (userSetting.CognTest_RepeatID != null) userSettingsData.CognTestRepeatID = userSetting.CognTest_RepeatID
-            userSettingsData.ContactNo =
-              userSetting.ContactNo === null || userSetting.ContactNo === "" ? "" : Decrypt(userSetting.ContactNo)
-            userSettingsData.PersonalHelpline =
-              userSetting.PersonalHelpline === null || userSetting.PersonalHelpline === ""
-                ? ""
-                : Decrypt(userSetting.PersonalHelpline)
-            userSettingsData.PrefferedSurveys =
-              userSetting.PrefferedSurveys === null || userSetting.PrefferedSurveys === ""
-                ? ""
-                : Decrypt(userSetting.PrefferedSurveys)
-            userSettingsData.PrefferedCognitions =
-              userSetting.PrefferedCognitions === null || userSetting.PrefferedCognitions === ""
-                ? ""
-                : Decrypt(userSetting.PrefferedCognitions)
-            userSettingsData.Protocol = userSetting.Protocol
-            userSettingsData.Language = userSetting.Language
-            userSettingsData.ProtocolDate = new Date(0).toISOString().replace(/T/, " ").replace(/\..+/, "")
-          }
-        }
-        Data = userSettingsData
-        const APPVersion: APIRequest["APPVersion"] = Encrypt(requestData.APPVersion!)
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const updateUserData = await SQL!
-          .request()
-          .query(
-            "UPDATE Users SET SessionToken = '" +
-              SessionToken +
-              "' ,  APPVersion = '" +
-              APPVersion +
-              "' , EditedOn = GETUTCDATE() WHERE UserID = " +
-              UserId
-          )
-        const userDeviceQuery: any = await SQL!
-          .request()
-          .query("SELECT UserDeviceID FROM UserDevices WHERE UserID = " + UserId + " ORDER By LastLoginOn DESC")
-        if (userDeviceQuery.recordset.length > 0) {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const updateUserDevice = await SQL!
-            .request()
-            .query(
-              "UPDATE UserDevices SET DeviceType = '" +
-                requestData.DeviceType +
-                "' , DeviceID = '" +
-                Encrypt(requestData.DeviceID!) +
-                "', DeviceToken = '" +
-                Encrypt(requestData.DeviceToken!) +
-                "' , LastLoginOn = GETUTCDATE() , OSVersion = '" +
-                requestData.OSVersion +
-                "' , DeviceModel = '" +
-                requestData.DeviceModel +
-                "' WHERE UserDeviceID = " +
-                userDeviceQuery.recordset[0].UserDeviceID
-            )
-        } else {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const insertUserDevice = await SQL!
-            .request()
-            .query(
-              "INSERT into UserDevices (UserID, DeviceType, DeviceID, DeviceToken, LastLoginOn, OSVersion, DeviceModel) VALUES (" +
-                UserId +
-                ", '" +
-                requestData.DeviceType +
-                "', '" +
-                Encrypt(requestData.DeviceID!) +
-                "', '" +
-                Encrypt(requestData.DeviceToken!) +
-                "', GETUTCDATE() , '" +
-                requestData.OSVersion +
-                "', '" +
-                requestData.DeviceModel +
-                "' ) "
-            )
-        }
-        // Save login as an event.
-        const loginEvent = {
-          "#parent": StudyId,
-          timestamp: new Date().getTime(),
-          sensor: "lamp.analytics",
-          data: {
-            device_type: requestData.DeviceType! == 1 ? "iOS" : requestData.DeviceType! == 2 ? "Android" : "Unknown",
-            event_type: "login",
-            device_id: requestData.DeviceID!,
-            device_token: requestData.DeviceToken!,
-            os_version: requestData.OSVersion!,
-            app_version: requestData.APPVersion!,
-            device_model: requestData.DeviceModel!,
-          },
-        }
-        const out = await Database.use("sensor_event").bulk({ docs: [loginEvent] })
-        console.dir(out.filter((x) => !!x.error))
+    const out = await Database.use("sensor_event").bulk({ docs: [loginEvent] })
+    console.dir(out.filter((x) => !!x.error))
+    CTestsFavouriteList = userSettings.UserCTestFavourite ? userSettings.UserCTestFavourite : []
+    SurveyFavouriteList = userSettings.SurveyFavourite ? userSettings.SurveyFavourite : []
+    let CognitionSett = await ActivityRepository._select("58845844586121")
+    console.log("gmm11",CognitionSett)
+    let GameData = CognitionSett.filter((x: any) => x.spec !== "lamp.group" && x.spec !== "lamp.survey")
+    console.log("gmm",GameData)
+    // if(GameData.length>0)
+    let DataFiltered: any
+    GameData.forEach(async (item: any, index: any) => {
+      let specData = [item.spec]
+      DataFiltered = ActivityIndex.filter((cls) => {
+        return specData.includes(cls.Name)
+      })
 
-        // User CTests Favourite
-        const FavouriteCtestQuery: any = await SQL!
-          .request()
-          .query("SELECT UserID, CTestID, FavType FROM UserFavouriteCTests WHERE UserID = " + UserId)
-        CTestsFavouriteList = FavouriteCtestQuery.recordset.length > 0 ? FavouriteCtestQuery.recordset : []
-
-        // User Survey Favourite
-        const FavouriteSurveyQuery: any = await SQL!
-          .request()
-          .query("SELECT UserID, SurveyID, FavType FROM UserFavouriteSurveys WHERE UserID = " + UserId)
-        SurveyFavouriteList = FavouriteSurveyQuery.recordset.length > 0 ? FavouriteSurveyQuery.recordset : []
-
-        // Get Admin WelcomeText & InstructionVideoLink
-        const AdminSettingsQuery: any = await SQL!
-          .request()
-          .query("SELECT WelcomeMessage, InstructionVideoLink FROM Admin_Settings WHERE AdminID = " + AdminID)
-        WelcomeText = AdminSettingsQuery.recordset.length > 0 ? AdminSettingsQuery.recordset[0].WelcomeMessage : ""
-        InstructionVideoLink =
-          AdminSettingsQuery.recordset.length > 0 ? AdminSettingsQuery.recordset[0].InstructionVideoLink : ""
-
-        //CognitionSettings
-        const CognitionSettingsQuery: any = await SQL!
-          .request()
-          .query(
-            "SELECT a_ct.AdminCTestSettingID, a_ct.Notification, a_ct.AdminID, a_ct.CTestID, c_t.CTestName, NULL AS Status, NULL AS IconBlob, NULL AS Version, NULL AS MaxVersion FROM Admin_CTestSettings as a_ct JOIN CTest as c_t ON a_ct.CTestID = c_t.CTestID WHERE a_ct.AdminID = " +
-              AdminID +
-              " AND a_ct.Notification = 1  AND c_t.IsDeleted = 0"
-          )
-        CognitionSettings = CognitionSettingsQuery.recordset.length > 0 ? CognitionSettingsQuery.recordset : []
-
-        return res.status(200).json({
-          UserId,
-          StudyId,
-          Email,
-          Type,
-          SessionToken,
-          Data,
-          ActivityPoints: {
-            SurveyPoint: 0,
-            _3DFigurePoint: 0,
-            CatAndDogPoint: 0,
-            CatAndDogNewPoint: 0,
-            DigitSpanForwardPoint: 0,
-            DigitSpanBackwardPoint: 0,
-            NBackPoint: 0,
-            Serial7Point: 0,
-            SimpleMemoryPoint: 0,
-            SpatialForwardPoint: 0,
-            SpatialBackwardPoint: 0,
-            TrailsBPoint: 0,
-            VisualAssociationPoint: 0,
-            TemporalOrderPoint: 0,
-            NBackNewPoint: 0,
-            TrailsBNewPoint: 0,
-            TrailsBDotTouchPoint: 0,
-            JewelsTrailsAPoint: 0,
-            JewelsTrailsBPoint: 0,
-          },
-          JewelsPoints: {
-            JewelsTrailsATotalBonus: 0,
-            JewelsTrailsBTotalBonus: 0,
-            JewelsTrailsATotalJewels: 0,
-            JewelsTrailsBTotalJewels: 0,
-          },
-          WelcomeText,
-          InstructionVideoLink,
-          CognitionSettings,
-          CTestsFavouriteList,
-          SurveyFavouriteList,
-          ErrorCode: 0,
-          ErrorMessage: "The user has logged in successfully.",
-        } as APIResponse)
-      }
-    } else {
-      return res.status(200).json({
-        ErrorCode: 2034,
-        ErrorMessage: "Login failed. Please check the specified credentials.",
-      } as APIResponse)
-    }
+      CognitionSettings?.push({
+        AdminCTestSettingID: ConvertIdFromV1ToV2(item.id),
+        AdminID: 0, //EDIT THIS
+        CTestID: DataFiltered[0].LegacyCTestID,
+        CTestName: item.name,
+        Status: true,
+        Notification: false,
+        IconBlob: null, //EDIT THIS
+        Version: null,
+        MaxVersion: null,
+      })
+    })
+    return res.status(200).json({
+      UserId,
+      StudyId,
+      Email,
+      Type,
+      SessionToken,
+      Data,
+      ActivityPoints: {
+        SurveyPoint: 0,
+        _3DFigurePoint: 0,
+        CatAndDogPoint: 0,
+        CatAndDogNewPoint: 0,
+        DigitSpanForwardPoint: 0,
+        DigitSpanBackwardPoint: 0,
+        NBackPoint: 0,
+        Serial7Point: 0,
+        SimpleMemoryPoint: 0,
+        SpatialForwardPoint: 0,
+        SpatialBackwardPoint: 0,
+        TrailsBPoint: 0,
+        VisualAssociationPoint: 0,
+        TemporalOrderPoint: 0,
+        NBackNewPoint: 0,
+        TrailsBNewPoint: 0,
+        TrailsBDotTouchPoint: 0,
+        JewelsTrailsAPoint: 0,
+        JewelsTrailsBPoint: 0,
+      },
+      JewelsPoints: {
+        JewelsTrailsATotalBonus: 0,
+        JewelsTrailsBTotalBonus: 0,
+        JewelsTrailsATotalJewels: 0,
+        JewelsTrailsBTotalJewels: 0,
+      },
+      WelcomeText,
+      InstructionVideoLink,
+      CognitionSettings,
+      CTestsFavouriteList,
+      SurveyFavouriteList,
+      ErrorCode: 0,
+      ErrorMessage: "The user has logged in successfully.",
+    } as APIResponse)
   } else {
     return res.status(200).json({
       ErrorCode: 2034,
       ErrorMessage: "Login failed. Please check the specified credentials.",
     } as APIResponse)
   }
+} catch(error) {
+  return res.status(200).json({
+    ErrorCode: 2044,
+    ErrorMessage:error.message,
+  } as APIResponse)
+}
 })
 
 // Route: /ForgotPassword
@@ -1551,13 +1388,14 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
         }
         BatchScheduleSurvey_CTestArray.push(BatchScheduleSurvey_CTestObj)
       }
-      let BatchCustomTimeData, BatchScheduleCustomTimeObj;
-      let BatchScheduleCustomTime: any = [];
+      let BatchCustomTimeData, BatchScheduleCustomTimeObj
+      let BatchScheduleCustomTime: any = []
       if (item.schedule.length > 0) {
         let BatchCustomTime: any = []
         if (item.schedule[0].custom_time !== null) {
           item.schedule[0].custom_time.forEach((itemTime: any) => {
-            BatchCustomTimeData = itemTime != null ? new Date(itemTime).toISOString().replace(/T/, " ").replace(/\..+/, "") : null
+            BatchCustomTimeData =
+              itemTime != null ? new Date(itemTime).toISOString().replace(/T/, " ").replace(/\..+/, "") : null
             BatchCustomTime.push(BatchCustomTimeData)
             BatchScheduleCustomTimeObj = {
               BatchScheduleId: ConvertIdFromV1ToV2(act[0].id),
@@ -1765,7 +1603,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
       }
       SurveyIconList.push(SurveyIconListObj)
     }
-      
+
     return res.status(200).json({
       ContactNo,
       PersonalHelpline,
