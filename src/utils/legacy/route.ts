@@ -1435,7 +1435,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
         BatchData.BatchScheduleSurvey_CTest = BatchScheduleSurvey_CTestArray
         BatchData.BatchScheduleCustomTime = BatchScheduleCustomTime
       }
-      BatchScheduleList.push(BatchData)
+      BatchScheduleList?.push(BatchData)
     }
 
     // CognitionIconList & CognitionOffList
@@ -1445,32 +1445,39 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
     let ScheduleGameListObj: any = {}
     let ScheduleGameCustomTime: any = []
     if (GameData.length > 0) {
-      let DataFiltered: any
+      let DataFiltered: any, GameCTestID: any
       GameData.forEach(async (item: any, index: any) => {
         let specData = [item.spec]
         DataFiltered = ActivityIndex.filter((cls) => {
           return specData.includes(cls.Name)
         })
+        if (item.spec === "lamp.spatial_span") {
+          GameCTestID = item.settings.type === "forward" ? 4 : 3
+        } else if (item.spec === "lamp.temporal_order") {
+          GameCTestID = item.settings.type === "backward" ? 13 : 12
+        } else {
+          GameCTestID = DataFiltered[0].LegacyCTestID
+        }
         CognitionOffListObj = {
           EncryptId: item.id,
           AdminCTestSettingID: ConvertIdFromV1ToV2(item.id),
-          AdminID: 0, //EDIT THIS
-          CTestID: DataFiltered[0].LegacyCTestID,
+          AdminID: 0,
+          CTestID: GameCTestID,
           CTestName: item.name,
-          Status: true, //EDIT THIS
-          Notification: false, //EDIT THIS
-          IconBlob: null, //EDIT THIS
-          Version: null, //EDIT THIS
-          MaxVersion: null, //EDIT THIS
+          Status: true,
+          Notification: false,
+          IconBlob: null,
+          Version: null,
+          MaxVersion: null,
         }
         CognitionOffList?.push(CognitionOffListObj)
         CognitionIconListObj = {
           EncryptId: item.id,
           AdminCTestSettingID: ConvertIdFromV1ToV2(item.id),
-          AdminID: 0, //EDIT THIS
-          CTestID: DataFiltered[0].LegacyCTestID,
-          IconBlob: null, //EDIT THIS
-          IconBlobString: null, //EDIT THIS
+          AdminID: 0,
+          CTestID: GameCTestID,
+          IconBlob: null,
+          IconBlobString: null,
         }
         CognitionIconList?.push(CognitionIconListObj)
         if (item.schedule.length > 0) {
@@ -1478,12 +1485,12 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
             ScheduleGameListObj = {
               CTestId: DataFiltered[0].LegacyCTestID,
               CTestName: item.name,
-              Version: 0, // EDIT THIS
-              GameType: 1, // EDIT THIS
+              Version: 0,
+              GameType: 1,
               Time: itemSchedule.time,
-              GameScheduleID: index, // EDIT THIS
+              GameScheduleID: index,
               ScheduleDate: itemSchedule.start_date,
-              IsDeleted: false, // EDIT THIS
+              IsDeleted: false,
             }
             if (itemSchedule.custom_time !== null) {
               itemSchedule.custom_time.forEach((itemTime: any) => {
@@ -1566,15 +1573,15 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
             })
           }
           ScheduleSurveyListObj.SlotTimeOptions = ScheduleSurveyCustomTime
-          ScheduleSurveyList.push(ScheduleSurveyListObj)
+          ScheduleSurveyList?.push(ScheduleSurveyListObj)
         }
       } else {
         ScheduleSurveyListObj = {
           EncryptId: itemSurvey.id,
-          SurveyId: ConvertIdFromV1ToV2(itemSurvey.id), //EDIT THIS
-          SurveyScheduleID: k, // EDIT THIS
+          SurveyId: ConvertIdFromV1ToV2(itemSurvey.id),
+          SurveyScheduleID: k,
           SurveyName: itemSurvey.name,
-          IsDeleted: false, // EDIT THIS
+          IsDeleted: false,
         }
         ScheduleSurveyListObj.ScheduleDate = SurveyData[k].schedule.start_date
         ScheduleSurveyListObj.Time = SurveyData[k].schedule.time
@@ -1598,16 +1605,16 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
             "none",
           ].indexOf(SurveyData[k].schedule.repeat_interval) + 1
         ScheduleSurveyListObj.SlotTimeOptions = []
-        ScheduleSurveyList.push(ScheduleSurveyListObj)
+        ScheduleSurveyList?.push(ScheduleSurveyListObj)
       }
       SurveyIconListObj = {
         EncryptId: itemSurvey.id,
         SurveyId: ConvertIdFromV1ToV2(itemSurvey.id),
-        AdminID: 0, //EDIT THIS
-        IconBlob: null, //EDIT THIS
-        IconBlobString: null, //EDIT THIS
+        AdminID: 0,
+        IconBlob: null,
+        IconBlobString: null,
       }
-      SurveyIconList.push(SurveyIconListObj)
+      SurveyIconList?.push(SurveyIconListObj)
     }
 
     return res.status(200).json({
