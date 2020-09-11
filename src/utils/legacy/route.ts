@@ -179,66 +179,74 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
     ErrorMessage?: string
   }
   try {
-    
-  
-  const requestData: APIRequest = req.body
-  const Username: APIRequest["Username"] = requestData.Username
-  const Email: APIRequest["Username"] = requestData.Username
-  const Password: APIRequest["Password"] = requestData.Password
-  if (!Username) {
-    return res.status(422).json({
-      ErrorCode: 2031,
-      ErrorMessage: "Specify Email Address.",
-    } as APIResponse)
-  }
-  if (!Password) {
-    return res.status(422).json({
-      ErrorCode: 2031,
-      ErrorMessage: "Specify Password.",
-    } as APIResponse)
-  }
+    const requestData: APIRequest = req.body
+    const Username: APIRequest["Username"] = requestData.Username
+    const Email: APIRequest["Username"] = requestData.Username
+    const Password: APIRequest["Password"] = requestData.Password
+    if (!Username) {
+      return res.status(422).json({
+        ErrorCode: 2031,
+        ErrorMessage: "Specify Email Address.",
+      } as APIResponse)
+    }
+    if (!Password) {
+      return res.status(422).json({
+        ErrorCode: 2031,
+        ErrorMessage: "Specify Password.",
+      } as APIResponse)
+    }
 
-  //get study id
-  const ParticipantId: any = await CredentialRepository._find(Username, Password)
-  //get usersettings
-  let userSettings = await TypeRepository._get("a", ParticipantId, "lamp.legacy_adapter")
-  const Language: APIRequest["Language"] = requestData.Language
-  let defaultLanguage = Language != "" ? Language : "en"
-  let AppColor = Encrypt("#359FFE")
-  if (userSettings.UserSettings !== undefined) {
-    AppColor = userSettings.UserSettings.AppColor
-    defaultLanguage = Language != "" ? Language : "en"
-  } else {
-    await TypeRepository._set("a", "me", ParticipantId, "lamp.legacy_adapter", {
-      UserSettings: {
-        AppColor: `${AppColor}`,
-        Language: `${defaultLanguage}`,
-        SympSurvey_SlotID: 1,
-        SympSurvey_RepeatID: 1,
-        CognTest_SlotID: 1,
-        CognTest_RepeatID: 1,
-        "24By7ContactNo": "",
-        PersonalHelpline: "",
-        PrefferedSurveys: "",
-        PrefferedCognitions: "",
-      },
-    })
-    userSettings = await TypeRepository._get("a", ParticipantId, "lamp.legacy_adapter")
-  }
-  //take userid from participant id
-  const UserId: APIResponse["UserId"] = ParticipantId.match(/\d+/)[0]
+    //get study id
+    const ParticipantId: any = await CredentialRepository._find(Username, Password)
 
-  const AdminID = 0 //EDIT THIS
-  const StudyId: APIResponse["StudyId"] = Decrypt(ParticipantId)
-  let CTestsFavouriteList: APIResponse["CTestsFavouriteList"] = []
-  let WelcomeText: APIResponse["WelcomeText"] = ""
-  let InstructionVideoLink: APIResponse["InstructionVideoLink"] = ""
-  let SurveyFavouriteList: APIResponse["SurveyFavouriteList"] = []
-  let CognitionSettings: APIResponse["CognitionSettings"] = []
-  let Data: APIResponse["Data"] = {}
-  let SessionToken: APIResponse["SessionToken"] = ""
-  if (userSettings.UserSettings !== undefined) {
+    if (!ParticipantId) {
+      return res.status(200).json({
+        ErrorCode: 2030,
+        ErrorMessage: "Login failed. Please check the specified credentials.",
+      } as APIResponse)
+    }
+    //get usersettings
+    let userSettings = await TypeRepository._get("a", ParticipantId, "lamp.legacy_adapter")
+    const Language: APIRequest["Language"] = requestData.Language
+    let defaultLanguage = Language != "" ? Language : "en"
+    let AppColor = Encrypt("#359FFE")
+    if (userSettings.UserSettings !== undefined) {
+      AppColor = userSettings.UserSettings.AppColor
+      defaultLanguage = Language != "" ? Language : "en"
+    } else {
+      await TypeRepository._set("a", "me", ParticipantId, "lamp.legacy_adapter", {
+        UserSettings: {
+          AppColor: `${AppColor}`,
+          Language: `${defaultLanguage}`,
+          SympSurvey_SlotID: 1,
+          SympSurvey_RepeatID: 1,
+          CognTest_SlotID: 1,
+          CognTest_RepeatID: 1,
+          "24By7ContactNo": "",
+          PersonalHelpline: "",
+          PrefferedSurveys: "",
+          PrefferedCognitions: "",
+        },
+      })
+      userSettings = await TypeRepository._get("a", ParticipantId, "lamp.legacy_adapter")
+    }
+
+    //take userid from participant id
+    const UserId: APIResponse["UserId"] = ParticipantId.match(/\d+/)[0]
+    const AdminID = 0
+    const StudyId: APIResponse["StudyId"] = Decrypt(ParticipantId)
     const Type = 0 //non-guest user
+    let CTestsFavouriteList: APIResponse["CTestsFavouriteList"] = []
+    let WelcomeText: APIResponse["WelcomeText"] = ""
+    let InstructionVideoLink: APIResponse["InstructionVideoLink"] = ""
+    let SurveyFavouriteList: APIResponse["SurveyFavouriteList"] = []
+    let CognitionSettings: APIResponse["CognitionSettings"] = []
+    let Data: APIResponse["Data"] = {}
+    let SessionToken: APIResponse["SessionToken"] = ""
+    //get CTestsFavouriteList
+    CTestsFavouriteList = userSettings.UserCTestFavourite ? userSettings.UserCTestFavourite : []
+    //get SurveyFavouriteList
+    SurveyFavouriteList = userSettings.SurveyFavourite ? userSettings.SurveyFavourite : []
     Data = userSettings
     const APPVersion: APIRequest["APPVersion"] = Encrypt(requestData.APPVersion!)
     // Save login as an event.
@@ -258,32 +266,30 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
     }
     const out = await Database.use("sensor_event").bulk({ docs: [loginEvent] })
     console.dir(out.filter((x) => !!x.error))
-    CTestsFavouriteList = userSettings.UserCTestFavourite ? userSettings.UserCTestFavourite : []
-    SurveyFavouriteList = userSettings.SurveyFavourite ? userSettings.SurveyFavourite : []
-    let CognitionSett = await ActivityRepository._select("58845844586121")
-    console.log("gmm11",CognitionSett)
+    let CognitionSett = await ActivityRepository._select(StudyId)
     let GameData = CognitionSett.filter((x: any) => x.spec !== "lamp.group" && x.spec !== "lamp.survey")
-    console.log("gmm",GameData)
-    // if(GameData.length>0)
-    let DataFiltered: any
-    GameData.forEach(async (item: any, index: any) => {
-      let specData = [item.spec]
-      DataFiltered = ActivityIndex.filter((cls) => {
-        return specData.includes(cls.Name)
-      })
 
-      CognitionSettings?.push({
-        AdminCTestSettingID: ConvertIdFromV1ToV2(item.id),
-        AdminID: 0, //EDIT THIS
-        CTestID: DataFiltered[0].LegacyCTestID,
-        CTestName: item.name,
-        Status: true,
-        Notification: false,
-        IconBlob: null, //EDIT THIS
-        Version: null,
-        MaxVersion: null,
+    if (GameData.length > 0) {
+      let DataFiltered: any
+      GameData.forEach(async (item: any, index: any) => {
+        let specData = [item.spec]
+        DataFiltered = ActivityIndex.filter((cls) => {
+          return specData.includes(cls.Name)
+        })
+
+        CognitionSettings?.push({
+          AdminCTestSettingID: ConvertIdFromV1ToV2(item.id),
+          AdminID: 0,
+          CTestID: DataFiltered[0].LegacyCTestID,
+          CTestName: item.name,
+          Status: true,
+          Notification: false,
+          IconBlob: null,
+          Version: null,
+          MaxVersion: null,
+        })
       })
-    })
+    }
     return res.status(200).json({
       UserId,
       StudyId,
@@ -326,18 +332,18 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
       ErrorCode: 0,
       ErrorMessage: "The user has logged in successfully.",
     } as APIResponse)
-  } else {
+  } catch (error) {
+    let err = error.message
+    let errCode = 2030
+    if (error.message === "403.no-such-credentials") {
+      err = "Login failed. Please check the specified credentials."
+      errCode = 2034
+    }
     return res.status(200).json({
-      ErrorCode: 2034,
-      ErrorMessage: "Login failed. Please check the specified credentials.",
+      ErrorCode: errCode,
+      ErrorMessage: err,
     } as APIResponse)
   }
-} catch(error) {
-  return res.status(200).json({
-    ErrorCode: 2044,
-    ErrorMessage:error.message,
-  } as APIResponse)
-}
 })
 
 // Route: /ForgotPassword
@@ -1429,7 +1435,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
         BatchData.BatchScheduleSurvey_CTest = BatchScheduleSurvey_CTestArray
         BatchData.BatchScheduleCustomTime = BatchScheduleCustomTime
       }
-      BatchScheduleList?.push(BatchData)
+      BatchScheduleList.push(BatchData)
     }
 
     // CognitionIconList & CognitionOffList
@@ -1439,39 +1445,32 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
     let ScheduleGameListObj: any = {}
     let ScheduleGameCustomTime: any = []
     if (GameData.length > 0) {
-      let DataFiltered: any, GameCTestID: any
+      let DataFiltered: any
       GameData.forEach(async (item: any, index: any) => {
         let specData = [item.spec]
         DataFiltered = ActivityIndex.filter((cls) => {
           return specData.includes(cls.Name)
         })
-        if (item.spec === "lamp.spatial_span") {
-          GameCTestID = item.settings.type === "forward" ? 4 : 3
-        } else if (item.spec === "lamp.temporal_order") {
-          GameCTestID = item.settings.type === "backward" ? 13 : 12
-        } else {
-          GameCTestID = DataFiltered[0].LegacyCTestID
-        }
         CognitionOffListObj = {
           EncryptId: item.id,
           AdminCTestSettingID: ConvertIdFromV1ToV2(item.id),
-          AdminID: 0,
-          CTestID: GameCTestID,
+          AdminID: 0, //EDIT THIS
+          CTestID: DataFiltered[0].LegacyCTestID,
           CTestName: item.name,
-          Status: true,
-          Notification: false,
-          IconBlob: null,
-          Version: null,
-          MaxVersion: null,
+          Status: true, //EDIT THIS
+          Notification: false, //EDIT THIS
+          IconBlob: null, //EDIT THIS
+          Version: null, //EDIT THIS
+          MaxVersion: null, //EDIT THIS
         }
         CognitionOffList?.push(CognitionOffListObj)
         CognitionIconListObj = {
           EncryptId: item.id,
           AdminCTestSettingID: ConvertIdFromV1ToV2(item.id),
-          AdminID: 0,
-          CTestID: GameCTestID,
-          IconBlob: null,
-          IconBlobString: null,
+          AdminID: 0, //EDIT THIS
+          CTestID: DataFiltered[0].LegacyCTestID,
+          IconBlob: null, //EDIT THIS
+          IconBlobString: null, //EDIT THIS
         }
         CognitionIconList?.push(CognitionIconListObj)
         if (item.schedule.length > 0) {
@@ -1479,12 +1478,12 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
             ScheduleGameListObj = {
               CTestId: DataFiltered[0].LegacyCTestID,
               CTestName: item.name,
-              Version: 0,
-              GameType: 1,
+              Version: 0, // EDIT THIS
+              GameType: 1, // EDIT THIS
               Time: itemSchedule.time,
-              GameScheduleID: index,
+              GameScheduleID: index, // EDIT THIS
               ScheduleDate: itemSchedule.start_date,
-              IsDeleted: false,
+              IsDeleted: false, // EDIT THIS
             }
             if (itemSchedule.custom_time !== null) {
               itemSchedule.custom_time.forEach((itemTime: any) => {
@@ -1567,15 +1566,15 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
             })
           }
           ScheduleSurveyListObj.SlotTimeOptions = ScheduleSurveyCustomTime
-          ScheduleSurveyList?.push(ScheduleSurveyListObj)
+          ScheduleSurveyList.push(ScheduleSurveyListObj)
         }
       } else {
         ScheduleSurveyListObj = {
           EncryptId: itemSurvey.id,
-          SurveyId: ConvertIdFromV1ToV2(itemSurvey.id),
-          SurveyScheduleID: k,
+          SurveyId: ConvertIdFromV1ToV2(itemSurvey.id), //EDIT THIS
+          SurveyScheduleID: k, // EDIT THIS
           SurveyName: itemSurvey.name,
-          IsDeleted: false,
+          IsDeleted: false, // EDIT THIS
         }
         ScheduleSurveyListObj.ScheduleDate = SurveyData[k].schedule.start_date
         ScheduleSurveyListObj.Time = SurveyData[k].schedule.time
@@ -1599,16 +1598,16 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
             "none",
           ].indexOf(SurveyData[k].schedule.repeat_interval) + 1
         ScheduleSurveyListObj.SlotTimeOptions = []
-        ScheduleSurveyList?.push(ScheduleSurveyListObj)
+        ScheduleSurveyList.push(ScheduleSurveyListObj)
       }
       SurveyIconListObj = {
         EncryptId: itemSurvey.id,
         SurveyId: ConvertIdFromV1ToV2(itemSurvey.id),
-        AdminID: 0,
-        IconBlob: null,
-        IconBlobString: null,
+        AdminID: 0, //EDIT THIS
+        IconBlob: null, //EDIT THIS
+        IconBlobString: null, //EDIT THIS
       }
-      SurveyIconList?.push(SurveyIconListObj)
+      SurveyIconList.push(SurveyIconListObj)
     }
 
     return res.status(200).json({
