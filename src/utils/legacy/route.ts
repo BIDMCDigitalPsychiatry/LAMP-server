@@ -750,101 +750,35 @@ LegacyAPI.post("/SaveUserSetting", [_authorize], async (req: Request, res: Respo
       ErrorMessage: "Specify valid User Id.",
     } as APIResponse)
   }
-  const UserSettingID: any = requestData.UserSettingID
-  if (UserSettingID > 0) {
-    const resultQuery = await SQL!
-      .request()
-      .query("SELECT COUNT(UserID) as count FROM UserSettings WHERE UserSettingID = " + UserSettingID)
-    const resultCount = resultQuery.recordset[0].count
-    if (resultCount > 0) {
-      const updateResult = await SQL!
-        .request()
-        .query(
-          "UPDATE UserSettings SET AppColor = '" +
-            Encrypt(requestData.AppColor!) +
-            "', SympSurvey_SlotID = " +
-            requestData.SympSurveySlotID +
-            ", SympSurvey_Time = '" +
-            requestData.SympSurveySlotTime +
-            "' , SympSurvey_RepeatID = " +
-            requestData.SympSurveyRepeatID +
-            ", CognTest_SlotID = " +
-            requestData.CognTestSlotID +
-            ", CognTest_Time = '" +
-            requestData.CognTestSlotTime +
-            "', CognTest_RepeatID = " +
-            requestData.CognTestRepeatID +
-            ", [24By7ContactNo] = '" +
-            Encrypt(requestData.ContactNo!) +
-            "', PersonalHelpline = '" +
-            Encrypt(requestData.PersonalHelpline!) +
-            "', PrefferedSurveys = '" +
-            Encrypt(requestData.PrefferedSurveys!) +
-            "', PrefferedCognitions = '" +
-            Encrypt(requestData.PrefferedCognitions!) +
-            "', Protocol = '" +
-            requestData.Protocol +
-            "', Language = '" +
-            requestData.Language +
-            "' WHERE UserSettingID = " +
-            UserSettingID
-        )
-      if (updateResult.rowsAffected[0] > 0) {
-        return res.status(200).json({
-          ErrorCode: 0,
-          ErrorMessage: "The user settings have been saved successfully.",
-        } as APIResponse)
-      } else {
-        return res.status(500).json({
-          ErrorCode: 2030,
-          ErrorMessage: "An error occured while updating data.",
-        } as APIResponse)
-      }
-    } else {
-      return res.status(422).json({
-        Data: {},
-        ErrorCode: 2031,
-        ErrorMessage: "Specify valid User Setting Id.",
-      } as APIResponse)
-    }
-  } else {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const result = await SQL!
-      .request()
-      .query(
-        "INSERT into UserSettings (UserID, AppColor, SympSurvey_SlotID, SympSurvey_Time, SympSurvey_RepeatID, CognTest_SlotID, CognTest_Time, CognTest_RepeatID, [24By7ContactNo], PersonalHelpline, PrefferedSurveys, PrefferedCognitions, Protocol, Language) VALUES (" +
-          UserID +
-          ", '" +
-          Encrypt(requestData.AppColor!) +
-          "', " +
-          requestData.SympSurveySlotID +
-          ", '" +
-          requestData.SympSurveySlotTime +
-          "', " +
-          requestData.SympSurveyRepeatID +
-          ", " +
-          requestData.CognTestSlotID +
-          ", '" +
-          requestData.CognTestSlotTime +
-          "', " +
-          requestData.CognTestRepeatID +
-          ", '" +
-          Encrypt(requestData.ContactNo!) +
-          "', '" +
-          Encrypt(requestData.PersonalHelpline!) +
-          "', '" +
-          Encrypt(requestData.PrefferedSurveys!) +
-          "', '" +
-          Encrypt(requestData.PrefferedCognitions!) +
-          "', '" +
-          requestData.Protocol +
-          "', '" +
-          requestData.Language +
-          "' ) "
-      )
+  try {
+    let UserData = (req as any).AuthUser
+    let UserSettings = await TypeRepository._get("a", UserData.StudyId, "lamp.legacy_adapter")
+    await TypeRepository._set("a", "me", UserData.StudyId, "lamp.legacy_adapter", {
+      ...UserSettings,
+      UserSettings: {
+        AppColor: Encrypt(requestData.AppColor!),
+        SympSurvey_SlotID: requestData.SympSurveySlotID,
+        SympSurvey_Time: requestData.SympSurveySlotTime,
+        SympSurvey_RepeatID: requestData.SympSurveyRepeatID,
+        CognTest_SlotID: requestData.CognTestSlotID,
+        CognTest_Time: requestData.CognTestSlotTime,
+        CognTest_RepeatID: requestData.CognTestRepeatID,
+        "24By7ContactNo": Encrypt(requestData.ContactNo!),
+        PersonalHelpline: Encrypt(requestData.PersonalHelpline!),
+        PrefferedSurveys: Encrypt(requestData.PrefferedSurveys!),
+        PrefferedCognitions: Encrypt(requestData.PrefferedCognitions!),
+        Protocol: requestData.Protocol,
+        Language: requestData.Language,
+      },
+    })
     return res.status(200).json({
       ErrorCode: 0,
       ErrorMessage: "The user settings have been saved successfully.",
+    } as APIResponse)
+  } catch (e) {
+    return res.status(500).json({
+      ErrorCode: 2030,
+      ErrorMessage: "An error occured while updating data.",
     } as APIResponse)
   }
 })
@@ -944,22 +878,29 @@ LegacyAPI.post("/SaveUserCTestsFavourite", [_authorize], async (req: Request, re
         ErrorMessage: "Specify valid Type.",
       } as APIResponse)
     }
-    let userData = (req as any).AuthUser
-    let output: any = {}
-    let UserCTestFavourite
-    if (Type == 1) {
-      UserCTestFavourite = { UserID: UserID, SurveyID: requestData.CTestID, FavType: requestData.FavType }
-    } else {
-      UserCTestFavourite = { UserID: UserID, CTestID: requestData.CTestID, FavType: requestData.FavType }
-    }
-    output = await TypeRepository._set("a", "me", userData.StudyId, "lamp.legacy_adapter", { UserCTestFavourite })
+    let UserData = (req as any).AuthUser
+    let UserSettings = await TypeRepository._get("a", UserData.StudyId, "lamp.legacy_adapter")
+    await TypeRepository._set(
+      "a",
+      "me",
+      UserData.StudyId,
+      "lamp.legacy_adapter",
+      Type === 1
+        ? {
+            ...UserSettings,
+            UserSurveyFavourite: { UserID: UserID, SurveyID: requestData.CTestID, FavType: requestData.FavType },
+          }
+        : {
+            ...UserSettings,
+            UserCTestFavourite: { UserID: UserID, CTestID: requestData.CTestID, FavType: requestData.FavType },
+          }
+    )
     return res.status(200).json({
       ErrorCode: 0,
       ErrorMessage: "User CTests Favourite Saved.",
     } as APIResponse)
   } catch (e) {
     return res.status(500).json({
-      Data: {},
       ErrorCode: 2030,
       ErrorMessage: "An error occured while saving data.",
     } as APIResponse)
