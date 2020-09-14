@@ -216,6 +216,13 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
       userSettings = await TypeRepository._get("a", ParticipantId, "lamp.legacy_adapter")
       if (userSettings.UserSettings !== undefined) {
         AppColor = userSettings.UserSettings.AppColor
+        await TypeRepository._set("a", "me", ParticipantId, "lamp.legacy_adapter", {
+          ...userSettings,
+          UserSettings: {
+            AppColor: `${AppColor}`,
+            Language: `${defaultLanguage}`
+          },
+        })
       }
     } catch (error) {
       //if no user setting present, save it
@@ -223,35 +230,13 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
         ...userSettings,
         UserSettings: {
           AppColor: `${AppColor}`,
-          Language: `${defaultLanguage}`,
-          SympSurvey_SlotID: 1,
-          SympSurvey_RepeatID: 1,
-          CognTest_SlotID: 1,
-          CognTest_RepeatID: 1,
-          "24By7ContactNo": "",
-          PersonalHelpline: "",
-          PrefferedSurveys: "",
-          PrefferedCognitions: "",
+          Language: `${defaultLanguage}`
         },
       })
       userSettings = await TypeRepository._get("a", ParticipantId, "lamp.legacy_adapter")
     }
     if (userSettings.UserSettings !== undefined) {
-      await TypeRepository._set("a", "me", ParticipantId, "lamp.legacy_adapter", {
-        ...userSettings,
-        UserSettings: {
-          AppColor: `${AppColor}`,
-          Language: `${defaultLanguage}`,
-          SympSurvey_SlotID: 1,
-          SympSurvey_RepeatID: 1,
-          CognTest_SlotID: 1,
-          CognTest_RepeatID: 1,
-          "24By7ContactNo": "",
-          PersonalHelpline: "",
-          PrefferedSurveys: "",
-          PrefferedCognitions: "",
-        },
-      })
+     
     }
 
     //take userid from participant id
