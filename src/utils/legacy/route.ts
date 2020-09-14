@@ -764,101 +764,35 @@ LegacyAPI.post("/SaveUserSetting", [_authorize], async (req: Request, res: Respo
       ErrorMessage: "Specify valid User Id.",
     } as APIResponse)
   }
-  const UserSettingID: any = requestData.UserSettingID
-  if (UserSettingID > 0) {
-    const resultQuery = await SQL!
-      .request()
-      .query("SELECT COUNT(UserID) as count FROM UserSettings WHERE UserSettingID = " + UserSettingID)
-    const resultCount = resultQuery.recordset[0].count
-    if (resultCount > 0) {
-      const updateResult = await SQL!
-        .request()
-        .query(
-          "UPDATE UserSettings SET AppColor = '" +
-            Encrypt(requestData.AppColor!) +
-            "', SympSurvey_SlotID = " +
-            requestData.SympSurveySlotID +
-            ", SympSurvey_Time = '" +
-            requestData.SympSurveySlotTime +
-            "' , SympSurvey_RepeatID = " +
-            requestData.SympSurveyRepeatID +
-            ", CognTest_SlotID = " +
-            requestData.CognTestSlotID +
-            ", CognTest_Time = '" +
-            requestData.CognTestSlotTime +
-            "', CognTest_RepeatID = " +
-            requestData.CognTestRepeatID +
-            ", [24By7ContactNo] = '" +
-            Encrypt(requestData.ContactNo!) +
-            "', PersonalHelpline = '" +
-            Encrypt(requestData.PersonalHelpline!) +
-            "', PrefferedSurveys = '" +
-            Encrypt(requestData.PrefferedSurveys!) +
-            "', PrefferedCognitions = '" +
-            Encrypt(requestData.PrefferedCognitions!) +
-            "', Protocol = '" +
-            requestData.Protocol +
-            "', Language = '" +
-            requestData.Language +
-            "' WHERE UserSettingID = " +
-            UserSettingID
-        )
-      if (updateResult.rowsAffected[0] > 0) {
-        return res.status(200).json({
-          ErrorCode: 0,
-          ErrorMessage: "The user settings have been saved successfully.",
-        } as APIResponse)
-      } else {
-        return res.status(500).json({
-          ErrorCode: 2030,
-          ErrorMessage: "An error occured while updating data.",
-        } as APIResponse)
-      }
-    } else {
-      return res.status(422).json({
-        Data: {},
-        ErrorCode: 2031,
-        ErrorMessage: "Specify valid User Setting Id.",
-      } as APIResponse)
-    }
-  } else {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const result = await SQL!
-      .request()
-      .query(
-        "INSERT into UserSettings (UserID, AppColor, SympSurvey_SlotID, SympSurvey_Time, SympSurvey_RepeatID, CognTest_SlotID, CognTest_Time, CognTest_RepeatID, [24By7ContactNo], PersonalHelpline, PrefferedSurveys, PrefferedCognitions, Protocol, Language) VALUES (" +
-          UserID +
-          ", '" +
-          Encrypt(requestData.AppColor!) +
-          "', " +
-          requestData.SympSurveySlotID +
-          ", '" +
-          requestData.SympSurveySlotTime +
-          "', " +
-          requestData.SympSurveyRepeatID +
-          ", " +
-          requestData.CognTestSlotID +
-          ", '" +
-          requestData.CognTestSlotTime +
-          "', " +
-          requestData.CognTestRepeatID +
-          ", '" +
-          Encrypt(requestData.ContactNo!) +
-          "', '" +
-          Encrypt(requestData.PersonalHelpline!) +
-          "', '" +
-          Encrypt(requestData.PrefferedSurveys!) +
-          "', '" +
-          Encrypt(requestData.PrefferedCognitions!) +
-          "', '" +
-          requestData.Protocol +
-          "', '" +
-          requestData.Language +
-          "' ) "
-      )
+  try {
+    let UserData = (req as any).AuthUser
+    let UserSettings = await TypeRepository._get("a", UserData.StudyId, "lamp.legacy_adapter")
+    await TypeRepository._set("a", "me", UserData.StudyId, "lamp.legacy_adapter", {
+      ...UserSettings,
+      UserSettings: {
+        AppColor: Encrypt(requestData.AppColor!),
+        SympSurvey_SlotID: requestData.SympSurveySlotID,
+        SympSurvey_Time: requestData.SympSurveySlotTime,
+        SympSurvey_RepeatID: requestData.SympSurveyRepeatID,
+        CognTest_SlotID: requestData.CognTestSlotID,
+        CognTest_Time: requestData.CognTestSlotTime,
+        CognTest_RepeatID: requestData.CognTestRepeatID,
+        "24By7ContactNo": Encrypt(requestData.ContactNo!),
+        PersonalHelpline: Encrypt(requestData.PersonalHelpline!),
+        PrefferedSurveys: Encrypt(requestData.PrefferedSurveys!),
+        PrefferedCognitions: Encrypt(requestData.PrefferedCognitions!),
+        Protocol: requestData.Protocol,
+        Language: requestData.Language,
+      },
+    })
     return res.status(200).json({
       ErrorCode: 0,
       ErrorMessage: "The user settings have been saved successfully.",
+    } as APIResponse)
+  } catch (e) {
+    return res.status(500).json({
+      ErrorCode: 2030,
+      ErrorMessage: "An error occured while updating data.",
     } as APIResponse)
   }
 })
@@ -958,22 +892,29 @@ LegacyAPI.post("/SaveUserCTestsFavourite", [_authorize], async (req: Request, re
         ErrorMessage: "Specify valid Type.",
       } as APIResponse)
     }
-    let userData = (req as any).AuthUser
-    let output: any = {}
-    let UserCTestFavourite
-    if (Type == 1) {
-      UserCTestFavourite = { UserID: UserID, SurveyID: requestData.CTestID, FavType: requestData.FavType }
-    } else {
-      UserCTestFavourite = { UserID: UserID, CTestID: requestData.CTestID, FavType: requestData.FavType }
-    }
-    output = await TypeRepository._set("a", "me", userData.StudyId, "lamp.legacy_adapter", { UserCTestFavourite })
+    let UserData = (req as any).AuthUser
+    let UserSettings = await TypeRepository._get("a", UserData.StudyId, "lamp.legacy_adapter")
+    await TypeRepository._set(
+      "a",
+      "me",
+      UserData.StudyId,
+      "lamp.legacy_adapter",
+      Type === 1
+        ? {
+            ...UserSettings,
+            UserSurveyFavourite: { UserID: UserID, SurveyID: requestData.CTestID, FavType: requestData.FavType },
+          }
+        : {
+            ...UserSettings,
+            UserCTestFavourite: { UserID: UserID, CTestID: requestData.CTestID, FavType: requestData.FavType },
+          }
+    )
     return res.status(200).json({
       ErrorCode: 0,
       ErrorMessage: "User CTests Favourite Saved.",
     } as APIResponse)
   } catch (e) {
     return res.status(500).json({
-      Data: {},
       ErrorCode: 2030,
       ErrorMessage: "An error occured while saving data.",
     } as APIResponse)
@@ -1449,7 +1390,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
         BatchData.BatchScheduleSurvey_CTest = BatchScheduleSurvey_CTestArray
         BatchData.BatchScheduleCustomTime = BatchScheduleCustomTime
       }
-      BatchScheduleList.push(BatchData)
+      BatchScheduleList?.push(BatchData)
     }
 
     // CognitionIconList & CognitionOffList
@@ -1459,32 +1400,39 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
     let ScheduleGameListObj: any = {}
     let ScheduleGameCustomTime: any = []
     if (GameData.length > 0) {
-      let DataFiltered: any
+      let DataFiltered: any, GameCTestID: any
       GameData.forEach(async (item: any, index: any) => {
         let specData = [item.spec]
         DataFiltered = ActivityIndex.filter((cls) => {
           return specData.includes(cls.Name)
         })
+        if (item.spec === "lamp.spatial_span") {
+          GameCTestID = item.settings.type === "forward" ? 4 : 3
+        } else if (item.spec === "lamp.temporal_order") {
+          GameCTestID = item.settings.type === "backward" ? 13 : 12
+        } else {
+          GameCTestID = DataFiltered[0].LegacyCTestID
+        }
         CognitionOffListObj = {
           EncryptId: item.id,
           AdminCTestSettingID: ConvertIdFromV1ToV2(item.id),
-          AdminID: 0, //EDIT THIS
-          CTestID: DataFiltered[0].LegacyCTestID,
+          AdminID: 0,
+          CTestID: GameCTestID,
           CTestName: item.name,
-          Status: true, //EDIT THIS
-          Notification: false, //EDIT THIS
-          IconBlob: null, //EDIT THIS
-          Version: null, //EDIT THIS
-          MaxVersion: null, //EDIT THIS
+          Status: true,
+          Notification: false,
+          IconBlob: null,
+          Version: null,
+          MaxVersion: null,
         }
         CognitionOffList?.push(CognitionOffListObj)
         CognitionIconListObj = {
           EncryptId: item.id,
           AdminCTestSettingID: ConvertIdFromV1ToV2(item.id),
-          AdminID: 0, //EDIT THIS
-          CTestID: DataFiltered[0].LegacyCTestID,
-          IconBlob: null, //EDIT THIS
-          IconBlobString: null, //EDIT THIS
+          AdminID: 0,
+          CTestID: GameCTestID,
+          IconBlob: null,
+          IconBlobString: null,
         }
         CognitionIconList?.push(CognitionIconListObj)
         if (item.schedule.length > 0) {
@@ -1492,12 +1440,12 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
             ScheduleGameListObj = {
               CTestId: DataFiltered[0].LegacyCTestID,
               CTestName: item.name,
-              Version: 0, // EDIT THIS
-              GameType: 1, // EDIT THIS
+              Version: 0,
+              GameType: 1,
               Time: itemSchedule.time,
-              GameScheduleID: index, // EDIT THIS
+              GameScheduleID: index,
               ScheduleDate: itemSchedule.start_date,
-              IsDeleted: false, // EDIT THIS
+              IsDeleted: false,
             }
             if (itemSchedule.custom_time !== null) {
               itemSchedule.custom_time.forEach((itemTime: any) => {
@@ -1580,15 +1528,15 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
             })
           }
           ScheduleSurveyListObj.SlotTimeOptions = ScheduleSurveyCustomTime
-          ScheduleSurveyList.push(ScheduleSurveyListObj)
+          ScheduleSurveyList?.push(ScheduleSurveyListObj)
         }
       } else {
         ScheduleSurveyListObj = {
           EncryptId: itemSurvey.id,
-          SurveyId: ConvertIdFromV1ToV2(itemSurvey.id), //EDIT THIS
-          SurveyScheduleID: k, // EDIT THIS
+          SurveyId: ConvertIdFromV1ToV2(itemSurvey.id),
+          SurveyScheduleID: k,
           SurveyName: itemSurvey.name,
-          IsDeleted: false, // EDIT THIS
+          IsDeleted: false,
         }
         ScheduleSurveyListObj.ScheduleDate = SurveyData[k].schedule.start_date
         ScheduleSurveyListObj.Time = SurveyData[k].schedule.time
@@ -1612,16 +1560,16 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
             "none",
           ].indexOf(SurveyData[k].schedule.repeat_interval) + 1
         ScheduleSurveyListObj.SlotTimeOptions = []
-        ScheduleSurveyList.push(ScheduleSurveyListObj)
+        ScheduleSurveyList?.push(ScheduleSurveyListObj)
       }
       SurveyIconListObj = {
         EncryptId: itemSurvey.id,
         SurveyId: ConvertIdFromV1ToV2(itemSurvey.id),
-        AdminID: 0, //EDIT THIS
-        IconBlob: null, //EDIT THIS
-        IconBlobString: null, //EDIT THIS
+        AdminID: 0,
+        IconBlob: null,
+        IconBlobString: null,
       }
-      SurveyIconList.push(SurveyIconListObj)
+      SurveyIconList?.push(SurveyIconListObj)
     }
 
     return res.status(200).json({
