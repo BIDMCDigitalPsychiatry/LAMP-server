@@ -220,7 +220,15 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
           ...userSettings,
           UserSettings: {
             AppColor: `${AppColor}`,
-            Language: `${defaultLanguage}`
+            Language: `${defaultLanguage}`,
+            SympSurvey_SlotID: 1,
+            SympSurvey_RepeatID: 1,
+            CognTest_SlotID: 1,
+            CognTest_RepeatID: 1,
+            "24By7ContactNo": "",
+            PersonalHelpline: "",
+            PrefferedSurveys: "",
+            PrefferedCognitions: ""
           },
         })
       }
@@ -230,14 +238,19 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
         ...userSettings,
         UserSettings: {
           AppColor: `${AppColor}`,
-          Language: `${defaultLanguage}`
+          Language: `${defaultLanguage}`,
+          SympSurvey_SlotID: 1,
+          SympSurvey_RepeatID: 1,
+          CognTest_SlotID: 1,
+          CognTest_RepeatID: 1,
+          "24By7ContactNo": "",
+          PersonalHelpline: "",
+          PrefferedSurveys: "",
+          PrefferedCognitions: ""
         },
       })
       userSettings = await TypeRepository._get("a", ParticipantId, "lamp.legacy_adapter")
-    }
-    if (userSettings.UserSettings !== undefined) {
-     
-    }
+    }  
 
     //take userid from participant id
     const UserId: APIResponse["UserId"] = ParticipantId.match(/\d+/)[0]
