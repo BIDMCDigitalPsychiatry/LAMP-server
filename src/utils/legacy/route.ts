@@ -940,16 +940,6 @@ LegacyAPI.post("/GetTips", [_authorize], async (req: Request, res: Response) => 
     } as APIResponse)
   }
   let resultData: APIResponse["TipText"] = ""
-  const result = await SQL!
-    .request()
-    .query(
-      "SELECT TipText FROM Tips WHERE IsDeleted = 0 AND AdminID IN (SELECT AdminID FROM Users WHERE UserID = " +
-        UserID +
-        ");"
-    )
-  if (result.recordset.length >= 0 && result.recordset[0] != null) {
-    resultData = result.recordset[0].TipText
-  }
   return res.status(200).json({
     TipText: resultData,
     ErrorCode: 0,
@@ -981,24 +971,6 @@ LegacyAPI.post("/GetBlogs", [_authorize], async (req: Request, res: Response) =>
     } as APIResponse)
   }
   const objData: APIResponse["BlogList"] = []
-  const result = await SQL!
-    .request()
-    .query(
-      "SELECT BlogTitle, BlogText, Content, ImageURL FROM Blogs WHERE IsDeleted = 0 AND AdminID IN (SELECT AdminID FROM Users WHERE UserID = " +
-        UserID +
-        ");"
-    )
-  if (result.recordset.length >= 0) {
-    const resultData = result.recordset
-    for (let k = 0; k < result.recordset.length; k++) {
-      objData[k] = {
-        BlogTitle: resultData[k].BlogTitle,
-        Content: resultData[k].Content,
-        ImageURL: `https://s3.us-east-2.amazonaws.com/${AWSBucketName}/BlogImages/${Decrypt(resultData[k].ImageURL)}`,
-        BlogText: resultData[k].BlogText,
-      }
-    }
-  }
   return res.status(200).json({
     BlogList: objData,
     ErrorCode: 0,
@@ -1027,46 +999,6 @@ LegacyAPI.post("/GetTipsandBlogUpdates", [_authorize], async (req: Request, res:
   }
   let BlogsUpdate: APIResponse["BlogsUpdate"] = false
   let TipsUpdate: APIResponse["TipsUpdate"] = false
-  const resultQuery = await SQL!
-    .request()
-    .query(
-      "SELECT AdminID, BlogsViewedOn, TipsViewedOn FROM Users as u_s JOIN UserSettings as us_s " +
-        "ON u_s.UserID = us_s.UserID WHERE u_s.IsDeleted = 0 AND u_s.UserID = " +
-        UserID
-    )
-  if (resultQuery.recordset.length > 0) {
-    const AdminID = resultQuery.recordset[0].AdminID
-    const BlogsViewedOn = resultQuery.recordset[0].BlogsViewedOn
-    const TipsViewedOn = resultQuery.recordset[0].TipsViewedOn
-    // Blog Checking
-    const blogQuery = await SQL!
-      .request()
-      .query("SELECT CreatedOn, EditedOn FROM Blogs WHERE IsDeleted = 0 AND AdminID = " + AdminID)
-    if (blogQuery.recordset.length > 0) {
-      for (let i = 0; i < blogQuery.recordset.length; i++) {
-        if (blogQuery.recordset[i].CreatedOn !== null && blogQuery.recordset[i].EditedOn !== null) {
-          if (BlogsViewedOn < blogQuery.recordset[i].CreatedOn || BlogsViewedOn < blogQuery.recordset[i].EditedOn) {
-            BlogsUpdate = true
-            break
-          }
-        }
-      }
-    }
-    // Tips Checking
-    const tipsQuery = await SQL!
-      .request()
-      .query("SELECT CreatedOn, EditedOn FROM Tips WHERE IsDeleted = 0 AND AdminID = " + AdminID)
-    if (tipsQuery.recordset.length > 0) {
-      for (let i = 0; i < tipsQuery.recordset.length; i++) {
-        if (tipsQuery.recordset[i].CreatedOn !== null && tipsQuery.recordset[i].EditedOn !== null) {
-          if (TipsViewedOn < tipsQuery.recordset[i].CreatedOn || TipsViewedOn < tipsQuery.recordset[i].EditedOn) {
-            TipsUpdate = true
-            break
-          }
-        }
-      }
-    }
-  }
   return res.status(200).json({
     BlogsUpdate,
     TipsUpdate,
@@ -1642,30 +1574,13 @@ LegacyAPI.post("/GetDistractionSurveys", [_authorize], async (req: Request, res:
       ErrorMessage: "Specify valid CTest Id.",
     } as APIResponse)
   }
-  const resultQuery = await SQL!.request().query("SELECT AdminID FROM Users WHERE IsDeleted = 0 AND UserID = " + UserID)
-  if (resultQuery.recordset.length > 0) {
-    const AdminID: number = resultQuery.recordset[0].AdminID
-    const surveysQuery = await SQL!
-      .request()
-      .query(
-        "SELECT a_cs.SurveyID SurveyId FROM Admin_CTestSurveySettings as a_cs JOIN Survey as s_y " +
-          "ON a_cs.SurveyID = s_y.SurveyID WHERE s_y.IsDeleted = 0 " +
-          " AND a_cs.AdminID = " +
-          AdminID +
-          " AND a_cs.CTestID = " +
-          CTestId
-      )
-    if (surveysQuery.recordset.length > 0) {
-      SurveysList = surveysQuery.recordset
-    }
-  }
   return res.status(200).json({
     Surveys: SurveysList,
     ErrorCode: 0,
     ErrorMessage: "Distraction Surveys Detail.",
   } as APIResponse)
 })
-
+  
 // Route: /GetSurveys // USES SQL
 LegacyAPI.post("/GetSurveys", [_authorize], async (req: Request, res: Response) => {
   interface APIRequest {
