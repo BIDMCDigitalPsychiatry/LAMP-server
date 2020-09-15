@@ -291,6 +291,8 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
     let CognitionSettings: APIResponse["CognitionSettings"] = []
     let Data: APIResponse["Data"] = {}
     let SessionToken: APIResponse["SessionToken"] = ""
+    const appendedSession = Username + ":" + Password
+    SessionToken = Encrypt(appendedSession)
     Data.UserSettingID=Data.UserID=UserId
     Data.AppColor=userSettings.UserSettings.AppColor
     Data.Language=userSettings.UserSettings.Language
