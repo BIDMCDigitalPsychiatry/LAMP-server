@@ -1,13 +1,33 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { SQL, Database, Encrypt, Decrypt, S3, AWSBucketName } from "../../app"
-import { _migrator_lookup_table, Activity_pack_id } from "../../repository/migrate"
+import { _migrator_lookup_table, Activity_pack_id, ActivityIndex } from "../../repository/migrate"
 import sql from "mssql"
 import { Request, Response, Router } from "express"
 import { v4 as uuidv4 } from "uuid"
 import { customAlphabet } from "nanoid"
+import { ActivityRepository } from "../../repository/ActivityRepository"
+import { TypeRepository } from "../../repository/TypeRepository"
+import { CredentialRepository } from "../../repository/CredentialRepository"
 const uuid = customAlphabet("1234567890abcdefghjkmnpqrstvwxyz", 20) // crockford-32
 
 export const LegacyAPI = Router()
+
+/**
+ * To convert string from v1 to v2 https://github.com/darkskyapp/string-hash/blob/master/index.js
+ * @param id string
+ */
+
+export const ConvertIdFromV1ToV2 = (str: any) => {
+  let hash = 5381,
+    i = str.length
+  while (i) {
+    hash = (hash * 33) ^ str.charCodeAt(--i)
+  }
+  /* JavaScript does bitwise operations (like XOR, above) on 32-bit signed
+   * integers. Since we want the results to be always positive, convert the
+   * signed int to an unsigned by doing an unsigned bitshift. */
+  return hash >>> 0
+}
 
 // Authenticate against legacy Bearer session tokens.
 const _authorize = async (req: Request, res: Response, next: any): Promise<void> => {
@@ -23,7 +43,7 @@ const _authorize = async (req: Request, res: Response, next: any): Promise<void>
   // [NEW] Encrypt('Email:Password')
   const result = await SQL!.request().query(`
         SELECT 
-            UserID, StudyId, Email, FirstName, LastName 
+            UserID, StudyId, Email, FirstName, LastName
         FROM Users 
         WHERE SessionToken = '${token[1]}'
     ;`)
@@ -141,7 +161,9 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
       CTestName?: string
       Status?: boolean
       Notification?: boolean
-      IconBlob?: number[]
+      IconBlob?: number[] | null
+      Version: string | null
+      MaxVersion: string | null
     }[]
     CTestsFavouriteList?: {
       UserID?: number
@@ -156,40 +178,85 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
     ErrorCode?: number
     ErrorMessage?: string
   }
-  const requestData: APIRequest = req.body
-  const Username: APIRequest["Username"] = requestData.Username
-  const EncryptEmail: APIRequest["Username"] = Encrypt(requestData.Username!)
-  const Email: APIRequest["Username"] = requestData.Username
-  const Password: APIRequest["Password"] = requestData.Password
-  if (!Username) {
-    return res.status(422).json({
-      ErrorCode: 2031,
-      ErrorMessage: "Specify Email Address.",
-    } as APIResponse)
-  }
-  if (!Password) {
-    return res.status(422).json({
-      ErrorCode: 2031,
-      ErrorMessage: "Specify Password.",
-    } as APIResponse)
-  }
-  const resultQuery: any = await SQL!.request().query(`
-    SELECT UserID, AdminID, StudyId, Status, Password, IsDeleted, IsGuestUser FROM Users WHERE ISNULL(Email, '') = '${EncryptEmail}'
-  `)
-  const resultLength = resultQuery.recordset.length
-  if (resultLength > 0) {
-    const userObj = resultQuery.recordset[0]
-    if (userObj.Status == null || userObj.Status == 0) {
-      return res.status(200).json({
-        ErrorCode: 2044,
-        ErrorMessage: "This user has been deactivated. Please contact the administrator.",
+  try {
+    const requestData: APIRequest = req.body
+    const Username: APIRequest["Username"] = requestData.Username
+    const Email: APIRequest["Username"] = requestData.Username
+    const Password: APIRequest["Password"] = requestData.Password
+    const Language: APIRequest["Language"] = requestData.Language
+    let defaultLanguage = Language != "" ? Language : "en"
+    let AppColor = Encrypt("#359FFE")
+    let ParticipantId: any = ""
+    let userSettings: any = ""
+    if (!Username) {
+      return res.status(422).json({
+        ErrorCode: 2031,
+        ErrorMessage: "Specify Email Address.",
       } as APIResponse)
     }
-    const UserId: APIResponse["UserId"] = userObj.UserID
-    const AdminID = userObj.AdminID
-    const StudyId: APIResponse["StudyId"] = Decrypt(userObj.StudyId)
-    const Language: APIRequest["Language"] = requestData.Language
-    const userSettingsData: any = {}
+    if (!Password) {
+      return res.status(422).json({
+        ErrorCode: 2031,
+        ErrorMessage: "Specify Password.",
+      } as APIResponse)
+    }
+
+    try {
+      //get participant id
+      ParticipantId = await CredentialRepository._find(Username, Password)
+    } catch (error) {
+      return res.status(200).json({
+        ErrorCode: 2034,
+        ErrorMessage: "Login failed. Please check the specified credentials.",
+      } as APIResponse)
+    }
+
+    try {
+      //get usersettings
+      userSettings = await TypeRepository._get("a", ParticipantId, "lamp.legacy_adapter")
+      if (userSettings.UserSettings !== undefined) {
+        AppColor = userSettings.UserSettings.AppColor
+        await TypeRepository._set("a", "me", ParticipantId, "lamp.legacy_adapter", {
+          ...userSettings,
+          UserSettings: {
+            AppColor: `${AppColor}`,
+            Language: `${defaultLanguage}`,
+            SympSurvey_SlotID: 1,
+            SympSurvey_RepeatID: 1,
+            CognTest_SlotID: 1,
+            CognTest_RepeatID: 1,
+            "24By7ContactNo": "",
+            PersonalHelpline: "",
+            PrefferedSurveys: "",
+            PrefferedCognitions: ""
+          },
+        })
+      }
+    } catch (error) {
+      //if no user setting present, save it
+      await TypeRepository._set("a", "me", ParticipantId, "lamp.legacy_adapter", {
+        ...userSettings,
+        UserSettings: {
+          AppColor: `${AppColor}`,
+          Language: `${defaultLanguage}`,
+          SympSurvey_SlotID: 1,
+          SympSurvey_RepeatID: 1,
+          CognTest_SlotID: 1,
+          CognTest_RepeatID: 1,
+          "24By7ContactNo": "",
+          PersonalHelpline: "",
+          PrefferedSurveys: "",
+          PrefferedCognitions: ""
+        },
+      })
+      userSettings = await TypeRepository._get("a", ParticipantId, "lamp.legacy_adapter")
+    }  
+
+    //take userid from participant id
+    const UserId: APIResponse["UserId"] = ParticipantId.match(/\d+/)[0]
+    
+    const StudyId: APIResponse["StudyId"] = Decrypt(ParticipantId)
+    const Type = 0 //non-guest user
     let CTestsFavouriteList: APIResponse["CTestsFavouriteList"] = []
     let WelcomeText: APIResponse["WelcomeText"] = ""
     let InstructionVideoLink: APIResponse["InstructionVideoLink"] = ""
@@ -197,290 +264,98 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
     let CognitionSettings: APIResponse["CognitionSettings"] = []
     let Data: APIResponse["Data"] = {}
     let SessionToken: APIResponse["SessionToken"] = ""
-    const DecryptedPswd = Decrypt(userObj.Password, "AES256")
-    if (DecryptedPswd == Password) {
-      // Decrypt password and check
-      if (userObj.IsDeleted == 1) {
-        return res.status(200).json({
-          ErrorCode: 2050,
-          ErrorMessage: "User account has been deleted.",
-        } as APIResponse)
-      } else {
-        const appendedSession = Username + ":" + Password
-        SessionToken = Encrypt(appendedSession)
-        const Type = userObj.IsGuestUser == 1 ? userObj.IsGuestUser : 0
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const updateUserSettings = await SQL!.request().query(`
-          UPDATE UserSettings
-          SET Language = '${Language}' 
-          WHERE UserID = ${UserId}
-        `)
-        const userSettingsQuery: any = await SQL!.request().query(`
-          SELECT
-            UserSettingID,
-            UserID,
-            AppColor,
-            SympSurvey_SlotID,
-            SympSurvey_Time,
-            SympSurvey_RepeatID,
-            CognTest_SlotID,
-            CognTest_Time,
-            CognTest_RepeatID,
-            [24By7ContactNo] ContactNo,
-            PersonalHelpline,
-            PrefferedSurveys,
-            PrefferedCognitions,
-            Protocol,
-            Language,
-            ProtocolDate
-          FROM UserSettings
-          WHERE UserID = ${UserId}
-        `)
-        const userSettingsLength = userSettingsQuery.recordset.length
-        if (userSettingsLength > 0) {
-          const userSetting: any = userSettingsQuery.recordset[0]
-          userSettingsData.UserSettingID = userSetting.UserSettingID
-          userSettingsData.UserID = userSetting.UserID
-          userSettingsData.AppColor = Decrypt(userSetting.AppColor)
-          if (userSetting.SympSurvey_SlotID != null) userSettingsData.SympSurveySlotID = userSetting.SympSurvey_SlotID
-          if (userSetting.SympSurvey_Time == null) userSettingsData.SympSurveySlotTime = null
-          else userSettingsData.SympSurveySlotTime = userSetting.SympSurvey_Time
-          if (userSetting.SympSurvey_RepeatID != null)
-            userSettingsData.SympSurveyRepeatID = userSetting.SympSurvey_RepeatID
-          if (userSetting.CognTest_SlotID != null) userSettingsData.CognTestSlotID = userSetting.CognTest_SlotID
-          if (userSetting.CognTest_Time == null) userSettingsData.CognTestSlotTime = null
-          else userSettingsData.CognTestSlotTime = userSetting.CognTest_Time
-          if (userSetting.CognTest_RepeatID != null) userSettingsData.CognTestRepeatID = userSetting.CognTest_RepeatID
-          userSettingsData.ContactNo =
-            userSetting.ContactNo === null || userSetting.ContactNo === "" ? "" : Decrypt(userSetting.ContactNo)
-          userSettingsData.PersonalHelpline =
-            userSetting.PersonalHelpline === null || userSetting.PersonalHelpline === ""
-              ? ""
-              : Decrypt(userSetting.PersonalHelpline)
-          userSettingsData.PrefferedSurveys =
-            userSetting.PrefferedSurveys === null || userSetting.PrefferedSurveys === ""
-              ? ""
-              : Decrypt(userSetting.PrefferedSurveys)
-          userSettingsData.PrefferedCognitions =
-            userSetting.PrefferedCognitions === null || userSetting.PrefferedCognitions === ""
-              ? ""
-              : Decrypt(userSetting.PrefferedCognitions)
-          userSettingsData.Protocol = userSetting.Protocol
-          userSettingsData.Language = userSetting.Language
-          userSettingsData.ProtocolDate = new Date(0).toISOString().replace(/T/, " ").replace(/\..+/, "")
-        } else {
-          const defaultLanguage = Language != "" ? Language : "en"
-          const AppColor = Encrypt("#359FFE")
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const result = await SQL!
-            .request()
-            .query(
-              "INSERT into UserSettings (UserID, AppColor, SympSurvey_SlotID, SympSurvey_RepeatID, CognTest_SlotID, CognTest_RepeatID, [24By7ContactNo], PersonalHelpline, PrefferedSurveys, PrefferedCognitions, Language) VALUES (" +
-                UserId +
-                ", '" +
-                AppColor +
-                "', 1, 1, 1, 1, '', '', '', '', '" +
-                defaultLanguage +
-                "' ) "
-            )
-          const userSettingsQuery: any = await SQL!
-            .request()
-            .query(
-              "SELECT UserSettingID, UserID, AppColor, SympSurvey_SlotID, SympSurvey_Time, SympSurvey_RepeatID, " +
-                " CognTest_SlotID, CognTest_Time, CognTest_RepeatID, [24By7ContactNo] ContactNo, PersonalHelpline, PrefferedSurveys, " +
-                " PrefferedCognitions, Protocol, Language, ProtocolDate " +
-                " FROM UserSettings WHERE UserID = " +
-                UserId
-            )
-          const userSettingsLength = userSettingsQuery.recordset.length
-          if (userSettingsLength > 0) {
-            const userSetting: any = userSettingsQuery.recordset[0]
-            userSettingsData.UserSettingID = userSetting.UserSettingID
-            userSettingsData.UserID = userSetting.UserID
-            userSettingsData.AppColor = Decrypt(userSetting.AppColor)
-            if (userSetting.SympSurvey_SlotID != null) userSettingsData.SympSurveySlotID = userSetting.SympSurvey_SlotID
-            if (userSetting.SympSurvey_Time == null) userSettingsData.SympSurveySlotTime = null
-            else userSettingsData.SympSurveySlotTime = userSetting.SympSurvey_Time.Value
-            if (userSetting.SympSurvey_RepeatID != null)
-              userSettingsData.SympSurveyRepeatID = userSetting.SympSurvey_RepeatID
-            if (userSetting.CognTest_SlotID != null) userSettingsData.CognTestSlotID = userSetting.CognTest_SlotID
-            if (userSetting.CognTest_Time == null) userSettingsData.CognTestSlotTime = null
-            else userSettingsData.CognTestSlotTime = userSetting.CognTest_Time.Value
-            if (userSetting.CognTest_RepeatID != null) userSettingsData.CognTestRepeatID = userSetting.CognTest_RepeatID
-            userSettingsData.ContactNo =
-              userSetting.ContactNo === null || userSetting.ContactNo === "" ? "" : Decrypt(userSetting.ContactNo)
-            userSettingsData.PersonalHelpline =
-              userSetting.PersonalHelpline === null || userSetting.PersonalHelpline === ""
-                ? ""
-                : Decrypt(userSetting.PersonalHelpline)
-            userSettingsData.PrefferedSurveys =
-              userSetting.PrefferedSurveys === null || userSetting.PrefferedSurveys === ""
-                ? ""
-                : Decrypt(userSetting.PrefferedSurveys)
-            userSettingsData.PrefferedCognitions =
-              userSetting.PrefferedCognitions === null || userSetting.PrefferedCognitions === ""
-                ? ""
-                : Decrypt(userSetting.PrefferedCognitions)
-            userSettingsData.Protocol = userSetting.Protocol
-            userSettingsData.Language = userSetting.Language
-            userSettingsData.ProtocolDate = new Date(0).toISOString().replace(/T/, " ").replace(/\..+/, "")
-          }
-        }
-        Data = userSettingsData
-        const APPVersion: APIRequest["APPVersion"] = Encrypt(requestData.APPVersion!)
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const updateUserData = await SQL!
-          .request()
-          .query(
-            "UPDATE Users SET SessionToken = '" +
-              SessionToken +
-              "' ,  APPVersion = '" +
-              APPVersion +
-              "' , EditedOn = GETUTCDATE() WHERE UserID = " +
-              UserId
-          )
-        const userDeviceQuery: any = await SQL!
-          .request()
-          .query("SELECT UserDeviceID FROM UserDevices WHERE UserID = " + UserId + " ORDER By LastLoginOn DESC")
-        if (userDeviceQuery.recordset.length > 0) {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const updateUserDevice = await SQL!
-            .request()
-            .query(
-              "UPDATE UserDevices SET DeviceType = '" +
-                requestData.DeviceType +
-                "' , DeviceID = '" +
-                Encrypt(requestData.DeviceID!) +
-                "', DeviceToken = '" +
-                Encrypt(requestData.DeviceToken!) +
-                "' , LastLoginOn = GETUTCDATE() , OSVersion = '" +
-                requestData.OSVersion +
-                "' , DeviceModel = '" +
-                requestData.DeviceModel +
-                "' WHERE UserDeviceID = " +
-                userDeviceQuery.recordset[0].UserDeviceID
-            )
-        } else {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const insertUserDevice = await SQL!
-            .request()
-            .query(
-              "INSERT into UserDevices (UserID, DeviceType, DeviceID, DeviceToken, LastLoginOn, OSVersion, DeviceModel) VALUES (" +
-                UserId +
-                ", '" +
-                requestData.DeviceType +
-                "', '" +
-                Encrypt(requestData.DeviceID!) +
-                "', '" +
-                Encrypt(requestData.DeviceToken!) +
-                "', GETUTCDATE() , '" +
-                requestData.OSVersion +
-                "', '" +
-                requestData.DeviceModel +
-                "' ) "
-            )
-        }
-        // Save login as an event.
-        const loginEvent = {
-          "#parent": StudyId,
-          timestamp: new Date().getTime(),
-          sensor: "lamp.analytics",
-          data: {
-            device_type: requestData.DeviceType! == 1 ? "iOS" : requestData.DeviceType! == 2 ? "Android" : "Unknown",
-            event_type: "login",
-            device_id: requestData.DeviceID!,
-            device_token: requestData.DeviceToken!,
-            os_version: requestData.OSVersion!,
-            app_version: requestData.APPVersion!,
-            device_model: requestData.DeviceModel!,
-          },
-        }
-        const out = await Database.use("sensor_event").bulk({ docs: [loginEvent] })
-        console.dir(out.filter((x) => !!x.error))
-
-        // User CTests Favourite
-        const FavouriteCtestQuery: any = await SQL!
-          .request()
-          .query("SELECT UserID, CTestID, FavType FROM UserFavouriteCTests WHERE UserID = " + UserId)
-        CTestsFavouriteList = FavouriteCtestQuery.recordset.length > 0 ? FavouriteCtestQuery.recordset : []
-
-        // User Survey Favourite
-        const FavouriteSurveyQuery: any = await SQL!
-          .request()
-          .query("SELECT UserID, SurveyID, FavType FROM UserFavouriteSurveys WHERE UserID = " + UserId)
-        SurveyFavouriteList = FavouriteSurveyQuery.recordset.length > 0 ? FavouriteSurveyQuery.recordset : []
-
-        // Get Admin WelcomeText & InstructionVideoLink
-        const AdminSettingsQuery: any = await SQL!
-          .request()
-          .query("SELECT WelcomeMessage, InstructionVideoLink FROM Admin_Settings WHERE AdminID = " + AdminID)
-        WelcomeText = AdminSettingsQuery.recordset.length > 0 ? AdminSettingsQuery.recordset[0].WelcomeMessage : ""
-        InstructionVideoLink =
-          AdminSettingsQuery.recordset.length > 0 ? AdminSettingsQuery.recordset[0].InstructionVideoLink : ""
-
-        //CognitionSettings
-        const CognitionSettingsQuery: any = await SQL!
-          .request()
-          .query(
-            "SELECT a_ct.AdminCTestSettingID, a_ct.Notification, a_ct.AdminID, a_ct.CTestID, c_t.CTestName, NULL AS Status, NULL AS IconBlob, NULL AS Version, NULL AS MaxVersion FROM Admin_CTestSettings as a_ct JOIN CTest as c_t ON a_ct.CTestID = c_t.CTestID WHERE a_ct.AdminID = " +
-              AdminID +
-              " AND a_ct.Notification = 1  AND c_t.IsDeleted = 0"
-          )
-        CognitionSettings = CognitionSettingsQuery.recordset.length > 0 ? CognitionSettingsQuery.recordset : []
-
-        return res.status(200).json({
-          UserId,
-          StudyId,
-          Email,
-          Type,
-          SessionToken,
-          Data,
-          ActivityPoints: {
-            SurveyPoint: 0,
-            _3DFigurePoint: 0,
-            CatAndDogPoint: 0,
-            CatAndDogNewPoint: 0,
-            DigitSpanForwardPoint: 0,
-            DigitSpanBackwardPoint: 0,
-            NBackPoint: 0,
-            Serial7Point: 0,
-            SimpleMemoryPoint: 0,
-            SpatialForwardPoint: 0,
-            SpatialBackwardPoint: 0,
-            TrailsBPoint: 0,
-            VisualAssociationPoint: 0,
-            TemporalOrderPoint: 0,
-            NBackNewPoint: 0,
-            TrailsBNewPoint: 0,
-            TrailsBDotTouchPoint: 0,
-            JewelsTrailsAPoint: 0,
-            JewelsTrailsBPoint: 0,
-          },
-          JewelsPoints: {
-            JewelsTrailsATotalBonus: 0,
-            JewelsTrailsBTotalBonus: 0,
-            JewelsTrailsATotalJewels: 0,
-            JewelsTrailsBTotalJewels: 0,
-          },
-          WelcomeText,
-          InstructionVideoLink,
-          CognitionSettings,
-          CTestsFavouriteList,
-          SurveyFavouriteList,
-          ErrorCode: 0,
-          ErrorMessage: "The user has logged in successfully.",
-        } as APIResponse)
-      }
-    } else {
-      return res.status(200).json({
-        ErrorCode: 2034,
-        ErrorMessage: "Login failed. Please check the specified credentials.",
-      } as APIResponse)
+    Data = userSettings
+    //get CTestsFavouriteList
+    CTestsFavouriteList = userSettings.UserCTestFavourite ? userSettings.UserCTestFavourite : []
+    //get SurveyFavouriteList
+    SurveyFavouriteList = userSettings.SurveyFavourite ? userSettings.SurveyFavourite : []
+    // Save login as an event.
+    const loginEvent = {
+      "#parent": StudyId,
+      timestamp: new Date().getTime(),
+      sensor: "lamp.analytics",
+      data: {
+        device_type: requestData.DeviceType! == 1 ? "iOS" : requestData.DeviceType! == 2 ? "Android" : "Unknown",
+        event_type: "login",
+        device_id: requestData.DeviceID!,
+        device_token: requestData.DeviceToken!,
+        os_version: requestData.OSVersion!,
+        app_version: requestData.APPVersion!,
+        device_model: requestData.DeviceModel!,
+      },
     }
-  } else {
+    const out = await Database.use("sensor_event").bulk({ docs: [loginEvent] })
+    console.dir(out.filter((x) => !!x.error))
+    let CognitionSett = await ActivityRepository._select(StudyId)
+    let GameData = CognitionSett.filter((x: any) => x.spec !== "lamp.group" && x.spec !== "lamp.survey")
+
+    if (GameData.length > 0) {
+      let DataFiltered: any
+      GameData.forEach(async (item: any, index: any) => {
+        let specData = [item.spec]
+        DataFiltered = ActivityIndex.filter((cls) => {
+          return specData.includes(cls.Name)
+        })
+
+        CognitionSettings?.push({
+          AdminCTestSettingID: ConvertIdFromV1ToV2(item.id),
+          AdminID: 0,
+          CTestID: DataFiltered[0].LegacyCTestID,
+          CTestName: item.name,
+          Status: true,
+          Notification: false,
+          IconBlob: null,
+          Version: null,
+          MaxVersion: null,
+        })
+      })
+    }
     return res.status(200).json({
-      ErrorCode: 2034,
-      ErrorMessage: "Login failed. Please check the specified credentials.",
+      UserId,
+      StudyId,
+      Email,
+      Type,
+      SessionToken,
+      Data,
+      ActivityPoints: {
+        SurveyPoint: 0,
+        _3DFigurePoint: 0,
+        CatAndDogPoint: 0,
+        CatAndDogNewPoint: 0,
+        DigitSpanForwardPoint: 0,
+        DigitSpanBackwardPoint: 0,
+        NBackPoint: 0,
+        Serial7Point: 0,
+        SimpleMemoryPoint: 0,
+        SpatialForwardPoint: 0,
+        SpatialBackwardPoint: 0,
+        TrailsBPoint: 0,
+        VisualAssociationPoint: 0,
+        TemporalOrderPoint: 0,
+        NBackNewPoint: 0,
+        TrailsBNewPoint: 0,
+        TrailsBDotTouchPoint: 0,
+        JewelsTrailsAPoint: 0,
+        JewelsTrailsBPoint: 0,
+      },
+      JewelsPoints: {
+        JewelsTrailsATotalBonus: 0,
+        JewelsTrailsBTotalBonus: 0,
+        JewelsTrailsATotalJewels: 0,
+        JewelsTrailsBTotalJewels: 0,
+      },
+      WelcomeText,
+      InstructionVideoLink,
+      CognitionSettings,
+      CTestsFavouriteList,
+      SurveyFavouriteList,
+      ErrorCode: 0,
+      ErrorMessage: "The user has logged in successfully.",
+    } as APIResponse)
+  } catch (error) {
+    return res.status(200).json({
+      ErrorCode: 2030,
+      ErrorMessage: error.message,
     } as APIResponse)
   }
 })
@@ -889,101 +764,35 @@ LegacyAPI.post("/SaveUserSetting", [_authorize], async (req: Request, res: Respo
       ErrorMessage: "Specify valid User Id.",
     } as APIResponse)
   }
-  const UserSettingID: any = requestData.UserSettingID
-  if (UserSettingID > 0) {
-    const resultQuery = await SQL!
-      .request()
-      .query("SELECT COUNT(UserID) as count FROM UserSettings WHERE UserSettingID = " + UserSettingID)
-    const resultCount = resultQuery.recordset[0].count
-    if (resultCount > 0) {
-      const updateResult = await SQL!
-        .request()
-        .query(
-          "UPDATE UserSettings SET AppColor = '" +
-            Encrypt(requestData.AppColor!) +
-            "', SympSurvey_SlotID = " +
-            requestData.SympSurveySlotID +
-            ", SympSurvey_Time = '" +
-            requestData.SympSurveySlotTime +
-            "' , SympSurvey_RepeatID = " +
-            requestData.SympSurveyRepeatID +
-            ", CognTest_SlotID = " +
-            requestData.CognTestSlotID +
-            ", CognTest_Time = '" +
-            requestData.CognTestSlotTime +
-            "', CognTest_RepeatID = " +
-            requestData.CognTestRepeatID +
-            ", [24By7ContactNo] = '" +
-            Encrypt(requestData.ContactNo!) +
-            "', PersonalHelpline = '" +
-            Encrypt(requestData.PersonalHelpline!) +
-            "', PrefferedSurveys = '" +
-            Encrypt(requestData.PrefferedSurveys!) +
-            "', PrefferedCognitions = '" +
-            Encrypt(requestData.PrefferedCognitions!) +
-            "', Protocol = '" +
-            requestData.Protocol +
-            "', Language = '" +
-            requestData.Language +
-            "' WHERE UserSettingID = " +
-            UserSettingID
-        )
-      if (updateResult.rowsAffected[0] > 0) {
-        return res.status(200).json({
-          ErrorCode: 0,
-          ErrorMessage: "The user settings have been saved successfully.",
-        } as APIResponse)
-      } else {
-        return res.status(500).json({
-          ErrorCode: 2030,
-          ErrorMessage: "An error occured while updating data.",
-        } as APIResponse)
-      }
-    } else {
-      return res.status(422).json({
-        Data: {},
-        ErrorCode: 2031,
-        ErrorMessage: "Specify valid User Setting Id.",
-      } as APIResponse)
-    }
-  } else {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const result = await SQL!
-      .request()
-      .query(
-        "INSERT into UserSettings (UserID, AppColor, SympSurvey_SlotID, SympSurvey_Time, SympSurvey_RepeatID, CognTest_SlotID, CognTest_Time, CognTest_RepeatID, [24By7ContactNo], PersonalHelpline, PrefferedSurveys, PrefferedCognitions, Protocol, Language) VALUES (" +
-          UserID +
-          ", '" +
-          Encrypt(requestData.AppColor!) +
-          "', " +
-          requestData.SympSurveySlotID +
-          ", '" +
-          requestData.SympSurveySlotTime +
-          "', " +
-          requestData.SympSurveyRepeatID +
-          ", " +
-          requestData.CognTestSlotID +
-          ", '" +
-          requestData.CognTestSlotTime +
-          "', " +
-          requestData.CognTestRepeatID +
-          ", '" +
-          Encrypt(requestData.ContactNo!) +
-          "', '" +
-          Encrypt(requestData.PersonalHelpline!) +
-          "', '" +
-          Encrypt(requestData.PrefferedSurveys!) +
-          "', '" +
-          Encrypt(requestData.PrefferedCognitions!) +
-          "', '" +
-          requestData.Protocol +
-          "', '" +
-          requestData.Language +
-          "' ) "
-      )
+  try {
+    let UserData = (req as any).AuthUser
+    let UserSettings = await TypeRepository._get("a", UserData.StudyId, "lamp.legacy_adapter")
+    await TypeRepository._set("a", "me", UserData.StudyId, "lamp.legacy_adapter", {
+      ...UserSettings,
+      UserSettings: {
+        AppColor: Encrypt(requestData.AppColor!),
+        SympSurvey_SlotID: requestData.SympSurveySlotID,
+        SympSurvey_Time: requestData.SympSurveySlotTime,
+        SympSurvey_RepeatID: requestData.SympSurveyRepeatID,
+        CognTest_SlotID: requestData.CognTestSlotID,
+        CognTest_Time: requestData.CognTestSlotTime,
+        CognTest_RepeatID: requestData.CognTestRepeatID,
+        "24By7ContactNo": Encrypt(requestData.ContactNo!),
+        PersonalHelpline: Encrypt(requestData.PersonalHelpline!),
+        PrefferedSurveys: Encrypt(requestData.PrefferedSurveys!),
+        PrefferedCognitions: Encrypt(requestData.PrefferedCognitions!),
+        Protocol: requestData.Protocol,
+        Language: requestData.Language,
+      },
+    })
     return res.status(200).json({
       ErrorCode: 0,
       ErrorMessage: "The user settings have been saved successfully.",
+    } as APIResponse)
+  } catch (e) {
+    return res.status(500).json({
+      ErrorCode: 2030,
+      ErrorMessage: "An error occured while updating data.",
     } as APIResponse)
   }
 })
@@ -1014,47 +823,31 @@ LegacyAPI.post("/GetUserSetting", [_authorize], async (req: Request, res: Respon
     ErrorCode?: number
     ErrorMessage?: string
   }
-  const requestData: APIRequest = req.body
-  const UserID: any = requestData.UserID
-  if (!UserID || !Number.isInteger(Number(UserID)) || UserID == 0) {
-    return res.status(422).json({
+  try {
+    const requestData: APIRequest = req.body
+    const UserID: any = requestData.UserID
+    if (!UserID || !Number.isInteger(Number(UserID)) || UserID == 0) {
+      return res.status(422).json({
+        Data: {},
+        ErrorCode: 2031,
+        ErrorMessage: "Specify valid User Id.",
+      } as APIResponse)
+    }
+    let userData = (req as any).AuthUser
+    let output: any = {}
+    output = await TypeRepository._get("a", userData.StudyId, "lamp.legacy_adapter")
+    return res.status(200).json({
+      Data: Object.keys(output).length > 0 ? (output.hasOwnProperty("UserSettings") ? output.UserSettings : {}) : {},
+      ErrorCode: 0,
+      ErrorMessage: "User Setting Details",
+    } as APIResponse)
+  } catch (e) {
+    return res.status(500).json({
       Data: {},
-      ErrorCode: 2031,
-      ErrorMessage: "Specify valid User Id.",
+      ErrorCode: 2030,
+      ErrorMessage: "An error occured while fetching data.",
     } as APIResponse)
   }
-  const result = await SQL!
-    .request()
-    .query(
-      'SELECT UserSettingID, UserID, AppColor, SympSurvey_SlotID SympSurveySlotID, SympSurvey_Time SympSurveySlotTime, SympSurvey_RepeatID SympSurveyRepeatID, CognTest_SlotID CognTestSlotID, CognTest_Time CognTestSlotTime, CognTest_RepeatID CognTestRepeatID, "24By7ContactNo" ContactNo, PersonalHelpline, PrefferedSurveys, PrefferedCognitions, Protocol, ProtocolDate, Language FROM UserSettings WHERE UserID =' +
-        UserID
-    )
-  let objData: APIResponse["Data"] = {}
-  if (result.recordset.length >= 0 && result.recordset[0] != null) {
-    const resultData: any = result.recordset[0]
-    const appColor = resultData.AppColor
-    const ContactNo = resultData.ContactNo
-    const PersonalHelpline = resultData.PersonalHelpline
-    const PrefferedSurveys = resultData.PrefferedSurveys
-    const PrefferedCognitions = resultData.PrefferedCognitions
-    const objData1 = resultData
-    delete objData1.AppColor
-    delete objData1.ContactNo
-    delete objData1.PersonalHelpline
-    delete objData1.PrefferedSurveys
-    delete objData1.PrefferedCognitions
-    objData1.AppColor = Decrypt(appColor)
-    objData1.ContactNo = Decrypt(ContactNo)
-    objData1.PersonalHelpline = Decrypt(PersonalHelpline)
-    objData1.PrefferedSurveys = Decrypt(PrefferedSurveys)
-    objData1.PrefferedCognitions = Decrypt(PrefferedCognitions)
-    objData = objData1
-  }
-  return res.status(200).json({
-    Data: objData,
-    ErrorCode: 0,
-    ErrorMessage: "User Setting Details",
-  } as APIResponse)
 })
 
 // Route: /SaveUserCTestsFavourite // USES SQL
@@ -1069,67 +862,63 @@ LegacyAPI.post("/SaveUserCTestsFavourite", [_authorize], async (req: Request, re
     ErrorCode?: number
     ErrorMessage?: string
   }
-  const requestData: APIRequest = req.body
-  const UserID: any = requestData.UserId
-  if (!UserID || !Number.isInteger(Number(UserID)) || UserID == 0) {
-    return res.status(422).json({
-      ErrorCode: 2031,
-      ErrorMessage: "Specify valid User Id.",
+  try {
+    const requestData: APIRequest = req.body
+    const UserID: any = requestData.UserId
+    if (!UserID || !Number.isInteger(Number(UserID)) || UserID == 0) {
+      return res.status(422).json({
+        ErrorCode: 2031,
+        ErrorMessage: "Specify valid User Id.",
+      } as APIResponse)
+    }
+    const CTestID: any = requestData.CTestID
+    if (!Number.isInteger(CTestID)) {
+      return res.status(422).json({
+        ErrorCode: 2031,
+        ErrorMessage: "Specify valid CTestID.",
+      } as APIResponse)
+    }
+    const FavType: any = requestData.FavType
+    if (!Number.isInteger(FavType)) {
+      return res.status(422).json({
+        ErrorCode: 2031,
+        ErrorMessage: "Specify valid FavType.",
+      } as APIResponse)
+    }
+    const Type: any = requestData.Type
+    if (Type != 1 && Type != 2) {
+      return res.status(422).json({
+        ErrorCode: 2031,
+        ErrorMessage: "Specify valid Type.",
+      } as APIResponse)
+    }
+    let UserData = (req as any).AuthUser
+    let UserSettings = await TypeRepository._get("a", UserData.StudyId, "lamp.legacy_adapter")
+    await TypeRepository._set(
+      "a",
+      "me",
+      UserData.StudyId,
+      "lamp.legacy_adapter",
+      Type === 1
+        ? {
+            ...UserSettings,
+            UserSurveyFavourite: { UserID: UserID, SurveyID: requestData.CTestID, FavType: requestData.FavType },
+          }
+        : {
+            ...UserSettings,
+            UserCTestFavourite: { UserID: UserID, CTestID: requestData.CTestID, FavType: requestData.FavType },
+          }
+    )
+    return res.status(200).json({
+      ErrorCode: 0,
+      ErrorMessage: "User CTests Favourite Saved.",
+    } as APIResponse)
+  } catch (e) {
+    return res.status(500).json({
+      ErrorCode: 2030,
+      ErrorMessage: "An error occured while saving data.",
     } as APIResponse)
   }
-  const CTestID: any = requestData.CTestID
-  if (!Number.isInteger(CTestID)) {
-    return res.status(422).json({
-      ErrorCode: 2031,
-      ErrorMessage: "Specify valid CTestID.",
-    } as APIResponse)
-  }
-  const FavType: any = requestData.FavType
-  if (!Number.isInteger(FavType)) {
-    return res.status(422).json({
-      ErrorCode: 2031,
-      ErrorMessage: "Specify valid FavType.",
-    } as APIResponse)
-  }
-  const Type: any = requestData.Type
-  if (Type != 1 && Type != 2) {
-    return res.status(422).json({
-      ErrorCode: 2031,
-      ErrorMessage: "Specify valid Type.",
-    } as APIResponse)
-  }
-
-  if (Type == 1) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const result = await SQL!
-      .request()
-      .query(
-        "INSERT into UserFavouriteSurveys (UserID, SurveyID, FavType) VALUES (" +
-          UserID +
-          "," +
-          requestData.CTestID +
-          "," +
-          requestData.FavType +
-          ") "
-      )
-  } else {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const result = await SQL!
-      .request()
-      .query(
-        "INSERT into UserFavouriteCTests (UserID, CTestID, FavType) VALUES (" +
-          UserID +
-          "," +
-          requestData.CTestID +
-          "," +
-          requestData.FavType +
-          ") "
-      )
-  }
-  return res.status(200).json({
-    ErrorCode: 0,
-    ErrorMessage: "User CTests Favourite Saved.",
-  } as APIResponse)
 })
 
 // Route: /GetTips // USES SQL
@@ -1151,16 +940,6 @@ LegacyAPI.post("/GetTips", [_authorize], async (req: Request, res: Response) => 
     } as APIResponse)
   }
   let resultData: APIResponse["TipText"] = ""
-  const result = await SQL!
-    .request()
-    .query(
-      "SELECT TipText FROM Tips WHERE IsDeleted = 0 AND AdminID IN (SELECT AdminID FROM Users WHERE UserID = " +
-        UserID +
-        ");"
-    )
-  if (result.recordset.length >= 0 && result.recordset[0] != null) {
-    resultData = result.recordset[0].TipText
-  }
   return res.status(200).json({
     TipText: resultData,
     ErrorCode: 0,
@@ -1192,24 +971,6 @@ LegacyAPI.post("/GetBlogs", [_authorize], async (req: Request, res: Response) =>
     } as APIResponse)
   }
   const objData: APIResponse["BlogList"] = []
-  const result = await SQL!
-    .request()
-    .query(
-      "SELECT BlogTitle, BlogText, Content, ImageURL FROM Blogs WHERE IsDeleted = 0 AND AdminID IN (SELECT AdminID FROM Users WHERE UserID = " +
-        UserID +
-        ");"
-    )
-  if (result.recordset.length >= 0) {
-    const resultData = result.recordset
-    for (let k = 0; k < result.recordset.length; k++) {
-      objData[k] = {
-        BlogTitle: resultData[k].BlogTitle,
-        Content: resultData[k].Content,
-        ImageURL: `https://s3.us-east-2.amazonaws.com/${AWSBucketName}/BlogImages/${Decrypt(resultData[k].ImageURL)}`,
-        BlogText: resultData[k].BlogText,
-      }
-    }
-  }
   return res.status(200).json({
     BlogList: objData,
     ErrorCode: 0,
@@ -1238,46 +999,6 @@ LegacyAPI.post("/GetTipsandBlogUpdates", [_authorize], async (req: Request, res:
   }
   let BlogsUpdate: APIResponse["BlogsUpdate"] = false
   let TipsUpdate: APIResponse["TipsUpdate"] = false
-  const resultQuery = await SQL!
-    .request()
-    .query(
-      "SELECT AdminID, BlogsViewedOn, TipsViewedOn FROM Users as u_s JOIN UserSettings as us_s " +
-        "ON u_s.UserID = us_s.UserID WHERE u_s.IsDeleted = 0 AND u_s.UserID = " +
-        UserID
-    )
-  if (resultQuery.recordset.length > 0) {
-    const AdminID = resultQuery.recordset[0].AdminID
-    const BlogsViewedOn = resultQuery.recordset[0].BlogsViewedOn
-    const TipsViewedOn = resultQuery.recordset[0].TipsViewedOn
-    // Blog Checking
-    const blogQuery = await SQL!
-      .request()
-      .query("SELECT CreatedOn, EditedOn FROM Blogs WHERE IsDeleted = 0 AND AdminID = " + AdminID)
-    if (blogQuery.recordset.length > 0) {
-      for (let i = 0; i < blogQuery.recordset.length; i++) {
-        if (blogQuery.recordset[i].CreatedOn !== null && blogQuery.recordset[i].EditedOn !== null) {
-          if (BlogsViewedOn < blogQuery.recordset[i].CreatedOn || BlogsViewedOn < blogQuery.recordset[i].EditedOn) {
-            BlogsUpdate = true
-            break
-          }
-        }
-      }
-    }
-    // Tips Checking
-    const tipsQuery = await SQL!
-      .request()
-      .query("SELECT CreatedOn, EditedOn FROM Tips WHERE IsDeleted = 0 AND AdminID = " + AdminID)
-    if (tipsQuery.recordset.length > 0) {
-      for (let i = 0; i < tipsQuery.recordset.length; i++) {
-        if (tipsQuery.recordset[i].CreatedOn !== null && tipsQuery.recordset[i].EditedOn !== null) {
-          if (TipsViewedOn < tipsQuery.recordset[i].CreatedOn || TipsViewedOn < tipsQuery.recordset[i].EditedOn) {
-            TipsUpdate = true
-            break
-          }
-        }
-      }
-    }
-  }
   return res.status(200).json({
     BlogsUpdate,
     TipsUpdate,
@@ -1422,6 +1143,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
     ErrorCode?: number
     ErrorMessage?: string
   }
+
   const requestData: APIRequest = req.body
   const UserID: any = requestData.UserID
   if (!UserID || !Number.isInteger(Number(UserID)) || UserID == 0) {
@@ -1445,477 +1167,382 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
   let LastUpdatedSurveyDate: any = ""
   let LastUpdatedGameDate: any = ""
   let LastUpdatedBatchDate: any = ""
-  const resultQuery = await SQL!.request().query("SELECT AdminID FROM Users WHERE IsDeleted = 0 AND UserID = " + UserID)
-  if (resultQuery.recordset.length > 0) {
-    const AdminID: number = resultQuery.recordset[0].AdminID
 
-    // ReminderClearInterval
-    const UserSettingsQuery: any = await SQL!
-      .request()
-      .query("SELECT [24By7ContactNo] ContactNo, PersonalHelpline FROM UserSettings WHERE UserID = " + UserID)
-    ContactNo =
-      UserSettingsQuery.recordset.length > 0
-        ? UserSettingsQuery.recordset[0].ContactNo === null || UserSettingsQuery.recordset[0].ContactNo === ""
-          ? ""
-          : Decrypt(UserSettingsQuery.recordset[0].ContactNo)
-        : ""
-    PersonalHelpline =
-      UserSettingsQuery.recordset.length > 0
-        ? UserSettingsQuery.recordset[0].PersonalHelpline === null ||
-          UserSettingsQuery.recordset[0].PersonalHelpline === ""
-          ? ""
-          : Decrypt(UserSettingsQuery.recordset[0].PersonalHelpline)
-        : ""
-
-    // ReminderClearInterval
-    const AdminSettingsQuery: any = await SQL!
-      .request()
-      .query("SELECT ReminderClearInterval FROM Admin_Settings WHERE AdminID = " + AdminID)
-    ReminderClearInterval =
-      AdminSettingsQuery.recordset.length > 0
-        ? AdminSettingsQuery.recordset[0].ReminderClearInterval !== null
-          ? parseInt(AdminSettingsQuery.recordset[0].ReminderClearInterval)
-          : 1
-        : 1
+  try {
+    let UserData = (req as any).AuthUser
+    let Output = await ActivityRepository._select(UserData.StudyId)
 
     // JewelsTrailsASettings
-    const JewelsASettingQuery: any = await SQL!
-      .request()
-      .query(
-        "SELECT NoOfSeconds_Beg, NoOfSeconds_Int, NoOfSeconds_Adv, NoOfSeconds_Exp, NoOfDiamonds, NoOfShapes, NoOfBonusPoints, X_NoOfChangesInLevel, X_NoOfDiamonds, Y_NoOfChangesInLevel, Y_NoOfShapes FROM Admin_JewelsTrailsASettings WHERE AdminID = " +
-          AdminID
-      )
-    JewelsTrailsASettings =
-      JewelsASettingQuery.recordset.length > 0
-        ? JewelsASettingQuery.recordset[0]
-        : {
-            NoOfSeconds_Beg: 90,
-            NoOfSeconds_Int: 30,
-            NoOfSeconds_Adv: 25,
-            NoOfSeconds_Exp: 15,
-            NoOfDiamonds: 25,
-            NoOfShapes: 1,
-            NoOfBonusPoints: 50,
-            X_NoOfChangesInLevel: 1,
-            X_NoOfDiamonds: 1,
-            Y_NoOfChangesInLevel: 1,
-            Y_NoOfShapes: 1,
-          }
+    let JewelsA = Output.filter((x: any) => x.spec === "lamp.jewels_a")
+    if (JewelsA.length > 0) {
+      let JewelsAData = JewelsA[0].settings
+      JewelsTrailsASettings = {
+        NoOfSeconds_Beg: JewelsAData.beginner_seconds,
+        NoOfSeconds_Int: JewelsAData.intermediate_seconds,
+        NoOfSeconds_Adv: JewelsAData.advanced_seconds,
+        NoOfSeconds_Exp: JewelsAData.expert_seconds,
+        NoOfDiamonds: JewelsAData.diamond_count,
+        NoOfShapes: JewelsAData.shape_count,
+        NoOfBonusPoints: JewelsAData.bonus_point_count,
+        X_NoOfChangesInLevel: JewelsAData.x_changes_in_level_count,
+        X_NoOfDiamonds: JewelsAData.x_diamond_count,
+        Y_NoOfChangesInLevel: JewelsAData.y_changes_in_level_count,
+        Y_NoOfShapes: JewelsAData.y_shape_count,
+      }
+    } else {
+      JewelsTrailsASettings = {
+        NoOfSeconds_Beg: 90,
+        NoOfSeconds_Int: 30,
+        NoOfSeconds_Adv: 25,
+        NoOfSeconds_Exp: 15,
+        NoOfDiamonds: 25,
+        NoOfShapes: 1,
+        NoOfBonusPoints: 50,
+        X_NoOfChangesInLevel: 1,
+        X_NoOfDiamonds: 1,
+        Y_NoOfChangesInLevel: 1,
+        Y_NoOfShapes: 1,
+      }
+    }
 
     // JewelsTrailsBSettings
-    const JewelsBSettingQuery: any = await SQL!
-      .request()
-      .query(
-        "SELECT NoOfSeconds_Beg, NoOfSeconds_Int, NoOfSeconds_Adv, NoOfSeconds_Exp, NoOfDiamonds, NoOfShapes, NoOfBonusPoints, X_NoOfChangesInLevel, X_NoOfDiamonds, Y_NoOfChangesInLevel, Y_NoOfShapes FROM Admin_JewelsTrailsBSettings WHERE AdminID = " +
-          AdminID
-      )
-    JewelsTrailsBSettings =
-      JewelsBSettingQuery.recordset.length > 0
-        ? JewelsBSettingQuery.recordset[0]
-        : {
-            NoOfSeconds_Beg: 180,
-            NoOfSeconds_Int: 90,
-            NoOfSeconds_Adv: 60,
-            NoOfSeconds_Exp: 45,
-            NoOfDiamonds: 25,
-            NoOfShapes: 2,
-            NoOfBonusPoints: 50,
-            X_NoOfChangesInLevel: 1,
-            X_NoOfDiamonds: 1,
-            Y_NoOfChangesInLevel: 1,
-            Y_NoOfShapes: 2,
-          }
-
-    // CognitionOffList
-    const CognitionOffListQuery: any = await SQL!
-      .request()
-      .query(
-        "SELECT a_ct.AdminCTestSettingID, a_ct.Notification, a_ct.IconBlob, a_ct.Version, a_ct.AdminID, a_ct.CTestID, c_t.MaxVersions, c_t.CTestName, a_ct.Status FROM Admin_CTestSettings as a_ct JOIN CTest as c_t ON a_ct.CTestID = c_t.CTestID WHERE a_ct.AdminID = " +
-          AdminID +
-          " AND a_ct.Status = 1  AND c_t.IsDeleted = 0"
-      )
-    if (CognitionOffListQuery.recordset.length > 0) {
-      const CognitionOffListArray: any = []
-      let eachCognitionOffList: any
-      let CognitionOffListArray_1: any
-      for (let i = 0, n = CognitionOffListQuery.recordset.length; i < n; ++i) {
-        eachCognitionOffList = CognitionOffListQuery.recordset[i]
-        CognitionOffListArray_1 = {
-          AdminCTestSettingID: parseInt(eachCognitionOffList.AdminCTestSettingID),
-          AdminID: parseInt(eachCognitionOffList.AdminID),
-          CTestID: parseInt(eachCognitionOffList.CTestID),
-          CTestName: eachCognitionOffList.CTestName,
-          Status: eachCognitionOffList.Status,
-          Notification: eachCognitionOffList.Notification,
-          IconBlob:
-            eachCognitionOffList.IconBlob != null
-              ? Buffer.from(eachCognitionOffList.IconBlob).toString("base64")
-              : null,
-          Version: eachCognitionOffList.Version,
-          MaxVersion: eachCognitionOffList.MaxVersions,
-        }
-        CognitionOffListArray[i] = CognitionOffListArray_1
-      }
-      CognitionOffList = CognitionOffListArray
-    }
-
-    // CognitionIconList
-    const CognitionIconListQuery: any = await SQL!
-      .request()
-      .query(
-        "SELECT AdminCTestSettingID, AdminID, CTestID , IconBlob FROM Admin_CTestSettings WHERE AdminID = " + AdminID
-      )
-    if (CognitionIconListQuery.recordset.length > 0) {
-      const CognitionIconListArray: any = []
-      let eachCognitionIconList: any
-      let CognitionIconListArray_1: any
-      for (let i = 0, n = CognitionIconListQuery.recordset.length; i < n; ++i) {
-        eachCognitionIconList = CognitionIconListQuery.recordset[i]
-        CognitionIconListArray_1 = {
-          AdminCTestSettingID: parseInt(eachCognitionIconList.AdminCTestSettingID),
-          AdminID: parseInt(eachCognitionIconList.AdminID),
-          CTestID: parseInt(eachCognitionIconList.CTestID),
-          IconBlob:
-            eachCognitionIconList.IconBlob != null
-              ? Buffer.from(eachCognitionIconList.IconBlob).toString("base64")
-              : null,
-          IconBlobString:
-            eachCognitionIconList.IconBlob != null
-              ? Buffer.from(eachCognitionIconList.IconBlob).toString("base64")
-              : null,
-        }
-        CognitionIconListArray[i] = CognitionIconListArray_1
-      }
-      CognitionIconList = CognitionIconListArray
-    }
-
-    // SurveyIconList
-    const SurveyIconListQuery: any = await SQL!
-      .request()
-      .query("SELECT  AdminID, SurveyID , IconBlob FROM Survey WHERE AdminID = " + AdminID)
-    if (SurveyIconListQuery.recordset.length > 0) {
-      const SurveyIconListArray: any = []
-      let eachSurveyIconList: any
-      let SurveyIconListArray_1: any
-      for (let i = 0, n = SurveyIconListQuery.recordset.length; i < n; ++i) {
-        eachSurveyIconList = SurveyIconListQuery.recordset[i]
-        SurveyIconListArray_1 = {
-          SurveyID: parseInt(eachSurveyIconList.SurveyID),
-          AdminID: parseInt(eachSurveyIconList.AdminID),
-          IconBlob:
-            eachSurveyIconList.IconBlob != null ? Buffer.from(eachSurveyIconList.IconBlob).toString("base64") : null,
-          IconBlobString:
-            eachSurveyIconList.IconBlob != null ? Buffer.from(eachSurveyIconList.IconBlob).toString("base64") : null,
-        }
-        SurveyIconListArray[i] = SurveyIconListArray_1
-      }
-      SurveyIconList = SurveyIconListArray
-    }
-
-    // CognitionVersionList
-    const CognitionVersionListQuery: any = await SQL!
-      .request()
-      .query(
-        "SELECT a_ct.CTestID, c_t.CTestName, a_ct.Version FROM Admin_CTestSettings as a_ct JOIN CTest as c_t ON a_ct.CTestID = c_t.CTestID WHERE a_ct.AdminID = " +
-          AdminID +
-          " AND a_ct.Version IS NOT NULL"
-      )
-    CognitionVersionList = CognitionVersionListQuery.recordset.length > 0 ? CognitionVersionListQuery.recordset[0] : []
-
-    // ScheduleSurveyList
-    const ScheduleSurveyListQuery: any = await SQL!
-      .request()
-      .input("p_UserID", UserID)
-      .input("p_LastFetchedTS", requestData.LastUpdatedSurveyDate)
-      .output("p_ErrID", sql.VarChar(10))
-      .output("p_LastUpdatedTS", sql.DateTime)
-      .execute("GetAdminSurveyScheduleByUserID_sp")
-    const scheduleSurveyListOutput = ScheduleSurveyListQuery.output
-    if (Object.keys(scheduleSurveyListOutput).length > 0) {
-      const p_ErrID = scheduleSurveyListOutput.p_ErrID
-      LastUpdatedSurveyDate =
-        scheduleSurveyListOutput.p_LastUpdatedTS != null
-          ? new Date(scheduleSurveyListOutput.p_LastUpdatedTS).toISOString().replace(/T/, " ").replace(/\..+/, "")
-          : null
-      if (p_ErrID == 0) {
-        const scheduleSurvArray: any = []
-        if (ScheduleSurveyListQuery.recordsets[0].length > 0) {
-          let eachSchedule: any
-          for (let i = 0, n = ScheduleSurveyListQuery.recordsets[0].length; i < n; ++i) {
-            eachSchedule = ScheduleSurveyListQuery.recordsets[0][i]
-            let eachslotTimeOptions: any
-            const slotTimeArray: any = []
-            for (let j = 0, n = ScheduleSurveyListQuery.recordsets[1].length; j < n; ++j) {
-              eachslotTimeOptions = ScheduleSurveyListQuery.recordsets[1][j]
-              if (eachSchedule.SurveyScheduleID == eachslotTimeOptions.ScheduleID) {
-                slotTimeArray.push(
-                  eachslotTimeOptions.Time != null
-                    ? new Date(eachslotTimeOptions.Time).toISOString().replace(/T/, " ").replace(/\..+/, "")
-                    : null
-                )
-              }
-            }
-            scheduleSurvArray.push({
-              SurveyScheduleID: parseInt(eachSchedule.SurveyScheduleID),
-              SurveyName: eachSchedule.SurveyName,
-              Time: eachSchedule.Time,
-              SlotTime:
-                eachSchedule.Time != null
-                  ? new Date(eachSchedule.Time).toISOString().replace(/T/, " ").replace(/\..+/, "")
-                  : null,
-              SurveyId: parseInt(eachSchedule.SurveyId),
-              ScheduleDate: eachSchedule.ScheduleDate,
-              RepeatID: parseInt(eachSchedule.RepeatID),
-              IsDeleted: eachSchedule.IsDeleted,
-              SlotTimeOptions: slotTimeArray,
-            })
-            if (
-              eachSchedule.RepeatID == 5 ||
-              eachSchedule.RepeatID == 6 ||
-              eachSchedule.RepeatID == 7 ||
-              eachSchedule.RepeatID == 8 ||
-              eachSchedule.RepeatID == 9 ||
-              eachSchedule.RepeatID == 10 ||
-              eachSchedule.RepeatID == 12
-            ) {
-              scheduleSurvArray.ScheduleDate = eachSchedule.Time
-            }
-          }
-          ScheduleSurveyList = scheduleSurvArray
-        }
-      } else {
-        return res.status(500).json({
-          ErrorCode: 2030,
-          ErrorMessage: "An error occured on Store procedure `GetAdminSurveyScheduleByUserID_sp`.",
-        } as APIResponse)
+    let JewelsB = Output.filter((x: any) => x.spec === "lamp.jewels_b")
+    if (JewelsB.length > 0) {
+      let JewelsBData = JewelsB[0].settings
+      JewelsTrailsBSettings = {
+        NoOfSeconds_Beg: JewelsBData.beginner_seconds,
+        NoOfSeconds_Int: JewelsBData.intermediate_seconds,
+        NoOfSeconds_Adv: JewelsBData.advanced_seconds,
+        NoOfSeconds_Exp: JewelsBData.expert_seconds,
+        NoOfDiamonds: JewelsBData.diamond_count,
+        NoOfShapes: JewelsBData.shape_count,
+        NoOfBonusPoints: JewelsBData.bonus_point_count,
+        X_NoOfChangesInLevel: JewelsBData.x_changes_in_level_count,
+        X_NoOfDiamonds: JewelsBData.x_diamond_count,
+        Y_NoOfChangesInLevel: JewelsBData.y_changes_in_level_count,
+        Y_NoOfShapes: JewelsBData.y_shape_count,
       }
     } else {
-      return res.status(500).json({
-        ErrorCode: 2030,
-        ErrorMessage: "An error occured on Store procedure `GetAdminSurveyScheduleByUserID_sp`.",
-      } as APIResponse)
-    }
-
-    // scheduleGameList
-    const scheduleGameListQuery: any = await SQL!
-      .request()
-      .input("p_UserID", UserID)
-      .input("p_LastFetchedTS", requestData.LastUpdatedGameDate)
-      .output("p_ErrID", sql.VarChar(10))
-      .output("p_LastUpdatedTS", sql.DateTime)
-      .execute("GetAdminCTestScheduleByUserID_sp")
-    const scheduleGameListOutput = scheduleGameListQuery.output
-    if (Object.keys(scheduleGameListOutput).length > 0) {
-      const p_ErrID = scheduleGameListOutput.p_ErrID
-      LastUpdatedGameDate =
-        scheduleGameListOutput.p_LastUpdatedTS != null
-          ? new Date(scheduleGameListOutput.p_LastUpdatedTS).toISOString().replace(/T/, " ").replace(/\..+/, "")
-          : null
-      if (p_ErrID == 0) {
-        const scheduleGameArray: any = []
-        if (scheduleGameListQuery.recordsets[0].length > 0) {
-          let eachScheduleGame: any
-          for (let i = 0, n = scheduleGameListQuery.recordsets[0].length; i < n; ++i) {
-            eachScheduleGame = scheduleGameListQuery.recordsets[0][i]
-            let eachslotTimeOptions: any
-            const slotTimeArray: any = []
-            for (let j = 0, n = scheduleGameListQuery.recordsets[1].length; j < n; ++j) {
-              eachslotTimeOptions = scheduleGameListQuery.recordsets[1][j]
-              if (eachScheduleGame.GameScheduleID == eachslotTimeOptions.ScheduleID) {
-                slotTimeArray.push(
-                  eachslotTimeOptions.Time != null
-                    ? new Date(eachslotTimeOptions.Time).toISOString().replace(/T/, " ").replace(/\..+/, "")
-                    : null
-                )
-              }
-            }
-            scheduleGameArray.push({
-              CTestId: parseInt(eachScheduleGame.CTestId),
-              CTestName: eachScheduleGame.CTestName,
-              Version: eachScheduleGame.Version,
-              GameType: eachScheduleGame.GameType,
-              Time: eachScheduleGame.Time,
-              SlotTime:
-                eachScheduleGame.Time != null
-                  ? new Date(eachScheduleGame.Time).toISOString().replace(/T/, " ").replace(/\..+/, "")
-                  : null,
-              GameScheduleID: parseInt(eachScheduleGame.GameScheduleID),
-              ScheduleDate: eachScheduleGame.ScheduleDate,
-              RepeatID: parseInt(eachScheduleGame.RepeatID),
-              IsDeleted: eachScheduleGame.IsDeleted,
-              SlotTimeOptions: slotTimeArray,
-            })
-            if (
-              (eachScheduleGame.CTestId == 1 || eachScheduleGame.CTestId == 14) &&
-              eachScheduleGame.GameType != null
-            ) {
-              scheduleGameArray.CTestName = eachScheduleGame.CTestName.replace("n-", "")
-            }
-            if (
-              eachScheduleGame.RepeatID == 5 ||
-              eachScheduleGame.RepeatID == 6 ||
-              eachScheduleGame.RepeatID == 7 ||
-              eachScheduleGame.RepeatID == 8 ||
-              eachScheduleGame.RepeatID == 9 ||
-              eachScheduleGame.RepeatID == 10 ||
-              eachScheduleGame.RepeatID == 12
-            ) {
-              scheduleGameArray.ScheduleDate = eachScheduleGame.Time
-            }
-          }
-          ScheduleGameList = scheduleGameArray
-        }
-      } else {
-        return res.status(500).json({
-          ErrorCode: 2030,
-          ErrorMessage: "An error occured on Store procedure `GetAdminCTestScheduleByUserID_sp`.",
-        } as APIResponse)
+      JewelsTrailsBSettings = {
+        NoOfSeconds_Beg: 180,
+        NoOfSeconds_Int: 90,
+        NoOfSeconds_Adv: 60,
+        NoOfSeconds_Exp: 45,
+        NoOfDiamonds: 25,
+        NoOfShapes: 2,
+        NoOfBonusPoints: 50,
+        X_NoOfChangesInLevel: 1,
+        X_NoOfDiamonds: 1,
+        Y_NoOfChangesInLevel: 1,
+        Y_NoOfShapes: 2,
       }
-    } else {
-      return res.status(500).json({
-        ErrorCode: 2030,
-        ErrorMessage: "An error occured on Store procedure `GetAdminCTestScheduleByUserID_sp`.",
-      } as APIResponse)
     }
 
     // BatchScheduleList
-    const batchScheduleListQuery: any = await SQL!
-      .request()
-      .input("p_UserID", UserID)
-      .input("p_LastFetchedTS", requestData.LastFetchedBatchDate)
-      .output("p_ErrID", sql.VarChar(10))
-      .output("p_LastUpdatedTS", sql.DateTime)
-      .execute("GetAdminBatchScheduleByUserID_sp")
-    const batchScheduleListOutput = batchScheduleListQuery.output
-    if (Object.keys(batchScheduleListOutput).length > 0) {
-      const p_ErrID = batchScheduleListOutput.p_ErrID
-      LastUpdatedBatchDate =
-        batchScheduleListOutput.p_LastUpdatedTS != null
-          ? new Date(batchScheduleListOutput.p_LastUpdatedTS).toISOString().replace(/T/, " ").replace(/\..+/, "")
-          : null
-      if (p_ErrID == 0) {
-        const batchScheduleArray: any = []
-        if (batchScheduleListQuery.recordsets[0].length > 0) {
-          let eachBatchSchedule: any
-          for (let i = 0, n = batchScheduleListQuery.recordsets[0].length; i < n; ++i) {
-            eachBatchSchedule = batchScheduleListQuery.recordsets[0][i]
-            let eachslotTimeOptions: any
-            const slotTimeArray: any = []
-            for (let j = 0, n = batchScheduleListQuery.recordsets[3].length; j < n; ++j) {
-              eachslotTimeOptions = batchScheduleListQuery.recordsets[3][j]
-              if (eachBatchSchedule.ScheduleID == eachslotTimeOptions.ScheduleID) {
-                slotTimeArray.push(
-                  eachslotTimeOptions.Time != null
-                    ? new Date(eachslotTimeOptions.Time).toISOString().replace(/T/, " ").replace(/\..+/, "")
-                    : null
+    let BatchData: any = {}
+    let arrSetings: any = []
+    let groupData = Output.filter((x: any) => x.spec === "lamp.group")
+    groupData.map((group: any) => {
+      arrSetings.push(group.settings)
+    })
+    let act: any = []
+    let item: any
+    let BatchCtestArray = []
+    for (let i = 0; i < groupData.length; i++) {
+      item = groupData[i]
+      BatchData = {
+        EncryptId: item.id,
+        BatchScheduleId: ConvertIdFromV1ToV2(item.id),
+        BatchName: item.name,
+        IsDeleted: false, // EDIT THIS
+        IconBlob: null,
+        IconBlobString: null,
+      }
+      BatchCtestArray = []
+      let specData: any
+      let BatchCtestFiltered: any
+      let BatchScheduleSurvey_CTestObj: any = {}
+      let BatchScheduleSurvey_CTestArray: any = []
+      for (let j = 0; j < arrSetings[i].length; j++) {
+        act = await ActivityRepository._select(arrSetings[i][j])
+        BatchCtestArray.push(act[0])
+        specData = [act[0].spec]
+        BatchCtestFiltered = ActivityIndex.filter((cls) => {
+          return specData.includes(cls.Name)
+        })
+        BatchScheduleSurvey_CTestObj = {
+          EncryptId: act[0].id,
+          BatchScheduleId: ConvertIdFromV1ToV2(act[0].id),
+          Type: 2,
+          ID: BatchCtestFiltered[0].LegacyCTestID,
+          Version: 0, // EDIT THIS
+          Order: 0, // EDIT THIS
+          GameType: 1, // EDIT THIS
+        }
+        BatchScheduleSurvey_CTestArray.push(BatchScheduleSurvey_CTestObj)
+      }
+      let BatchCustomTimeData, BatchScheduleCustomTimeObj
+      let BatchScheduleCustomTime: any = []
+      if (item.schedule.length > 0) {
+        let BatchCustomTime: any = []
+        if (item.schedule[0].custom_time !== null) {
+          item.schedule[0].custom_time.forEach((itemTime: any) => {
+            BatchCustomTimeData =
+              itemTime != null ? new Date(itemTime).toISOString().replace(/T/, " ").replace(/\..+/, "") : null
+            BatchCustomTime.push(BatchCustomTimeData)
+            BatchScheduleCustomTimeObj = {
+              BatchScheduleId: ConvertIdFromV1ToV2(act[0].id),
+              Time: BatchCustomTimeData,
+            }
+            BatchScheduleCustomTime.push(BatchScheduleCustomTimeObj)
+          })
+        }
+        BatchData.ScheduleDate = item.schedule[0].start_date
+        BatchData.Time = item.schedule[0].time
+        BatchData.SlotTime =
+          item.schedule[0].time != null
+            ? new Date(item.schedule[0].time).toISOString().replace(/T/, " ").replace(/\..+/, "")
+            : null
+        BatchData.RepeatId =
+          [
+            "hourly",
+            "every3h",
+            "every6h",
+            "every12h",
+            "daily",
+            "biweekly",
+            "triweekly",
+            "weekly",
+            "bimonthly",
+            "monthly",
+            "custom",
+            "none",
+          ].indexOf(item.schedule[0].repeat_interval) + 1
+        BatchData.SlotTimeOptions = BatchCustomTime
+        BatchData.BatchScheduleSurvey_CTest = BatchScheduleSurvey_CTestArray
+        BatchData.BatchScheduleCustomTime = BatchScheduleCustomTime
+      }
+      BatchScheduleList?.push(BatchData)
+    }
+
+    // CognitionIconList & CognitionOffList
+    let GameData = Output.filter((x: any) => x.spec !== "lamp.group" && x.spec !== "lamp.survey")
+    let CognitionOffListObj: any = {}
+    let CognitionIconListObj: any = {}
+    let ScheduleGameListObj: any = {}
+    let ScheduleGameCustomTime: any = []
+    if (GameData.length > 0) {
+      let DataFiltered: any, GameCTestID: any
+      GameData.forEach(async (item: any, index: any) => {
+        let specData = [item.spec]
+        DataFiltered = ActivityIndex.filter((cls) => {
+          return specData.includes(cls.Name)
+        })
+        if (item.spec === "lamp.spatial_span") {
+          GameCTestID = item.settings.type === "forward" ? 4 : 3
+        } else if (item.spec === "lamp.temporal_order") {
+          GameCTestID = item.settings.type === "backward" ? 13 : 12
+        } else {
+          GameCTestID = DataFiltered[0].LegacyCTestID
+        }
+        CognitionOffListObj = {
+          EncryptId: item.id,
+          AdminCTestSettingID: ConvertIdFromV1ToV2(item.id),
+          AdminID: 0,
+          CTestID: GameCTestID,
+          CTestName: item.name,
+          Status: true,
+          Notification: false,
+          IconBlob: null,
+          Version: null,
+          MaxVersion: null,
+        }
+        CognitionOffList?.push(CognitionOffListObj)
+        CognitionIconListObj = {
+          EncryptId: item.id,
+          AdminCTestSettingID: ConvertIdFromV1ToV2(item.id),
+          AdminID: 0,
+          CTestID: GameCTestID,
+          IconBlob: null,
+          IconBlobString: null,
+        }
+        CognitionIconList?.push(CognitionIconListObj)
+        if (item.schedule.length > 0) {
+          item.schedule.forEach((itemSchedule: any, indexSchedule: any) => {
+            ScheduleGameListObj = {
+              CTestId: DataFiltered[0].LegacyCTestID,
+              CTestName: item.name,
+              Version: 0,
+              GameType: 1,
+              Time: itemSchedule.time,
+              GameScheduleID: index,
+              ScheduleDate: itemSchedule.start_date,
+              IsDeleted: false,
+            }
+            if (itemSchedule.custom_time !== null) {
+              itemSchedule.custom_time.forEach((itemTime: any) => {
+                ScheduleGameCustomTime.push(
+                  itemTime != null ? new Date(itemTime).toISOString().replace(/T/, " ").replace(/\..+/, "") : null
                 )
-              }
-            }
-            //BatchScheduleSurvey_CTest
-            const batchScheduleCtestArray: any = []
-            if (batchScheduleListQuery.recordsets[1].length > 0) {
-              let eachBatchCTestSchedule: any
-              Object.keys(batchScheduleListQuery.recordsets[1]).forEach(function (key) {
-                eachBatchCTestSchedule = batchScheduleListQuery.recordsets[1][key]
-                if (eachBatchSchedule.ScheduleID == eachBatchCTestSchedule.ScheduleID) {
-                  batchScheduleCtestArray.push({
-                    BatchScheduleId: parseInt(eachBatchCTestSchedule.ScheduleID),
-                    Type: 2,
-                    ID: parseInt(eachBatchCTestSchedule.CTestID),
-                    Version: parseInt(eachBatchCTestSchedule.Version),
-                    Order: parseInt(eachBatchCTestSchedule.Order),
-                    GameType: parseInt(eachBatchCTestSchedule.GameType),
-                  })
-                }
               })
             }
-            //BatchScheduleCustomTime
-            const batchScheduleCustomTimeArray: any = []
-            if (batchScheduleListQuery.recordsets[3].length > 0) {
-              let eachBatchCustomTime: any
-              Object.keys(batchScheduleListQuery.recordsets[3]).forEach(function (key) {
-                eachBatchCustomTime = batchScheduleListQuery.recordsets[3][key]
-                if (eachBatchSchedule.ScheduleID == eachBatchCustomTime.ScheduleID) {
-                  batchScheduleCustomTimeArray.push({
-                    BatchScheduleId: parseInt(eachBatchCustomTime.ScheduleID),
-                    Time:
-                      eachBatchCustomTime.Time != null
-                        ? new Date(eachBatchCustomTime.Time).toISOString().replace(/T/, " ").replace(/\..+/, "")
-                        : null,
-                  })
-                }
-              })
-            } 
-            batchScheduleArray.push({
-              BatchScheduleId: parseInt(eachBatchSchedule.ScheduleID),
-              BatchName: eachBatchSchedule.BatchName,
-              ScheduleDate: eachBatchSchedule.ScheduleDate,
-              Time: eachBatchSchedule.Time,
-              SlotTime:
-                eachBatchSchedule.Time != null
-                  ? new Date(eachBatchSchedule.Time).toISOString().replace(/T/, " ").replace(/\..+/, "")
-                  : null,
-              RepeatId: parseInt(eachBatchSchedule.RepeatID),
-              IsDeleted: eachBatchSchedule.IsDeleted,
-              IconBlob:
-                eachBatchSchedule.IconBlob != null ? Buffer.from(eachBatchSchedule.IconBlob).toString("base64") : null,
-              IconBlobString:
-                eachBatchSchedule.IconBlob != null ? Buffer.from(eachBatchSchedule.IconBlob).toString("base64") : null,
-              SlotTimeOptions: slotTimeArray,
-              BatchScheduleSurvey_CTest: batchScheduleCtestArray,
-              BatchScheduleCustomTime: batchScheduleCustomTimeArray,
-            })
-            if (
-              eachBatchSchedule.RepeatID == 5 ||
-              eachBatchSchedule.RepeatID == 6 ||
-              eachBatchSchedule.RepeatID == 7 ||
-              eachBatchSchedule.RepeatID == 8 ||
-              eachBatchSchedule.RepeatID == 9 ||
-              eachBatchSchedule.RepeatID == 10 ||
-              eachBatchSchedule.RepeatID == 12
-            ) {
-              batchScheduleArray.ScheduleDate = eachBatchSchedule.Time
-            }
+            ScheduleGameListObj.SlotTime =
+              itemSchedule.time != null
+                ? new Date(itemSchedule.time).toISOString().replace(/T/, " ").replace(/\..+/, "")
+                : null
+            ScheduleGameListObj.RepeatId =
+              [
+                "hourly",
+                "every3h",
+                "every6h",
+                "every12h",
+                "daily",
+                "biweekly",
+                "triweekly",
+                "weekly",
+                "bimonthly",
+                "monthly",
+                "custom",
+                "none",
+              ].indexOf(itemSchedule.repeat_interval) + 1
+            ScheduleGameListObj.SlotTimeOptions = ScheduleGameCustomTime
+
+            ScheduleGameList?.push(ScheduleGameListObj)
+          })
+        }
+      })
+    }
+
+    // ScheduleSurveyList & SurveyIconList
+    let SurveyData: any = Output.filter((x: any) => x.spec === "lamp.survey")
+    let ScheduleSurveyListObj: any = {}
+    let SurveyIconListObj: any = {}
+    let SurveyIconList: any = []
+    let itemSurvey
+    for (let k = 0; k < SurveyData.length; k++) {
+      itemSurvey = SurveyData[k]
+      if (itemSurvey.schedule.length > 0) {
+        for (let l = 0; l < itemSurvey.schedule.length; l++) {
+          ScheduleSurveyListObj = {
+            EncryptId: itemSurvey.id,
+            SurveyId: ConvertIdFromV1ToV2(itemSurvey.id),
+            SurveyScheduleID: l, // EDIT THIS
+            SurveyName: itemSurvey.name,
+            IsDeleted: false, // EDIT THIS
           }
-          BatchScheduleList = batchScheduleArray
+          ScheduleSurveyListObj.ScheduleDate = SurveyData[k].schedule[l].start_date
+          ScheduleSurveyListObj.Time = SurveyData[k].schedule[l].time
+          ScheduleSurveyListObj.SlotTime =
+            SurveyData[k].schedule[l].time != null
+              ? new Date(SurveyData[k].schedule[l].time).toISOString().replace(/T/, " ").replace(/\..+/, "")
+              : null
+          ScheduleSurveyListObj.RepeatId =
+            [
+              "hourly",
+              "every3h",
+              "every6h",
+              "every12h",
+              "daily",
+              "biweekly",
+              "triweekly",
+              "weekly",
+              "bimonthly",
+              "monthly",
+              "custom",
+              "none",
+            ].indexOf(SurveyData[k].schedule[l].repeat_interval) + 1
+          let ScheduleSurveyCustomTime: any = []
+          if (SurveyData[k].schedule[l].custom_time !== null) {
+            SurveyData[k].schedule[l].custom_time.forEach((itemTime: any) => {
+              ScheduleSurveyCustomTime.push(
+                itemTime != null ? new Date(itemTime).toISOString().replace(/T/, " ").replace(/\..+/, "") : null
+              )
+            })
+          }
+          ScheduleSurveyListObj.SlotTimeOptions = ScheduleSurveyCustomTime
+          ScheduleSurveyList?.push(ScheduleSurveyListObj)
         }
       } else {
-        return res.status(500).json({
-          ErrorCode: 2030,
-          ErrorMessage: "An error occured on Store procedure `GetAdminBatchScheduleByUserID_sp`.",
-        } as APIResponse)
+        ScheduleSurveyListObj = {
+          EncryptId: itemSurvey.id,
+          SurveyId: ConvertIdFromV1ToV2(itemSurvey.id),
+          SurveyScheduleID: k,
+          SurveyName: itemSurvey.name,
+          IsDeleted: false,
+        }
+        ScheduleSurveyListObj.ScheduleDate = SurveyData[k].schedule.start_date
+        ScheduleSurveyListObj.Time = SurveyData[k].schedule.time
+        ScheduleSurveyListObj.SlotTime =
+          SurveyData[k].schedule.time != null
+            ? new Date(SurveyData[k].schedule.time).toISOString().replace(/T/, " ").replace(/\..+/, "")
+            : null
+        ScheduleSurveyListObj.RepeatId =
+          [
+            "hourly",
+            "every3h",
+            "every6h",
+            "every12h",
+            "daily",
+            "biweekly",
+            "triweekly",
+            "weekly",
+            "bimonthly",
+            "monthly",
+            "custom",
+            "none",
+          ].indexOf(SurveyData[k].schedule.repeat_interval) + 1
+        ScheduleSurveyListObj.SlotTimeOptions = []
+        ScheduleSurveyList?.push(ScheduleSurveyListObj)
       }
-    } else {
-      return res.status(500).json({
-        ErrorCode: 2030,
-        ErrorMessage: "An error occured on Store procedure `GetAdminBatchScheduleByUserID_sp`.",
-      } as APIResponse)
+      SurveyIconListObj = {
+        EncryptId: itemSurvey.id,
+        SurveyId: ConvertIdFromV1ToV2(itemSurvey.id),
+        AdminID: 0,
+        IconBlob: null,
+        IconBlobString: null,
+      }
+      SurveyIconList?.push(SurveyIconListObj)
     }
-  } else {
+
+    return res.status(200).json({
+      ContactNo,
+      PersonalHelpline,
+      ReminderClearInterval,
+      JewelsTrailsASettings,
+      JewelsTrailsBSettings,
+      ScheduleGameList,
+      CognitionOffList,
+      CognitionIconList,
+      CognitionVersionList,
+      SurveyIconList,
+      ScheduleSurveyList,
+      BatchScheduleList,
+      LastUpdatedSurveyDate,
+      LastUpdatedGameDate,
+      LastUpdatedBatchDate,
+      ErrorCode: 0,
+      ErrorMessage: "Survey And Game Schedule Detail.",
+    } as APIResponse)
+  } catch (e) {
     return res.status(500).json({
+      ContactNo,
+      PersonalHelpline,
+      ReminderClearInterval,
+      JewelsTrailsASettings,
+      JewelsTrailsBSettings,
+      ScheduleGameList,
+      CognitionOffList,
+      CognitionIconList,
+      SurveyIconList,
+      ScheduleSurveyList,
+      BatchScheduleList,
+      LastUpdatedSurveyDate,
+      LastUpdatedGameDate,
+      LastUpdatedBatchDate,
       ErrorCode: 2030,
-      ErrorMessage: "Specified User ID doesnot exists.",
+      ErrorMessage: "An error occured while fetching data.",
     } as APIResponse)
   }
-  return res.status(200).json({
-    ContactNo,
-    PersonalHelpline,
-    JewelsTrailsASettings,
-    JewelsTrailsBSettings,
-    ReminderClearInterval,
-    CognitionOffList,
-    CognitionIconList,
-    SurveyIconList,
-    CognitionVersionList,
-    ScheduleSurveyList,
-    BatchScheduleList,
-    ScheduleGameList,
-    LastUpdatedSurveyDate,
-    LastUpdatedGameDate,
-    LastUpdatedBatchDate,
-    ErrorCode: 0,
-    ErrorMessage: "Survey And Game Schedule Detail.",
-  } as APIResponse)
 })
 
 // Route: /GetDistractionSurveys // USES SQL
@@ -1947,30 +1574,13 @@ LegacyAPI.post("/GetDistractionSurveys", [_authorize], async (req: Request, res:
       ErrorMessage: "Specify valid CTest Id.",
     } as APIResponse)
   }
-  const resultQuery = await SQL!.request().query("SELECT AdminID FROM Users WHERE IsDeleted = 0 AND UserID = " + UserID)
-  if (resultQuery.recordset.length > 0) {
-    const AdminID: number = resultQuery.recordset[0].AdminID
-    const surveysQuery = await SQL!
-      .request()
-      .query(
-        "SELECT a_cs.SurveyID SurveyId FROM Admin_CTestSurveySettings as a_cs JOIN Survey as s_y " +
-          "ON a_cs.SurveyID = s_y.SurveyID WHERE s_y.IsDeleted = 0 " +
-          " AND a_cs.AdminID = " +
-          AdminID +
-          " AND a_cs.CTestID = " +
-          CTestId
-      )
-    if (surveysQuery.recordset.length > 0) {
-      SurveysList = surveysQuery.recordset
-    }
-  }
   return res.status(200).json({
     Surveys: SurveysList,
     ErrorCode: 0,
     ErrorMessage: "Distraction Surveys Detail.",
   } as APIResponse)
 })
-
+  
 // Route: /GetSurveys // USES SQL
 LegacyAPI.post("/GetSurveys", [_authorize], async (req: Request, res: Response) => {
   interface APIRequest {
@@ -2010,59 +1620,51 @@ LegacyAPI.post("/GetSurveys", [_authorize], async (req: Request, res: Response) 
       ErrorMessage: "Specify valid User Id.",
     } as APIResponse)
   }
-  const resultQuery2 = await SQL!.request().query(`
-        SELECT 
-            SurveyID, 
-            SurveyName, 
-            Instructions AS Instruction, 
-            ISNULL(Language, 'en') AS LanguageCode, 
-            IsDeleted, 
-            (
-                SELECT 
-                    QuestionID AS QuestionId,
-                    QuestionText,
-                    (CASE 
-                        WHEN AnswerType = 1 THEN 'LikertResponse'
-                        WHEN AnswerType = 2 THEN 'ScrollWheels'
-                        WHEN AnswerType = 3 THEN 'YesNO'
-                        WHEN AnswerType = 4 THEN 'Clock'
-                        WHEN AnswerType = 5 THEN 'Years'
-                        WHEN AnswerType = 6 THEN 'Months'
-                        WHEN AnswerType = 7 THEN 'Days'
-                        WHEN AnswerType = 8 THEN 'Textbox' 
-                    END) AS AnswerType,
-                    IsDeleted,
-                    (
-                        SELECT 
-                            OptionText
-                        FROM SurveyQuestionOptions
-                        WHERE SurveyQuestions.QuestionID = SurveyQuestionOptions.QuestionID
-                        FOR JSON AUTO, INCLUDE_NULL_VALUES
-                    ) AS QuestionOptions,
-                    CAST(0 AS BIT) AS EnableCustomPopup,
-                    Threshold AS ThresholdId,
-                    Operator AS OperatorId,
-                    Message AS CustomPopupMessage
-                FROM SurveyQuestions
-                WHERE Survey.SurveyID = SurveyQuestions.SurveyID
-                FOR JSON AUTO, INCLUDE_NULL_VALUES
-            ) AS Questions
-        FROM Survey 
-        WHERE IsDeleted = 0
-        AND AdminID IN (
-            SELECT 
-                AdminID 
-            FROM Users 
-            WHERE IsDeleted = 0 
-                AND UserID = ${UserID}
-        )
-        FOR JSON AUTO, INCLUDE_NULL_VALUES
-    ;`)
-
+  let userData = (req as any).AuthUser
+  let surveyArray: any = []
+  let output = await ActivityRepository._select(userData.StudyId)
+  let surveyFiltered = output.filter((x: any) => x.spec === "lamp.survey")
+  let surveyObj = {}
+  surveyFiltered.forEach((item: any, index: any) => {
+    let settingsArray: any = []
+    let settingsObj = {}
+    if (item.settings.length > 0) {
+      item.settings.forEach((settingItem: any, settingIndex: any) => {
+        let questionOptions: any = []
+        if (settingItem.options !== null) {
+          settingItem.options.forEach((optionItem: any, optionIndex: any) => {
+            questionOptions.push({ OptionText: optionItem })
+          })
+        }
+        settingsObj = {
+          QuestionId: settingIndex,
+          QuestionText: settingItem.text,
+          AnswerType: settingItem.type,
+          IsDeleted: false,
+          QuestionOptions: questionOptions.length > 0 ? questionOptions : null,
+          EnableCustomPopup: false,
+          ThresholdId: null,
+          OperatorId: null,
+          CustomPopupMessage: null,
+        }
+        settingsArray.push(settingsObj)
+      })
+    }
+    surveyObj = {
+      EncryptId: item.id,
+      SurveyID: ConvertIdFromV1ToV2(item.id),
+      SurveyName: item.name,
+      Instruction: null,
+      LanguageCode: "en",
+      IsDeleted: false,
+      Questions: settingsArray,
+    }
+    surveyArray.push(surveyObj)
+  })
   return res.status(200).json({
     ErrorCode: 0,
     ErrorMessage: "Get surveys detail.",
-    Survey: resultQuery2.recordset.length > 0 ? resultQuery2.recordset[0] : [],
+    Survey: surveyArray.length > 0 ? surveyArray : [],
     LastUpdatedDate: new Date().toISOString().replace(/T/, " ").replace(/\..+/, ""),
   } as APIResponse)
 })
