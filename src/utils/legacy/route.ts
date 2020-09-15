@@ -214,7 +214,7 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
     try {
       //get usersettings
       userSettings = await TypeRepository._get("a", ParticipantId, "lamp.legacy_adapter")
-      if (userSettings.UserSettings !== undefined) {        
+      if (userSettings.UserSettings !== undefined) {
         AppColor = userSettings.UserSettings.AppColor
         await TypeRepository._set("a", "me", ParticipantId, "lamp.legacy_adapter", {
           ...userSettings,
@@ -906,7 +906,8 @@ LegacyAPI.post("/SaveUserCTestsFavourite", [_authorize], async (req: Request, re
   }
   try {
     const requestData: APIRequest = req.body
-    const UserID: any = requestData.UserId
+    let UserData = (req as any).AuthUser
+    let UserID = UserData.UserID
     if (!UserID || !Number.isInteger(Number(UserID)) || UserID == 0) {
       return res.status(422).json({
         ErrorCode: 2031,
@@ -934,8 +935,21 @@ LegacyAPI.post("/SaveUserCTestsFavourite", [_authorize], async (req: Request, re
         ErrorMessage: "Specify valid Type.",
       } as APIResponse)
     }
-    let UserData = (req as any).AuthUser
-    let UserSettings = await TypeRepository._get("a", UserData.StudyId, "lamp.legacy_adapter")
+    let UserSettingsData = await TypeRepository._get("a", UserData.StudyId, "lamp.legacy_adapter")
+    let CTestFavouriteData =
+      Object.keys(UserSettingsData).length > 0
+        ? UserSettingsData.hasOwnProperty("UserCTestFavourite")
+          ? UserSettingsData.UserCTestFavourite
+          : []
+        : []
+
+    let SurveyFavouriteData =
+      Object.keys(UserSettingsData).length > 0
+        ? UserSettingsData.hasOwnProperty("UserSurveyFavourite")
+          ? UserSettingsData.UserSurveyFavourite
+          : []
+        : []
+
     await TypeRepository._set(
       "a",
       "me",
@@ -943,12 +957,18 @@ LegacyAPI.post("/SaveUserCTestsFavourite", [_authorize], async (req: Request, re
       "lamp.legacy_adapter",
       Type === 1
         ? {
-            ...UserSettings,
-            UserSurveyFavourite: { UserID: UserID, SurveyID: requestData.CTestID, FavType: requestData.FavType },
+            ...UserSettingsData,
+            UserSurveyFavourite: [
+              ...SurveyFavouriteData,
+              { UserID: UserID, SurveyID: requestData.CTestID, FavType: requestData.FavType },
+            ],
           }
         : {
-            ...UserSettings,
-            UserCTestFavourite: { UserID: UserID, CTestID: requestData.CTestID, FavType: requestData.FavType },
+            ...UserSettingsData,
+            UserCTestFavourite: [
+              ...CTestFavouriteData,
+              { UserID: UserID, CTestID: requestData.CTestID, FavType: requestData.FavType },
+            ],
           }
     )
     return res.status(200).json({
@@ -1622,7 +1642,7 @@ LegacyAPI.post("/GetDistractionSurveys", [_authorize], async (req: Request, res:
     ErrorMessage: "Distraction Surveys Detail.",
   } as APIResponse)
 })
-  
+
 // Route: /GetSurveys // USES SQL
 LegacyAPI.post("/GetSurveys", [_authorize], async (req: Request, res: Response) => {
   interface APIRequest {
