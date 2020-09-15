@@ -283,7 +283,7 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
     
     const StudyId: APIResponse["StudyId"] = ParticipantId
     const Type = 0 //non-guest user
-    const today =new Date()
+    
     let CTestsFavouriteList: APIResponse["CTestsFavouriteList"] = []
     let WelcomeText: APIResponse["WelcomeText"] = ""
     let InstructionVideoLink: APIResponse["InstructionVideoLink"] = ""
@@ -307,7 +307,7 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
     Data.CognTestSlotTime=userSettings.UserSettings.CognTest_Time
     Data.CognTestRepeatID=userSettings.UserSettings.CognTest_RepeatID
     Data.ContactNo=userSettings.UserSettings["24By7ContactNo"]
-    Data.ProtocolDate=`${today.getUTCFullYear()}-${today.getUTCMonth()}-${today.getUTCDate()} ${today.getUTCHours()}:${today.getUTCMinutes()}:${today.getUTCSeconds()}`
+    Data.ProtocolDate=new Date(0).toISOString().replace(/T/, " ").replace(/..+/, "")
     
     //get CTestsFavouriteList
     CTestsFavouriteList = userSettings.UserCTestFavourite ? userSettings.UserCTestFavourite : []
