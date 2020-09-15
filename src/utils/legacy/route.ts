@@ -221,14 +221,36 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
           UserSettings: {
             AppColor: `${AppColor}`,
             Language: `${defaultLanguage}`,
+            SympSurvey_SlotID:userSettings.UserSettings.SympSurvey_SlotID?userSettings.UserSettings.SympSurvey_SlotID:1,
+            SympSurvey_RepeatID: userSettings.UserSettings.SympSurvey_RepeatID?userSettings.UserSettings.SympSurvey_RepeatID:1,
+            SympSurvey_Time:userSettings.UserSettings.SympSurvey_Time?userSettings.UserSettings.SympSurvey_Time:null,
+            CognTest_SlotID: userSettings.UserSettings.CognTest_SlotID?userSettings.UserSettings.CognTest_SlotID:1,
+            CognTest_RepeatID: userSettings.UserSettings.CognTest_RepeatID?userSettings.UserSettings.CognTest_RepeatID:1,
+            CognTest_Time: userSettings.UserSettings.CognTest_Time?userSettings.UserSettings.CognTest_Time:null,
+            "24By7ContactNo": userSettings.UserSettings["24By7ContactNo"]?userSettings.UserSettings["24By7ContactNo"]:null,
+            PersonalHelpline:userSettings.UserSettings.PersonalHelpline?userSettings.UserSettings.PersonalHelpline:null,
+            PrefferedSurveys:userSettings.UserSettings.PrefferedSurveys?userSettings.UserSettings.PrefferedSurveys:null,
+            PrefferedCognitions: userSettings.UserSettings.PrefferedCognitions?userSettings.UserSettings.PrefferedCognitions:null,
+            Protocol:userSettings.UserSettings.Protocol?userSettings.UserSettings.Protocol:null
+          },
+        })
+      } else {
+        await TypeRepository._set("a", "me", ParticipantId, "lamp.legacy_adapter", {
+          ...userSettings,
+          UserSettings: {
+            AppColor: `${AppColor}`,
+            Language: `${defaultLanguage}`,
             SympSurvey_SlotID: 1,
             SympSurvey_RepeatID: 1,
+            SympSurvey_Time:null,
             CognTest_SlotID: 1,
             CognTest_RepeatID: 1,
+            CognTest_Time:null,
             "24By7ContactNo": "",
             PersonalHelpline: "",
             PrefferedSurveys: "",
-            PrefferedCognitions: ""
+            PrefferedCognitions: "",
+            Protocol:""           
           },
         })
       }
@@ -241,12 +263,16 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
           Language: `${defaultLanguage}`,
           SympSurvey_SlotID: 1,
           SympSurvey_RepeatID: 1,
+          SympSurvey_Time:null,
           CognTest_SlotID: 1,
           CognTest_RepeatID: 1,
+          CognTest_Time:null,
           "24By7ContactNo": "",
           PersonalHelpline: "",
           PrefferedSurveys: "",
-          PrefferedCognitions: ""
+          PrefferedCognitions: "",
+          Protocol:""
+         
         },
       })
       userSettings = await TypeRepository._get("a", ParticipantId, "lamp.legacy_adapter")
@@ -255,8 +281,9 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
     //take userid from participant id
     const UserId: APIResponse["UserId"] = ParticipantId.match(/\d+/)[0]
     
-    const StudyId: APIResponse["StudyId"] = Decrypt(ParticipantId)
+    const StudyId: APIResponse["StudyId"] = ParticipantId
     const Type = 0 //non-guest user
+    const today =new Date()
     let CTestsFavouriteList: APIResponse["CTestsFavouriteList"] = []
     let WelcomeText: APIResponse["WelcomeText"] = ""
     let InstructionVideoLink: APIResponse["InstructionVideoLink"] = ""
@@ -264,7 +291,22 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
     let CognitionSettings: APIResponse["CognitionSettings"] = []
     let Data: APIResponse["Data"] = {}
     let SessionToken: APIResponse["SessionToken"] = ""
-    Data = userSettings
+    Data.UserSettingID=Data.UserID=UserId
+    Data.AppColor=userSettings.UserSettings.AppColor
+    Data.Language=userSettings.UserSettings.Language
+    Data.PersonalHelpline=userSettings.UserSettings.PersonalHelpline
+    Data.PrefferedSurveys=userSettings.UserSettings.PrefferedSurveys
+    Data.PrefferedCognitions=userSettings.UserSettings.PrefferedCognitions
+    Data.Protocol=userSettings.UserSettings.Protocol   
+    Data.SympSurveySlotID=userSettings.UserSettings.SympSurvey_SlotID
+    Data.SympSurveyRepeatID=userSettings.UserSettings.SympSurvey_RepeatID
+    Data.SympSurveySlotTime=userSettings.UserSettings.SympSurvey_Time
+    Data.CognTestSlotID=userSettings.UserSettings.CognTest_SlotID
+    Data.CognTestSlotTime=userSettings.UserSettings.CognTest_Time
+    Data.CognTestRepeatID=userSettings.UserSettings.CognTest_RepeatID
+    Data.ContactNo=userSettings.UserSettings["24By7ContactNo"]
+    Data.ProtocolDate=`${today.getUTCFullYear()}-${today.getUTCMonth()}-${today.getUTCDate()} ${today.getUTCHours()}:${today.getUTCMinutes()}:${today.getUTCSeconds()}`
+    
     //get CTestsFavouriteList
     CTestsFavouriteList = userSettings.UserCTestFavourite ? userSettings.UserCTestFavourite : []
     //get SurveyFavouriteList
