@@ -279,7 +279,7 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
             PrefferedCognitions: userSettings.UserSettings.PrefferedCognitions
               ? userSettings.UserSettings.PrefferedCognitions
               : null,
-            Protocol: userSettings.UserSettings.Protocol ? userSettings.UserSettings.Protocol : null,
+            Protocol: userSettings.UserSettings.Protocol ? userSettings.UserSettings.Protocol : false,
           },
         })
       } else {
@@ -298,7 +298,7 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
             PersonalHelpline: "",
             PrefferedSurveys: "",
             PrefferedCognitions: "",
-            Protocol: "",
+            Protocol: false,
           },
         })
       }
@@ -343,17 +343,17 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
     Data.UserSettingID = Data.UserID = UserId
     Data.AppColor = userSettings.UserSettings.AppColor
     Data.Language = userSettings.UserSettings.Language
-    Data.PersonalHelpline = userSettings.UserSettings.PersonalHelpline
-    Data.PrefferedSurveys = userSettings.UserSettings.PrefferedSurveys
-    Data.PrefferedCognitions = userSettings.UserSettings.PrefferedCognitions
+    Data.PersonalHelpline = (userSettings.UserSettings.PersonalHelpline === null) ? "" : userSettings.UserSettings.PersonalHelpline
+    Data.PrefferedSurveys = (userSettings.UserSettings.PrefferedSurveys === null) ? "" : userSettings.UserSettings.PrefferedSurveys
+    Data.PrefferedCognitions = (userSettings.UserSettings.PrefferedCognitions === null) ? "" : userSettings.UserSettings.PrefferedCognitions
     Data.Protocol = userSettings.UserSettings.Protocol
     Data.SympSurveySlotID = userSettings.UserSettings.SympSurvey_SlotID
     Data.SympSurveyRepeatID = userSettings.UserSettings.SympSurvey_RepeatID
-    Data.SympSurveySlotTime = userSettings.UserSettings.SympSurvey_Time
+    Data.SympSurveySlotTime = (userSettings.UserSettings.SympSurvey_Time !== null) ? userSettings.UserSettings.SympSurvey_Time : null
     Data.CognTestSlotID = userSettings.UserSettings.CognTest_SlotID
-    Data.CognTestSlotTime = userSettings.UserSettings.CognTest_Time
+    Data.CognTestSlotTime = (userSettings.UserSettings.CognTest_Time !== null) ? userSettings.UserSettings.CognTest_Time : null
     Data.CognTestRepeatID = userSettings.UserSettings.CognTest_RepeatID
-    Data.ContactNo = userSettings.UserSettings["24By7ContactNo"]
+    Data.ContactNo = (userSettings.UserSettings["24By7ContactNo"] !== null) ? userSettings.UserSettings["24By7ContactNo"] : ""
     Data.ProtocolDate = new Date(0).toISOString().replace(/T/, " ").replace(/..+/, "")
 
     //get CTestsFavouriteList
