@@ -956,8 +956,7 @@ LegacyAPI.post("/SaveUserCTestsFavourite", [_authorize], async (req: Request, re
   try {
     const requestData: APIRequest = req.body
     let UserData = (req as any).AuthUser
-    let ParticipantId: any = Decrypt(UserData.StudyId)
-    const UserID = ParticipantId.match(/\d+/)[0]
+    let UserID = UserData.UserID
     if (!UserID || !Number.isInteger(Number(UserID)) || UserID == 0) {
       return res.status(422).json({
         ErrorCode: 2031,
