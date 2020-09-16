@@ -217,7 +217,7 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
     const Password: APIRequest["Password"] = requestData.Password
     const Language: APIRequest["Language"] = requestData.Language
     let defaultLanguage = Language != "" ? Language : "en"
-    let AppColor = Encrypt("#359FFE")
+    let AppColor = "#359FFE"
     let ParticipantId: any = ""
     let userSettings: any = ""
     if (!Username) {
