@@ -1768,7 +1768,7 @@ LegacyAPI.post("/GetSurveys", [_authorize], async (req: Request, res: Response) 
       Instruction: null,
       LanguageCode: "en",
       IsDeleted: false,
-      Questions: settingsArray,
+      Questions: (settingsArray.length > 0) ? settingsArray : null,
     }
     surveyArray.push(surveyObj)
   })
