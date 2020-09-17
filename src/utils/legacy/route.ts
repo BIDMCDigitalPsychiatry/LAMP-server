@@ -1760,17 +1760,17 @@ LegacyAPI.post("/GetSurveys", [_authorize], async (req: Request, res: Response) 
         }
         settingsArray.push(settingsObj)
       })
+      surveyObj = {
+        EncryptId: item.id,
+        SurveyID: ConvertIdFromV1ToV2(item.id),
+        SurveyName: item.name,
+        Instruction: null,
+        LanguageCode: "en",
+        IsDeleted: false,
+        Questions: (settingsArray.length > 0) ? settingsArray : null,
+      }
+      surveyArray.push(surveyObj)
     }
-    surveyObj = {
-      EncryptId: item.id,
-      SurveyID: ConvertIdFromV1ToV2(item.id),
-      SurveyName: item.name,
-      Instruction: null,
-      LanguageCode: "en",
-      IsDeleted: false,
-      Questions: (settingsArray.length > 0) ? settingsArray : null,
-    }
-    surveyArray.push(surveyObj)
   })
   return res.status(200).json({
     ErrorCode: 0,
