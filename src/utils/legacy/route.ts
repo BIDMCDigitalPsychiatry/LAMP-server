@@ -330,7 +330,7 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
 
     const StudyId: APIResponse["StudyId"] = ParticipantId
     const Type = 0 //non-guest user
-    
+
     let CTestsFavouriteList: APIResponse["CTestsFavouriteList"] = []
     let WelcomeText: APIResponse["WelcomeText"] = ""
     let InstructionVideoLink: APIResponse["InstructionVideoLink"] = ""
@@ -343,17 +343,23 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
     Data.UserSettingID = Data.UserID = UserId
     Data.AppColor = userSettings.UserSettings.AppColor
     Data.Language = userSettings.UserSettings.Language
-    Data.PersonalHelpline = (userSettings.UserSettings.PersonalHelpline === null) ? "" : userSettings.UserSettings.PersonalHelpline
-    Data.PrefferedSurveys = (userSettings.UserSettings.PrefferedSurveys === null) ? "" : userSettings.UserSettings.PrefferedSurveys
-    Data.PrefferedCognitions = (userSettings.UserSettings.PrefferedCognitions === null) ? "" : userSettings.UserSettings.PrefferedCognitions
+    Data.PersonalHelpline =
+      userSettings.UserSettings.PersonalHelpline === null ? "" : userSettings.UserSettings.PersonalHelpline
+    Data.PrefferedSurveys =
+      userSettings.UserSettings.PrefferedSurveys === null ? "" : userSettings.UserSettings.PrefferedSurveys
+    Data.PrefferedCognitions =
+      userSettings.UserSettings.PrefferedCognitions === null ? "" : userSettings.UserSettings.PrefferedCognitions
     Data.Protocol = userSettings.UserSettings.Protocol
     Data.SympSurveySlotID = userSettings.UserSettings.SympSurvey_SlotID
     Data.SympSurveyRepeatID = userSettings.UserSettings.SympSurvey_RepeatID
-    Data.SympSurveySlotTime = (userSettings.UserSettings.SympSurvey_Time !== null) ? userSettings.UserSettings.SympSurvey_Time : null
+    Data.SympSurveySlotTime =
+      userSettings.UserSettings.SympSurvey_Time !== null ? userSettings.UserSettings.SympSurvey_Time : null
     Data.CognTestSlotID = userSettings.UserSettings.CognTest_SlotID
-    Data.CognTestSlotTime = (userSettings.UserSettings.CognTest_Time !== null) ? userSettings.UserSettings.CognTest_Time : null
+    Data.CognTestSlotTime =
+      userSettings.UserSettings.CognTest_Time !== null ? userSettings.UserSettings.CognTest_Time : null
     Data.CognTestRepeatID = userSettings.UserSettings.CognTest_RepeatID
-    Data.ContactNo = (userSettings.UserSettings["24By7ContactNo"] !== null) ? userSettings.UserSettings["24By7ContactNo"] : ""
+    Data.ContactNo =
+      userSettings.UserSettings["24By7ContactNo"] !== null ? userSettings.UserSettings["24By7ContactNo"] : ""
     Data.ProtocolDate = new Date(0).toISOString().replace(/T/, " ").replace(/..+/, "")
 
     //get CTestsFavouriteList
@@ -1385,7 +1391,8 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
           EncryptId: act[0].id,
           BatchScheduleId: ConvertIdFromV1ToV2(act[0].id),
           Type: 2,
-          ID: BatchCtestFiltered[0].LegacyCTestID,
+          //ID: BatchCtestFiltered[0].LegacyCTestID,
+          ID: act[0].spec === "lamp.survey" ? 1 : BatchCtestFiltered[0].LegacyCTestID,
           Version: 0, // EDIT THIS
           Order: 0, // EDIT THIS
           GameType: 1, // EDIT THIS
@@ -1572,8 +1579,16 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
           }
           ScheduleSurveyListObj.SlotTimeOptions = ScheduleSurveyCustomTime
           ScheduleSurveyList?.push(ScheduleSurveyListObj)
+          SurveyIconListObj = {
+            EncryptId: itemSurvey.id,
+            SurveyId: ConvertIdFromV1ToV2(itemSurvey.id),
+            AdminID: 0,
+            IconBlob: null,
+            IconBlobString: null,
+          }
+          SurveyIconList?.push(SurveyIconListObj)
         }
-      } else {
+      } /*else {
         ScheduleSurveyListObj = {
           EncryptId: itemSurvey.id,
           SurveyId: ConvertIdFromV1ToV2(itemSurvey.id),
@@ -1613,6 +1628,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
         IconBlobString: null,
       }
       SurveyIconList?.push(SurveyIconListObj)
+      */
     }
 
     return res.status(200).json({
@@ -1767,7 +1783,7 @@ LegacyAPI.post("/GetSurveys", [_authorize], async (req: Request, res: Response) 
         Instruction: null,
         LanguageCode: "en",
         IsDeleted: false,
-        Questions: (settingsArray.length > 0) ? settingsArray : null,
+        Questions: settingsArray.length > 0 ? settingsArray : null,
       }
       surveyArray.push(surveyObj)
     }
