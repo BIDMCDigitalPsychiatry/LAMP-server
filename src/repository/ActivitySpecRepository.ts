@@ -14,7 +14,7 @@ export class ActivitySpecRepository {
     const data = await Database.use("activity_spec").list({ include_docs: true, start_key: id, end_key: id })
     return (data.rows as any).map((x: any) => ({
       id: x.doc._id,
-      name: x.doc.id,
+      name: x.doc._id,
       ...x.doc,
       _id: undefined,
       _rev: undefined,
