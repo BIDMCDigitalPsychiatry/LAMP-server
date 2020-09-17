@@ -13,8 +13,8 @@ import nano from "nano"
 import cors from "cors"
 import morgan from "morgan"
 import AWS from "aws-sdk"
-import { ActivityScheduler } from "./utils/Jobs/ActivitySchedulerJob"
-const cron = require("node-cron");
+import { ActivityScheduler } from "./utils/push/Notification"
+//import cron from "node-cron"
 
 // FIXME: Support application/json;indent=:spaces format mime type!
 
@@ -204,7 +204,7 @@ export const Download = function (url: string): Promise<Buffer> {
 }
 
 // Initialize and configure the application.
-async function main() {
+async function main(): Promise<void> {
   const _openAPIschema = {
     ...(await Database.use("root").get("#schema")),
     _id: undefined,
@@ -214,12 +214,12 @@ async function main() {
   // Establish the API routes.
   app.use("/", API)
   app.use("/v0", LegacyAPI)
-  
-// cron for activityscheduler  
-  cron.schedule("* * * * *", async function() {
-    console.log("Activity scheduler cron running every minute");
+
+  // Run activity scheduling.
+  setInterval(async () => {
     await ActivityScheduler()
-  });
+  }, 60 * 1000 /* every 1m */)
+  //cron.schedule("* * * * *", async function () {})
 
   // Establish misc. routes.
   app.get("/", async (req, res) => res.json(_openAPIschema))
