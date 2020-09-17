@@ -12,6 +12,7 @@ import { ParticipantRepository } from "../repository/ParticipantRepository"
 import { TypeRepository } from "../repository/TypeRepository"
 import { Identifier_unpack, Identifier_pack } from "../repository/TypeRepository"
 import { ActivityIndex } from "./migrate"
+import { ActivitySpecRepository } from "./ActivitySpecRepository"
 
 export class ActivityRepository {
   /**
@@ -32,13 +33,21 @@ export class ActivityRepository {
      *
      */
     group_id?: number
+
+    /**
+     *
+     */
+    custom_id?: number
   }): string {
-    return Identifier_pack([
-      (<any>Activity).name,
-      components.ctest_id || 0,
-      components.survey_id || 0,
-      components.group_id || 0,
-    ])
+    return Identifier_pack(
+      [
+        (<any>Activity).name,
+        components.ctest_id || 0,
+        components.survey_id || 0,
+        components.group_id || 0,
+        components.custom_id || undefined,
+      ].filter((x) => x !== undefined)
+    )
   }
 
   /**
@@ -61,6 +70,11 @@ export class ActivityRepository {
      *
      */
     group_id: number
+
+    /**
+     *
+     */
+    custom_id?: number
   } {
     const components = Identifier_unpack(id)
     if (components[0] !== (<any>Activity).name) throw new Error("400.invalid-identifier")
@@ -69,6 +83,7 @@ export class ActivityRepository {
       ctest_id: result[0],
       survey_id: result[1],
       group_id: result[2],
+      custom_id: result.length > 3 ? result[3] : undefined,
     }
   }
 
@@ -76,7 +91,7 @@ export class ActivityRepository {
    *
    */
   public static async _parent_id(id: string, type: Function): Promise<string | undefined> {
-    const { ctest_id, survey_id, group_id } = ActivityRepository._unpack_id(id)
+    const { ctest_id, survey_id, group_id, custom_id } = ActivityRepository._unpack_id(id)
     switch (type) {
       case StudyRepository:
       case ResearcherRepository:
@@ -119,13 +134,29 @@ export class ActivityRepository {
             : (type === ResearcherRepository ? ResearcherRepository : StudyRepository)._pack_id({
                 admin_id: result[0].value,
               })
+        } else if (custom_id !== undefined /* custom */) {
+          const result = (
+            await SQL!.request().query(`
+            SELECT ObjectID AS value
+            FROM LAMP_Aux.dbo.OOLAttachment
+            WHERE (
+              [Key] = '${custom_id}'
+              AND ObjectType = 'CustomActivity'
+            )
+					;`)
+          ).recordset
+          return result.length === 0
+            ? undefined
+            : type === StudyRepository
+            ? result[0].value // Since we store actual string values, we need to re-pack them for Researcher...
+            : ResearcherRepository._pack_id({
+                admin_id: StudyRepository._unpack_id(result[0].value).admin_id,
+              })
         } else return undefined
       default:
         throw new Error("400.invalid-identifier")
     }
   }
-
-  // FIXME: Use AdminCTestSettings for CTest ID
 
   /**
    * Get a set of `Activity`s matching the criteria parameters.
@@ -140,6 +171,7 @@ export class ActivityRepository {
     let ctest_id: number | undefined
     let survey_id: number | undefined
     let group_id: number | undefined
+    let custom_id: number | undefined
     let admin_id: number | undefined
     if (!!id && Identifier_unpack(id)[0] === (<any>Researcher).name)
       admin_id = ResearcherRepository._unpack_id(id).admin_id
@@ -149,6 +181,7 @@ export class ActivityRepository {
       ctest_id = c.ctest_id
       survey_id = c.survey_id
       group_id = c.group_id
+      custom_id = c.custom_id
     } else if (!!id && Identifier_unpack(id).length === 0 /* Participant */)
       admin_id = ResearcherRepository._unpack_id((<any>await TypeRepository._parent(<string>id))["Researcher"]).admin_id
     else if (!!id) throw new Error("400.invalid-identifier")
@@ -162,7 +195,7 @@ export class ActivityRepository {
 				('batch') AS type
 			FROM Admin_BatchSchedule
       WHERE IsDeleted = 0 
-        ${(ctest_id ?? 0) > 0 || (survey_id ?? 0) > 0 ? `AND 1=0` : ``}
+        ${(ctest_id ?? 0) > 0 || (survey_id ?? 0) > 0 || (custom_id ?? 0) > 0 ? `AND 1=0` : ``}
 				${group_id ?? 0 > 0 ? `AND AdminBatchSchID = '${group_id}'` : ``}
 				${admin_id ?? 0 > 0 ? `AND AdminID = '${admin_id}'` : ``}
 		;`)
@@ -226,7 +259,7 @@ export class ActivityRepository {
 				('survey') AS type
 			FROM Survey
 			WHERE IsDeleted = 0 
-        ${(ctest_id ?? 0) > 0 || (group_id ?? 0) > 0 ? `AND 1=0` : ``}
+        ${(ctest_id ?? 0) > 0 || (group_id ?? 0) > 0 || (custom_id ?? 0) > 0 ? `AND 1=0` : ``}
 				${survey_id ?? 0 > 0 ? `AND SurveyID = '${survey_id}'` : ``}
 				${admin_id ?? 0 > 0 ? `AND AdminID = '${admin_id}'` : ``}
 		;`)
@@ -284,7 +317,7 @@ export class ActivityRepository {
 			FROM Admin_CTestSettings
       WHERE Status IN (1, NULL)
         AND CTestID NOT IN (4, 13)
-        ${(survey_id ?? 0) > 0 || (group_id ?? 0) > 0 ? `AND 1=0` : ``}
+        ${(survey_id ?? 0) > 0 || (group_id ?? 0) > 0 || (custom_id ?? 0) > 0 ? `AND 1=0` : ``}
 				${ctest_id ?? 0 > 0 ? `AND AdminCTestSettingID = '${ctest_id}'` : ``}
 				${admin_id ?? 0 > 0 ? `AND AdminID = '${admin_id}'` : ``}
 		;`)
@@ -354,10 +387,20 @@ export class ActivityRepository {
 				AND AdminCTestSettingID IN (${resultTest.length === 0 ? "NULL" : resultTest.map((x) => x.id)})
 		;`)
     ).recordset
-
+    const resultCustom = (
+      await SQL!.request().query(`
+        SELECT [Key] AS custom_id, Value AS object
+        FROM LAMP_Aux.dbo.OOLAttachment
+        WHERE ObjectType = 'CustomActivity'
+          ${(ctest_id ?? 0) > 0 || (group_id ?? 0) > 0 || (survey_id ?? 0) > 0 ? `AND 1=0` : ``}
+          ${admin_id ?? 0 > 0 ? `AND ObjectID = '${StudyRepository._pack_id({ admin_id })}'` : ``}
+    ;`)
+    ).recordset
+    // FIXME: Only works with Study IDs, not Researcher IDs, so multi-study Researcher-wide searches will fail!
     // FIXME: Shouldn't return deleted surveys/ctests in group settings.
+    // FIXME: Should 404 error if nothing was found?
 
-    return [...resultBatch, ...resultSurvey, ...resultTest].map((raw: any) => {
+    return [...resultBatch, ...resultSurvey, ...resultTest, ...resultCustom].map((raw: any) => {
       const obj = new Activity()
       if (raw.type === "batch") {
         obj.id = ActivityRepository._pack_id({
@@ -428,6 +471,14 @@ export class ActivityRepository {
             setting_id: undefined,
             custom_time: !x.custom_time ? null : JSON.parse(x.custom_time).map((y: any) => y.t),
           })) as any
+      } /* custom */ else {
+        // We are just copying over the values one-by-one to prevent misc. properties getting added/lost.
+        raw.object = JSON.parse(raw.object)
+        obj.id = ActivityRepository._pack_id({ custom_id: raw.custom_id })
+        obj.spec = raw.object.spec
+        obj.name = raw.object.name
+        obj.settings = raw.object.settings
+        obj.schedule = raw.object.schedule
       }
       return obj
     })
@@ -699,7 +750,7 @@ export class ActivityRepository {
         return ActivityRepository._pack_id({
           survey_id: survey_id,
         })
-      } /* cognitive test */ else {
+      } else if (ActivityIndex.map((x) => x.Name).includes(object.spec) /* ctest */) {
         const ctest_id = ActivityIndex.find((x) => x.Name === object.spec)?.LegacyCTestID ?? -1
 
         // First activate the CTest if previously inactive.
@@ -831,6 +882,42 @@ export class ActivityRepository {
         return ActivityRepository._pack_id({
           ctest_id: _actual_setting_id,
         })
+      } /* custom */ else {
+        // Verify the parameters exist that we need to save.
+        if (
+          object.spec === undefined ||
+          object.name === undefined ||
+          object.settings === undefined ||
+          object.schedule === undefined
+        )
+          throw new Error("400.create-failed-due-to-malformed-parameters")
+        delete object.id
+
+        const customSpecs = (await ActivitySpecRepository._select())
+          .filter((x: any) => !ActivityIndex.map((y) => y.Name).includes(x.id) && x.id !== "lamp.group")
+          .map((x: any) => x.id)
+        if (!customSpecs.includes(object.spec)) throw new Error("400.no-such-activity-spec")
+
+        // Create a new ID here which is just a random integer number.
+        const _actual_custom_id = parseInt(Math.random().toFixed(10).slice(2, 12))
+
+        // Actually insert the object.
+        const req = SQL!.request()
+        req.input("json_value", JSON.stringify(object))
+        const result = await req.query(`
+          INSERT INTO LAMP_Aux.dbo.OOLAttachment (
+              ObjectType, ObjectID, [Key], Value
+          )
+          VALUES (
+              'CustomActivity', '${study_id}', '${_actual_custom_id}', @json_value
+          )
+        ;`)
+        if (result.rowsAffected[0] === 0) throw new Error("404.object-not-created")
+
+        await transaction.commit()
+        return ActivityRepository._pack_id({
+          custom_id: _actual_custom_id,
+        })
       }
     } catch (e) {
       await transaction.rollback()
@@ -853,7 +940,7 @@ export class ActivityRepository {
      */
     object: any
   ): Promise<{}> {
-    const { ctest_id, survey_id, group_id } = ActivityRepository._unpack_id(activity_id)
+    const { ctest_id, survey_id, group_id, custom_id } = ActivityRepository._unpack_id(activity_id)
 
     if (typeof object.spec === "string") throw new Error("400.update-failed-modifying-activityspec-is-illegal")
 
@@ -1137,7 +1224,7 @@ export class ActivityRepository {
 
         await transaction.commit()
         return {}
-      } /* cognitive test */ else {
+      } else if (ActivityIndex.map((x) => x.Name).includes(object.spec) /* ctest */) {
         // Verify that the item exists.
         const result = await transaction.request().query(`
 					SELECT AdminID, CTestID 
@@ -1270,6 +1357,43 @@ export class ActivityRepository {
 
         await transaction.commit()
         return {}
+      } /* custom */ else {
+        // Verify the parameters exist that we need to save.
+        if (
+          custom_id === undefined ||
+          //object.id === undefined ||
+          //object.spec === undefined ||
+          object.name === undefined ||
+          object.settings === undefined ||
+          object.schedule === undefined
+        )
+          throw new Error("400.update-failed-incomplete-object")
+        delete object.id
+
+        // We need to grab the existing copy to migrate the old spec == new spec.
+        const existing = (
+          await SQL!.request().query(`
+            SELECT Value AS object
+            FROM LAMP_Aux.dbo.OOLAttachment
+            WHERE ObjectType = 'CustomActivity'
+              AND [Key] = '${custom_id}'
+        ;`)
+        ).recordset
+        object.spec = JSON.parse(existing[0].object).spec
+
+        // Save the JSON. Note, we are NOT checking against ObjectID to see if the owner is the same.
+        const req = SQL!.request()
+        req.input("json_value", JSON.stringify(object))
+        const result = await req.query(`
+          UPDATE LAMP_Aux.dbo.OOLAttachment SET
+            Value = @json_value
+          WHERE ObjectType = 'CustomActivity'
+            AND [Key] = '${custom_id}'
+        ;`)
+        if (result.rowsAffected[0] === 0) throw new Error("404.object-not-found")
+
+        await transaction.commit()
+        return {}
       }
     } catch (e) {
       await transaction.rollback()
@@ -1287,7 +1411,7 @@ export class ActivityRepository {
      */
     activity_id: string
   ): Promise<{}> {
-    const { ctest_id, survey_id, group_id } = ActivityRepository._unpack_id(activity_id)
+    const { ctest_id, survey_id, group_id, custom_id } = ActivityRepository._unpack_id(activity_id)
     const transaction = SQL!.transaction()
     await transaction.begin()
     try {
@@ -1322,7 +1446,7 @@ export class ActivityRepository {
 					WHERE IsDeleted = 0
 						AND SurveyID = ${survey_id}
 				;`)
-      } /* cognitive test */ else {
+      } else if (ctest_id > 0 /* ctest */) {
         const result1 = await transaction.request().query(`
 					UPDATE Admin_CTestSettings 
 					SET Status = 0 
@@ -1346,6 +1470,18 @@ export class ActivityRepository {
 							WHERE AdminCTestSettingID = ${ctest_id}
 						)
 				;`)
+      } /* custom */ else {
+        // Verify the parameters exist that we need to save.
+        if (custom_id === undefined) throw new Error("400.delete-invalid-identifier")
+
+        // Delete the internal attachment. WE ARE NOT CHECKING OWNERSHIP!
+        const result = await SQL!.request().query(`
+          DELETE FROM LAMP_Aux.dbo.OOLAttachment
+            WHERE 
+                [Key] = '${custom_id}'
+                AND ObjectType = 'CustomActivity'
+        ;`)
+        if (result.rowsAffected[0] === 0) throw new Error("404.access-key-not-found")
       }
 
       await transaction.commit()
