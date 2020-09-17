@@ -1501,7 +1501,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
               itemSchedule.time != null
                 ? new Date(itemSchedule.time).toISOString().replace(/T/, " ").replace(/\..+/, "")
                 : null
-            ScheduleGameListObj.RepeatId =
+            ScheduleGameListObj.RepeatID =
               [
                 "hourly",
                 "every3h",
