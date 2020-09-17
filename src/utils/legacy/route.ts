@@ -1547,7 +1547,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
             SurveyData[k].schedule[l].time != null
               ? new Date(SurveyData[k].schedule[l].time).toISOString().replace(/T/, " ").replace(/\..+/, "")
               : null
-          ScheduleSurveyListObj.RepeatId =
+          ScheduleSurveyListObj.RepeatID =
             [
               "hourly",
               "every3h",
@@ -1587,7 +1587,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
           SurveyData[k].schedule.time != null
             ? new Date(SurveyData[k].schedule.time).toISOString().replace(/T/, " ").replace(/\..+/, "")
             : null
-        ScheduleSurveyListObj.RepeatId =
+        ScheduleSurveyListObj.RepeatID =
           [
             "hourly",
             "every3h",
