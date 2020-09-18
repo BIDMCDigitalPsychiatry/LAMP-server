@@ -1391,7 +1391,8 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
         })
         BatchScheduleSurvey_CTestObj = {
           EncryptId: act[0].id,
-          BatchScheduleId: ConvertIdFromV1ToV2(act[0].id),
+          //BatchScheduleId: ConvertIdFromV1ToV2(act[0].id),
+          BatchScheduleId: ConvertIdFromV1ToV2(item.id),
           Type: 2,
           //ID: BatchCtestFiltered[0].LegacyCTestID,
           ID: act[0].spec === "lamp.survey" ? 1 : BatchCtestFiltered[0].LegacyCTestID,
