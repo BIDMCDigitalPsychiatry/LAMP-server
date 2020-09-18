@@ -1546,7 +1546,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
           ScheduleSurveyListObj = {
             EncryptId: itemSurvey.id,
             SurveyId: ConvertIdFromV1ToV2(itemSurvey.id),
-            SurveyScheduleID: l, // EDIT THIS
+            SurveyScheduleID: m, // EDIT THIS
             SurveyName: itemSurvey.name,
             IsDeleted: false, // EDIT THIS
           }
@@ -1591,7 +1591,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
           SurveyIconList?.push(SurveyIconListObj)
           m++
         }
-      } /*else {
+      } /*else {  
         ScheduleSurveyListObj = {
           EncryptId: itemSurvey.id,
           SurveyId: ConvertIdFromV1ToV2(itemSurvey.id),
