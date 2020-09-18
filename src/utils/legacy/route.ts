@@ -1391,7 +1391,8 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
         })
         BatchScheduleSurvey_CTestObj = {
           EncryptId: act[0].id,
-          BatchScheduleId: ConvertIdFromV1ToV2(act[0].id),
+          //BatchScheduleId: ConvertIdFromV1ToV2(act[0].id),
+          BatchScheduleId: ConvertIdFromV1ToV2(item.id),
           Type: 2,
           //ID: BatchCtestFiltered[0].LegacyCTestID,
           ID: act[0].spec === "lamp.survey" ? 1 : BatchCtestFiltered[0].LegacyCTestID,
@@ -1453,6 +1454,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
     let ScheduleGameCustomTime: any = []
     if (GameData.length > 0) {
       let DataFiltered: any, GameCTestID: any
+      let p = 0
       GameData.forEach(async (item: any, index: any) => {
         let specData = [item.spec]
         DataFiltered = ActivityIndex.filter((cls) => {
@@ -1495,7 +1497,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
               Version: 0,
               GameType: 1,
               Time: itemSchedule.time,
-              GameScheduleID: index,
+              GameScheduleID: p,
               ScheduleDate: itemSchedule.start_date,
               IsDeleted: false,
             }
@@ -1528,6 +1530,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
             ScheduleGameListObj.SlotTimeOptions = ScheduleGameCustomTime
 
             ScheduleGameList?.push(ScheduleGameListObj)
+            p++
           })
         }
       })
