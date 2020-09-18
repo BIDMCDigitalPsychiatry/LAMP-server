@@ -864,6 +864,7 @@ LegacyAPI.post("/SaveUserSetting", [_authorize], async (req: Request, res: Respo
   try {
     let UserData = (req as any).AuthUser
     let UserSettings = await TypeRepository._get("a", UserData.StudyId, "lamp.legacy_adapter")
+    let PrefferedCognitions: any = requestData.PrefferedCognitions
     await TypeRepository._set("a", "me", UserData.StudyId, "lamp.legacy_adapter", {
       ...UserSettings,
       UserSettings: {
@@ -877,8 +878,7 @@ LegacyAPI.post("/SaveUserSetting", [_authorize], async (req: Request, res: Respo
         "24By7ContactNo": requestData.ContactNo,
         PersonalHelpline: requestData.PersonalHelpline,
         PrefferedSurveys: requestData.PrefferedSurveys,
-        //PrefferedCognitions: requestData.PrefferedCognitions,
-        PrefferedCognitions: `${requestData.PrefferedCognitions}`,
+        PrefferedCognitions:  (typeof PrefferedCognitions !== 'string' ? PrefferedCognitions.toString() :PrefferedCognitions ),
         Protocol: requestData.Protocol,
         Language: requestData.Language,
       },
