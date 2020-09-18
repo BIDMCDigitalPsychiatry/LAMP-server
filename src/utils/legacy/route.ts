@@ -1538,6 +1538,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
     let SurveyIconListObj: any = {}
     let SurveyIconList: any = []
     let itemSurvey
+    let m=0;
     for (let k = 0; k < SurveyData.length; k++) {
       itemSurvey = SurveyData[k]
       if (itemSurvey.schedule.length > 0) {
@@ -1588,6 +1589,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
             IconBlobString: null,
           }
           SurveyIconList?.push(SurveyIconListObj)
+          m++
         }
       } /*else {
         ScheduleSurveyListObj = {
