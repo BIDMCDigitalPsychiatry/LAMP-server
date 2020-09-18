@@ -864,6 +864,7 @@ LegacyAPI.post("/SaveUserSetting", [_authorize], async (req: Request, res: Respo
   try {
     let UserData = (req as any).AuthUser
     let UserSettings = await TypeRepository._get("a", UserData.StudyId, "lamp.legacy_adapter")
+    let PrefferedCognitions: any = requestData.PrefferedCognitions
     await TypeRepository._set("a", "me", UserData.StudyId, "lamp.legacy_adapter", {
       ...UserSettings,
       UserSettings: {
@@ -877,7 +878,7 @@ LegacyAPI.post("/SaveUserSetting", [_authorize], async (req: Request, res: Respo
         "24By7ContactNo": requestData.ContactNo,
         PersonalHelpline: requestData.PersonalHelpline,
         PrefferedSurveys: requestData.PrefferedSurveys,
-        PrefferedCognitions: requestData.PrefferedCognitions,
+        PrefferedCognitions:  (typeof PrefferedCognitions !== 'string' ? PrefferedCognitions.toString() :PrefferedCognitions ),
         Protocol: requestData.Protocol,
         Language: requestData.Language,
       },
@@ -1371,7 +1372,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
         EncryptId: item.id,
         BatchScheduleId: ConvertIdFromV1ToV2(item.id),
         BatchName: item.name,
-        IsDeleted: false, // EDIT THIS
+        IsDeleted: false,
         IconBlob: null,
         IconBlobString: null,
       }
@@ -1393,9 +1394,9 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
           Type: 2,
           //ID: BatchCtestFiltered[0].LegacyCTestID,
           ID: act[0].spec === "lamp.survey" ? 1 : BatchCtestFiltered[0].LegacyCTestID,
-          Version: 0, // EDIT THIS
-          Order: 0, // EDIT THIS
-          GameType: 1, // EDIT THIS
+          Version: 0,
+          Order: 0,
+          GameType: 1,
         }
         BatchScheduleSurvey_CTestArray.push(BatchScheduleSurvey_CTestObj)
       }
@@ -1537,6 +1538,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
     let SurveyIconListObj: any = {}
     let SurveyIconList: any = []
     let itemSurvey
+    let m=0;
     for (let k = 0; k < SurveyData.length; k++) {
       itemSurvey = SurveyData[k]
       if (itemSurvey.schedule.length > 0) {
@@ -1544,9 +1546,9 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
           ScheduleSurveyListObj = {
             EncryptId: itemSurvey.id,
             SurveyId: ConvertIdFromV1ToV2(itemSurvey.id),
-            SurveyScheduleID: l, // EDIT THIS
+            SurveyScheduleID: m,
             SurveyName: itemSurvey.name,
-            IsDeleted: false, // EDIT THIS
+            IsDeleted: false,
           }
           ScheduleSurveyListObj.ScheduleDate = SurveyData[k].schedule[l].start_date
           ScheduleSurveyListObj.Time = SurveyData[k].schedule[l].time
@@ -1587,8 +1589,9 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
             IconBlobString: null,
           }
           SurveyIconList?.push(SurveyIconListObj)
+          m++
         }
-      } /*else {
+      } /*else {  
         ScheduleSurveyListObj = {
           EncryptId: itemSurvey.id,
           SurveyId: ConvertIdFromV1ToV2(itemSurvey.id),
