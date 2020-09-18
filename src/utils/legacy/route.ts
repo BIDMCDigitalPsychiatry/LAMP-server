@@ -1454,6 +1454,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
     let ScheduleGameCustomTime: any = []
     if (GameData.length > 0) {
       let DataFiltered: any, GameCTestID: any
+      let p = 0
       GameData.forEach(async (item: any, index: any) => {
         let specData = [item.spec]
         DataFiltered = ActivityIndex.filter((cls) => {
@@ -1496,7 +1497,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
               Version: 0,
               GameType: 1,
               Time: itemSchedule.time,
-              GameScheduleID: index,
+              GameScheduleID: p,
               ScheduleDate: itemSchedule.start_date,
               IsDeleted: false,
             }
@@ -1529,6 +1530,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
             ScheduleGameListObj.SlotTimeOptions = ScheduleGameCustomTime
 
             ScheduleGameList?.push(ScheduleGameListObj)
+            p++
           })
         }
       })
