@@ -878,7 +878,8 @@ LegacyAPI.post("/SaveUserSetting", [_authorize], async (req: Request, res: Respo
         "24By7ContactNo": requestData.ContactNo,
         PersonalHelpline: requestData.PersonalHelpline,
         PrefferedSurveys: requestData.PrefferedSurveys,
-        PrefferedCognitions:  (typeof PrefferedCognitions !== 'string' ? PrefferedCognitions.toString() :PrefferedCognitions ),
+        PrefferedCognitions:
+          typeof PrefferedCognitions !== "string" ? PrefferedCognitions.toString() : PrefferedCognitions,
         Protocol: requestData.Protocol,
         Language: requestData.Language,
       },
@@ -1538,7 +1539,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
     let SurveyIconListObj: any = {}
     let SurveyIconList: any = []
     let itemSurvey
-    let m=0;
+    let m = 0
     for (let k = 0; k < SurveyData.length; k++) {
       itemSurvey = SurveyData[k]
       if (itemSurvey.schedule.length > 0) {
@@ -1591,47 +1592,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
           SurveyIconList?.push(SurveyIconListObj)
           m++
         }
-      } /*else {  
-        ScheduleSurveyListObj = {
-          EncryptId: itemSurvey.id,
-          SurveyId: ConvertIdFromV1ToV2(itemSurvey.id),
-          SurveyScheduleID: k,
-          SurveyName: itemSurvey.name,
-          IsDeleted: false,
-        }
-        ScheduleSurveyListObj.ScheduleDate = SurveyData[k].schedule.start_date
-        ScheduleSurveyListObj.Time = SurveyData[k].schedule.time
-        ScheduleSurveyListObj.SlotTime =
-          SurveyData[k].schedule.time != null
-            ? new Date(SurveyData[k].schedule.time).toISOString().replace(/T/, " ").replace(/\..+/, "")
-            : null
-        ScheduleSurveyListObj.RepeatID =
-          [
-            "hourly",
-            "every3h",
-            "every6h",
-            "every12h",
-            "daily",
-            "biweekly",
-            "triweekly",
-            "weekly",
-            "bimonthly",
-            "monthly",
-            "custom",
-            "none",
-          ].indexOf(SurveyData[k].schedule.repeat_interval) + 1
-        ScheduleSurveyListObj.SlotTimeOptions = []
-        ScheduleSurveyList?.push(ScheduleSurveyListObj)
       }
-      SurveyIconListObj = {
-        EncryptId: itemSurvey.id,
-        SurveyId: ConvertIdFromV1ToV2(itemSurvey.id),
-        AdminID: 0,
-        IconBlob: null,
-        IconBlobString: null,
-      }
-      SurveyIconList?.push(SurveyIconListObj)
-      */
     }
 
     return res.status(200).json({
