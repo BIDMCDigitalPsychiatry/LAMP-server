@@ -51,11 +51,9 @@ async function APNSpush(certificate: any, device: string, payload: any): Promise
       data.push(chunk)
     })
 
-    try {
-      request.on("end", () => resolve(data.join()))
-      request.write(buffer)
-      request.end()
-    } catch (error) {}
+    request.on("end", () => resolve(data.join()))
+    request.write(buffer)
+    request.end()
   })
 }
 
@@ -105,74 +103,83 @@ export async function deviceNotification(device_id: string, device_type: string,
   let payload_data: any = {}
   const participant_id = payload.participant_id
   const activity_id = payload.activity_id
-  const url = `${Landing_URL}participant/${participant_id}/survey/${activity_id}`
+  const url = `${Landing_URL}participant/${participant_id}/activity/${activity_id}`
 
-  try {
-    switch (device_type) {
-      case "android.watch":
-        payload_data = {
-          priority: "high",
-          data: {
-            title: `${payload.title}`,
-            message: `${payload.message}`,
-            page: `${url}`,
-            notificationId: `${payload.title}`,
-            actions: [{ name: "Open App", page: `${url}` }],
-            expiry: 360000,
-          },
-        }
-
+  switch (device_type) {
+    case "android.watch":
+      payload_data = {
+        priority: "high",
+        data: {
+          title: `${payload.title}`,
+          message: `${payload.message}`,
+          page: `${url}`,
+          notificationId: `${payload.title}`,
+          actions: [{ name: "Open App", page: `${url}` }],
+          expiry: 360000,
+        },
+      }
+      try {
         await GCMpush(GCM_AUTH, device_id, payload_data)
         console.log("Successfully sent push notification.")
-        break
+      } catch (error) {
+        if (undefined !== error) console.log("error", error)
+      }
+      break
 
-      case "android":
-        payload_data = {
-          priority: "high",
-          data: {
-            title: `${payload.title}`,
-            message: `${payload.message}`,
-            page: "https://www.google.com",
-            notificationId: `${payload.title}`,
-            actions: [{ name: "Open App", page: "https://www.android.com" }],
-            expiry: 360000,
-          },
-        }
-
+    case "android":
+      payload_data = {
+        priority: "high",
+        data: {
+          title: `${payload.title}`,
+          message: `${payload.message}`,
+          page: "https://www.google.com",
+          notificationId: `${payload.title}`,
+          actions: [{ name: "Open App", page: "https://www.android.com" }],
+          expiry: 360000,
+        },
+      }
+      try {
         await GCMpush(GCM_AUTH, device_id, payload_data)
         console.log("Successfully sent push notification.")
-        break
+      } catch (error) {
+        if (undefined !== error) console.log("error", error)
+      }
+      break
 
-      case "ios.watch":
-        payload_data = {
-          aps: { alert: `${payload.message}`, badge: 0, sound: "default", "mutable-conten": 1, "content-available": 1 },
-          notificationId: `${payload.title}`,
-          expiry: 60000,
-          page: `${url}`,
-          actions: [{ name: "Open App", page: `${url}` }],
-        }
-
+    case "ios.watch":
+      payload_data = {
+        aps: { alert: `${payload.message}`, badge: 0, sound: "default", "mutable-conten": 1, "content-available": 1 },
+        notificationId: `${payload.title}`,
+        expiry: 60000,
+        page: `${url}`,
+        actions: [{ name: "Open App", page: `${url}` }],
+      }
+      try {
         await APNSpush(P8, device_id, payload_data)
         console.log("Successfully sent push notification.")
-        break
+      } catch (error) {
+        if (undefined !== error) console.log("error", error)
+      }
+      break
 
-      case "ios":
-        payload_data = {
-          aps: { alert: `${payload.message}`, badge: 0, sound: "default", "mutable-conten": 1, "content-available": 1 },
-          notificationId: `${payload.title}`,
-          expiry: 60000,
-          page: `${url}`,
-          actions: [{ name: "Open App", page: `${url}` }],
-        }
+    case "ios":
+      payload_data = {
+        aps: { alert: `${payload.message}`, badge: 0, sound: "default", "mutable-conten": 1, "content-available": 1 },
+        notificationId: `${payload.title}`,
+        expiry: 60000,
+        page: `${url}`,
+        actions: [{ name: "Open App", page: `${url}` }],
+      }
 
+      try {
         await APNSpush(P8, device_id, payload_data)
         console.log("Successfully sent push notification.")
-        break
+      } catch (error) {
+        if (undefined !== error) console.log("error", error)
+      }
+      break
 
-      default:
-        break
-    }
-  } catch (error) {
-    console.log(error)
+    default:
+      break
   }
 }

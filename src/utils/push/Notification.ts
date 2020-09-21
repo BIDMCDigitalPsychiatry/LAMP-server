@@ -1,76 +1,102 @@
-import { Database } from "../../app"
 import { ActivityRepository } from "../../repository/ActivityRepository"
+import { TypeRepository } from "../../repository/TypeRepository"
+import { ParticipantRepository } from "../../repository/ParticipantRepository"
+import { SensorEventRepository } from "../../repository/SensorEventRepository"
 import { deviceNotification } from "./push"
 
-const triweekly = [1, 4, 5]
+import NodeCache from "node-cache"
+const triweekly = [1, 3, 5]
 const biweekly = [2, 4]
+const ScheduleCache = new NodeCache()
 
-export const ActivityScheduler = async (participant_id?: string): Promise<void> => {
+export const ActivityScheduler = async (): Promise<void> => {
   // List activities for a given ID; if a Participant ID is not provided, undefined = list ALL.
-  const activities = await ActivityRepository._select(participant_id)
-  activities.map((feed: any) => {
-    feed.schedule.map((schedule: any) => {
-      if (schedule.time) {
-        prepareNotifications(feed.name, {
-          start_date: schedule.start_date,
-          time: schedule.time,
-          repeat_interval: schedule.repeat_interval,
-          custom_time: schedule.custom_time,
-          id: feed.id,
+  try {
+    let activities: any = []
+    
+    //get cached data if any
+    let ScheduleCachedData = ScheduleCache.get("schedule")
+    if (undefined === ScheduleCachedData) {
+      //read activities
+      activities = await ActivityRepository._select()  
+          
+       //set activitie in cached
+      ScheduleCachedData = ScheduleCache.set("schedule", activities)
+    } else {
+      activities = ScheduleCachedData
+    }
+    
+    //process activiites  to find schedules and corresponding participants
+    await activities.map((feed: any) => {
+      if (feed.schedule.length !== 0) {
+        TypeRepository._parent(feed.id).then((owners: any) => {
+          if (owners.Study !== undefined && typeof owners.Study == "string") {
+            ParticipantRepository._select(owners.Study)
+              .then((participants: any) => {
+                
+                participants.map((participant: any) => {
+                  feed.schedule.map((schedule: any) => {
+                    if (schedule.time && undefined !== participant.id) {
+                      prepareNotifications(feed.name, {
+                        start_date: schedule.start_date,
+                        time: schedule.time,
+                        repeat_interval: schedule.repeat_interval,
+                        custom_time: schedule.custom_time,
+                        id: feed.id,
+                        participant_id: participant.id
+                      })
+                    }
+                  })
+                 
+                })
+              })
+              .catch((error) => console.log(error.message))
+          }
         })
       }
     })
-  })
+  } catch (error) {
+    console.log("Error in Fetching")
+  }
 }
-
 /*
- * send notifications to each participant
+ * prepare notifications
  */
 export async function prepareNotifications(subject: string, feed: any): Promise<void> {
   let current_feed: {} = {}
 
   //current date time
-  const currentDateTime = new Date()
-  //current time
-  const currentTime = currentDateTime.getTime()
+  const currentDateTime:Date = new Date()
   //current date
-  const currentDate = currentDateTime.getDate()
+  const currentDate:number = currentDateTime.getDate()
   //feed date time
-  const feedDateTime = new Date(feed.time)
-  //feed time
-  const feedTime = feedDateTime.getTime()
-  //feed date
-  const feedDate = feedDateTime.getDate()
+  const feedDateTime:Date = new Date(feed.time)  
 
   //find day number  (eg:Mon,Tue,Wed...)
-  const dayNumber = getDayNumber(currentDateTime)
-  const sheduleDayNumber = getDayNumber(feed.start_date)
+  const dayNumber:number = getDayNumber(currentDateTime)
+  const sheduleDayNumber:number = getDayNumber(feed.start_date)
 
   //get hour,minute,second formatted time from current date time
   let curHoursUtc: any = currentDateTime.getUTCHours()
   let curMinutesUtc: any = currentDateTime.getUTCMinutes()
-  let curSecondsUtc: any = currentDateTime.getUTCSeconds()
 
   //appending 0 to h,m,s if <=9
   if (curHoursUtc <= 9) curHoursUtc = "0" + curHoursUtc
   if (curMinutesUtc <= 9) curMinutesUtc = "0" + curMinutesUtc
-  if (curSecondsUtc <= 9) curSecondsUtc = "0" + curSecondsUtc
 
   //get h:m:s format for current date time
-  const currentUtcTime = `${curHoursUtc}:${curMinutesUtc}:${curSecondsUtc}`
+  const currentUtcTime:any = `${curHoursUtc}:${curMinutesUtc}`
 
   //get hour,minute,second formatted time from feed date time
   let feedHoursUtc: any = feedDateTime.getUTCHours()
   let feedMinutesUtc: any = feedDateTime.getUTCMinutes()
-  let feedSecondsUtc: any = feedDateTime.getUTCSeconds()
 
   //appending 0 to h,m,s if <=9
   if (feedHoursUtc <= 9) feedHoursUtc = "0" + feedHoursUtc
   if (feedMinutesUtc <= 9) feedMinutesUtc = "0" + feedMinutesUtc
-  if (feedSecondsUtc <= 9) feedSecondsUtc = "0" + feedSecondsUtc
 
   //get h:m:s format for feed date time
-  const feedHmiUtcTime = `${feedHoursUtc}:${feedMinutesUtc}:${feedSecondsUtc}`
+  const feedHmiUtcTime:any = `${feedHoursUtc}:${feedMinutesUtc}`
 
   //check whether current date time is greater than the start date of activity
   if (currentDateTime >= new Date(feed.start_date)) {
@@ -83,7 +109,9 @@ export async function prepareNotifications(subject: string, feed: any): Promise<
               title: subject,
               message: await prepareNotifyMessage(subject),
               activity_id: feed.id,
+              participant_id: feed.participant_id,
             }
+
             sendNotifications(current_feed)
           }
         }
@@ -96,6 +124,7 @@ export async function prepareNotifications(subject: string, feed: any): Promise<
               title: subject,
               message: await prepareNotifyMessage(subject),
               activity_id: feed.id,
+              participant_id: feed.participant_id,
             }
             sendNotifications(current_feed)
           }
@@ -109,6 +138,7 @@ export async function prepareNotifications(subject: string, feed: any): Promise<
               title: subject,
               message: await prepareNotifyMessage(subject),
               activity_id: feed.id,
+              participant_id: feed.participant_id,
             }
             sendNotifications(current_feed)
           }
@@ -121,6 +151,7 @@ export async function prepareNotifications(subject: string, feed: any): Promise<
             title: subject,
             message: await prepareNotifyMessage(subject),
             activity_id: feed.id,
+            participant_id: feed.participant_id,
           }
           sendNotifications(current_feed)
         }
@@ -131,68 +162,77 @@ export async function prepareNotifications(subject: string, feed: any): Promise<
           //get hour,minute,second formatted time from custom date time
           let customHoursUtc: any = new Date(time).getUTCHours()
           let customMinutesUtc: any = new Date(time).getUTCMinutes()
-          let customSecondsUtc: any = new Date(time).getUTCSeconds()
 
           //appending 0 to h,m,s if <=9
           if (customHoursUtc <= 9) customHoursUtc = "0" + customHoursUtc
           if (customMinutesUtc <= 9) customMinutesUtc = "0" + customMinutesUtc
-          if (customSecondsUtc <= 9) customSecondsUtc = "0" + customSecondsUtc
 
           //get h:m:s format for custom date time
-          const customHmiUtcTime = `${customHoursUtc}:${customMinutesUtc}:${customSecondsUtc}`
+          const customHmiUtcTime = `${customHoursUtc}:${customMinutesUtc}`
           if (currentUtcTime === customHmiUtcTime) {
             //prepare notifications array
             current_feed = {
               title: subject,
               message: `Activity/Survey-${subject} scheduled for you`,
               activity_id: feed.id,
+              participant_id: feed.participant_id,
             }
             sendNotifications(current_feed)
           }
         })
         break
       case "hourly":
-        if ((currentTime - feedTime) % (60 * 60 * 1000) === 0) {
+        if (feedMinutesUtc === curMinutesUtc) {
           //prepare notifications array
           current_feed = {
             title: subject,
             message: await prepareNotifyMessage(subject),
             activity_id: feed.id,
+            participant_id: feed.participant_id,
           }
-          sendNotifications(current_feed)
+           sendNotifications(current_feed)
         }
         break
-      case "every3h":
-        if ((currentTime - feedTime) % (3 * 60 * 60 * 1000) === 0) {
-          //prepare notifications array
-          current_feed = {
-            title: subject,
-            message: await prepareNotifyMessage(subject),
-            activity_id: feed.id,
+      case "every3h":            
+        if (feedMinutesUtc === curMinutesUtc) {
+          if ((curHoursUtc - feedHoursUtc) % 3 === 0) {
+            //prepare notifications array
+            current_feed = {
+              title: subject,
+              message: await prepareNotifyMessage(subject),
+              activity_id: feed.id,
+              participant_id: feed.participant_id,
+            }
+             sendNotifications(current_feed)
           }
-          sendNotifications(current_feed)
         }
         break
       case "every6h":
-        if ((currentTime - feedTime) % (6 * 60 * 60 * 1000) === 0) {
-          //prepare notifications array
-          current_feed = {
-            title: subject,
-            message: await prepareNotifyMessage(subject),
-            activity_id: feed.id,
+        if (feedMinutesUtc === curMinutesUtc) {
+          if ((curHoursUtc - feedHoursUtc) % 6 === 0) {
+            //prepare notifications array
+            current_feed = {
+              title: subject,
+              message: await prepareNotifyMessage(subject),
+              activity_id: feed.id,
+              participant_id: feed.participant_id,
+            }
+             sendNotifications(current_feed)
           }
-          sendNotifications(current_feed)
         }
         break
       case "every12h":
-        if ((currentTime - feedTime) % (12 * 60 * 60 * 1000) === 0) {
-          //prepare notifications array
-          current_feed = {
-            title: subject,
-            message: await prepareNotifyMessage(subject),
-            activity_id: feed.id,
+        if (feedMinutesUtc === curMinutesUtc) {
+          if ((curHoursUtc - feedHoursUtc) % 12 === 0) {
+            //prepare notifications array
+            current_feed = {
+              title: subject,
+              message: await prepareNotifyMessage(subject),
+              activity_id: feed.id,
+              participant_id: feed.participant_id,
+            }
+             sendNotifications(current_feed)
           }
-          sendNotifications(current_feed)
         }
         break
       case "monthly":
@@ -203,8 +243,9 @@ export async function prepareNotifications(subject: string, feed: any): Promise<
               title: subject,
               message: await prepareNotifyMessage(subject),
               activity_id: feed.id,
+              participant_id: feed.participant_id,
             }
-            sendNotifications(current_feed)
+             sendNotifications(current_feed)
           }
         }
         break
@@ -215,8 +256,9 @@ export async function prepareNotifications(subject: string, feed: any): Promise<
             title: subject,
             message: await prepareNotifyMessage(subject),
             activity_id: feed.id,
+            participant_id: feed.participant_id,
           }
-          sendNotifications(current_feed)
+           sendNotifications(current_feed)
         }
         break
       case "none":
@@ -226,6 +268,7 @@ export async function prepareNotifications(subject: string, feed: any): Promise<
             title: subject,
             message: await prepareNotifyMessage(subject),
             activity_id: feed.id,
+            participant_id: feed.participant_id,
           }
 
           sendNotifications(current_feed)
@@ -251,18 +294,17 @@ function getDayNumber(date: Date): number {
  */
 async function sendNotifications(notifications: any = {}): Promise<any> {
   try {
-    //find device details, device class function need to be substituted in future
-    ;(await Database.use("sensor_event").find({ selector: { sensor: "lamp.analytics" } })).docs.map((x: any) => {
-      if (undefined !== x.data.device_token) {
-        notifications.participant_id = x["#parent"]
-        deviceNotification(x.data.device_token, x.data.device_type.toLowerCase(), notifications)
-      }
-    })
+    const DeviceDetails = await SensorEventRepository._select(notifications.participant_id, "lamp.analytics")
+    if (DeviceDetails[0] && undefined !== DeviceDetails[0].data) {
+      deviceNotification(
+        DeviceDetails[0].data.device_token,
+        DeviceDetails[0].data.device_type.toLowerCase(),
+        notifications
+      )
+    }
   } catch (error) {
-    console.log("errorfetching device", error.message)
+    console.log("error fetching device", error.message)
   }
-
-  //push notifications
 }
 
 /*prepare message for user notifications

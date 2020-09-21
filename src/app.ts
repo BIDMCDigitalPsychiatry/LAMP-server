@@ -14,7 +14,7 @@ import cors from "cors"
 import morgan from "morgan"
 import AWS from "aws-sdk"
 import { ActivityScheduler } from "./utils/push/Notification"
-//import cron from "node-cron"
+import cron from "node-cron"
 
 // FIXME: Support application/json;indent=:spaces format mime type!
 
@@ -214,13 +214,12 @@ async function main(): Promise<void> {
   // Establish the API routes.
   app.use("/", API)
   app.use("/v0", LegacyAPI)
+  
 
-  // Run activity scheduling.
-  setInterval(async () => {
-    await ActivityScheduler()
-  }, 60 * 1000 /* every 1m */)
-  //cron.schedule("* * * * *", async function () {})
-
+  cron.schedule("* * * * *", async function() {        
+      await ActivityScheduler()
+  });
+  
   // Establish misc. routes.
   app.get("/", async (req, res) => res.json(_openAPIschema))
   app.get("/favicon.ico", (req, res) => res.status(204))
@@ -235,7 +234,7 @@ async function main(): Promise<void> {
 
   // Establish the SQL connection.
   SQL = await new sql.ConnectionPool({
-    ...require("mssql/lib/connectionstring").resolve(process.env.DB || "mssql://"),
+    ...require("mssql/lib/connectionstring").resolve(process.env.DB || "mssql://"),    
     parseJSON: true,
     stream: true,
     requestTimeout: 30000,
@@ -244,7 +243,7 @@ async function main(): Promise<void> {
       encrypt: true,
       appName: "LAMP-server",
       enableArithAbort: false,
-      abortTransactionOnError: true,
+      abortTransactionOnError: true    
     },
     pool: {
       min: 1,
@@ -255,6 +254,7 @@ async function main(): Promise<void> {
 
   // Begin listener on port 3000.
   _server.listen(process.env.PORT || 3000)
+ 
 }
 
 // GO!
