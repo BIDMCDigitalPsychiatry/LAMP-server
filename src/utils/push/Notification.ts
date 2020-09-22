@@ -2,163 +2,111 @@ import { ActivityRepository } from "../../repository/ActivityRepository"
 import { TypeRepository } from "../../repository/TypeRepository"
 import { ParticipantRepository } from "../../repository/ParticipantRepository"
 import { SensorEventRepository } from "../../repository/SensorEventRepository"
-import { deviceNotification } from "./push"
+import { APNSpush, GCMpush } from "./push"
 
-import NodeCache from "node-cache"
-const triweekly = [1, 3, 5]
-const biweekly = [2, 4]
-const ScheduleCache = new NodeCache()
-
+/// List activities for a given ID; if a Participant ID is not provided, undefined = list ALL.
 export const ActivityScheduler = async (): Promise<void> => {
-  // List activities for a given ID; if a Participant ID is not provided, undefined = list ALL.
   try {
-    let activities: any = []
-    
-    //get cached data if any
-    let ScheduleCachedData = ScheduleCache.get("schedule")
-    if (undefined === ScheduleCachedData) {
-      //read activities
-      activities = await ActivityRepository._select()  
-          
-       //set activitie in cached
-      ScheduleCachedData = ScheduleCache.set("schedule", activities)
-    } else {
-      activities = ScheduleCachedData
-    }
-    
-    //process activiites  to find schedules and corresponding participants
-    await activities.map((feed: any) => {
-      if (feed.schedule.length !== 0) {
-        TypeRepository._parent(feed.id).then((owners: any) => {
-          if (owners.Study !== undefined && typeof owners.Study == "string") {
-            ParticipantRepository._select(owners.Study)
-              .then((participants: any) => {
-                
-                participants.map((participant: any) => {
-                  feed.schedule.map((schedule: any) => {
-                    if (schedule.time && undefined !== participant.id) {
-                      prepareNotifications(feed.name, {
-                        start_date: schedule.start_date,
-                        time: schedule.time,
-                        repeat_interval: schedule.repeat_interval,
-                        custom_time: schedule.custom_time,
-                        id: feed.id,
-                        participant_id: participant.id
-                      })
-                    }
-                  })
-                 
-                })
+    const activities: any[] = await ActivityRepository._select()
+    console.log(`Processing ${activities.length} activities for push notifications.`)
+
+    // Process activities to find schedules and corresponding participants.
+    for (const activity of activities) {
+      // If the activity has no schedules, ignore it.
+      if (activity.schedule.length === 0) continue
+
+      // Get all the participants of the study that the activity belongs to.
+      const parent: any = await TypeRepository._parent(activity.id)
+      const participants = await ParticipantRepository._select(parent["Study"])
+
+      // Iterate all schedules, and if the schedule should be fired at this instant, iterate all participants
+      // and their potential device tokens for which we will send the device push notifications.
+      for (const schedule of activity.schedule) {
+        if (shouldSendNotification(schedule)) {
+          for (const participant of participants) {
+            try {
+              // Collect the Participant's device token, if there is one saved.
+              const events = await SensorEventRepository._select(participant.id, "lamp.analytics")
+              const device = events.find((x) => x.data?.device_token !== undefined)?.data
+              if (device === undefined || device.device_token.length === 0) continue
+
+              // If we have a device token saved for this Participant, we are able to send this notification.
+              await sendNotification(device.device_token, device.device_type.toLowerCase(), {
+                title: activity.name,
+                message: `You have a mindLAMP activity waiting for you: ${activity.name}.`,
+                activity_id: activity.id,
+                participant_id: participant.id,
               })
-              .catch((error) => console.log(error.message))
+            } catch (error) {
+              console.log("Error fetching Participant Device.")
+              console.error(error)
+            }
           }
-        })
+        }
       }
-    })
+    }
   } catch (error) {
-    console.log("Error in Fetching")
+    console.log("Encountered an error in delivering push notifications.")
+    console.error(error)
   }
 }
-/*
- * prepare notifications
- */
-export async function prepareNotifications(subject: string, feed: any): Promise<void> {
-  let current_feed: {} = {}
 
-  //current date time
-  const currentDateTime:Date = new Date()
-  //current date
-  const currentDate:number = currentDateTime.getDate()
-  //feed date time
-  const feedDateTime:Date = new Date(feed.time)  
-
+/// Check to see if this schedule requires us to send a notification right now.
+export function shouldSendNotification(schedule: any): boolean {
+  const currentDateTime: Date = new Date()
+  const currentDate: number = currentDateTime.getDate()
+  const feedDateTime: Date = new Date(schedule.time)
   //find day number  (eg:Mon,Tue,Wed...)
-  const dayNumber:number = getDayNumber(currentDateTime)
-  const sheduleDayNumber:number = getDayNumber(feed.start_date)
-
+  const dayNumber: number = new Date(currentDateTime).getDay()
+  const sheduleDayNumber: number = new Date(schedule.start_date).getDay()
   //get hour,minute,second formatted time from current date time
   let curHoursUtc: any = currentDateTime.getUTCHours()
   let curMinutesUtc: any = currentDateTime.getUTCMinutes()
-
   //appending 0 to h,m,s if <=9
   if (curHoursUtc <= 9) curHoursUtc = "0" + curHoursUtc
   if (curMinutesUtc <= 9) curMinutesUtc = "0" + curMinutesUtc
-
   //get h:m:s format for current date time
-  const currentUtcTime:any = `${curHoursUtc}:${curMinutesUtc}`
-
+  const currentUtcTime: any = `${curHoursUtc}:${curMinutesUtc}`
   //get hour,minute,second formatted time from feed date time
   let feedHoursUtc: any = feedDateTime.getUTCHours()
   let feedMinutesUtc: any = feedDateTime.getUTCMinutes()
-
   //appending 0 to h,m,s if <=9
   if (feedHoursUtc <= 9) feedHoursUtc = "0" + feedHoursUtc
   if (feedMinutesUtc <= 9) feedMinutesUtc = "0" + feedMinutesUtc
-
   //get h:m:s format for feed date time
-  const feedHmiUtcTime:any = `${feedHoursUtc}:${feedMinutesUtc}`
+  const feedHmiUtcTime: any = `${feedHoursUtc}:${feedMinutesUtc}`
 
   //check whether current date time is greater than the start date of activity
-  if (currentDateTime >= new Date(feed.start_date)) {
-    switch (feed.repeat_interval) {
+  if (currentDateTime >= new Date(schedule.start_date)) {
+    switch (schedule.repeat_interval) {
       case "triweekly":
-        if (triweekly.indexOf(dayNumber) > -1) {
+        if ([1, 3, 5].indexOf(dayNumber) > -1) {
           if (currentUtcTime === feedHmiUtcTime) {
-            //prepare notifications array
-            current_feed = {
-              title: subject,
-              message: await prepareNotifyMessage(subject),
-              activity_id: feed.id,
-              participant_id: feed.participant_id,
-            }
-
-            sendNotifications(current_feed)
+            return true
           }
         }
         break
       case "biweekly":
-        if (biweekly.indexOf(dayNumber) > -1) {
+        if ([2, 4].indexOf(dayNumber) > -1) {
           if (currentUtcTime === feedHmiUtcTime) {
-            //prepare notifications array
-            current_feed = {
-              title: subject,
-              message: await prepareNotifyMessage(subject),
-              activity_id: feed.id,
-              participant_id: feed.participant_id,
-            }
-            sendNotifications(current_feed)
+            return true
           }
         }
         break
       case "weekly":
         if (sheduleDayNumber === dayNumber) {
           if (currentUtcTime === feedHmiUtcTime) {
-            //prepare notifications array
-            current_feed = {
-              title: subject,
-              message: await prepareNotifyMessage(subject),
-              activity_id: feed.id,
-              participant_id: feed.participant_id,
-            }
-            sendNotifications(current_feed)
+            return true
           }
         }
         break
       case "daily":
         if (currentUtcTime === feedHmiUtcTime) {
-          //prepare notifications array
-          current_feed = {
-            title: subject,
-            message: await prepareNotifyMessage(subject),
-            activity_id: feed.id,
-            participant_id: feed.participant_id,
-          }
-          sendNotifications(current_feed)
+          return true
         }
         break
       case "custom":
-        feed.custom_time.map((time: any) => {
-          current_feed = {}
+        const res = schedule.custom_time.map((time: any) => {
           //get hour,minute,second formatted time from custom date time
           let customHoursUtc: any = new Date(time).getUTCHours()
           let customMinutesUtc: any = new Date(time).getUTCMinutes()
@@ -170,146 +118,138 @@ export async function prepareNotifications(subject: string, feed: any): Promise<
           //get h:m:s format for custom date time
           const customHmiUtcTime = `${customHoursUtc}:${customMinutesUtc}`
           if (currentUtcTime === customHmiUtcTime) {
-            //prepare notifications array
-            current_feed = {
-              title: subject,
-              message: `Activity/Survey-${subject} scheduled for you`,
-              activity_id: feed.id,
-              participant_id: feed.participant_id,
-            }
-            sendNotifications(current_feed)
+            return true
+          } else {
+            return false
           }
         })
+        // return true for all if any of the custom times were set to true
+        if (res.filter((x: any) => x === true).length > 0) return true
         break
       case "hourly":
         if (feedMinutesUtc === curMinutesUtc) {
-          //prepare notifications array
-          current_feed = {
-            title: subject,
-            message: await prepareNotifyMessage(subject),
-            activity_id: feed.id,
-            participant_id: feed.participant_id,
-          }
-           sendNotifications(current_feed)
+          return true
         }
         break
-      case "every3h":            
+      case "every3h":
         if (feedMinutesUtc === curMinutesUtc) {
           if ((curHoursUtc - feedHoursUtc) % 3 === 0) {
-            //prepare notifications array
-            current_feed = {
-              title: subject,
-              message: await prepareNotifyMessage(subject),
-              activity_id: feed.id,
-              participant_id: feed.participant_id,
-            }
-             sendNotifications(current_feed)
+            return true
           }
         }
         break
       case "every6h":
         if (feedMinutesUtc === curMinutesUtc) {
           if ((curHoursUtc - feedHoursUtc) % 6 === 0) {
-            //prepare notifications array
-            current_feed = {
-              title: subject,
-              message: await prepareNotifyMessage(subject),
-              activity_id: feed.id,
-              participant_id: feed.participant_id,
-            }
-             sendNotifications(current_feed)
+            return true
           }
         }
         break
       case "every12h":
         if (feedMinutesUtc === curMinutesUtc) {
           if ((curHoursUtc - feedHoursUtc) % 12 === 0) {
-            //prepare notifications array
-            current_feed = {
-              title: subject,
-              message: await prepareNotifyMessage(subject),
-              activity_id: feed.id,
-              participant_id: feed.participant_id,
-            }
-             sendNotifications(current_feed)
+            return true
           }
         }
         break
       case "monthly":
         if (sheduleDayNumber === dayNumber) {
           if (currentUtcTime === feedHmiUtcTime) {
-            //prepare notifications array
-            current_feed = {
-              title: subject,
-              message: await prepareNotifyMessage(subject),
-              activity_id: feed.id,
-              participant_id: feed.participant_id,
-            }
-             sendNotifications(current_feed)
+            return true
           }
         }
         break
       case "bimonthly":
         if ([10, 20].indexOf(currentDate) > -1) {
-          //prepare notifications array
-          current_feed = {
-            title: subject,
-            message: await prepareNotifyMessage(subject),
-            activity_id: feed.id,
-            participant_id: feed.participant_id,
-          }
-           sendNotifications(current_feed)
+          return true
         }
         break
       case "none":
         if (feedDateTime === currentDateTime) {
-          //prepare notifications array
-          current_feed = {
-            title: subject,
-            message: await prepareNotifyMessage(subject),
-            activity_id: feed.id,
-            participant_id: feed.participant_id,
-          }
-
-          sendNotifications(current_feed)
+          return true
         }
         break
-
       default:
         break
     }
   }
+  return false
 }
 
-/*return day number
- *
- */
-function getDayNumber(date: Date): number {
-  date = new Date(date)
-  return date.getDay()
-}
+/// Send to device with payload and device token given.
+export async function sendNotification(device_token: string, device_type: string, payload: any): Promise<any> {
+  console.dir({ device_token, device_type, payload })
 
-/*send notifications
- *
- */
-async function sendNotifications(notifications: any = {}): Promise<any> {
-  try {
-    const DeviceDetails = await SensorEventRepository._select(notifications.participant_id, "lamp.analytics")
-    if (DeviceDetails[0] && undefined !== DeviceDetails[0].data) {
-      deviceNotification(
-        DeviceDetails[0].data.device_token,
-        DeviceDetails[0].data.device_type.toLowerCase(),
-        notifications
-      )
-    }
-  } catch (error) {
-    console.log("error fetching device", error.message)
+  // Send this specific page URL to the device to show the actual activity.
+  // eslint-disable-next-line prettier/prettier
+  const url = `${"https://dashboard-staging.lamp.digital/#/"}participant/${payload.participant_id}/activity/${payload.activity_id}`
+
+  switch (device_type) {
+    case "android.watch":
+      try {
+        await GCMpush(device_token, {
+          priority: "high",
+          data: {
+            title: `${payload.title}`,
+            message: `${payload.message}`,
+            page: `${url}`,
+            notificationId: `${payload.title}`,
+            actions: [{ name: "Open App", page: `${url}` }],
+            expiry: 360000,
+          },
+        })
+      } catch (error) {
+        console.log("Error encountered sending GCM push notification.")
+        console.error(error)
+      }
+      break
+    case "android":
+      try {
+        await GCMpush(device_token, {
+          priority: "high",
+          data: {
+            title: `${payload.title}`,
+            message: `${payload.message}`,
+            page: `${url}`,
+            notificationId: `${payload.title}`,
+            actions: [{ name: "Open App", page: "https://www.android.com" }],
+            expiry: 360000,
+          },
+        })
+      } catch (error) {
+        console.log("Error encountered sending GCM push notification.")
+        console.error(error)
+      }
+      break
+    case "ios.watch":
+      try {
+        await APNSpush(device_token, {
+          aps: { alert: `${payload.message}`, badge: 0, sound: "default", "mutable-conten": 1, "content-available": 1 },
+          notificationId: `${payload.title}`,
+          expiry: 60000,
+          page: `${url}`,
+          actions: [{ name: "Open App", page: `${url}` }],
+        })
+      } catch (error) {
+        console.log("Error encountered sending APNS push notification.")
+        console.error(error)
+      }
+      break
+    case "ios":
+      try {
+        await APNSpush(device_token, {
+          aps: { alert: `${payload.message}`, badge: 0, sound: "default", "mutable-conten": 1, "content-available": 1 },
+          notificationId: `${payload.title}`,
+          expiry: 60000,
+          page: `${url}`,
+          actions: [{ name: "Open App", page: `${url}` }],
+        })
+      } catch (error) {
+        console.log("Error encountered sending APNS push notification.")
+        console.error(error)
+      }
+      break
+    default:
+      break
   }
-}
-
-/*prepare message for user notifications
- *
- */
-async function prepareNotifyMessage(title: string): Promise<string> {
-  return `Activity/Survey-${title} scheduled for you`
 }

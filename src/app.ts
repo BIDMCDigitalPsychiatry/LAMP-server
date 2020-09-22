@@ -7,14 +7,12 @@ import crypto from "crypto"
 import http from "http"
 import https from "https"
 import _Docker from "dockerode"
-import ScriptRunner from "./utils/ScriptRunner"
 import { LegacyAPI } from "./utils/legacy/route"
 import nano from "nano"
 import cors from "cors"
 import morgan from "morgan"
 import AWS from "aws-sdk"
 import { ActivityScheduler } from "./utils/push/Notification"
-import cron from "node-cron"
 
 // FIXME: Support application/json;indent=:spaces format mime type!
 
@@ -214,12 +212,7 @@ async function main(): Promise<void> {
   // Establish the API routes.
   app.use("/", API)
   app.use("/v0", LegacyAPI)
-  
 
-  cron.schedule("* * * * *", async function() {        
-      await ActivityScheduler()
-  });
-  
   // Establish misc. routes.
   app.get("/", async (req, res) => res.json(_openAPIschema))
   app.get("/favicon.ico", (req, res) => res.status(204))
@@ -234,7 +227,7 @@ async function main(): Promise<void> {
 
   // Establish the SQL connection.
   SQL = await new sql.ConnectionPool({
-    ...require("mssql/lib/connectionstring").resolve(process.env.DB || "mssql://"),    
+    ...require("mssql/lib/connectionstring").resolve(process.env.DB || "mssql://"),
     parseJSON: true,
     stream: true,
     requestTimeout: 30000,
@@ -243,7 +236,7 @@ async function main(): Promise<void> {
       encrypt: true,
       appName: "LAMP-server",
       enableArithAbort: false,
-      abortTransactionOnError: true    
+      abortTransactionOnError: true,
     },
     pool: {
       min: 1,
@@ -252,9 +245,13 @@ async function main(): Promise<void> {
     },
   }).connect()
 
+  // Begin running activity scheduling AFTER connecting to the database.
+  setInterval(async () => {
+    await ActivityScheduler()
+  }, 60 * 1000 /* every 1m */)
+
   // Begin listener on port 3000.
   _server.listen(process.env.PORT || 3000)
- 
 }
 
 // GO!

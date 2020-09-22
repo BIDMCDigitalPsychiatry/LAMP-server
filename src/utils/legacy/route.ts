@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { SQL, Database, Encrypt, Decrypt, S3, AWSBucketName } from "../../app"
 import { _migrator_lookup_table, Activity_pack_id, ActivityIndex } from "../../repository/migrate"
-import sql from "mssql"
 import { Request, Response, Router } from "express"
 import { v4 as uuidv4 } from "uuid"
 import { customAlphabet } from "nanoid"
@@ -216,7 +215,7 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
     const Email: APIRequest["Username"] = requestData.Username
     const Password: APIRequest["Password"] = requestData.Password
     const Language: APIRequest["Language"] = requestData.Language
-    let defaultLanguage = Language != "" ? Language : "en"
+    const defaultLanguage = Language != "" ? Language : "en"
     let AppColor = "#359FFE"
     let ParticipantId: any = ""
     let userSettings: any = ""
@@ -332,11 +331,11 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
     const Type = 0 //non-guest user
 
     let CTestsFavouriteList: APIResponse["CTestsFavouriteList"] = []
-    let WelcomeText: APIResponse["WelcomeText"] = ""
-    let InstructionVideoLink: APIResponse["InstructionVideoLink"] = ""
+    const WelcomeText: APIResponse["WelcomeText"] = ""
+    const InstructionVideoLink: APIResponse["InstructionVideoLink"] = ""
     let SurveyFavouriteList: APIResponse["SurveyFavouriteList"] = []
-    let CognitionSettings: APIResponse["CognitionSettings"] = []
-    let Data: APIResponse["Data"] = {}
+    const CognitionSettings: APIResponse["CognitionSettings"] = []
+    const Data: APIResponse["Data"] = {}
     let SessionToken: APIResponse["SessionToken"] = ""
     const appendedSession = Username + ":" + Password
     SessionToken = Encrypt(appendedSession)
@@ -383,13 +382,13 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
     }
     const out = await Database.use("sensor_event").bulk({ docs: [loginEvent] })
     console.dir(out.filter((x) => !!x.error))
-    let CognitionSett = await ActivityRepository._select(StudyId)
-    let GameData = CognitionSett.filter((x: any) => x.spec !== "lamp.group" && x.spec !== "lamp.survey")
+    const CognitionSett = await ActivityRepository._select(StudyId)
+    const GameData = CognitionSett.filter((x: any) => x.spec !== "lamp.group" && x.spec !== "lamp.survey")
 
     if (GameData.length > 0) {
       let DataFiltered: any
       GameData.forEach(async (item: any, index: any) => {
-        let specData = [item.spec]
+        const specData = [item.spec]
         DataFiltered = ActivityIndex.filter((cls) => {
           return specData.includes(cls.Name)
         })
@@ -862,9 +861,9 @@ LegacyAPI.post("/SaveUserSetting", [_authorize], async (req: Request, res: Respo
     } as APIResponse)
   }
   try {
-    let UserData = (req as any).AuthUser
-    let UserSettings = await TypeRepository._get("a", UserData.StudyId, "lamp.legacy_adapter")
-    let PrefferedCognitions: any = requestData.PrefferedCognitions
+    const UserData = (req as any).AuthUser
+    const UserSettings = await TypeRepository._get("a", UserData.StudyId, "lamp.legacy_adapter")
+    const PrefferedCognitions: any = requestData.PrefferedCognitions
     await TypeRepository._set("a", "me", UserData.StudyId, "lamp.legacy_adapter", {
       ...UserSettings,
       UserSettings: {
@@ -932,7 +931,7 @@ LegacyAPI.post("/GetUserSetting", [_authorize], async (req: Request, res: Respon
         ErrorMessage: "Specify valid User Id.",
       } as APIResponse)
     }
-    let userData = (req as any).AuthUser
+    const userData = (req as any).AuthUser
     let output: any = {}
     output = await TypeRepository._get("a", userData.StudyId, "lamp.legacy_adapter")
     return res.status(200).json({
@@ -963,8 +962,8 @@ LegacyAPI.post("/SaveUserCTestsFavourite", [_authorize], async (req: Request, re
   }
   try {
     const requestData: APIRequest = req.body
-    let UserData = (req as any).AuthUser
-    let UserID = UserData.UserID
+    const UserData = (req as any).AuthUser
+    const UserID = UserData.UserID
     if (!UserID || !Number.isInteger(Number(UserID)) || UserID == 0) {
       return res.status(422).json({
         ErrorCode: 2031,
@@ -992,15 +991,15 @@ LegacyAPI.post("/SaveUserCTestsFavourite", [_authorize], async (req: Request, re
         ErrorMessage: "Specify valid Type.",
       } as APIResponse)
     }
-    let UserSettingsData = await TypeRepository._get("a", UserData.StudyId, "lamp.legacy_adapter")
-    let CTestFavouriteData =
+    const UserSettingsData = await TypeRepository._get("a", UserData.StudyId, "lamp.legacy_adapter")
+    const CTestFavouriteData =
       Object.keys(UserSettingsData).length > 0
         ? UserSettingsData.hasOwnProperty("UserCTestFavourite")
           ? UserSettingsData.UserCTestFavourite
           : []
         : []
 
-    let SurveyFavouriteData =
+    const SurveyFavouriteData =
       Object.keys(UserSettingsData).length > 0
         ? UserSettingsData.hasOwnProperty("UserSurveyFavourite")
           ? UserSettingsData.UserSurveyFavourite
@@ -1058,7 +1057,7 @@ LegacyAPI.post("/GetTips", [_authorize], async (req: Request, res: Response) => 
       ErrorMessage: "Specify valid User Id.",
     } as APIResponse)
   }
-  let resultData: APIResponse["TipText"] = ""
+  const resultData: APIResponse["TipText"] = ""
   return res.status(200).json({
     TipText: resultData,
     ErrorCode: 0,
@@ -1116,8 +1115,8 @@ LegacyAPI.post("/GetTipsandBlogUpdates", [_authorize], async (req: Request, res:
       ErrorMessage: "Specify valid User Id.",
     } as APIResponse)
   }
-  let BlogsUpdate: APIResponse["BlogsUpdate"] = false
-  let TipsUpdate: APIResponse["TipsUpdate"] = false
+  const BlogsUpdate: APIResponse["BlogsUpdate"] = false
+  const TipsUpdate: APIResponse["TipsUpdate"] = false
   return res.status(200).json({
     BlogsUpdate,
     TipsUpdate,
@@ -1271,30 +1270,30 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
       ErrorMessage: "Specify valid User Id.",
     } as APIResponse)
   }
-  let ReminderClearInterval: APIResponse["ReminderClearInterval"] = 1
+  const ReminderClearInterval: APIResponse["ReminderClearInterval"] = 1
   let JewelsTrailsASettings: APIResponse["JewelsTrailsASettings"] = {}
   let JewelsTrailsBSettings: APIResponse["JewelsTrailsASettings"] = {}
-  let CognitionOffList: APIResponse["CognitionOffList"] = []
-  let CognitionIconList: APIResponse["CognitionIconList"] = []
-  let SurveyIconList: APIResponse["SurveyIconList"] = []
-  let CognitionVersionList: APIResponse["CognitionVersionList"] = []
-  let ScheduleSurveyList: APIResponse["ScheduleSurveyList"] = []
-  let ScheduleGameList: APIResponse["ScheduleGameList"] = []
-  let BatchScheduleList: APIResponse["BatchScheduleList"] = []
-  let ContactNo: APIResponse["ContactNo"] = ""
-  let PersonalHelpline: APIResponse["PersonalHelpline"] = ""
-  let LastUpdatedSurveyDate: any = ""
-  let LastUpdatedGameDate: any = ""
-  let LastUpdatedBatchDate: any = ""
+  const CognitionOffList: APIResponse["CognitionOffList"] = []
+  const CognitionIconList: APIResponse["CognitionIconList"] = []
+  const SurveyIconList: APIResponse["SurveyIconList"] = []
+  const CognitionVersionList: APIResponse["CognitionVersionList"] = []
+  const ScheduleSurveyList: APIResponse["ScheduleSurveyList"] = []
+  const ScheduleGameList: APIResponse["ScheduleGameList"] = []
+  const BatchScheduleList: APIResponse["BatchScheduleList"] = []
+  const ContactNo: APIResponse["ContactNo"] = ""
+  const PersonalHelpline: APIResponse["PersonalHelpline"] = ""
+  const LastUpdatedSurveyDate: any = ""
+  const LastUpdatedGameDate: any = ""
+  const LastUpdatedBatchDate: any = ""
 
   try {
-    let UserData = (req as any).AuthUser
-    let Output = await ActivityRepository._select(UserData.StudyId)
+    const UserData = (req as any).AuthUser
+    const Output = await ActivityRepository._select(UserData.StudyId)
 
     // JewelsTrailsASettings
-    let JewelsA = Output.filter((x: any) => x.spec === "lamp.jewels_a")
+    const JewelsA = Output.filter((x: any) => x.spec === "lamp.jewels_a")
     if (JewelsA.length > 0) {
-      let JewelsAData = JewelsA[0].settings
+      const JewelsAData = JewelsA[0].settings
       JewelsTrailsASettings = {
         NoOfSeconds_Beg: JewelsAData.beginner_seconds,
         NoOfSeconds_Int: JewelsAData.intermediate_seconds,
@@ -1325,9 +1324,9 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
     }
 
     // JewelsTrailsBSettings
-    let JewelsB = Output.filter((x: any) => x.spec === "lamp.jewels_b")
+    const JewelsB = Output.filter((x: any) => x.spec === "lamp.jewels_b")
     if (JewelsB.length > 0) {
-      let JewelsBData = JewelsB[0].settings
+      const JewelsBData = JewelsB[0].settings
       JewelsTrailsBSettings = {
         NoOfSeconds_Beg: JewelsBData.beginner_seconds,
         NoOfSeconds_Int: JewelsBData.intermediate_seconds,
@@ -1359,8 +1358,8 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
 
     // BatchScheduleList
     let BatchData: any = {}
-    let arrSetings: any = []
-    let groupData = Output.filter((x: any) => x.spec === "lamp.group")
+    const arrSetings: any = []
+    const groupData = Output.filter((x: any) => x.spec === "lamp.group")
     groupData.map((group: any) => {
       arrSetings.push(group.settings)
     })
@@ -1381,7 +1380,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
       let specData: any
       let BatchCtestFiltered: any
       let BatchScheduleSurvey_CTestObj: any = {}
-      let BatchScheduleSurvey_CTestArray: any = []
+      const BatchScheduleSurvey_CTestArray: any = []
       for (let j = 0; j < arrSetings[i].length; j++) {
         act = await ActivityRepository._select(arrSetings[i][j])
         BatchCtestArray.push(act[0])
@@ -1403,9 +1402,9 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
         BatchScheduleSurvey_CTestArray.push(BatchScheduleSurvey_CTestObj)
       }
       let BatchCustomTimeData, BatchScheduleCustomTimeObj
-      let BatchScheduleCustomTime: any = []
+      const BatchScheduleCustomTime: any = []
       if (item.schedule.length > 0) {
-        let BatchCustomTime: any = []
+        const BatchCustomTime: any = []
         if (item.schedule[0].custom_time !== null) {
           item.schedule[0].custom_time.forEach((itemTime: any) => {
             BatchCustomTimeData =
@@ -1447,16 +1446,16 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
     }
 
     // CognitionIconList & CognitionOffList
-    let GameData = Output.filter((x: any) => x.spec !== "lamp.group" && x.spec !== "lamp.survey")
+    const GameData = Output.filter((x: any) => x.spec !== "lamp.group" && x.spec !== "lamp.survey")
     let CognitionOffListObj: any = {}
     let CognitionIconListObj: any = {}
     let ScheduleGameListObj: any = {}
-    let ScheduleGameCustomTime: any = []
+    const ScheduleGameCustomTime: any = []
     if (GameData.length > 0) {
       let DataFiltered: any, GameCTestID: any
       let p = 0
       GameData.forEach(async (item: any, index: any) => {
-        let specData = [item.spec]
+        const specData = [item.spec]
         DataFiltered = ActivityIndex.filter((cls) => {
           return specData.includes(cls.Name)
         })
@@ -1537,10 +1536,10 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
     }
 
     // ScheduleSurveyList & SurveyIconList
-    let SurveyData: any = Output.filter((x: any) => x.spec === "lamp.survey")
+    const SurveyData: any = Output.filter((x: any) => x.spec === "lamp.survey")
     let ScheduleSurveyListObj: any = {}
     let SurveyIconListObj: any = {}
-    let SurveyIconList: any = []
+    const SurveyIconList: any = []
     let itemSurvey
     let m = 0
     for (let k = 0; k < SurveyData.length; k++) {
@@ -1575,7 +1574,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
               "custom",
               "none",
             ].indexOf(SurveyData[k].schedule[l].repeat_interval) + 1
-          let ScheduleSurveyCustomTime: any = []
+          const ScheduleSurveyCustomTime: any = []
           if (SurveyData[k].schedule[l].custom_time !== null) {
             SurveyData[k].schedule[l].custom_time.forEach((itemTime: any) => {
               ScheduleSurveyCustomTime.push(
@@ -1653,7 +1652,7 @@ LegacyAPI.post("/GetDistractionSurveys", [_authorize], async (req: Request, res:
     ErrorMessage?: string
   }
   const requestData: APIRequest = req.body
-  let SurveysList: APIResponse["Surveys"] = []
+  const SurveysList: APIResponse["Surveys"] = []
   const UserID: any = requestData.UserId
   if (!UserID || !Number.isInteger(Number(UserID)) || UserID == 0) {
     return res.status(422).json({
@@ -1714,17 +1713,17 @@ LegacyAPI.post("/GetSurveys", [_authorize], async (req: Request, res: Response) 
       ErrorMessage: "Specify valid User Id.",
     } as APIResponse)
   }
-  let userData = (req as any).AuthUser
-  let surveyArray: any = []
-  let output = await ActivityRepository._select(userData.StudyId)
-  let surveyFiltered = output.filter((x: any) => x.spec === "lamp.survey")
+  const userData = (req as any).AuthUser
+  const surveyArray: any = []
+  const output = await ActivityRepository._select(userData.StudyId)
+  const surveyFiltered = output.filter((x: any) => x.spec === "lamp.survey")
   let surveyObj = {}
   surveyFiltered.forEach((item: any, index: any) => {
-    let settingsArray: any = []
+    const settingsArray: any = []
     let settingsObj = {}
     if (item.settings.length > 0) {
       item.settings.forEach((settingItem: any, settingIndex: any) => {
-        let questionOptions: any = []
+        const questionOptions: any = []
         if (settingItem.options !== null) {
           settingItem.options.forEach((optionItem: any, optionIndex: any) => {
             questionOptions.push({ OptionText: optionItem })

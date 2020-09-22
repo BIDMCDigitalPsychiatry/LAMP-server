@@ -73,7 +73,7 @@
   },
   "scripts": {
     "start": "tsc-watch --onSuccess \"node -r source-map-support/register ./build/app.js\"",
-    "build": "tsc",    
+    "build": "tsc",
     "deploy": "pkg . -t node10-alpine-x64,node10-linux-x64,node10-macos-x64 --out-path bin/"
   },
   "pkg": {
