@@ -1,62 +1,25 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-import { SQL, Database, Encrypt, Decrypt, S3, AWSBucketName } from "../../app"
-import { _migrator_lookup_table, Activity_pack_id, ActivityIndex } from "../../repository/migrate"
+import { Encrypt, Decrypt, S3, AWSBucketName } from "../../app"
 import { Request, Response, Router } from "express"
 import { v4 as uuidv4 } from "uuid"
-import { customAlphabet } from "nanoid"
-import { ActivityRepository } from "../../repository/ActivityRepository"
-import { TypeRepository } from "../../repository/TypeRepository"
-import { CredentialRepository } from "../../repository/CredentialRepository"
-const uuid = customAlphabet("1234567890abcdefghjkmnpqrstvwxyz", 20) // crockford-32
+import {
+  ActivityEventRepository,
+  SensorEventRepository,
+  ActivityRepository,
+  TypeRepository,
+  CredentialRepository,
+} from "../../repository"
+import { ActivityIndex } from "../../repository/migrate"
 
 export const LegacyAPI = Router()
 
-export const SurveyAnswerType = (type: string) => {
-  let AnswerType = ""
-  switch (type) {
-    case "likert":
-      AnswerType = "LikertResponse"
-      break
-    case "list":
-      AnswerType = "ScrollWheels"
-      break
-    case "boolean":
-      AnswerType = "YesNO"
-      break
-    case "clock":
-      AnswerType = "Clock"
-      break
-    case "years":
-      AnswerType = "Years"
-      break
-    case "months":
-      AnswerType = "Months"
-      break
-    case "days":
-      AnswerType = "Days"
-      break
-    case "text":
-      AnswerType = "Textbox"
-      break
-  }
-
-  return AnswerType
-}
-
-/**
- * To convert string from v1 to v2 https://github.com/darkskyapp/string-hash/blob/master/index.js
- * @param id string
- */
-
+// FIXME: REMOVE!
 export const ConvertIdFromV1ToV2 = (str: any) => {
   let hash = 5381,
     i = str.length
   while (i) {
     hash = (hash * 33) ^ str.charCodeAt(--i)
   }
-  /* JavaScript does bitwise operations (like XOR, above) on 32-bit signed
-   * integers. Since we want the results to be always positive, convert the
-   * signed int to an unsigned by doing an unsigned bitshift. */
   return hash >>> 0
 }
 
@@ -72,35 +35,26 @@ const _authorize = async (req: Request, res: Response, next: any): Promise<void>
   // SessionToken Format:
   // [OLD] Encrypt('UserID|Email|Password')
   // [NEW] Encrypt('Email:Password')
-  const result = await SQL!.request().query(`
-        SELECT 
-            UserID, StudyId, Email, FirstName, LastName
-        FROM Users 
-        WHERE SessionToken = '${token[1]}'
-    ;`)
-  if (result.recordset.length == 0) {
+  const parts = Decrypt(token[1])?.split(":") ?? []
+  if (parts.length == 0) {
     res.status(404).json({
       ErrorCode: 2037,
-      ErrorMessage: "Your session has expired.",
+      ErrorMessage: "Your credentials are invalid.",
     })
   } else {
-    ;(req as any).AuthUser = result.recordset[0]
-    ;(req as any).AuthUser.StudyId = Decrypt((req as any).AuthUser.StudyId)?.replace(/^G/, "")
-    next()
+    try {
+      const ParticipantId = await CredentialRepository._find(parts[0], parts[1])
+      ;(req as any).AuthUser = {}
+      ;(req as any).AuthUser.UserID = ParticipantId?.match(/\d+/)?.[0] ?? -1
+      ;(req as any).AuthUser.StudyId = ParticipantId ?? ""
+      next()
+    } catch (error) {
+      res.status(404).json({
+        ErrorCode: 2037,
+        ErrorMessage: "Your credentials are invalid.",
+      })
+    }
   }
-}
-
-// To convert legacy SQL IDs -> legacy API IDs -> new IDs
-async function _lookup_migrator_id(legacyID: string): Promise<string> {
-  const _lookup_table = await _migrator_lookup_table()
-  let match = _lookup_table[legacyID]
-  if (match === undefined) {
-    match = uuid() // 20-char id for non-Participant objects
-    _lookup_table[legacyID] = match
-    console.log(`inserting migrator link: ${legacyID} => ${match}`)
-    Database.use("root").insert({ _id: `_local/${legacyID}`, value: match } as any)
-  }
-  return match
 }
 
 // Route: /LogData
@@ -119,7 +73,7 @@ LegacyAPI.post("/LogData", async (req: Request, res: Response) => {
   } as APIResponse)
 })
 
-// Route: /SignIn // USES SQL
+// Route: /SignIn
 LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
   interface APIRequest {
     Username?: string
@@ -366,24 +320,23 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
     //get SurveyFavouriteList
     SurveyFavouriteList = userSettings.SurveyFavourite ? userSettings.SurveyFavourite : []
     // Save login as an event.
-    const loginEvent = {
-      "#parent": StudyId,
-      timestamp: new Date().getTime(),
-      sensor: "lamp.analytics",
-      data: {
-        device_type: requestData.DeviceType! == 1 ? "iOS" : requestData.DeviceType! == 2 ? "Android" : "Unknown",
-        event_type: "login",
-        device_id: requestData.DeviceID!,
-        device_token: requestData.DeviceToken!,
-        os_version: requestData.OSVersion!,
-        app_version: requestData.APPVersion!,
-        device_model: requestData.DeviceModel!,
+    await SensorEventRepository._insert(StudyId!, [
+      {
+        timestamp: new Date().getTime(),
+        sensor: "lamp.analytics" as any,
+        data: {
+          device_type: requestData.DeviceType! == 1 ? "iOS" : requestData.DeviceType! == 2 ? "Android" : "Unknown",
+          event_type: "login",
+          device_id: requestData.DeviceID!,
+          device_token: requestData.DeviceToken!,
+          os_version: requestData.OSVersion!,
+          app_version: requestData.APPVersion!,
+          device_model: requestData.DeviceModel!,
+        },
       },
-    }
-    const out = await Database.use("sensor_event").bulk({ docs: [loginEvent] })
-    console.dir(out.filter((x) => !!x.error))
+    ])
     const CognitionSett = await ActivityRepository._select(StudyId)
-    const GameData = CognitionSett.filter((x: any) => x.spec !== "lamp.group" && x.spec !== "lamp.survey")
+    const GameData = CognitionSett.filter((x: any) => ActivityIndex.map((y) => y.Name).includes(x.spec))
 
     if (GameData.length > 0) {
       let DataFiltered: any
@@ -829,7 +782,7 @@ LegacyAPI.post("/GetSurveyQueAndAns", [_authorize], async (req: Request, res: Re
   } as APIResponse)
 })
 
-// Route: /SaveUserSetting // USES SQL
+// Route: /SaveUserSetting
 LegacyAPI.post("/SaveUserSetting", [_authorize], async (req: Request, res: Response) => {
   interface APIRequest {
     UserSettingID?: number
@@ -895,7 +848,7 @@ LegacyAPI.post("/SaveUserSetting", [_authorize], async (req: Request, res: Respo
   }
 })
 
-// Route: /GetUserSetting // USES SQL
+// Route: /GetUserSetting
 LegacyAPI.post("/GetUserSetting", [_authorize], async (req: Request, res: Response) => {
   interface APIRequest {
     UserID?: number
@@ -948,7 +901,7 @@ LegacyAPI.post("/GetUserSetting", [_authorize], async (req: Request, res: Respon
   }
 })
 
-// Route: /SaveUserCTestsFavourite // USES SQL
+// Route: /SaveUserCTestsFavourite
 LegacyAPI.post("/SaveUserCTestsFavourite", [_authorize], async (req: Request, res: Response) => {
   interface APIRequest {
     UserId?: number
@@ -1039,7 +992,7 @@ LegacyAPI.post("/SaveUserCTestsFavourite", [_authorize], async (req: Request, re
   }
 })
 
-// Route: /GetTips // USES SQL
+// Route: /GetTips // DISABLED
 LegacyAPI.post("/GetTips", [_authorize], async (req: Request, res: Response) => {
   interface APIRequest {
     UserID?: number
@@ -1065,7 +1018,7 @@ LegacyAPI.post("/GetTips", [_authorize], async (req: Request, res: Response) => 
   } as APIResponse)
 })
 
-// Route: /GetBlogs // USES SQL
+// Route: /GetBlogs // DISABLED
 LegacyAPI.post("/GetBlogs", [_authorize], async (req: Request, res: Response) => {
   interface APIRequest {
     UserID?: number
@@ -1096,7 +1049,7 @@ LegacyAPI.post("/GetBlogs", [_authorize], async (req: Request, res: Response) =>
   } as APIResponse)
 })
 
-// Route: /GetTipsandBlogsUpdates // USES SQL
+// Route: /GetTipsandBlogsUpdates // DISABLED
 LegacyAPI.post("/GetTipsandBlogUpdates", [_authorize], async (req: Request, res: Response) => {
   interface APIRequest {
     UserID?: number
@@ -1146,7 +1099,7 @@ LegacyAPI.post("/GetAppHelp", [_authorize], async (req: Request, res: Response) 
   } as APIResponse)
 })
 
-// Route: /GetSurveyAndGameSchedule // USES SQL
+// Route: /GetSurveyAndGameSchedule
 LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, res: Response) => {
   interface APIRequest {
     UserID?: number
@@ -1369,7 +1322,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
     for (let i = 0; i < groupData.length; i++) {
       item = groupData[i]
       BatchData = {
-        EncryptId: item.id,
+        //EncryptId: item.id,
         BatchScheduleId: ConvertIdFromV1ToV2(item.id),
         BatchName: item.name,
         IsDeleted: false,
@@ -1389,7 +1342,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
           return specData.includes(cls.Name)
         })
         BatchScheduleSurvey_CTestObj = {
-          EncryptId: act[0].id,
+          //EncryptId: act[0].id,
           //BatchScheduleId: ConvertIdFromV1ToV2(act[0].id),
           BatchScheduleId: ConvertIdFromV1ToV2(item.id),
           Type: 2,
@@ -1467,7 +1420,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
           GameCTestID = DataFiltered[0].LegacyCTestID
         }
         CognitionOffListObj = {
-          EncryptId: item.id,
+          //EncryptId: item.id,
           AdminCTestSettingID: ConvertIdFromV1ToV2(item.id),
           AdminID: 0,
           CTestID: GameCTestID,
@@ -1480,7 +1433,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
         }
         CognitionOffList?.push(CognitionOffListObj)
         CognitionIconListObj = {
-          EncryptId: item.id,
+          //EncryptId: item.id,
           AdminCTestSettingID: ConvertIdFromV1ToV2(item.id),
           AdminID: 0,
           CTestID: GameCTestID,
@@ -1547,7 +1500,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
       if (itemSurvey.schedule.length > 0) {
         for (let l = 0; l < itemSurvey.schedule.length; l++) {
           ScheduleSurveyListObj = {
-            EncryptId: itemSurvey.id,
+            //EncryptId: itemSurvey.id,
             SurveyId: ConvertIdFromV1ToV2(itemSurvey.id),
             SurveyScheduleID: m,
             SurveyName: itemSurvey.name,
@@ -1585,7 +1538,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
           ScheduleSurveyListObj.SlotTimeOptions = ScheduleSurveyCustomTime
           ScheduleSurveyList?.push(ScheduleSurveyListObj)
           SurveyIconListObj = {
-            EncryptId: itemSurvey.id,
+            //EncryptId: itemSurvey.id,
             SurveyId: ConvertIdFromV1ToV2(itemSurvey.id),
             AdminID: 0,
             IconBlob: null,
@@ -1638,7 +1591,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
   }
 })
 
-// Route: /GetDistractionSurveys // USES SQL
+// Route: /GetDistractionSurveys // DISABLED
 LegacyAPI.post("/GetDistractionSurveys", [_authorize], async (req: Request, res: Response) => {
   interface APIRequest {
     UserId?: number
@@ -1674,7 +1627,7 @@ LegacyAPI.post("/GetDistractionSurveys", [_authorize], async (req: Request, res:
   } as APIResponse)
 })
 
-// Route: /GetSurveys // USES SQL
+// Route: /GetSurveys
 LegacyAPI.post("/GetSurveys", [_authorize], async (req: Request, res: Response) => {
   interface APIRequest {
     UserID?: number
@@ -1713,6 +1666,38 @@ LegacyAPI.post("/GetSurveys", [_authorize], async (req: Request, res: Response) 
       ErrorMessage: "Specify valid User Id.",
     } as APIResponse)
   }
+
+  const SurveyAnswerType = (type: string) => {
+    let AnswerType = ""
+    switch (type) {
+      case "likert":
+        AnswerType = "LikertResponse"
+        break
+      case "list":
+        AnswerType = "ScrollWheels"
+        break
+      case "boolean":
+        AnswerType = "YesNO"
+        break
+      case "clock":
+        AnswerType = "Clock"
+        break
+      case "years":
+        AnswerType = "Years"
+        break
+      case "months":
+        AnswerType = "Months"
+        break
+      case "days":
+        AnswerType = "Days"
+        break
+      case "text":
+        AnswerType = "Textbox"
+        break
+    }
+    return AnswerType
+  }
+
   const userData = (req as any).AuthUser
   const surveyArray: any = []
   const output = await ActivityRepository._select(userData.StudyId)
@@ -1730,7 +1715,7 @@ LegacyAPI.post("/GetSurveys", [_authorize], async (req: Request, res: Response) 
           })
         }
         settingsObj = {
-          QuestionId: settingIndex,
+          QuestionId: parseInt(`${ConvertIdFromV1ToV2(item.id)}${settingIndex}`),
           QuestionText: settingItem.text,
           AnswerType: SurveyAnswerType(settingItem.type),
           IsDeleted: false,
@@ -1743,7 +1728,7 @@ LegacyAPI.post("/GetSurveys", [_authorize], async (req: Request, res: Response) 
         settingsArray.push(settingsObj)
       })
       surveyObj = {
-        EncryptId: item.id,
+        //EncryptId: item.id,
         SurveyID: ConvertIdFromV1ToV2(item.id),
         SurveyName: item.name,
         Instruction: null,
@@ -1754,6 +1739,7 @@ LegacyAPI.post("/GetSurveys", [_authorize], async (req: Request, res: Response) 
       surveyArray.push(surveyObj)
     }
   })
+  console.log(JSON.stringify(surveyArray, null, 2))
   return res.status(200).json({
     ErrorCode: 0,
     ErrorMessage: "Get surveys detail.",
@@ -1791,56 +1777,51 @@ LegacyAPI.post("/SaveUserSurvey", [_authorize], async (req: Request, res: Respon
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const activityEvent = {
-    "#parent": (req as any).AuthUser.StudyId,
-    timestamp: new Date(data.StartTime!).getTime(),
-    duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
-    activity: await _lookup_migrator_id(Activity_pack_id({ survey_id: data.SurveyID! })),
-    static_data: {},
-    temporal_slices: data.QuestAndAnsList!.map((x) => {
-      const temporal_slice = {
-        item: x.Question! as string,
-        value: x.Answer! as any,
-        type: "valid",
-        duration: (x.TimeTaken! * 1000) as number,
-        level: null,
-      }
-      // Adjust the Likert scaled values to numbers.
-      if (["Not at all", "12:00AM - 06:00AM", "0-3"].indexOf(temporal_slice.value) >= 0) {
-        temporal_slice.value = 0
-      } else if (["Several Times", "06:00AM - 12:00PM", "3-6"].indexOf(temporal_slice.value) >= 0) {
-        temporal_slice.value = 1
-      } else if (["More than Half the Time", "12:00PM - 06:00PM", "6-9"].indexOf(temporal_slice.value) >= 0) {
-        temporal_slice.value = 2
-      } else if (["Nearly All the Time", "06:00PM - 12:00AM", ">9"].indexOf(temporal_slice.value) >= 0) {
-        temporal_slice.value = 3
-      }
-      return temporal_slice
-    }),
-  }
-  const out = await Database.use("activity_event").bulk({ docs: [activityEvent] })
-  console.dir(out.filter((x) => !!x.error))
-  if (!!data.IsNotificationGame) {
-    const res2 = await SQL!.query(`
-            SELECT (CASE DeviceType 
-                WHEN 1 THEN 'iOS'
-                WHEN 2 THEN 'Android'
-            END) AS device_type 
-            FROM LAMP.dbo.UserDevices
-            WHERE UserID = ${data.UserID!}
-        ;`)
-    const notificationEvent = {
-      "#parent": (req as any).AuthUser.StudyId,
-      timestamp: new Date(data.StartTime!).getTime(),
-      sensor: "lamp.analytics",
-      data: {
-        device_type: res2.recordset.length > 0 ? res2.recordset[0].device_type : "Unknown",
-        event_type: "notification",
-        category: "Survey",
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const activityID = _all_activities.find((x: any) => x.name === data.SurveyName)?.id
+  //const activityID = await _lookup_migrator_id(Activity_pack_id({ survey_id: data.SurveyID! }))
+  if (!!activityID) {
+    await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
+        activity: activityID,
+        static_data: {},
+        temporal_slices: data.QuestAndAnsList!.map((x) => {
+          const temporal_slice = {
+            item: x.Question! as string,
+            value: x.Answer! as any,
+            type: "valid",
+            duration: (x.TimeTaken! * 1000) as number,
+            level: null as any,
+          }
+          // Adjust the Likert scaled values to numbers.
+          if (["Not at all", "12:00AM - 06:00AM", "0-3"].indexOf(temporal_slice.value) >= 0) {
+            temporal_slice.value = 0
+          } else if (["Several Times", "06:00AM - 12:00PM", "3-6"].indexOf(temporal_slice.value) >= 0) {
+            temporal_slice.value = 1
+          } else if (["More than Half the Time", "12:00PM - 06:00PM", "6-9"].indexOf(temporal_slice.value) >= 0) {
+            temporal_slice.value = 2
+          } else if (["Nearly All the Time", "06:00PM - 12:00AM", ">9"].indexOf(temporal_slice.value) >= 0) {
+            temporal_slice.value = 3
+          }
+          return temporal_slice
+        }),
       },
-    }
-    const out = await Database.use("sensor_event").bulk({ docs: [notificationEvent] })
-    console.dir(out.filter((x) => !!x.error))
+    ])
+  }
+  if (!!data.IsNotificationGame) {
+    await SensorEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        sensor: "lamp.analytics" as any,
+        data: {
+          device_type: "Unknown",
+          event_type: "notification",
+          category: "Survey",
+        },
+      },
+    ])
   }
   return res.status(200).json({
     ErrorCode: 0,
@@ -1883,19 +1864,19 @@ LegacyAPI.post("/SaveUserHealthKit", [_authorize], async (req: Request, res: Res
     Distance: "lamp.distance",
   }
   const data = req.body as APIRequest
-  const sensorEvents = Object.entries(data)
-    .filter(([key, value]) => Object.keys(ParamIDLookup).includes(key) && (value?.length ?? 0 > 0))
-    .map(([key, value]) => ({
-      "#parent": (req as any).AuthUser.StudyId,
-      timestamp: new Date().getTime(), // use NOW, as no date is provided
-      sensor: ParamIDLookup[key],
-      data: {
-        value: value.split(" ")[0] ?? "",
-        units: value.split(" ")[1] ?? "",
-      },
-    }))
-  const out = await Database.use("sensor_event").bulk({ docs: sensorEvents })
-  console.dir(out.filter((x) => !!x.error))
+  await SensorEventRepository._insert(
+    (req as any).AuthUser.StudyId,
+    Object.entries(data)
+      .filter(([key, value]) => Object.keys(ParamIDLookup).includes(key) && (value?.length ?? 0 > 0))
+      .map(([key, value]) => ({
+        timestamp: new Date().getTime(), // use NOW, as no date is provided
+        sensor: ParamIDLookup[key] as any,
+        data: {
+          value: value.split(" ")[0] ?? "",
+          units: value.split(" ")[1] ?? "",
+        },
+      }))
+  )
   return res.status(200).json({
     ErrorCode: 0,
     ErrorMessage: "API Method Auto-Forwarded",
@@ -1932,17 +1913,17 @@ LegacyAPI.post("/SaveUserHealthKitV2", [_authorize], async (req: Request, res: R
     Distance: "lamp.distance",
   }
   const data = req.body as APIRequest
-  const sensorEvents = data.HealthKitParams!.map((param) => ({
-    "#parent": (req as any).AuthUser.StudyId,
-    timestamp: new Date().getTime(), // use NOW, as no date is provided
-    sensor: ParamIDLookup[param.ParamID!],
-    data: {
-      value: param.Value!.split(" ")[0] ?? "",
-      units: param.Value!.split(" ")[1] ?? "",
-    },
-  }))
-  const out = await Database.use("sensor_event").bulk({ docs: sensorEvents })
-  console.dir(out.filter((x) => !!x.error))
+  await SensorEventRepository._insert(
+    (req as any).AuthUser.StudyId,
+    data.HealthKitParams!.map((param) => ({
+      timestamp: new Date().getTime(), // use NOW, as no date is provided
+      sensor: ParamIDLookup[param.ParamID!] as any,
+      data: {
+        value: param.Value!.split(" ")[0] ?? "",
+        units: param.Value!.split(" ")[1] ?? "",
+      },
+    }))
+  )
   return res.status(200).json({
     ErrorCode: 0,
     ErrorMessage: "API Method Auto-Forwarded",
@@ -1989,22 +1970,21 @@ LegacyAPI.post("/SaveLocation", [_authorize], async (req: Request, res: Response
   }
   const data = req.body as APIRequest
   const x = toLAMP(data.LocationName!)
-  const sensorEvent = {
-    "#parent": (req as any).AuthUser.StudyId,
-    timestamp: new Date().getTime(), // use NOW, as no date is provided
-    sensor: "lamp.gps.contextual",
-    data: {
-      latitude: parseFloat(Decrypt(data.Latitude ?? "") ?? data.Latitude!),
-      longitude: parseFloat(Decrypt(data.Longitude ?? "") ?? data.Longitude!),
-      accuracy: -1,
-      context: {
-        environment: x[0] || null,
-        social: x[1] || null,
+  await SensorEventRepository._insert((req as any).AuthUser.StudyId, [
+    {
+      timestamp: new Date().getTime(), // use NOW, as no date is provided
+      sensor: "lamp.gps.contextual" as any,
+      data: {
+        latitude: parseFloat(Decrypt(data.Latitude ?? "") ?? data.Latitude!),
+        longitude: parseFloat(Decrypt(data.Longitude ?? "") ?? data.Longitude!),
+        accuracy: -1,
+        context: {
+          environment: x[0] || null,
+          social: x[1] || null,
+        },
       },
     },
-  }
-  const out = await Database.use("sensor_event").bulk({ docs: [sensorEvent] })
-  console.dir(out.filter((x) => !!x.error))
+  ])
   return res.status(200).json({
     ErrorCode: 0,
     ErrorMessage: "API Method Auto-Forwarded",
@@ -2032,7 +2012,7 @@ LegacyAPI.post("/SaveHelpCall", [_authorize], async (req: Request, res: Response
 
 // Route: /SaveNBackGame
 LegacyAPI.post("/SaveNBackGame", [_authorize], async (req: Request, res: Response) => {
-  const LegacyCTestID = 1
+  const SpecName = "lamp.nback"
   interface APIRequest {
     UserID?: number
     TotalQuestions?: number
@@ -2053,55 +2033,37 @@ LegacyAPI.post("/SaveNBackGame", [_authorize], async (req: Request, res: Respons
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const settingID = (
-    await SQL!.query(`
-        SELECT 
-            AdminCTestSettingID AS id
-          FROM Admin_CTestSettings
-          WHERE Admin_CTestSettings.AdminID IN (
-            SELECT AdminID
-            FROM Users
-            WHERE Users.UserID = ${data.UserID}
-          ) AND Admin_CTestSettings.CTestID = ${LegacyCTestID}
-    ;`)
-  ).recordset[0]["id"]
-  const activityEvent = {
-    "#parent": (req as any).AuthUser.StudyId,
-    timestamp: new Date(data.StartTime!).getTime(),
-    duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
-    activity: await _lookup_migrator_id(Activity_pack_id({ ctest_id: settingID })),
-    static_data: {
-      point: data.Point!,
-      score: data.Score!,
-      version: data.Version!,
-      correct_answers: data.CorrectAnswers!,
-      wrong_answers: data.WrongAnswers!,
-    },
-    temporal_slices: [],
-  }
-  const out = await Database.use("activity_event").bulk({ docs: [activityEvent] })
-  console.dir(out.filter((x) => !!x.error))
-  if (!!data.IsNotificationGame) {
-    const res2 = await SQL!.query(`
-             SELECT (CASE DeviceType 
-                 WHEN 1 THEN 'iOS'
-                 WHEN 2 THEN 'Android'
-             END) AS device_type 
-             FROM LAMP.dbo.UserDevices
-             WHERE UserID = ${data.UserID!}
-         ;`)
-    const notificationEvent = {
-      "#parent": (req as any).AuthUser.StudyId,
-      timestamp: new Date(data.StartTime!).getTime(),
-      sensor: "lamp.analytics",
-      data: {
-        device_type: res2.recordset.length > 0 ? res2.recordset[0].device_type : "Unknown",
-        event_type: "notification",
-        category: "NBack",
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
+  if (!!activityID) {
+    await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
+        activity: activityID,
+        static_data: {
+          point: data.Point!,
+          score: data.Score!,
+          version: data.Version!,
+          correct_answers: data.CorrectAnswers!,
+          wrong_answers: data.WrongAnswers!,
+        },
+        temporal_slices: [],
       },
-    }
-    const out = await Database.use("sensor_event").bulk({ docs: [notificationEvent] })
-    console.dir(out.filter((x) => !!x.error))
+    ])
+  }
+  if (!!data.IsNotificationGame) {
+    await SensorEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        sensor: "lamp.analytics" as any,
+        data: {
+          device_type: "Unknown",
+          event_type: "notification",
+          category: "NBack",
+        },
+      },
+    ])
   }
   return res.status(200).json({
     ErrorCode: 0,
@@ -2111,7 +2073,7 @@ LegacyAPI.post("/SaveNBackGame", [_authorize], async (req: Request, res: Respons
 
 // Route: /SaveTrailsBGame
 LegacyAPI.post("/SaveTrailsBGame", [_authorize], async (req: Request, res: Response) => {
-  const LegacyCTestID = 2
+  const SpecName = "lamp.trails_b"
   interface APIRequest {
     UserID?: number
     TotalAttempts?: number
@@ -2137,64 +2099,46 @@ LegacyAPI.post("/SaveTrailsBGame", [_authorize], async (req: Request, res: Respo
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const settingID = (
-    await SQL!.query(`
-        SELECT 
-            AdminCTestSettingID AS id
-          FROM Admin_CTestSettings
-          WHERE Admin_CTestSettings.AdminID IN (
-            SELECT AdminID
-            FROM Users
-            WHERE Users.UserID = ${data.UserID}
-          ) AND Admin_CTestSettings.CTestID = ${LegacyCTestID}
-    ;`)
-  ).recordset[0]["id"]
-  const activityEvent = {
-    "#parent": (req as any).AuthUser.StudyId,
-    timestamp: new Date(data.StartTime!).getTime(),
-    duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
-    activity: await _lookup_migrator_id(Activity_pack_id({ ctest_id: settingID })),
-    static_data: {
-      point: data.Point!,
-      score: data.Score!,
-      version: data.Version!,
-      total_attempts: data.TotalAttempts!,
-    },
-    temporal_slices: data.RoutesList!.reduce((prev, curr, idx) => {
-      return prev.concat(
-        curr!.Routes!.map((x) => ({
-          item: x.Alphabet!,
-          value: x.Status!,
-          type: null,
-          duration: parseFloat(x.TimeTaken!) * 1000,
-          level: idx + 1,
-        })) as any[]
-      )
-    }, [] as any[]),
-  }
-  const out = await Database.use("activity_event").bulk({ docs: [activityEvent] })
-  console.dir(out.filter((x) => !!x.error))
-  if (!!data.IsNotificationGame) {
-    const res2 = await SQL!.query(`
-             SELECT (CASE DeviceType 
-                 WHEN 1 THEN 'iOS'
-                 WHEN 2 THEN 'Android'
-             END) AS device_type 
-             FROM LAMP.dbo.UserDevices
-             WHERE UserID = ${data.UserID!}
-         ;`)
-    const notificationEvent = {
-      "#parent": (req as any).AuthUser.StudyId,
-      timestamp: new Date(data.StartTime!).getTime(),
-      sensor: "lamp.analytics",
-      data: {
-        device_type: res2.recordset.length > 0 ? res2.recordset[0].device_type : "Unknown",
-        event_type: "notification",
-        category: "TrailsB",
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
+  if (!!activityID) {
+    await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
+        activity: activityID,
+        static_data: {
+          point: data.Point!,
+          score: data.Score!,
+          version: data.Version!,
+          total_attempts: data.TotalAttempts!,
+        },
+        temporal_slices: data.RoutesList!.reduce((prev, curr, idx) => {
+          return prev.concat(
+            curr!.Routes!.map((x) => ({
+              item: x.Alphabet!,
+              value: x.Status!,
+              type: null,
+              duration: parseFloat(x.TimeTaken!) * 1000,
+              level: idx + 1,
+            })) as any[]
+          )
+        }, [] as any[]),
       },
-    }
-    const out = await Database.use("sensor_event").bulk({ docs: [notificationEvent] })
-    console.dir(out.filter((x) => !!x.error))
+    ])
+  }
+  if (!!data.IsNotificationGame) {
+    await SensorEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        sensor: "lamp.analytics" as any,
+        data: {
+          device_type: "Unknown",
+          event_type: "notification",
+          category: "TrailsB",
+        },
+      },
+    ])
   }
   return res.status(200).json({
     ErrorCode: 0,
@@ -2204,7 +2148,8 @@ LegacyAPI.post("/SaveTrailsBGame", [_authorize], async (req: Request, res: Respo
 
 // Route: /SaveSpatialSpanGame
 LegacyAPI.post("/SaveSpatialSpanGame", [_authorize], async (req: Request, res: Response) => {
-  const LegacyCTestID = 3 // [3, 4] = [Backward, Forward] variants
+  const SpecName = "lamp.spatial_span"
+  //const LegacyCTestID = 3 // [3, 4] = [Backward, Forward] variants
   interface APIRequest {
     UserID?: number
     Type?: number
@@ -2232,65 +2177,47 @@ LegacyAPI.post("/SaveSpatialSpanGame", [_authorize], async (req: Request, res: R
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const settingID = (
-    await SQL!.query(`
-        SELECT 
-            AdminCTestSettingID AS id
-          FROM Admin_CTestSettings
-          WHERE Admin_CTestSettings.AdminID IN (
-            SELECT AdminID
-            FROM Users
-            WHERE Users.UserID = ${data.UserID}
-          ) AND Admin_CTestSettings.CTestID = ${LegacyCTestID}
-    ;`)
-  ).recordset[0]["id"]
-  const activityEvent = {
-    "#parent": (req as any).AuthUser.StudyId,
-    timestamp: new Date(data.StartTime!).getTime(),
-    duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
-    activity: await _lookup_migrator_id(Activity_pack_id({ ctest_id: settingID })),
-    static_data: {
-      type: data.Type!,
-      point: data.Point!,
-      score: data.Score!,
-      correct_answers: data.CorrectAnswers!,
-      wrong_answers: data.WrongAnswers!,
-    },
-    temporal_slices: data.BoxList!.reduce((prev, curr, idx) => {
-      return prev.concat(
-        curr!.Boxes!.map((x) => ({
-          item: x.GameIndex!,
-          value: idx + 1, // ColumnName = Sequence
-          type: x.Status!,
-          duration: parseFloat(x.TimeTaken!) * 1000,
-          level: x.Level!,
-        })) as any[]
-      )
-    }, [] as any[]),
-  }
-  const out = await Database.use("activity_event").bulk({ docs: [activityEvent] })
-  console.dir(out.filter((x) => !!x.error))
-  if (!!data.IsNotificationGame) {
-    const res2 = await SQL!.query(`
-             SELECT (CASE DeviceType 
-                 WHEN 1 THEN 'iOS'
-                 WHEN 2 THEN 'Android'
-             END) AS device_type 
-             FROM LAMP.dbo.UserDevices
-             WHERE UserID = ${data.UserID!}
-         ;`)
-    const notificationEvent = {
-      "#parent": (req as any).AuthUser.StudyId,
-      timestamp: new Date(data.StartTime!).getTime(),
-      sensor: "lamp.analytics",
-      data: {
-        device_type: res2.recordset.length > 0 ? res2.recordset[0].device_type : "Unknown",
-        event_type: "notification",
-        category: "SpatialSpan",
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
+  if (!!activityID) {
+    await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
+        activity: activityID,
+        static_data: {
+          type: data.Type!,
+          point: data.Point!,
+          score: data.Score!,
+          correct_answers: data.CorrectAnswers!,
+          wrong_answers: data.WrongAnswers!,
+        },
+        temporal_slices: data.BoxList!.reduce((prev, curr, idx) => {
+          return prev.concat(
+            curr!.Boxes!.map((x) => ({
+              item: x.GameIndex!,
+              value: idx + 1, // ColumnName = Sequence
+              type: x.Status!,
+              duration: parseFloat(x.TimeTaken!) * 1000,
+              level: x.Level!,
+            })) as any[]
+          )
+        }, [] as any[]),
       },
-    }
-    const out = await Database.use("sensor_event").bulk({ docs: [notificationEvent] })
-    console.dir(out.filter((x) => !!x.error))
+    ])
+  }
+  if (!!data.IsNotificationGame) {
+    await SensorEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        sensor: "lamp.analytics" as any,
+        data: {
+          device_type: "Unknown",
+          event_type: "notification",
+          category: "SpatialSpan",
+        },
+      },
+    ])
   }
   return res.status(200).json({
     ErrorCode: 0,
@@ -2300,7 +2227,7 @@ LegacyAPI.post("/SaveSpatialSpanGame", [_authorize], async (req: Request, res: R
 
 // Route: /SaveSimpleMemoryGame
 LegacyAPI.post("/SaveSimpleMemoryGame", [_authorize], async (req: Request, res: Response) => {
-  const LegacyCTestID = 5
+  const SpecName = "lamp.simple_memory"
   interface APIRequest {
     UserID?: number
     TotalQuestions?: number
@@ -2321,55 +2248,37 @@ LegacyAPI.post("/SaveSimpleMemoryGame", [_authorize], async (req: Request, res: 
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const settingID = (
-    await SQL!.query(`
-        SELECT 
-            AdminCTestSettingID AS id
-          FROM Admin_CTestSettings
-          WHERE Admin_CTestSettings.AdminID IN (
-            SELECT AdminID
-            FROM Users
-            WHERE Users.UserID = ${data.UserID}
-          ) AND Admin_CTestSettings.CTestID = ${LegacyCTestID}
-    ;`)
-  ).recordset[0]["id"]
-  const activityEvent = {
-    "#parent": (req as any).AuthUser.StudyId,
-    timestamp: new Date(data.StartTime!).getTime(),
-    duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
-    activity: await _lookup_migrator_id(Activity_pack_id({ ctest_id: settingID })),
-    static_data: {
-      point: data.Point!,
-      score: data.Score!,
-      version: data.Version!,
-      correct_answers: data.CorrectAnswers!,
-      wrong_answers: data.WrongAnswers!,
-    },
-    temporal_slices: [],
-  }
-  const out = await Database.use("activity_event").bulk({ docs: [activityEvent] })
-  console.dir(out.filter((x) => !!x.error))
-  if (!!data.IsNotificationGame) {
-    const res2 = await SQL!.query(`
-             SELECT (CASE DeviceType 
-                 WHEN 1 THEN 'iOS'
-                 WHEN 2 THEN 'Android'
-             END) AS device_type 
-             FROM LAMP.dbo.UserDevices
-             WHERE UserID = ${data.UserID!}
-         ;`)
-    const notificationEvent = {
-      "#parent": (req as any).AuthUser.StudyId,
-      timestamp: new Date(data.StartTime!).getTime(),
-      sensor: "lamp.analytics",
-      data: {
-        device_type: res2.recordset.length > 0 ? res2.recordset[0].device_type : "Unknown",
-        event_type: "notification",
-        category: "SimpleMemory",
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
+  if (!!activityID) {
+    await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
+        activity: activityID,
+        static_data: {
+          point: data.Point!,
+          score: data.Score!,
+          version: data.Version!,
+          correct_answers: data.CorrectAnswers!,
+          wrong_answers: data.WrongAnswers!,
+        },
+        temporal_slices: [],
       },
-    }
-    const out = await Database.use("sensor_event").bulk({ docs: [notificationEvent] })
-    console.dir(out.filter((x) => !!x.error))
+    ])
+  }
+  if (!!data.IsNotificationGame) {
+    await SensorEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        sensor: "lamp.analytics" as any,
+        data: {
+          device_type: "Unknown",
+          event_type: "notification",
+          category: "SimpleMemory",
+        },
+      },
+    ])
   }
   return res.status(200).json({
     ErrorCode: 0,
@@ -2379,7 +2288,7 @@ LegacyAPI.post("/SaveSimpleMemoryGame", [_authorize], async (req: Request, res: 
 
 // Route: /SaveSerial7Game
 LegacyAPI.post("/SaveSerial7Game", [_authorize], async (req: Request, res: Response) => {
-  const LegacyCTestID = 6
+  const SpecName = "lamp.serial7s"
   interface APIRequest {
     UserID?: number
     TotalQuestions?: number
@@ -2399,55 +2308,37 @@ LegacyAPI.post("/SaveSerial7Game", [_authorize], async (req: Request, res: Respo
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const settingID = (
-    await SQL!.query(`
-        SELECT 
-            AdminCTestSettingID AS id
-          FROM Admin_CTestSettings
-          WHERE Admin_CTestSettings.AdminID IN (
-            SELECT AdminID
-            FROM Users
-            WHERE Users.UserID = ${data.UserID}
-          ) AND Admin_CTestSettings.CTestID = ${LegacyCTestID}
-    ;`)
-  ).recordset[0]["id"]
-  const activityEvent = {
-    "#parent": (req as any).AuthUser.StudyId,
-    timestamp: new Date(data.StartTime!).getTime(),
-    duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
-    activity: await _lookup_migrator_id(Activity_pack_id({ ctest_id: settingID })),
-    static_data: {
-      point: data.Point!,
-      score: data.Score!,
-      version: data.Version!,
-      total_questions: data.TotalQuestions!,
-      total_attempts: data.TotalAttempts!,
-    },
-    temporal_slices: [],
-  }
-  const out = await Database.use("activity_event").bulk({ docs: [activityEvent] })
-  console.dir(out.filter((x) => !!x.error))
-  if (!!data.IsNotificationGame) {
-    const res2 = await SQL!.query(`
-             SELECT (CASE DeviceType 
-                 WHEN 1 THEN 'iOS'
-                 WHEN 2 THEN 'Android'
-             END) AS device_type 
-             FROM LAMP.dbo.UserDevices
-             WHERE UserID = ${data.UserID!}
-         ;`)
-    const notificationEvent = {
-      "#parent": (req as any).AuthUser.StudyId,
-      timestamp: new Date(data.StartTime!).getTime(),
-      sensor: "lamp.analytics",
-      data: {
-        device_type: res2.recordset.length > 0 ? res2.recordset[0].device_type : "Unknown",
-        event_type: "notification",
-        category: "Serial7s",
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
+  if (!!activityID) {
+    await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
+        activity: activityID,
+        static_data: {
+          point: data.Point!,
+          score: data.Score!,
+          version: data.Version!,
+          total_questions: data.TotalQuestions!,
+          total_attempts: data.TotalAttempts!,
+        },
+        temporal_slices: [],
       },
-    }
-    const out = await Database.use("sensor_event").bulk({ docs: [notificationEvent] })
-    console.dir(out.filter((x) => !!x.error))
+    ])
+  }
+  if (!!data.IsNotificationGame) {
+    await SensorEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        sensor: "lamp.analytics" as any,
+        data: {
+          device_type: "Unknown",
+          event_type: "notification",
+          category: "Serial7s",
+        },
+      },
+    ])
   }
   return res.status(200).json({
     ErrorCode: 0,
@@ -2457,7 +2348,7 @@ LegacyAPI.post("/SaveSerial7Game", [_authorize], async (req: Request, res: Respo
 
 // Route: /SaveCatAndDogGame
 LegacyAPI.post("/SaveCatAndDogGame", [_authorize], async (req: Request, res: Response) => {
-  const LegacyCTestID = 7
+  const SpecName = "lamp.cats_and_dogs"
   interface APIRequest {
     UserID?: number
     TotalQuestions?: number
@@ -2476,54 +2367,36 @@ LegacyAPI.post("/SaveCatAndDogGame", [_authorize], async (req: Request, res: Res
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const settingID = (
-    await SQL!.query(`
-        SELECT 
-            AdminCTestSettingID AS id
-          FROM Admin_CTestSettings
-          WHERE Admin_CTestSettings.AdminID IN (
-            SELECT AdminID
-            FROM Users
-            WHERE Users.UserID = ${data.UserID}
-          ) AND Admin_CTestSettings.CTestID = ${LegacyCTestID}
-    ;`)
-  ).recordset[0]["id"]
-  const activityEvent = {
-    "#parent": (req as any).AuthUser.StudyId,
-    timestamp: new Date(data.StartTime!).getTime(),
-    duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
-    activity: await _lookup_migrator_id(Activity_pack_id({ ctest_id: settingID })),
-    static_data: {
-      point: data.Point!,
-      total_questions: data.TotalQuestions!,
-      correct_answers: data.CorrectAnswers!,
-      wrong_answers: data.WrongAnswers!,
-    },
-    temporal_slices: [],
-  }
-  const out = await Database.use("activity_event").bulk({ docs: [activityEvent] })
-  console.dir(out.filter((x) => !!x.error))
-  if (!!data.IsNotificationGame) {
-    const res2 = await SQL!.query(`
-             SELECT (CASE DeviceType 
-                 WHEN 1 THEN 'iOS'
-                 WHEN 2 THEN 'Android'
-             END) AS device_type 
-             FROM LAMP.dbo.UserDevices
-             WHERE UserID = ${data.UserID!}
-         ;`)
-    const notificationEvent = {
-      "#parent": (req as any).AuthUser.StudyId,
-      timestamp: new Date(data.StartTime!).getTime(),
-      sensor: "lamp.analytics",
-      data: {
-        device_type: res2.recordset.length > 0 ? res2.recordset[0].device_type : "Unknown",
-        event_type: "notification",
-        category: "CatAndDog",
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
+  if (!!activityID) {
+    await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
+        activity: activityID,
+        static_data: {
+          point: data.Point!,
+          total_questions: data.TotalQuestions!,
+          correct_answers: data.CorrectAnswers!,
+          wrong_answers: data.WrongAnswers!,
+        },
+        temporal_slices: [],
       },
-    }
-    const out = await Database.use("sensor_event").bulk({ docs: [notificationEvent] })
-    console.dir(out.filter((x) => !!x.error))
+    ])
+  }
+  if (!!data.IsNotificationGame) {
+    await SensorEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        sensor: "lamp.analytics" as any,
+        data: {
+          device_type: "Unknown",
+          event_type: "notification",
+          category: "CatAndDog",
+        },
+      },
+    ])
   }
   return res.status(200).json({
     ErrorCode: 0,
@@ -2533,7 +2406,7 @@ LegacyAPI.post("/SaveCatAndDogGame", [_authorize], async (req: Request, res: Res
 
 // Route: /Save3DFigureGame
 LegacyAPI.post("/Save3DFigureGame", [_authorize], async (req: Request, res: Response) => {
-  const LegacyCTestID = 8
+  const SpecName = "lamp.3d_figure_copy"
   interface APIRequest {
     UserID?: number
     C3DFigureID?: number
@@ -2552,67 +2425,49 @@ LegacyAPI.post("/Save3DFigureGame", [_authorize], async (req: Request, res: Resp
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const new_filename = `${(req as any).AuthUser.UserID}_${uuidv4()}.png`
-  const settingID = (
-    await SQL!.query(`
-        SELECT 
-            AdminCTestSettingID AS id
-          FROM Admin_CTestSettings
-          WHERE Admin_CTestSettings.AdminID IN (
-            SELECT AdminID
-            FROM Users
-            WHERE Users.UserID = ${data.UserID}
-          ) AND Admin_CTestSettings.CTestID = ${LegacyCTestID}
-    ;`)
-  ).recordset[0]["id"]
-  const activityEvent = {
-    "#parent": (req as any).AuthUser.StudyId,
-    timestamp: new Date(data.StartTime!).getTime(),
-    duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
-    activity: await _lookup_migrator_id(Activity_pack_id({ ctest_id: settingID })),
-    static_data: {
-      point: data.Point!,
-      drawn_fig_file_name: new_filename,
-      game_name: data.GameName!,
-    },
-    temporal_slices: [],
-  }
-  S3.upload(
-    {
-      Bucket: AWSBucketName,
-      Key: `Games/User3DFigures/${new_filename}`,
-      Body: data.DrawnFig!,
-      ACL: "public-read",
-      ContentEncoding: "base64",
-      ContentType: "image/png",
-    },
-    (err: any, data: any) => {
-      console.dir({ data, err })
-    }
-  )
-  const out = await Database.use("activity_event").bulk({ docs: [activityEvent] })
-  console.dir(out.filter((x) => !!x.error))
-  if (!!data.IsNotificationGame) {
-    const res2 = await SQL!.query(`
-            SELECT (CASE DeviceType 
-                WHEN 1 THEN 'iOS'
-                WHEN 2 THEN 'Android'
-            END) AS device_type 
-            FROM LAMP.dbo.UserDevices
-            WHERE UserID = ${data.UserID!}
-        ;`)
-    const notificationEvent = {
-      "#parent": (req as any).AuthUser.StudyId,
-      timestamp: new Date(data.StartTime!).getTime(),
-      sensor: "lamp.analytics",
-      data: {
-        device_type: res2.recordset.length > 0 ? res2.recordset[0].device_type : "Unknown",
-        event_type: "notification",
-        category: "3DFigure",
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
+  if (!!activityID) {
+    const new_filename = `${(req as any).AuthUser.UserID}_${uuidv4()}.png`
+    await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
+        activity: activityID,
+        static_data: {
+          point: data.Point!,
+          drawn_fig_file_name: new_filename,
+          game_name: data.GameName!,
+        },
+        temporal_slices: [],
       },
-    }
-    const out = await Database.use("sensor_event").bulk({ docs: [notificationEvent] })
-    console.dir(out.filter((x) => !!x.error))
+    ])
+    S3.upload(
+      {
+        Bucket: AWSBucketName,
+        Key: `Games/User3DFigures/${new_filename}`,
+        Body: data.DrawnFig!,
+        ACL: "public-read",
+        ContentEncoding: "base64",
+        ContentType: "image/png",
+      },
+      (err: any, data: any) => {
+        console.dir({ data, err })
+      }
+    )
+  }
+  if (!!data.IsNotificationGame) {
+    await SensorEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        sensor: "lamp.analytics" as any,
+        data: {
+          device_type: "Unknown",
+          event_type: "notification",
+          category: "3DFigure",
+        },
+      },
+    ])
   }
   return res.status(200).json({
     ErrorCode: 0,
@@ -2622,7 +2477,7 @@ LegacyAPI.post("/Save3DFigureGame", [_authorize], async (req: Request, res: Resp
 
 // Route: /SaveVisualAssociationGame
 LegacyAPI.post("/SaveVisualAssociationGame", [_authorize], async (req: Request, res: Response) => {
-  const LegacyCTestID = 9
+  const SpecName = "lamp.visual_association"
   interface APIRequest {
     UserID?: number
     TotalQuestions?: number
@@ -2643,56 +2498,38 @@ LegacyAPI.post("/SaveVisualAssociationGame", [_authorize], async (req: Request, 
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const settingID = (
-    await SQL!.query(`
-        SELECT 
-            AdminCTestSettingID AS id
-          FROM Admin_CTestSettings
-          WHERE Admin_CTestSettings.AdminID IN (
-            SELECT AdminID
-            FROM Users
-            WHERE Users.UserID = ${data.UserID}
-          ) AND Admin_CTestSettings.CTestID = ${LegacyCTestID}
-    ;`)
-  ).recordset[0]["id"]
-  const activityEvent = {
-    "#parent": (req as any).AuthUser.StudyId,
-    timestamp: new Date(data.StartTime!).getTime(),
-    duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
-    activity: await _lookup_migrator_id(Activity_pack_id({ ctest_id: settingID })),
-    static_data: {
-      point: data.Point!,
-      score: data.Score!,
-      version: data.Version!,
-      total_questions: data.TotalQuestions!,
-      correct_answers: data.CorrectAnswers!,
-      wrong_answers: data.WrongAnswers!,
-    },
-    temporal_slices: [],
-  }
-  const out = await Database.use("activity_event").bulk({ docs: [activityEvent] })
-  console.dir(out.filter((x) => !!x.error))
-  if (!!data.IsNotificationGame) {
-    const res2 = await SQL!.query(`
-             SELECT (CASE DeviceType 
-                 WHEN 1 THEN 'iOS'
-                 WHEN 2 THEN 'Android'
-             END) AS device_type 
-             FROM LAMP.dbo.UserDevices
-             WHERE UserID = ${data.UserID!}
-         ;`)
-    const notificationEvent = {
-      "#parent": (req as any).AuthUser.StudyId,
-      timestamp: new Date(data.StartTime!).getTime(),
-      sensor: "lamp.analytics",
-      data: {
-        device_type: res2.recordset.length > 0 ? res2.recordset[0].device_type : "Unknown",
-        event_type: "notification",
-        category: "VisualAssociation",
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
+  if (!!activityID) {
+    await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
+        activity: activityID,
+        static_data: {
+          point: data.Point!,
+          score: data.Score!,
+          version: data.Version!,
+          total_questions: data.TotalQuestions!,
+          correct_answers: data.CorrectAnswers!,
+          wrong_answers: data.WrongAnswers!,
+        },
+        temporal_slices: [],
       },
-    }
-    const out = await Database.use("sensor_event").bulk({ docs: [notificationEvent] })
-    console.dir(out.filter((x) => !!x.error))
+    ])
+  }
+  if (!!data.IsNotificationGame) {
+    await SensorEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        sensor: "lamp.analytics" as any,
+        data: {
+          device_type: "Unknown",
+          event_type: "notification",
+          category: "VisualAssociation",
+        },
+      },
+    ])
   }
   return res.status(200).json({
     ErrorCode: 0,
@@ -2702,7 +2539,8 @@ LegacyAPI.post("/SaveVisualAssociationGame", [_authorize], async (req: Request, 
 
 // Route: /SaveDigitSpanGame
 LegacyAPI.post("/SaveDigitSpanGame", [_authorize], async (req: Request, res: Response) => {
-  const LegacyCTestID = 10 // [10, 13] = [Backward, Forward] variants
+  const SpecName = "lamp.digit_span"
+  //const LegacyCTestID = 10 // [10, 13] = [Backward, Forward] variants
   interface APIRequest {
     UserID?: number
     Type?: number
@@ -2722,55 +2560,37 @@ LegacyAPI.post("/SaveDigitSpanGame", [_authorize], async (req: Request, res: Res
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const settingID = (
-    await SQL!.query(`
-        SELECT 
-            AdminCTestSettingID AS id
-          FROM Admin_CTestSettings
-          WHERE Admin_CTestSettings.AdminID IN (
-            SELECT AdminID
-            FROM Users
-            WHERE Users.UserID = ${data.UserID}
-          ) AND Admin_CTestSettings.CTestID = ${LegacyCTestID}
-    ;`)
-  ).recordset[0]["id"]
-  const activityEvent = {
-    "#parent": (req as any).AuthUser.StudyId,
-    timestamp: new Date(data.StartTime!).getTime(),
-    duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
-    activity: await _lookup_migrator_id(Activity_pack_id({ ctest_id: settingID })),
-    static_data: {
-      type: data.Type!,
-      point: data.Point!,
-      score: data.Score!,
-      correct_answers: data.CorrectAnswers!,
-      wrong_answers: data.WrongAnswers!,
-    },
-    temporal_slices: [],
-  }
-  const out = await Database.use("activity_event").bulk({ docs: [activityEvent] })
-  console.dir(out.filter((x) => !!x.error))
-  if (!!data.IsNotificationGame) {
-    const res2 = await SQL!.query(`
-             SELECT (CASE DeviceType 
-                 WHEN 1 THEN 'iOS'
-                 WHEN 2 THEN 'Android'
-             END) AS device_type 
-             FROM LAMP.dbo.UserDevices
-             WHERE UserID = ${data.UserID!}
-         ;`)
-    const notificationEvent = {
-      "#parent": (req as any).AuthUser.StudyId,
-      timestamp: new Date(data.StartTime!).getTime(),
-      sensor: "lamp.analytics",
-      data: {
-        device_type: res2.recordset.length > 0 ? res2.recordset[0].device_type : "Unknown",
-        event_type: "notification",
-        category: "DigitSpan",
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
+  if (!!activityID) {
+    await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
+        activity: activityID,
+        static_data: {
+          type: data.Type!,
+          point: data.Point!,
+          score: data.Score!,
+          correct_answers: data.CorrectAnswers!,
+          wrong_answers: data.WrongAnswers!,
+        },
+        temporal_slices: [],
       },
-    }
-    const out = await Database.use("sensor_event").bulk({ docs: [notificationEvent] })
-    console.dir(out.filter((x) => !!x.error))
+    ])
+  }
+  if (!!data.IsNotificationGame) {
+    await SensorEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        sensor: "lamp.analytics" as any,
+        data: {
+          device_type: "Unknown",
+          event_type: "notification",
+          category: "DigitSpan",
+        },
+      },
+    ])
   }
   return res.status(200).json({
     ErrorCode: 0,
@@ -2780,7 +2600,7 @@ LegacyAPI.post("/SaveDigitSpanGame", [_authorize], async (req: Request, res: Res
 
 // Route: /SaveCatAndDogNewGame
 LegacyAPI.post("/SaveCatAndDogNewGame", [_authorize], async (req: Request, res: Response) => {
-  const LegacyCTestID = 11
+  const SpecName = "lamp.cats_and_dogs_new"
   interface APIRequest {
     UserID?: number
     CorrectAnswers?: number
@@ -2804,60 +2624,42 @@ LegacyAPI.post("/SaveCatAndDogNewGame", [_authorize], async (req: Request, res: 
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const settingID = (
-    await SQL!.query(`
-        SELECT 
-            AdminCTestSettingID AS id
-          FROM Admin_CTestSettings
-          WHERE Admin_CTestSettings.AdminID IN (
-            SELECT AdminID
-            FROM Users
-            WHERE Users.UserID = ${data.UserID}
-          ) AND Admin_CTestSettings.CTestID = ${LegacyCTestID}
-    ;`)
-  ).recordset[0]["id"]
-  const activityEvent = {
-    "#parent": (req as any).AuthUser.StudyId,
-    timestamp: new Date(data.StartTime!).getTime(),
-    duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
-    activity: await _lookup_migrator_id(Activity_pack_id({ ctest_id: settingID })),
-    static_data: {
-      point: data.Point!,
-      score: data.Score!,
-      correct_answers: data.CorrectAnswers!,
-      wrong_answers: data.WrongAnswers!,
-    },
-    temporal_slices: data.GameLevelDetailList!.map((x) => ({
-      item: null,
-      value: x.CorrectAnswer!,
-      type: x.WrongAnswer!,
-      duration: parseFloat(x.TimeTaken!) * 1000,
-      level: null,
-    })),
-  }
-  const out = await Database.use("activity_event").bulk({ docs: [activityEvent] })
-  console.dir(out.filter((x) => !!x.error))
-  if (!!data.IsNotificationGame) {
-    const res2 = await SQL!.query(`
-             SELECT (CASE DeviceType 
-                 WHEN 1 THEN 'iOS'
-                 WHEN 2 THEN 'Android'
-             END) AS device_type 
-             FROM LAMP.dbo.UserDevices
-             WHERE UserID = ${data.UserID!}
-         ;`)
-    const notificationEvent = {
-      "#parent": (req as any).AuthUser.StudyId,
-      timestamp: new Date(data.StartTime!).getTime(),
-      sensor: "lamp.analytics",
-      data: {
-        device_type: res2.recordset.length > 0 ? res2.recordset[0].device_type : "Unknown",
-        event_type: "notification",
-        category: "CatAndDogNew",
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
+  if (!!activityID) {
+    await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
+        activity: activityID,
+        static_data: {
+          point: data.Point!,
+          score: data.Score!,
+          correct_answers: data.CorrectAnswers!,
+          wrong_answers: data.WrongAnswers!,
+        },
+        temporal_slices: data.GameLevelDetailList!.map((x) => ({
+          item: null,
+          value: x.CorrectAnswer!,
+          type: x.WrongAnswer! as any,
+          duration: parseFloat(x.TimeTaken!) * 1000,
+          level: null as any,
+        })),
       },
-    }
-    const out = await Database.use("sensor_event").bulk({ docs: [notificationEvent] })
-    console.dir(out.filter((x) => !!x.error))
+    ])
+  }
+  if (!!data.IsNotificationGame) {
+    await SensorEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        sensor: "lamp.analytics" as any,
+        data: {
+          device_type: "Unknown",
+          event_type: "notification",
+          category: "CatAndDogNew",
+        },
+      },
+    ])
   }
   return res.status(200).json({
     ErrorCode: 0,
@@ -2867,7 +2669,7 @@ LegacyAPI.post("/SaveCatAndDogNewGame", [_authorize], async (req: Request, res: 
 
 // Route: /SaveTemporalOrderGame
 LegacyAPI.post("/SaveTemporalOrderGame", [_authorize], async (req: Request, res: Response) => {
-  const LegacyCTestID = 12
+  const SpecName = "lamp.temporal_order"
   interface APIRequest {
     UserID?: number
     CorrectAnswers?: number
@@ -2887,55 +2689,37 @@ LegacyAPI.post("/SaveTemporalOrderGame", [_authorize], async (req: Request, res:
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const settingID = (
-    await SQL!.query(`
-        SELECT 
-            AdminCTestSettingID AS id
-          FROM Admin_CTestSettings
-          WHERE Admin_CTestSettings.AdminID IN (
-            SELECT AdminID
-            FROM Users
-            WHERE Users.UserID = ${data.UserID}
-          ) AND Admin_CTestSettings.CTestID = ${LegacyCTestID}
-    ;`)
-  ).recordset[0]["id"]
-  const activityEvent = {
-    "#parent": (req as any).AuthUser.StudyId,
-    timestamp: new Date(data.StartTime!).getTime(),
-    duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
-    activity: await _lookup_migrator_id(Activity_pack_id({ ctest_id: settingID })),
-    static_data: {
-      point: data.Point!,
-      score: data.Score!,
-      version: data.Version!,
-      correct_answers: data.CorrectAnswers!,
-      wrong_answers: data.WrongAnswers!,
-    },
-    temporal_slices: [],
-  }
-  const out = await Database.use("activity_event").bulk({ docs: [activityEvent] })
-  console.dir(out.filter((x) => !!x.error))
-  if (!!data.IsNotificationGame) {
-    const res2 = await SQL!.query(`
-             SELECT (CASE DeviceType 
-                 WHEN 1 THEN 'iOS'
-                 WHEN 2 THEN 'Android'
-             END) AS device_type 
-             FROM LAMP.dbo.UserDevices
-             WHERE UserID = ${data.UserID!}
-         ;`)
-    const notificationEvent = {
-      "#parent": (req as any).AuthUser.StudyId,
-      timestamp: new Date(data.StartTime!).getTime(),
-      sensor: "lamp.analytics",
-      data: {
-        device_type: res2.recordset.length > 0 ? res2.recordset[0].device_type : "Unknown",
-        event_type: "notification",
-        category: "TemporalOrder",
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
+  if (!!activityID) {
+    await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
+        activity: activityID,
+        static_data: {
+          point: data.Point!,
+          score: data.Score!,
+          version: data.Version!,
+          correct_answers: data.CorrectAnswers!,
+          wrong_answers: data.WrongAnswers!,
+        },
+        temporal_slices: [],
       },
-    }
-    const out = await Database.use("sensor_event").bulk({ docs: [notificationEvent] })
-    console.dir(out.filter((x) => !!x.error))
+    ])
+  }
+  if (!!data.IsNotificationGame) {
+    await SensorEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        sensor: "lamp.analytics" as any,
+        data: {
+          device_type: "Unknown",
+          event_type: "notification",
+          category: "TemporalOrder",
+        },
+      },
+    ])
   }
   return res.status(200).json({
     ErrorCode: 0,
@@ -2945,7 +2729,7 @@ LegacyAPI.post("/SaveTemporalOrderGame", [_authorize], async (req: Request, res:
 
 // Route: /SaveNBackGameNewGame
 LegacyAPI.post("/SaveNBackGameNewGame", [_authorize], async (req: Request, res: Response) => {
-  const LegacyCTestID = 14
+  const SpecName = "lamp.nback_new"
   interface APIRequest {
     UserID?: number
     TotalQuestions?: number
@@ -2965,55 +2749,37 @@ LegacyAPI.post("/SaveNBackGameNewGame", [_authorize], async (req: Request, res: 
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const settingID = (
-    await SQL!.query(`
-        SELECT 
-            AdminCTestSettingID AS id
-          FROM Admin_CTestSettings
-          WHERE Admin_CTestSettings.AdminID IN (
-            SELECT AdminID
-            FROM Users
-            WHERE Users.UserID = ${data.UserID}
-          ) AND Admin_CTestSettings.CTestID = ${LegacyCTestID}
-    ;`)
-  ).recordset[0]["id"]
-  const activityEvent = {
-    "#parent": (req as any).AuthUser.StudyId,
-    timestamp: new Date(data.StartTime!).getTime(),
-    duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
-    activity: await _lookup_migrator_id(Activity_pack_id({ ctest_id: settingID })),
-    static_data: {
-      point: data.Point!,
-      score: data.Score!,
-      total_questions: data.TotalQuestions!,
-      correct_answers: data.CorrectAnswers!,
-      wrong_answers: data.WrongAnswers!,
-    },
-    temporal_slices: [],
-  }
-  const out = await Database.use("activity_event").bulk({ docs: [activityEvent] })
-  console.dir(out.filter((x) => !!x.error))
-  if (!!data.IsNotificationGame) {
-    const res2 = await SQL!.query(`
-             SELECT (CASE DeviceType 
-                 WHEN 1 THEN 'iOS'
-                 WHEN 2 THEN 'Android'
-             END) AS device_type 
-             FROM LAMP.dbo.UserDevices
-             WHERE UserID = ${data.UserID!}
-         ;`)
-    const notificationEvent = {
-      "#parent": (req as any).AuthUser.StudyId,
-      timestamp: new Date(data.StartTime!).getTime(),
-      sensor: "lamp.analytics",
-      data: {
-        device_type: res2.recordset.length > 0 ? res2.recordset[0].device_type : "Unknown",
-        event_type: "notification",
-        category: "NBackNew",
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
+  if (!!activityID) {
+    await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
+        activity: activityID,
+        static_data: {
+          point: data.Point!,
+          score: data.Score!,
+          total_questions: data.TotalQuestions!,
+          correct_answers: data.CorrectAnswers!,
+          wrong_answers: data.WrongAnswers!,
+        },
+        temporal_slices: [],
       },
-    }
-    const out = await Database.use("sensor_event").bulk({ docs: [notificationEvent] })
-    console.dir(out.filter((x) => !!x.error))
+    ])
+  }
+  if (!!data.IsNotificationGame) {
+    await SensorEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        sensor: "lamp.analytics" as any,
+        data: {
+          device_type: "Unknown",
+          event_type: "notification",
+          category: "NBackNew",
+        },
+      },
+    ])
   }
   return res.status(200).json({
     ErrorCode: 0,
@@ -3023,7 +2789,7 @@ LegacyAPI.post("/SaveNBackGameNewGame", [_authorize], async (req: Request, res: 
 
 // Route: /SaveTrailsBGameNew
 LegacyAPI.post("/SaveTrailsBGameNew", [_authorize], async (req: Request, res: Response) => {
-  const LegacyCTestID = 15
+  const SpecName = "lamp.trails_b_new"
   interface APIRequest {
     UserID?: number
     TotalAttempts?: number
@@ -3049,64 +2815,46 @@ LegacyAPI.post("/SaveTrailsBGameNew", [_authorize], async (req: Request, res: Re
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const settingID = (
-    await SQL!.query(`
-        SELECT 
-            AdminCTestSettingID AS id
-          FROM Admin_CTestSettings
-          WHERE Admin_CTestSettings.AdminID IN (
-            SELECT AdminID
-            FROM Users
-            WHERE Users.UserID = ${data.UserID}
-          ) AND Admin_CTestSettings.CTestID = ${LegacyCTestID}
-    ;`)
-  ).recordset[0]["id"]
-  const activityEvent = {
-    "#parent": (req as any).AuthUser.StudyId,
-    timestamp: new Date(data.StartTime!).getTime(),
-    duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
-    activity: await _lookup_migrator_id(Activity_pack_id({ ctest_id: settingID })),
-    static_data: {
-      point: data.Point!,
-      score: data.Score!,
-      version: data.Version!,
-      total_attempts: data.TotalAttempts!,
-    },
-    temporal_slices: data.RoutesList!.reduce((prev, curr, idx) => {
-      return prev.concat(
-        curr!.Routes!.map((x) => ({
-          item: x.Alphabet!,
-          value: x.Status!,
-          type: null,
-          duration: parseFloat(x.TimeTaken!) * 1000,
-          level: idx + 1,
-        })) as any[]
-      )
-    }, [] as any[]),
-  }
-  const out = await Database.use("activity_event").bulk({ docs: [activityEvent] })
-  console.dir(out.filter((x) => !!x.error))
-  if (!!data.IsNotificationGame) {
-    const res2 = await SQL!.query(`
-             SELECT (CASE DeviceType 
-                 WHEN 1 THEN 'iOS'
-                 WHEN 2 THEN 'Android'
-             END) AS device_type 
-             FROM LAMP.dbo.UserDevices
-             WHERE UserID = ${data.UserID!}
-         ;`)
-    const notificationEvent = {
-      "#parent": (req as any).AuthUser.StudyId,
-      timestamp: new Date(data.StartTime!).getTime(),
-      sensor: "lamp.analytics",
-      data: {
-        device_type: res2.recordset.length > 0 ? res2.recordset[0].device_type : "Unknown",
-        event_type: "notification",
-        category: "TrailsBNew",
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
+  if (!!activityID) {
+    await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
+        activity: activityID,
+        static_data: {
+          point: data.Point!,
+          score: data.Score!,
+          version: data.Version!,
+          total_attempts: data.TotalAttempts!,
+        },
+        temporal_slices: data.RoutesList!.reduce((prev, curr, idx) => {
+          return prev.concat(
+            curr!.Routes!.map((x) => ({
+              item: x.Alphabet!,
+              value: x.Status!,
+              type: null,
+              duration: parseFloat(x.TimeTaken!) * 1000,
+              level: idx + 1,
+            })) as any[]
+          )
+        }, [] as any[]),
       },
-    }
-    const out = await Database.use("sensor_event").bulk({ docs: [notificationEvent] })
-    console.dir(out.filter((x) => !!x.error))
+    ])
+  }
+  if (!!data.IsNotificationGame) {
+    await SensorEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        sensor: "lamp.analytics" as any,
+        data: {
+          device_type: "Unknown",
+          event_type: "notification",
+          category: "TrailsBNew",
+        },
+      },
+    ])
   }
   return res.status(200).json({
     ErrorCode: 0,
@@ -3116,7 +2864,7 @@ LegacyAPI.post("/SaveTrailsBGameNew", [_authorize], async (req: Request, res: Re
 
 // Route: /SaveTrailsBDotTouchGame
 LegacyAPI.post("/SaveTrailsBDotTouchGame", [_authorize], async (req: Request, res: Response) => {
-  const LegacyCTestID = 16
+  const SpecName = "lamp.trails_b_dot_touch"
   interface APIRequest {
     UserID?: number
     TotalAttempts?: number
@@ -3141,63 +2889,45 @@ LegacyAPI.post("/SaveTrailsBDotTouchGame", [_authorize], async (req: Request, re
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const settingID = (
-    await SQL!.query(`
-        SELECT 
-            AdminCTestSettingID AS id
-          FROM Admin_CTestSettings
-          WHERE Admin_CTestSettings.AdminID IN (
-            SELECT AdminID
-            FROM Users
-            WHERE Users.UserID = ${data.UserID}
-          ) AND Admin_CTestSettings.CTestID = ${LegacyCTestID}
-    ;`)
-  ).recordset[0]["id"]
-  const activityEvent = {
-    "#parent": (req as any).AuthUser.StudyId,
-    timestamp: new Date(data.StartTime!).getTime(),
-    duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
-    activity: await _lookup_migrator_id(Activity_pack_id({ ctest_id: settingID })),
-    static_data: {
-      point: data.Point!,
-      score: data.Score!,
-      total_attempts: data.TotalAttempts!,
-    },
-    temporal_slices: data.RoutesList!.reduce((prev, curr, idx) => {
-      return prev.concat(
-        curr!.Routes!.map((x) => ({
-          item: x.Alphabet!,
-          value: x.Status!,
-          type: null,
-          duration: parseFloat(x.TimeTaken!) * 1000,
-          level: idx + 1,
-        })) as any[]
-      )
-    }, [] as any[]),
-  }
-  const out = await Database.use("activity_event").bulk({ docs: [activityEvent] })
-  console.dir(out.filter((x) => !!x.error))
-  if (!!data.IsNotificationGame) {
-    const res2 = await SQL!.query(`
-             SELECT (CASE DeviceType 
-                 WHEN 1 THEN 'iOS'
-                 WHEN 2 THEN 'Android'
-             END) AS device_type 
-             FROM LAMP.dbo.UserDevices
-             WHERE UserID = ${data.UserID!}
-         ;`)
-    const notificationEvent = {
-      "#parent": (req as any).AuthUser.StudyId,
-      timestamp: new Date(data.StartTime!).getTime(),
-      sensor: "lamp.analytics",
-      data: {
-        device_type: res2.recordset.length > 0 ? res2.recordset[0].device_type : "Unknown",
-        event_type: "notification",
-        category: "TrailsBDotTouch",
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
+  if (!!activityID) {
+    await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
+        activity: activityID,
+        static_data: {
+          point: data.Point!,
+          score: data.Score!,
+          total_attempts: data.TotalAttempts!,
+        },
+        temporal_slices: data.RoutesList!.reduce((prev, curr, idx) => {
+          return prev.concat(
+            curr!.Routes!.map((x) => ({
+              item: x.Alphabet!,
+              value: x.Status!,
+              type: null,
+              duration: parseFloat(x.TimeTaken!) * 1000,
+              level: idx + 1,
+            })) as any[]
+          )
+        }, [] as any[]),
       },
-    }
-    const out = await Database.use("sensor_event").bulk({ docs: [notificationEvent] })
-    console.dir(out.filter((x) => !!x.error))
+    ])
+  }
+  if (!!data.IsNotificationGame) {
+    await SensorEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        sensor: "lamp.analytics" as any,
+        data: {
+          device_type: "Unknown",
+          event_type: "notification",
+          category: "TrailsBDotTouch",
+        },
+      },
+    ])
   }
   return res.status(200).json({
     ErrorCode: 0,
@@ -3207,7 +2937,7 @@ LegacyAPI.post("/SaveTrailsBDotTouchGame", [_authorize], async (req: Request, re
 
 // Route: /SaveJewelsTrailsAGame
 LegacyAPI.post("/SaveJewelsTrailsAGame", [_authorize], async (req: Request, res: Response) => {
-  const LegacyCTestID = 17
+  const SpecName = "lamp.jewels_a"
   interface APIRequest {
     UserID?: number
     TotalAttempts?: number
@@ -3234,65 +2964,47 @@ LegacyAPI.post("/SaveJewelsTrailsAGame", [_authorize], async (req: Request, res:
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const settingID = (
-    await SQL!.query(`
-        SELECT 
-            AdminCTestSettingID AS id
-          FROM Admin_CTestSettings
-          WHERE Admin_CTestSettings.AdminID IN (
-            SELECT AdminID
-            FROM Users
-            WHERE Users.UserID = ${data.UserID}
-          ) AND Admin_CTestSettings.CTestID = ${LegacyCTestID}
-    ;`)
-  ).recordset[0]["id"]
-  const activityEvent = {
-    "#parent": (req as any).AuthUser.StudyId,
-    timestamp: new Date(data.StartTime!).getTime(),
-    duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
-    activity: await _lookup_migrator_id(Activity_pack_id({ ctest_id: settingID })),
-    static_data: {
-      point: data.Point!,
-      score: data.Score!,
-      total_attempts: data.TotalAttempts!,
-      total_jewels_collected: data.TotalJewelsCollected!,
-      total_bonus_collected: data.TotalBonusCollected!,
-    },
-    temporal_slices: data.RoutesList!.reduce((prev, curr, idx) => {
-      return prev.concat(
-        curr!.Routes!.map((x) => ({
-          item: x.Alphabet!,
-          value: x.Status!,
-          type: null,
-          duration: parseFloat(x.TimeTaken!) * 1000,
-          level: idx + 1,
-        })) as any[]
-      )
-    }, [] as any[]),
-  }
-  const out = await Database.use("activity_event").bulk({ docs: [activityEvent] })
-  console.dir(out.filter((x) => !!x.error))
-  if (!!data.IsNotificationGame) {
-    const res2 = await SQL!.query(`
-             SELECT (CASE DeviceType 
-                 WHEN 1 THEN 'iOS'
-                 WHEN 2 THEN 'Android'
-             END) AS device_type 
-             FROM LAMP.dbo.UserDevices
-             WHERE UserID = ${data.UserID!}
-         ;`)
-    const notificationEvent = {
-      "#parent": (req as any).AuthUser.StudyId,
-      timestamp: new Date(data.StartTime!).getTime(),
-      sensor: "lamp.analytics",
-      data: {
-        device_type: res2.recordset.length > 0 ? res2.recordset[0].device_type : "Unknown",
-        event_type: "notification",
-        category: "JewelsTrailsA",
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
+  if (!!activityID) {
+    await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
+        activity: activityID,
+        static_data: {
+          point: data.Point!,
+          score: data.Score!,
+          total_attempts: data.TotalAttempts!,
+          total_jewels_collected: data.TotalJewelsCollected!,
+          total_bonus_collected: data.TotalBonusCollected!,
+        },
+        temporal_slices: data.RoutesList!.reduce((prev, curr, idx) => {
+          return prev.concat(
+            curr!.Routes!.map((x) => ({
+              item: x.Alphabet!,
+              value: x.Status!,
+              type: null,
+              duration: parseFloat(x.TimeTaken!) * 1000,
+              level: idx + 1,
+            })) as any[]
+          )
+        }, [] as any[]),
       },
-    }
-    const out = await Database.use("sensor_event").bulk({ docs: [notificationEvent] })
-    console.dir(out.filter((x) => !!x.error))
+    ])
+  }
+  if (!!data.IsNotificationGame) {
+    await SensorEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        sensor: "lamp.analytics" as any,
+        data: {
+          device_type: "Unknown",
+          event_type: "notification",
+          category: "JewelsTrailsA",
+        },
+      },
+    ])
   }
   return res.status(200).json({
     ErrorCode: 0,
@@ -3302,7 +3014,7 @@ LegacyAPI.post("/SaveJewelsTrailsAGame", [_authorize], async (req: Request, res:
 
 // Route: /SaveJewelsTrailsBGame
 LegacyAPI.post("/SaveJewelsTrailsBGame", [_authorize], async (req: Request, res: Response) => {
-  const LegacyCTestID = 18
+  const SpecName = "lamp.jewels_b"
   interface APIRequest {
     UserID?: number
     TotalAttempts?: number
@@ -3329,65 +3041,47 @@ LegacyAPI.post("/SaveJewelsTrailsBGame", [_authorize], async (req: Request, res:
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const settingID = (
-    await SQL!.query(`
-        SELECT 
-            AdminCTestSettingID AS id
-          FROM Admin_CTestSettings
-          WHERE Admin_CTestSettings.AdminID IN (
-            SELECT AdminID
-            FROM Users
-            WHERE Users.UserID = ${data.UserID}
-          ) AND Admin_CTestSettings.CTestID = ${LegacyCTestID}
-    ;`)
-  ).recordset[0]["id"]
-  const activityEvent = {
-    "#parent": (req as any).AuthUser.StudyId,
-    timestamp: new Date(data.StartTime!).getTime(),
-    duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
-    activity: await _lookup_migrator_id(Activity_pack_id({ ctest_id: settingID })),
-    static_data: {
-      point: data.Point!,
-      score: data.Score!,
-      total_attempts: data.TotalAttempts!,
-      total_jewels_collected: data.TotalJewelsCollected!,
-      total_bonus_collected: data.TotalBonusCollected!,
-    },
-    temporal_slices: data.RoutesList!.reduce((prev, curr, idx) => {
-      return prev.concat(
-        curr!.Routes!.map((x) => ({
-          item: x.Alphabet!,
-          value: x.Status!,
-          type: null,
-          duration: parseFloat(x.TimeTaken!) * 1000,
-          level: idx + 1,
-        })) as any[]
-      )
-    }, [] as any[]),
-  }
-  const out = await Database.use("activity_event").bulk({ docs: [activityEvent] })
-  console.dir(out.filter((x) => !!x.error))
-  if (!!data.IsNotificationGame) {
-    const res2 = await SQL!.query(`
-             SELECT (CASE DeviceType 
-                 WHEN 1 THEN 'iOS'
-                 WHEN 2 THEN 'Android'
-             END) AS device_type 
-             FROM LAMP.dbo.UserDevices
-             WHERE UserID = ${data.UserID!}
-         ;`)
-    const notificationEvent = {
-      "#parent": (req as any).AuthUser.StudyId,
-      timestamp: new Date(data.StartTime!).getTime(),
-      sensor: "lamp.analytics",
-      data: {
-        device_type: res2.recordset.length > 0 ? res2.recordset[0].device_type : "Unknown",
-        event_type: "notification",
-        category: "JewelsTrailsB",
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
+  if (!!activityID) {
+    await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
+        activity: activityID,
+        static_data: {
+          point: data.Point!,
+          score: data.Score!,
+          total_attempts: data.TotalAttempts!,
+          total_jewels_collected: data.TotalJewelsCollected!,
+          total_bonus_collected: data.TotalBonusCollected!,
+        },
+        temporal_slices: data.RoutesList!.reduce((prev, curr, idx) => {
+          return prev.concat(
+            curr!.Routes!.map((x) => ({
+              item: x.Alphabet!,
+              value: x.Status!,
+              type: null,
+              duration: parseFloat(x.TimeTaken!) * 1000,
+              level: idx + 1,
+            })) as any[]
+          )
+        }, [] as any[]),
       },
-    }
-    const out = await Database.use("sensor_event").bulk({ docs: [notificationEvent] })
-    console.dir(out.filter((x) => !!x.error))
+    ])
+  }
+  if (!!data.IsNotificationGame) {
+    await SensorEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        sensor: "lamp.analytics" as any,
+        data: {
+          device_type: "Unknown",
+          event_type: "notification",
+          category: "JewelsTrailsB",
+        },
+      },
+    ])
   }
   return res.status(200).json({
     ErrorCode: 0,
@@ -3397,7 +3091,7 @@ LegacyAPI.post("/SaveJewelsTrailsBGame", [_authorize], async (req: Request, res:
 
 // Route: /SaveScratchImageGame
 LegacyAPI.post("/SaveScratchImageGame", [_authorize], async (req: Request, res: Response) => {
-  const LegacyCTestID = 19
+  const SpecName = "lamp.scratch_image"
   interface APIRequest {
     UserID?: number
     ScratchImageID?: number
@@ -3416,67 +3110,49 @@ LegacyAPI.post("/SaveScratchImageGame", [_authorize], async (req: Request, res: 
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const settingID = (
-    await SQL!.query(`
-        SELECT 
-            AdminCTestSettingID AS id
-          FROM Admin_CTestSettings
-          WHERE Admin_CTestSettings.AdminID IN (
-            SELECT AdminID
-            FROM Users
-            WHERE Users.UserID = ${data.UserID}
-          ) AND Admin_CTestSettings.CTestID = ${LegacyCTestID}
-    ;`)
-  ).recordset[0]["id"]
-  const new_filename = `${(req as any).AuthUser.UserID}_${uuidv4()}.png`
-  const activityEvent = {
-    "#parent": (req as any).AuthUser.StudyId,
-    timestamp: new Date(data.StartTime!).getTime(),
-    duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
-    activity: await _lookup_migrator_id(Activity_pack_id({ ctest_id: settingID })),
-    static_data: {
-      point: data.Point!,
-      scratch_file_name: new_filename,
-      game_name: data.GameName!,
-    },
-    temporal_slices: [],
-  }
-  S3.upload(
-    {
-      Bucket: AWSBucketName,
-      Key: `Games/UserScratchImages/${new_filename}`,
-      Body: data.DrawnImage!,
-      ACL: "public-read",
-      ContentEncoding: "base64",
-      ContentType: "image/png",
-    },
-    (err: any, data: any) => {
-      console.dir({ data, err })
-    }
-  )
-  const out = await Database.use("activity_event").bulk({ docs: [activityEvent] })
-  console.dir(out.filter((x) => !!x.error))
-  if (!!data.IsNotificationGame) {
-    const res2 = await SQL!.query(`
-             SELECT (CASE DeviceType 
-                 WHEN 1 THEN 'iOS'
-                 WHEN 2 THEN 'Android'
-             END) AS device_type 
-             FROM LAMP.dbo.UserDevices
-             WHERE UserID = ${data.UserID!}
-         ;`)
-    const notificationEvent = {
-      "#parent": (req as any).AuthUser.StudyId,
-      timestamp: new Date(data.StartTime!).getTime(),
-      sensor: "lamp.analytics",
-      data: {
-        device_type: res2.recordset.length > 0 ? res2.recordset[0].device_type : "Unknown",
-        event_type: "notification",
-        category: "ScratchImage",
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
+  if (!!activityID) {
+    const new_filename = `${(req as any).AuthUser.UserID}_${uuidv4()}.png`
+    await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        duration: new Date(data.EndTime!).getTime() - new Date(data.StartTime!).getTime(),
+        activity: activityID,
+        static_data: {
+          point: data.Point!,
+          scratch_file_name: new_filename,
+          game_name: data.GameName!,
+        },
+        temporal_slices: [],
       },
-    }
-    const out = await Database.use("sensor_event").bulk({ docs: [notificationEvent] })
-    console.dir(out.filter((x) => !!x.error))
+    ])
+    S3.upload(
+      {
+        Bucket: AWSBucketName,
+        Key: `Games/UserScratchImages/${new_filename}`,
+        Body: data.DrawnImage!,
+        ACL: "public-read",
+        ContentEncoding: "base64",
+        ContentType: "image/png",
+      },
+      (err: any, data: any) => {
+        console.dir({ data, err })
+      }
+    )
+  }
+  if (!!data.IsNotificationGame) {
+    await SensorEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        sensor: "lamp.analytics" as any,
+        data: {
+          device_type: "Unknown",
+          event_type: "notification",
+          category: "ScratchImage",
+        },
+      },
+    ])
   }
   return res.status(200).json({
     ErrorCode: 0,
@@ -3486,7 +3162,7 @@ LegacyAPI.post("/SaveScratchImageGame", [_authorize], async (req: Request, res: 
 
 // Route: /SaveSpinWheelGame
 LegacyAPI.post("/SaveSpinWheelGame", [_authorize], async (req: Request, res: Response) => {
-  const LegacyCTestID = 20
+  const SpecName = "lamp.spin_wheel"
   interface APIRequest {
     UserID?: number
     StartTime?: string // Date
@@ -3500,32 +3176,23 @@ LegacyAPI.post("/SaveSpinWheelGame", [_authorize], async (req: Request, res: Res
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const settingID = (
-    await SQL!.query(`
-        SELECT 
-            AdminCTestSettingID AS id
-          FROM Admin_CTestSettings
-          WHERE Admin_CTestSettings.AdminID IN (
-            SELECT AdminID
-            FROM Users
-            WHERE Users.UserID = ${data.UserID}
-          ) AND Admin_CTestSettings.CTestID = ${LegacyCTestID}
-    ;`)
-  ).recordset[0]["id"]
-  const activityEvent = {
-    "#parent": (req as any).AuthUser.StudyId,
-    timestamp: new Date(data.StartTime!).getTime(),
-    duration: new Date(data.GameDate!).getTime() - new Date(data.StartTime!).getTime(),
-    activity: await _lookup_migrator_id(Activity_pack_id({ ctest_id: settingID })),
-    static_data: {
-      collected_stars: data.CollectedStars!,
-      day_streak: data.DayStreak!,
-      streak_spin: data.StrakSpin!,
-    },
-    temporal_slices: [],
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
+  if (!!activityID) {
+    await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
+      {
+        timestamp: new Date(data.StartTime!).getTime(),
+        duration: new Date(data.GameDate!).getTime() - new Date(data.StartTime!).getTime(),
+        activity: activityID,
+        static_data: {
+          collected_stars: data.CollectedStars!,
+          day_streak: data.DayStreak!,
+          streak_spin: data.StrakSpin!,
+        },
+        temporal_slices: [],
+      },
+    ])
   }
-  const out = await Database.use("activity_event").bulk({ docs: [activityEvent] })
-  console.dir(out.filter((x) => !!x.error))
   return res.status(200).json({
     ErrorCode: 0,
     ErrorMessage: "API Method Auto-Forwarded",
