@@ -33,8 +33,8 @@ const _authorize = async (req: Request, res: Response, next: any): Promise<void>
     })
   }
   // SessionToken Format:
-  // [OLD] Encrypt('UserID|Email|Password')
-  // [NEW] Encrypt('Email:Password')
+  // [OLD] rijndael_encrypt('UserID|Email|Password')
+  // [NEW] rijndael_encrypt('Email:Password')
   const parts = Decrypt(token[1])?.split(":") ?? []
   if (parts.length == 0) {
     res.status(404).json({
@@ -1739,7 +1739,6 @@ LegacyAPI.post("/GetSurveys", [_authorize], async (req: Request, res: Response) 
       surveyArray.push(surveyObj)
     }
   })
-  console.log(JSON.stringify(surveyArray, null, 2))
   return res.status(200).json({
     ErrorCode: 0,
     ErrorMessage: "Get surveys detail.",
@@ -1946,8 +1945,7 @@ LegacyAPI.post("/SaveLocation", [_authorize], async (req: Request, res: Response
   }
   const toLAMP = (value?: string): [string?, string?] => {
     if (!value) return []
-    const matches =
-      (Decrypt(value) || value).toLowerCase().match(/(?:i am )([ \S\/]+)(alone|in [ \S\/]*|with [ \S\/]*)/) || []
+    const matches = value.toLowerCase().match(/(?:i am )([ \S\/]+)(alone|in [ \S\/]*|with [ \S\/]*)/) || []
     return [
       ({
         home: "home",
@@ -1975,8 +1973,8 @@ LegacyAPI.post("/SaveLocation", [_authorize], async (req: Request, res: Response
       timestamp: new Date().getTime(), // use NOW, as no date is provided
       sensor: "lamp.gps.contextual" as any,
       data: {
-        latitude: parseFloat(Decrypt(data.Latitude ?? "") ?? data.Latitude!),
-        longitude: parseFloat(Decrypt(data.Longitude ?? "") ?? data.Longitude!),
+        latitude: parseFloat(data.Latitude!),
+        longitude: parseFloat(data.Longitude!),
         accuracy: -1,
         context: {
           environment: x[0] || null,
