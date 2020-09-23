@@ -7,12 +7,7 @@ export async function APNSpush(device: string, payload: any): Promise<any> {
     teamID: "S2Y2D4239K",
     bundleID: "digital.lamp.mindlamp",
     keyID: "9N29933TK2",
-    contents: `-----BEGIN PRIVATE KEY-----
-MIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQgDpdXvATm9Qx5d1hj
-CzU1KAE8tGfSx/xNjJUkWBxSNjCgCgYIKoZIzj0DAQehRANCAAS2cf0ZTVYKhKEZ
-psQfGLc2BIC89FwASq6jyW5c/kaskeTtr3lWMGYGp9HbxLK5barEm70iqjFRGfR4
-ak/zFFvq
------END PRIVATE KEY-----`,
+    contents: `${process.env.APNS_CERT}`,
   }
   const TOKEN = jwt.sign(
     {
@@ -55,7 +50,7 @@ ak/zFFvq
 }
 
 export async function GCMpush(device: string, payload: any): Promise<any> {
-  const certificate = `AAAAxB2qYw4:APA91bHJC87y9yx3tlZb2XQP-hYUMmb3pmXgOA1BLzqrtPzJJUHwmEEJfg5SyIKdXd0MGBxyc6jSd5-v1IPEFRkNyz5a3okT-ahEx3FPYWRnnH3kMkPOp4dfg1idpdrnnIMG_OnMk7Q1`
+  const certificate = `${process.env.GCM_CERT}`
   const client = http2.connect("https://fcm.googleapis.com:443")
 
   const buffer = Buffer.from(
