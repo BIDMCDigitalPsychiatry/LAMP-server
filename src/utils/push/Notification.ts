@@ -2,7 +2,7 @@ import { ActivityRepository } from "../../repository/ActivityRepository"
 import { TypeRepository } from "../../repository/TypeRepository"
 import { ParticipantRepository } from "../../repository/ParticipantRepository"
 import { SensorEventRepository } from "../../repository/SensorEventRepository"
-import { APNSpush, GCMpush } from "./push"
+import fetch from "node-fetch"
 
 /// List activities for a given ID; if a Participant ID is not provided, undefined = list ALL.
 export const ActivityScheduler = async (): Promise<void> => {
@@ -177,76 +177,91 @@ export function shouldSendNotification(schedule: any): boolean {
 }
 
 /// Send to device with payload and device token given.
-export async function sendNotification(device_token: string, device_type: string, payload: any): Promise<any> {
+function sendNotification(device_token: string, device_type: string, payload: any) {
   console.dir({ device_token, device_type, payload })
-
   // Send this specific page URL to the device to show the actual activity.
   // eslint-disable-next-line prettier/prettier
-  const url = `${"https://dashboard-staging.lamp.digital/#/"}participant/${payload.participant_id}/activity/${payload.activity_id}`
+  const url = `${"https://dashboard-staging.lamp.digital/#/"}participant/${payload.participant_id}/activity/${
+    payload.activity_id
+  }`
 
   switch (device_type) {
     case "android.watch":
-      try {
-        await GCMpush(device_token, {
-          priority: "high",
-          data: {
-            title: `${payload.title}`,
-            message: `${payload.message}`,
-            page: `${url}`,
-            notificationId: `${payload.title}`,
-            actions: [{ name: "Open App", page: `${url}` }],
-            expiry: 360000,
-          },
-        })
-      } catch (error) {
-        console.log("Error encountered sending GCM push notification.")
-        console.error(error)
-      }
-      break
     case "android":
       try {
-        await GCMpush(device_token, {
-          priority: "high",
-          data: {
-            title: `${payload.title}`,
-            message: `${payload.message}`,
-            page: `${url}`,
-            notificationId: `${payload.title}`,
-            actions: [{ name: "Open App", page: "https://www.android.com" }],
-            expiry: 360000,
+        const opts: any = {
+          push_type: "gcm",
+          api_key: `${process.env.PUSH_GATEWAY_APIKEY}`,
+          device_token: device_token,
+          payload: {
+            priority: "high",
+            data: {
+              title: `${payload.title}`,
+              message: `${payload.message}`,
+              page: `${url}`,
+              notificationId: `${payload.title}`,
+              actions: [{ name: "Open App", page: "https://www.android.com" }],
+              expiry: 360000,
+            },
           },
+        }
+        //connect to api gateway and send notifications
+        fetch(`${process.env.PUSH_GATEWAY}`, {
+          method: "post",
+          body: JSON.stringify(opts),
+          headers: { "Content-Type": "application/json" },
         })
+          .then((res) => {
+            if (!res.ok) {
+              throw new Error(`HTTP error! status`)
+            }
+          })
+          .catch((e) => {
+            console.log("Error encountered sending GCM push notification.")
+          })
       } catch (error) {
-        console.log("Error encountered sending GCM push notification.")
-        console.error(error)
+        console.log(`"Error encountered sending GCM push notification"-${error}`)
       }
       break
+
+    case "ios":
     case "ios.watch":
       try {
-        await APNSpush(device_token, {
-          aps: { alert: `${payload.message}`, badge: 0, sound: "default", "mutable-conten": 1, "content-available": 1 },
-          notificationId: `${payload.title}`,
-          expiry: 60000,
-          page: `${url}`,
-          actions: [{ name: "Open App", page: `${url}` }],
+        //preparing curl request
+        const opts: any = {
+          push_type: "apns",
+          api_key: `${process.env.PUSH_GATEWAY_APIKEY}`,
+          device_token: device_token,
+          payload: {
+            aps: {
+              alert: `${payload.message}`,
+              badge: 0,
+              sound: "default",
+              "mutable-content": 1,
+              "content-available": 1,
+            },
+            notificationId: `${payload.title}`,
+            expiry: 60000,
+            page: `${url}`,
+            actions: [{ name: "Open App", page: `${url}` }],
+          },
+        }
+        //connect to api gateway and send notifications
+        fetch(`${process.env.PUSH_GATEWAY}`, {
+          method: "post",
+          body: JSON.stringify(opts),
+          headers: { "Content-Type": "application/json" },
         })
+          .then((res) => {
+            if (!res.ok) {
+              throw new Error(`HTTP error!`)
+            }
+          })
+          .catch((e) => {
+            console.log("Error encountered sending GCM push notification.")
+          })
       } catch (error) {
-        console.log("Error encountered sending APNS push notification.")
-        console.error(error)
-      }
-      break
-    case "ios":
-      try {
-        await APNSpush(device_token, {
-          aps: { alert: `${payload.message}`, badge: 0, sound: "default", "mutable-conten": 1, "content-available": 1 },
-          notificationId: `${payload.title}`,
-          expiry: 60000,
-          page: `${url}`,
-          actions: [{ name: "Open App", page: `${url}` }],
-        })
-      } catch (error) {
-        console.log("Error encountered sending APNS push notification.")
-        console.error(error)
+        console.log(`"Error encountered sending GCM push notification"-${error}`)
       }
       break
     default:
