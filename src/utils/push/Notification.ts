@@ -7,7 +7,7 @@ import fetch from "node-fetch"
 /// List activities for a given ID; if a Participant ID is not provided, undefined = list ALL.
 export const ActivityScheduler = async (): Promise<void> => {
   try {
-    const activities: any[] = await ActivityRepository._select()
+    const activities: any[] =  await ActivityRepository._select()
     console.log(`Processing ${activities.length} activities for push notifications.`)
 
     // Process activities to find schedules and corresponding participants.
@@ -31,7 +31,7 @@ export const ActivityScheduler = async (): Promise<void> => {
               if (device === undefined || device.device_token.length === 0) continue
 
               // If we have a device token saved for this Participant, we are able to send this notification.
-              await sendNotification(device.device_token, device.device_type.toLowerCase(), {
+               await sendNotification(device.device_token, device.device_type.toLowerCase(), {
                 title: activity.name,
                 message: `You have a mindLAMP activity waiting for you: ${activity.name}.`,
                 activity_id: activity.id,
@@ -177,7 +177,7 @@ export function shouldSendNotification(schedule: any): boolean {
 }
 
 /// Send to device with payload and device token given.
-function sendNotification(device_token: string, device_type: string, payload: any) {
+async function sendNotification(device_token: string, device_type: string, payload: any):Promise<any> {
   console.dir({ device_token, device_type, payload })
   // Send this specific page URL to the device to show the actual activity.
   // eslint-disable-next-line prettier/prettier
@@ -206,19 +206,15 @@ function sendNotification(device_token: string, device_type: string, payload: an
           },
         }
         //connect to api gateway and send notifications
-        fetch(`${process.env.PUSH_GATEWAY}`, {
+        const response = await fetch(`${process.env.PUSH_GATEWAY}`, {
           method: "post",
           body: JSON.stringify(opts),
           headers: { "Content-Type": "application/json" },
         })
-          .then((res) => {
-            if (!res.ok) {
-              throw new Error(`HTTP error! status`)
-            }
-          })
-          .catch((e) => {
-            console.log("Error encountered sending GCM push notification.")
-          })
+        if(!response.ok) {
+          throw new Error("HTTP error")
+        }
+       
       } catch (error) {
         console.log(`"Error encountered sending GCM push notification"-${error}`)
       }
@@ -247,19 +243,15 @@ function sendNotification(device_token: string, device_type: string, payload: an
           },
         }
         //connect to api gateway and send notifications
-        fetch(`${process.env.PUSH_GATEWAY}`, {
+        const response = await fetch(`${process.env.PUSH_GATEWAY}`, {
           method: "post",
           body: JSON.stringify(opts),
           headers: { "Content-Type": "application/json" },
         })
-          .then((res) => {
-            if (!res.ok) {
-              throw new Error(`HTTP error!`)
-            }
-          })
-          .catch((e) => {
-            console.log("Error encountered sending APN push notification.")
-          })
+        if(!response.ok) {
+          throw new Error("HTTP error")
+        }
+        
       } catch (error) {
         console.log(`"Error encountered sending APN push notification"-${error}`)
       }
