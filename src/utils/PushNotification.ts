@@ -1,7 +1,7 @@
-import { ActivityRepository } from "../../repository/ActivityRepository"
-import { TypeRepository } from "../../repository/TypeRepository"
-import { ParticipantRepository } from "../../repository/ParticipantRepository"
-import { SensorEventRepository } from "../../repository/SensorEventRepository"
+import { ActivityRepository } from "../repository/ActivityRepository"
+import { TypeRepository } from "../repository/TypeRepository"
+import { ParticipantRepository } from "../repository/ParticipantRepository"
+import { SensorEventRepository } from "../repository/SensorEventRepository"
 import fetch from "node-fetch"
 
 /// List activities for a given ID; if a Participant ID is not provided, undefined = list ALL.

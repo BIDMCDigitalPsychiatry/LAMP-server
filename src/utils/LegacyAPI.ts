@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-import { Encrypt, Decrypt, S3, AWSBucketName } from "../../app"
+import { Encrypt, Decrypt, S3, AWSBucketName } from "../app"
 import { Request, Response, Router } from "express"
 import { v4 as uuidv4 } from "uuid"
 import {
@@ -8,18 +8,15 @@ import {
   ActivityRepository,
   TypeRepository,
   CredentialRepository,
-} from "../../repository"
-import { ActivityIndex } from "../../repository/migrate"
+} from "../repository"
+import { ActivityIndex } from "../repository/migrate"
 
 export const LegacyAPI = Router()
 
 // FIXME: REMOVE!
-export const ConvertIdFromV1ToV2 = (str: any) => {
-  let hash = 5381,
-    i = str.length
-  while (i) {
-    hash = (hash * 33) ^ str.charCodeAt(--i)
-  }
+export const _hash = (str: any): number => {
+  let hash = 5381
+  for (let i = str.length; i; ) hash = (hash * 33) ^ str.charCodeAt(--i)
   return hash >>> 0
 }
 
@@ -347,7 +344,7 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
         })
 
         CognitionSettings?.push({
-          AdminCTestSettingID: ConvertIdFromV1ToV2(item.id),
+          AdminCTestSettingID: _hash(item.id),
           AdminID: 0,
           CTestID: DataFiltered[0].LegacyCTestID,
           CTestName: item.name,
@@ -1323,7 +1320,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
       item = groupData[i]
       BatchData = {
         //EncryptId: item.id,
-        BatchScheduleId: ConvertIdFromV1ToV2(item.id),
+        BatchScheduleId: _hash(item.id),
         BatchName: item.name,
         IsDeleted: false,
         IconBlob: null,
@@ -1343,8 +1340,8 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
         })
         BatchScheduleSurvey_CTestObj = {
           //EncryptId: act[0].id,
-          //BatchScheduleId: ConvertIdFromV1ToV2(act[0].id),
-          BatchScheduleId: ConvertIdFromV1ToV2(item.id),
+          //BatchScheduleId: _hash(act[0].id),
+          BatchScheduleId: _hash(item.id),
           Type: 2,
           //ID: BatchCtestFiltered[0].LegacyCTestID,
           ID: act[0].spec === "lamp.survey" ? 1 : BatchCtestFiltered[0].LegacyCTestID,
@@ -1364,7 +1361,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
               itemTime != null ? new Date(itemTime).toISOString().replace(/T/, " ").replace(/\..+/, "") : null
             BatchCustomTime.push(BatchCustomTimeData)
             BatchScheduleCustomTimeObj = {
-              BatchScheduleId: ConvertIdFromV1ToV2(act[0].id),
+              BatchScheduleId: _hash(act[0].id),
               Time: BatchCustomTimeData,
             }
             BatchScheduleCustomTime.push(BatchScheduleCustomTimeObj)
@@ -1421,7 +1418,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
         }
         CognitionOffListObj = {
           //EncryptId: item.id,
-          AdminCTestSettingID: ConvertIdFromV1ToV2(item.id),
+          AdminCTestSettingID: _hash(item.id),
           AdminID: 0,
           CTestID: GameCTestID,
           CTestName: item.name,
@@ -1434,7 +1431,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
         CognitionOffList?.push(CognitionOffListObj)
         CognitionIconListObj = {
           //EncryptId: item.id,
-          AdminCTestSettingID: ConvertIdFromV1ToV2(item.id),
+          AdminCTestSettingID: _hash(item.id),
           AdminID: 0,
           CTestID: GameCTestID,
           IconBlob: null,
@@ -1501,7 +1498,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
         for (let l = 0; l < itemSurvey.schedule.length; l++) {
           ScheduleSurveyListObj = {
             //EncryptId: itemSurvey.id,
-            SurveyId: ConvertIdFromV1ToV2(itemSurvey.id),
+            SurveyId: _hash(itemSurvey.id),
             SurveyScheduleID: m,
             SurveyName: itemSurvey.name,
             IsDeleted: false,
@@ -1539,7 +1536,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
           ScheduleSurveyList?.push(ScheduleSurveyListObj)
           SurveyIconListObj = {
             //EncryptId: itemSurvey.id,
-            SurveyId: ConvertIdFromV1ToV2(itemSurvey.id),
+            SurveyId: _hash(itemSurvey.id),
             AdminID: 0,
             IconBlob: null,
             IconBlobString: null,
@@ -1715,7 +1712,7 @@ LegacyAPI.post("/GetSurveys", [_authorize], async (req: Request, res: Response) 
           })
         }
         settingsObj = {
-          QuestionId: parseInt(`${ConvertIdFromV1ToV2(item.id)}${settingIndex}`),
+          QuestionId: parseInt(`${_hash(item.id)}${settingIndex}`),
           QuestionText: settingItem.text,
           AnswerType: SurveyAnswerType(settingItem.type),
           IsDeleted: false,
@@ -1729,7 +1726,7 @@ LegacyAPI.post("/GetSurveys", [_authorize], async (req: Request, res: Response) 
       })
       surveyObj = {
         //EncryptId: item.id,
-        SurveyID: ConvertIdFromV1ToV2(item.id),
+        SurveyID: _hash(item.id),
         SurveyName: item.name,
         Instruction: null,
         LanguageCode: "en",

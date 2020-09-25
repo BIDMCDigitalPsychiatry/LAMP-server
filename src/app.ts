@@ -7,12 +7,12 @@ import crypto from "crypto"
 import http from "http"
 import https from "https"
 import _Docker from "dockerode"
-import { LegacyAPI } from "./utils/legacy/route"
 import nano from "nano"
 import cors from "cors"
 import morgan from "morgan"
 import AWS from "aws-sdk"
-import { ActivityScheduler } from "./utils/push/Notification"
+import { LegacyAPI } from "./utils/LegacyAPI"
+import { ActivityScheduler } from "./utils/PushNotification"
 
 // FIXME: Support application/json;indent=:spaces format mime type!
 
