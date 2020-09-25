@@ -258,10 +258,10 @@ function sendNotification(device_token: string, device_type: string, payload: an
             }
           })
           .catch((e) => {
-            console.log("Error encountered sending GCM push notification.")
+            console.log("Error encountered sending APN push notification.")
           })
       } catch (error) {
-        console.log(`"Error encountered sending GCM push notification"-${error}`)
+        console.log(`"Error encountered sending APN push notification"-${error}`)
       }
       break
     default:
