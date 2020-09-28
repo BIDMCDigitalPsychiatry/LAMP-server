@@ -1,199 +1,57 @@
-import { SQL, Encrypt, Decrypt } from "../app"
-import { IResult } from "mssql"
-import { Participant } from "../model/Participant"
-import { Study } from "../model/Study"
+import { Database, uuid } from "../app"
 import { Researcher } from "../model/Researcher"
-import { StudyRepository } from "../repository/StudyRepository"
-import { Identifier_unpack, Identifier_pack } from "../repository/TypeRepository"
 
 export class ResearcherRepository {
-  /**
-   *
-   */
-  public static _pack_id(components: {
-    /**
-     *
-     */
-    admin_id?: number
-  }): string {
-    return Identifier_pack([(<any>Researcher).name, components.admin_id || 0])
+  public static async _select(id?: string): Promise<Researcher[]> {
+    return (
+      await Database.use("researcher").find({
+        selector: !!id ? { _id: id } : {},
+        sort: [{ timestamp: "asc" }],
+        limit: 2_147_483_647 /* 32-bit INT_MAX */,
+      })
+    ).docs.map((doc: any) => ({
+      id: doc._id,
+      ...doc,
+      _id: undefined,
+      _rev: undefined,
+      "#parent": undefined,
+      timestamp: undefined,
+    }))
   }
-
-  /**
-   *
-   */
-  public static _unpack_id(
-    id: string
-  ): {
-    /**
-     *
-     */
-    admin_id: number
-  } {
-    const components = Identifier_unpack(id)
-    if (components[0] !== (<any>Researcher).name) throw new Error("400.invalid-identifier")
-    const result = components.slice(1).map((x) => Number.parse(x) ?? 0)
-    return {
-      admin_id: result[0],
-    }
+  public static async _insert(object: Researcher): Promise<string> {
+    const _id = uuid()
+    await Database.use("researcher").insert({
+      _id: _id,
+      timestamp: new Date().getTime(),
+      name: object.name ?? "",
+    } as any)
+    // TODO: to match legacy behavior we create a default study as well
+    const _id2 = uuid()
+    await Database.use("study").insert({
+      _id: _id2,
+      "#parent": _id,
+      timestamp: new Date().getTime(),
+      name: object.name ?? "",
+    } as any)
+    return _id
   }
-
-  /**
-   *
-   */
-  public static async _parent_id(id: string, type: Function): Promise<string | undefined> {
-    const { admin_id } = ResearcherRepository._unpack_id(id)
-    switch (type) {
-      default:
-        return undefined // throw new Error('400.invalid-identifier')
-    }
+  public static async _update(researcher_id: string, object: Researcher): Promise<{}> {
+    const orig: any = await Database.use("researcher").get(researcher_id)
+    await Database.use("researcher").bulk({ docs: [{ ...orig, name: object.name ?? orig.name }] })
+    return {}
   }
-
-  /**
-   *
-   */
-  public static async _select(
-    /**
-     *
-     */
-    id?: string
-  ): Promise<Researcher[]> {
-    // Get the correctly scoped identifier to search within.
-    let admin_id: number | undefined
-    if (!!id && Identifier_unpack(id)[0] === (<any>Researcher).name)
-      admin_id = ResearcherRepository._unpack_id(id).admin_id
-    else if (!!id) throw new Error("400.invalid-identifier")
-
-    const result = await SQL!.request().query(`
-			SELECT 
-                AdminID as id, 
-                FirstName AS name, 
-                LastName AS lname,
-                Email AS email,
-                (
-                    SELECT 
-                        AdminID AS id
-                    FOR JSON PATH, INCLUDE_NULL_VALUES
-                ) AS studies
-            FROM Admin
-            WHERE 
-            	IsDeleted = 0 
-            	${!!admin_id ? `AND AdminID = '${admin_id}'` : ""}
-            FOR JSON PATH, INCLUDE_NULL_VALUES;
-		`)
-    if (result.recordset.length === 0 || result.recordset[0] === null) return []
-    return result.recordset[0].map((raw: any) => {
-      const obj = new Researcher()
-      obj.id = ResearcherRepository._pack_id({ admin_id: raw.id })
-      obj.name = [Decrypt(raw.name), Decrypt(raw.lname)].join(" ")
-      obj.email = Decrypt(raw.email)
-      obj.studies = raw.studies.map((x: any) => StudyRepository._pack_id({ admin_id: x.id }))
-      return obj
-    })
-  }
-
-  /**
-   * Create a `Researcher` with a new object.
-   */
-  public static async _insert(
-    /**
-     * The new object.
-     */
-    object: Researcher
-  ): Promise<string> {
-    // Prepare SQL row-columns from JSON object-fields.
-    //password: Encrypt((<any>object).password, 'AES256')
-    const result = await SQL!.request().query(`
-			INSERT INTO Admin (
-                Email, 
-                FirstName, 
-                LastName, 
-                CreatedOn, 
-                AdminType
-            )
-            OUTPUT INSERTED.AdminID AS id
-			VALUES (
-		        '${Encrypt(object.email!)}',
-		        '${Encrypt(object.name!.split(" ")[0])}',
-		        '${Encrypt(object.name!.split(" ").slice(1).join(" "))}',
-		        GETDATE(), 
-		        2
-			);
-		`)
-    if (result.recordset.length === 0) throw new Error("400.create-failed")
-
-    const result2 = await SQL!.request().query(`
-			INSERT INTO Admin_CTestSettings (
-				AdminID,
-				CTestID,
-				Status,
-				Notification
-			)
-			SELECT
-				${result.recordset[0]["id"]},
-				CTestID,
-				0,
-				0
-			FROM CTest;
-    `)
-        
-    // Return the new row's ID.
-    return ResearcherRepository._pack_id({ admin_id: result.recordset[0]["id"] })
-  }
-
-  /**
-   * Update a `Researcher` with new fields.
-   */
-  public static async _update(
-    /**
-     * The `AdminID` column of the `Admin` table in the LAMP v0.1 DB.
-     */
-    researcher_id: string,
-
-    /**
-     * The replacement object or specific fields within.
-     */
-    object: Researcher
-  ): Promise<{}> {
-    const admin_id = ResearcherRepository._unpack_id(researcher_id).admin_id
-
-    // Prepare the minimal SQL column changes from the provided fields.
-    const updates: string[] = []
-    if (!!object.name) {
-      updates.push(`FirstName = '${Encrypt(object.name.split(" ")[0])}'`)
-      updates.push(`LastName = '${Encrypt(object.name.split(" ").slice(1).join(" "))}'`)
-    }
-    if (!!object.email) updates.push(`Email = '${Encrypt(object.email)}'`)
-    //if (!!(<any>object).password)
-    //	updates.push(`Password = '${Encrypt((<any>object).password, 'AES256')}'`)
-
-    if (updates.length == 0) throw new Error("400.updates-failed")
-
-    // Update the specified fields on the selected Admin row.
-    const result = await SQL!.request().query(`
-			UPDATE Admin SET ${updates.join(", ")} WHERE AdminID = ${admin_id};
-		`)
-
-    return {} //result.recordset[0]
-  }
-
-  /**
-   * Delete a `Researcher` row.
-   */
-  public static async _delete(
-    /**
-     * The `AdminID` column of the `Admin` table in the LAMP v0.1 DB.
-     */
-    researcher_id: string
-  ): Promise<{}> {
-    const admin_id = ResearcherRepository._unpack_id(researcher_id).admin_id
-    if (admin_id === 1) throw new Error("400.delete-failed")
-
-    // Set the deletion flag, without actually deleting the row.
-    const result = await SQL!.request().query(`
-			UPDATE Admin SET IsDeleted = 1 WHERE AdminID = ${admin_id} AND IsDeleted = 0;
-		`)
-    if (result.rowsAffected[0] === 0) throw new Error("404.object-not-found")
+  public static async _delete(researcher_id: string): Promise<{}> {
+    const orig: any = await Database.use("researcher").get(researcher_id)
+    await Database.use("researcher").bulk({ docs: [{ ...orig, _deleted: true }] })
+    // TODO: to match legacy behavior we delete all child studies as well
+    const studies = (
+      await Database.use("study").find({
+        selector: { "#parent": researcher_id },
+        sort: [{ timestamp: "asc" }],
+        limit: 2_147_483_647 /* 32-bit INT_MAX */,
+      })
+    ).docs
+    await Database.use("study").bulk({ docs: studies.map((x) => ({ ...x, _deleted: true })) })
     return {}
   }
 }

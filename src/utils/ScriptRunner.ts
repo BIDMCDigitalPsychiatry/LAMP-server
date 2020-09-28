@@ -1,4 +1,3 @@
-import { Docker } from "../app"
 import { Stream } from "stream"
 import _Docker from "dockerode"
 import tar from "tar-stream"
@@ -6,6 +5,9 @@ import uniqid from "uniqid"
 import getStream from "get-stream"
 import fs from "fs-extra"
 import vm2 from "vm2"
+
+//
+export const Docker = new _Docker({ host: "localhost", port: 2375 })
 
 // TODO: USE DOCKER COMMIT!
 
@@ -15,7 +17,7 @@ import vm2 from "vm2"
 /**
  *
  */
-export default abstract class ScriptRunner {
+export abstract class ScriptRunner {
   /**
    * Create a simple sequential task queue to manage script invocations.
    * FIXME: It's concurrent. :(
@@ -28,7 +30,7 @@ export default abstract class ScriptRunner {
         ScriptRunner.queue._running = true
         console.group("ScriptRunner::TaskQueue")
         console.log(`current pressure = ${ScriptRunner.queue._store.length}`)
-        let task = ScriptRunner.queue._store.shift()!
+        const task = ScriptRunner.queue._store.shift()!
         task()
         console.groupEnd()
         ScriptRunner.queue._running = false
@@ -38,7 +40,7 @@ export default abstract class ScriptRunner {
     enqueue: (task: () => Promise<void>) => {
       ScriptRunner.queue._store.push(task)
       if (!ScriptRunner.queue._running) ScriptRunner.queue._exec()
-    }
+    },
   }
 
   /**
@@ -56,11 +58,11 @@ export default abstract class ScriptRunner {
           console.group("ScriptRunner.Bash")
 
           // Build a new image with an inline Dockerfile unless one already exists.
-          let exists = await Docker.listImages({ filters: { reference: ["alpine:latest"] } })
+          const exists = await Docker.listImages({ filters: { reference: ["alpine:latest"] } })
           if (exists.length === 0) {
             console.log("Creating docker image...")
 
-            let image = await Docker.pull("alpine:latest", {})
+            const image = await Docker.pull("alpine:latest", {})
             await new Promise((resolve, reject) => {
               image.pipe(process.stdout)
               image.on("end", resolve)
@@ -70,28 +72,28 @@ export default abstract class ScriptRunner {
 
           // Create and start a new container...
           console.log("Creating docker container...")
-          let container = await Docker.createContainer({
+          const container = await Docker.createContainer({
             Image: "alpine:latest",
             Tty: true,
-            Cmd: ["/bin/sh"]
+            Cmd: ["/bin/sh"],
           })
           await container.start()
 
           // First configure the environment and packages with network available.
-          let logs: Buffer[] = []
+          const logs: Buffer[] = []
           try {
             // Place input files, call the main script, and grab the output files.
             console.log("Configuring script...")
             await container.putArchive(
               makeTar({
-                "/src/script": script
+                "/src/script": script,
               }),
               { path: "/" }
             )
             logs.push(await containerExec(container, `touch /src/stdout && chmod +x /src/script && /src/script`))
 
             console.log("Retrieving result...")
-            let output = (await getFileInTar(await container.getArchive({ path: "/src/stdout" }), "stdout")).toString(
+            const output = (await getFileInTar(await container.getArchive({ path: "/src/stdout" }), "stdout")).toString(
               "utf8"
             )
             resolve({ output, logs: Buffer.concat(logs).toString("utf8") })
@@ -210,12 +212,12 @@ export default abstract class ScriptRunner {
           console.group("ScriptRunner.R")
 
           // Build a new image with an inline Dockerfile unless one already exists.
-          let exists = await Docker.listImages({ filters: { reference: ["lamp:latest"] } })
+          const exists = await Docker.listImages({ filters: { reference: ["lamp:latest"] } })
           if (exists.length === 0) {
             console.log("Creating docker image...")
 
             // Create a Docker image from a Dockerfile.
-            let image = await Docker.buildImage(makeTar({ Dockerfile }), { t: "lamp:latest" })
+            const image = await Docker.buildImage(makeTar({ Dockerfile }), { t: "lamp:latest" })
             await new Promise((resolve, reject) => {
               image.pipe(process.stdout)
               image.on("end", resolve)
@@ -224,31 +226,31 @@ export default abstract class ScriptRunner {
 
             // Migrate packages to the shared volume/bind-mount.
             // This can't be done from within a Docker build context.
-            let res = await systemDocker(`mv /usr/lib/R/library/* /usr/lib/R/library2`, {
+            const res = await systemDocker(`mv /usr/lib/R/library/* /usr/lib/R/library2`, {
               Image: "lamp:latest",
               Tty: true,
               Cmd: ["/bin/bash"],
               HostConfig: {
-                Binds: [`/src/r-libs:/usr/lib/R/library2`]
-              }
+                Binds: [`/src/r-libs:/usr/lib/R/library2`],
+              },
             })
             console.log(res.toString("utf8"))
           }
 
           // Create and start a new container...
           console.log("Creating docker container...")
-          let container = await Docker.createContainer({
+          const container = await Docker.createContainer({
             Image: "lamp:latest",
             Tty: true,
             Cmd: ["/bin/bash"],
             HostConfig: {
-              Binds: [`/src/r-libs:/usr/lib/R/library`]
-            }
+              Binds: [`/src/r-libs:/usr/lib/R/library`],
+            },
           })
           await container.start()
 
           // First configure the R environment and packages with network available.
-          let logs: Buffer[] = []
+          const logs: Buffer[] = []
           try {
             // Install package requirements and configure network settings (if needed).
             if (requirements.split(",").length > 0) {
@@ -258,7 +260,7 @@ export default abstract class ScriptRunner {
                   container,
                   `apt-get update -qq && apt-get install -y ${requirements
                     .split(",")
-                    .map(x => "r-cran-" + x.trim())
+                    .map((x) => "r-cran-" + x.trim())
                     .join(
                       " "
                     )}; ls /usr/lib/R/site-library/; /usr/lib/R/site-library/littler/examples/install2.r -s ${requirements
@@ -275,14 +277,14 @@ export default abstract class ScriptRunner {
               makeTar({
                 "/src/main.r": driverScript,
                 "/src/script.r": script,
-                "/src/input": input
+                "/src/input": input,
               }),
               { path: "/" }
             )
             logs.push(await containerExec(container, `touch /src/stdout && Rscript /src/main.r`))
 
             console.log("Retrieving result...")
-            let output = (await getFileInTar(await container.getArchive({ path: "/src/stdout" }), "stdout")).toString(
+            const output = (await getFileInTar(await container.getArchive({ path: "/src/stdout" }), "stdout")).toString(
               "utf8"
             )
             resolve({ output, logs: Buffer.concat(logs).toString("utf8") })
@@ -318,14 +320,14 @@ export default abstract class ScriptRunner {
     async execute(script: string, requirements: string, input: any): Promise<any> {
       return new Promise((resolve, reject) =>
         ScriptRunner.queue.enqueue(async () => {
-          let options: vm2.NodeVMOptions = {
+          const options: vm2.NodeVMOptions = {
             console: "redirect",
             wrapper: "none",
             require: {
               external: false,
               builtin: ["http", "url"],
-              import: ["http", "url"]
-            }
+              import: ["http", "url"],
+            },
           }
           resolve(new vm2.NodeVM(options).run(script, ""))
         })
@@ -362,9 +364,9 @@ const containerExec = (container: _Docker.Container, shellCommand: string): Prom
 /**
  *
  */
-const makeTar = (data: { [filename: string]: any }, dirPrefix: string = ""): tar.Pack => {
-  let pack = tar.pack()
-  for (let x of Object.entries(data))
+const makeTar = (data: { [filename: string]: any }, dirPrefix = ""): tar.Pack => {
+  const pack = tar.pack()
+  for (const x of Object.entries(data))
     pack.entry({ name: dirPrefix + x[0] }, typeof x[1] === "string" ? x[1] : JSON.stringify(x[1]))
   pack.finalize()
   return pack
@@ -375,8 +377,8 @@ const makeTar = (data: { [filename: string]: any }, dirPrefix: string = ""): tar
  */
 const getFileInTar = async (tarStream: NodeJS.ReadableStream, filename: string): Promise<Buffer> => {
   return new Promise((resolve, reject) => {
-    let extract = tar.extract()
-    let data: Buffer[] = []
+    const extract = tar.extract()
+    const data: Buffer[] = []
     extract.on("entry", (header, stream, next) => {
       if (header.name !== filename) next()
       stream.on("data", (chunk: Buffer) => data.push(chunk))
@@ -392,9 +394,9 @@ const getFileInTar = async (tarStream: NodeJS.ReadableStream, filename: string):
  *
  */
 const systemDocker = async (command: string, options: _Docker.ContainerCreateOptions): Promise<Buffer> => {
-  let container = await Docker.createContainer(options)
+  const container = await Docker.createContainer(options)
   await container.start()
-  let output = await containerExec(container, command)
+  const output = await containerExec(container, command)
   await container.stop()
   await container.remove({ force: true })
   return output
@@ -403,4 +405,4 @@ const systemDocker = async (command: string, options: _Docker.ContainerCreateOpt
 /**
  * `await delay(x)`
  */
-const delay = (t: number) => new Promise(resolve => setTimeout(resolve, t))
+const delay = (t: number) => new Promise((resolve) => setTimeout(resolve, t))

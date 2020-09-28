@@ -20,7 +20,7 @@ ResearcherService.put("/researcher/:researcher_id", async (req: Request, res: Re
   try {
     let researcher_id = req.params.researcher_id
     const researcher = req.body
-    researcher_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], researcher_id)
+    researcher_id = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
     const output = { data: await ResearcherRepository._update(researcher_id, researcher) }
     res.json(output)
   } catch (e) {
@@ -31,7 +31,7 @@ ResearcherService.put("/researcher/:researcher_id", async (req: Request, res: Re
 ResearcherService.delete("/researcher/:researcher_id", async (req: Request, res: Response) => {
   try {
     let researcher_id = req.params.researcher_id
-    researcher_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], researcher_id)
+    researcher_id = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
     const output = { data: await ResearcherRepository._delete(researcher_id) }
     res.json(output)
   } catch (e) {
@@ -42,7 +42,7 @@ ResearcherService.delete("/researcher/:researcher_id", async (req: Request, res:
 ResearcherService.get("/researcher/:researcher_id", async (req: Request, res: Response) => {
   try {
     let researcher_id = req.params.researcher_id
-    researcher_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], researcher_id)
+    researcher_id = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
     let output = { data: await ResearcherRepository._select(researcher_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)

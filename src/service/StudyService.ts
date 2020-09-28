@@ -9,7 +9,7 @@ StudyService.post("/researcher/:researcher_id/study", async (req: Request, res: 
   try {
     let researcher_id = req.params.researcher_id
     const study = req.body
-    researcher_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], researcher_id)
+    researcher_id = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
     const output = { data: await StudyRepository._insert(researcher_id, study) }
     res.json(output)
   } catch (e) {
@@ -21,7 +21,7 @@ StudyService.put("/study/:study_id", async (req: Request, res: Response) => {
   try {
     let study_id = req.params.study_id
     const study = req.body
-    study_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], study_id)
+    study_id = await _verify(req.get("Authorization"), ["self", "parent"], study_id)
     const output = { data: await StudyRepository._update(study_id, study) }
     res.json(output)
   } catch (e) {
@@ -32,7 +32,7 @@ StudyService.put("/study/:study_id", async (req: Request, res: Response) => {
 StudyService.delete("/study/:study_id", async (req: Request, res: Response) => {
   try {
     let study_id = req.params.study_id
-    study_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], study_id)
+    study_id = await _verify(req.get("Authorization"), ["self", "parent"], study_id)
     let output = { data: await StudyRepository._delete(study_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json()
@@ -44,7 +44,7 @@ StudyService.delete("/study/:study_id", async (req: Request, res: Response) => {
 StudyService.get("/study/:study_id", async (req: Request, res: Response) => {
   try {
     let study_id = req.params.study_id
-    study_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], study_id)
+    study_id = await _verify(req.get("Authorization"), ["self", "parent"], study_id)
     let output = { data: await StudyRepository._select(study_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
@@ -56,7 +56,7 @@ StudyService.get("/study/:study_id", async (req: Request, res: Response) => {
 StudyService.get("/researcher/:researcher_id/study", async (req: Request, res: Response) => {
   try {
     let researcher_id = req.params.researcher_id
-    researcher_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], researcher_id)
+    researcher_id = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
     let output = { data: await StudyRepository._select(researcher_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
