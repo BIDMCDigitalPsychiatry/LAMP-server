@@ -83,7 +83,7 @@ export class TypeRepository {
     const existing = (
       await Database.use("tag").find({
         selector: { "#parent": type_id, type, key },
-        limit: 2_147_483_647 /* 32-bit INT_MAX */,
+        limit: 1,
       })
     ).docs
     if (existing.length === 0 && !deletion) {
@@ -128,29 +128,25 @@ export class TypeRepository {
   public static async _get(mode: any, type_id: string, attachment_key: string): Promise<any | undefined> {
     const self_type = await TypeRepository._self_type(type_id)
     const parents = await TypeRepository._parent(type_id)
-    try {
-      const tag_values = (
-        await Database.use("tag").find({
-          selector: {
-            $or: [
-              /* Explicit self-ownership. */
-              { "#parent": type_id, type: type_id, key: attachment_key },
-              /* Implicit self-ownership. */
-              { "#parent": type_id, type: "me", key: attachment_key },
-              /* Explicit parent-ownership. */
-              ...Object.values(parents).map((pid) => ({ "#parent": pid, type: type_id, key: attachment_key })),
-              /* Implicit parent-ownership. */
-              ...Object.values(parents).map((pid) => ({ "#parent": pid, type: self_type, key: attachment_key })),
-            ],
-          },
-          limit: 2_147_483_647 /* 32-bit INT_MAX */,
-        })
-      ).docs.map((x: any) => x.value as any)
-      return tag_values[0]
-    } catch (e) {
-      console.error(e)
-      throw new Error("404.no-such-object")
-    }
+    const tag_values = (
+      await Database.use("tag").find({
+        selector: {
+          $or: [
+            /* Explicit self-ownership. */
+            { "#parent": type_id, type: type_id, key: attachment_key },
+            /* Implicit self-ownership. */
+            { "#parent": type_id, type: "me", key: attachment_key },
+            /* Explicit parent-ownership. */
+            ...Object.values(parents).map((pid) => ({ "#parent": pid, type: type_id, key: attachment_key })),
+            /* Implicit parent-ownership. */
+            ...Object.values(parents).map((pid) => ({ "#parent": pid, type: self_type, key: attachment_key })),
+          ],
+        },
+        limit: 1,
+      })
+    ).docs.map((x: any) => x.value as any)
+    if (tag_values[0] === undefined) throw new Error("404.object-not-found")
+    return tag_values[0]
   }
 
   public static async _list(mode: any, type_id: string): Promise<string[]> {
@@ -177,7 +173,7 @@ export class TypeRepository {
       return tag_keys
     } catch (e) {
       console.error(e)
-      throw new Error("404.no-such-object")
+      throw new Error("404.object-not-found")
     }
   }
 

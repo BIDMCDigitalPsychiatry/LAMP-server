@@ -28,7 +28,7 @@ export const ActivityScheduler = async (): Promise<void> => {
               if (device === undefined || device.device_token.length === 0) continue
 
               // If we have a device token saved for this Participant, we are able to send this notification.
-              await sendNotification(device.device_token, device.device_type.toLowerCase(), {
+              sendNotification(device.device_token, device.device_type.toLowerCase(), {
                 title: activity.name,
                 message: `You have a mindLAMP activity waiting for you: ${activity.name}.`,
                 activity_id: activity.id,
@@ -174,11 +174,11 @@ export function shouldSendNotification(schedule: any): boolean {
 }
 
 /// Send to device with payload and device token given.
-function sendNotification(device_token: string, device_type: string, payload: any) {
+function sendNotification(device_token: string, device_type: string, payload: any): void {
   console.dir({ device_token, device_type, payload })
   // Send this specific page URL to the device to show the actual activity.
   // eslint-disable-next-line prettier/prettier
-  const url = `${"https://dashboard-staging.lamp.digital/#/"}participant/${payload.participant_id}/activity/${
+  const url = `${"https://dashboard.lamp.digital/#/"}participant/${payload.participant_id}/activity/${
     payload.activity_id
   }`
 
@@ -197,7 +197,7 @@ function sendNotification(device_token: string, device_type: string, payload: an
               message: `${payload.message}`,
               page: `${url}`,
               notificationId: `${payload.title}`,
-              actions: [{ name: "Open App", page: "https://www.android.com" }],
+              actions: [{ name: "Open App", page: "https://dashboard.lamp.digital" }],
               expiry: 360000,
             },
           },

@@ -8,7 +8,7 @@ import cors from "cors"
 import morgan from "morgan"
 import { customAlphabet } from "nanoid"
 import { LegacyAPI } from "./utils/LegacyAPI"
-import { ActivityScheduler, HTTPS_CERT, _migrate_all } from "./utils"
+import { ActivityScheduler, HTTPS_CERT } from "./utils"
 
 //
 export const Database = nano(process.env.CDB ?? "")

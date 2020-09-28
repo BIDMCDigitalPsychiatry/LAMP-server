@@ -93,10 +93,10 @@ export async function _migrate_researcher_and_study(): Promise<void> {
           name: [Decrypt(x.fname), Decrypt(x.lname)].join(" "),
         })) ?? [],
     }
-    // Database.use("study").bulk(output)
-    fs.writeFileSync("./test.json", JSON.stringify(output, null, 2))
-    // Database.use("researcher").bulk(output)
-    fs.writeFileSync("./test2.json", JSON.stringify(output2, null, 2))
+    Database.use("study").bulk(output)
+    Database.use("researcher").bulk(output2)
+    //fs.writeFileSync("./test.json", JSON.stringify(output, null, 2))
+    //fs.writeFileSync("./test2.json", JSON.stringify(output2, null, 2))
   } catch (e) {
     console.error(e)
   }
@@ -133,8 +133,8 @@ export async function _migrate_participant(): Promise<void> {
           timestamp: new Date().getTime() - (result.recordset.length - idx),
         })) ?? [],
     }
-    // Database.use("participant").bulk(output)
-    fs.writeFileSync("./test.json", JSON.stringify(output, null, 2))
+    Database.use("participant").bulk(output)
+    //fs.writeFileSync("./test.json", JSON.stringify(output, null, 2))
   } catch (e) {
     console.error(e)
   }
@@ -481,8 +481,8 @@ export async function _migrate_activity(): Promise<void> {
       return obj
     })
     const output = { docs: output2 }
-    // Database.use("activity").bulk(output)
-    fs.writeFileSync("./test.json", JSON.stringify(output, null, 2))
+    Database.use("activity").bulk(output)
+    //fs.writeFileSync("./test.json", JSON.stringify(output, null, 2))
   } catch (e) {
     console.error(e)
   }
@@ -540,8 +540,8 @@ export async function _migrate_credential(_decrypt = false): Promise<void> {
         : [{ origin: null, access_key: "admin", secret_key: _p, description: "System Administrator Credential" }]
     console.log(`[Credential_Root] migrating ${out4.length} credentials`)
     const output = { docs: [...out1, ...out2, ...out3, ...out4] }
-    fs.writeFileSync("./test.json", JSON.stringify(output, null, 2))
-    //await Database.use("credential").bulk(output)
+    await Database.use("credential").bulk(output)
+    //fs.writeFileSync("./test.json", JSON.stringify(output, null, 2))
   } catch (e) {
     console.error(e)
   }
@@ -572,11 +572,11 @@ export async function _migrate_tags(): Promise<void> {
           "#parent": _lookup_table[x.ObjectID] ?? x.ObjectID,
           type: _lookup_table[x.ObjectType] ?? x.ObjectType,
           key: x.Key,
-          value: x.Value,
+          value: JSON.parse(x.Value),
         })) ?? [],
     }
-    // Database.use("tag").bulk(output)
-    fs.writeFileSync("./test.json", JSON.stringify(output, null, 2))
+    Database.use("tag").bulk(output)
+    //fs.writeFileSync("./test.json", JSON.stringify(output, null, 2))
   } catch (e) {
     console.error(e)
   }
@@ -758,8 +758,8 @@ export async function _migrate_activity_event(): Promise<void> {
   })
 
   const output = { docs: ([] as any[]).concat(...(await Promise.all(result))) }
-  //await Database.use("activity_event").bulk(output)
-  fs.writeFileSync("./test.json", JSON.stringify(output, null, 2))
+  await Database.use("activity_event").bulk(output)
+  //fs.writeFileSync("./test.json", JSON.stringify(output, null, 2))
 }
 
 export async function _migrate_all(): Promise<void> {

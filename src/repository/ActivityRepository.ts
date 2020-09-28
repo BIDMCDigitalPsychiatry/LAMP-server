@@ -13,18 +13,28 @@ export class ActivityRepository {
           })
         ).docs.map((x) => ({ "#parent": x._id }))
       : []
+    const _studies2 = !!id
+      ? (
+          await Database.use("participant").find({
+            selector: { _id: id },
+            sort: [{ timestamp: "asc" }],
+            limit: 1,
+          })
+        ).docs.map((x: any) => ({ "#parent": x["#parent"] }))
+      : []
     return (
       await Database.use("activity").find({
-        selector: !!id ? { $or: [{ _id: id }, { "#parent": id }, ..._studies] } : {},
+        selector: !!id ? { $or: [{ _id: id }, { "#parent": id }, ..._studies, ..._studies2] } : {},
         sort: [{ timestamp: "asc" }],
         limit: 2_147_483_647 /* 32-bit INT_MAX */,
       })
     ).docs.map((x: any) => ({
-      id: x.doc._id,
-      ...x.doc,
+      id: x._id,
+      ...x,
       _id: undefined,
       _rev: undefined,
       "#parent": undefined,
+      timestamp: undefined,
     }))
   }
   public static async _insert(study_id: string, object: Activity): Promise<string> {

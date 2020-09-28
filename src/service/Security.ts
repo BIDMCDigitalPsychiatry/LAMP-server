@@ -23,7 +23,7 @@ export async function _verify(
 
   // Handle basic no credentials and root auth required cases.
   let sub_auth_value = undefined
-  if (auth_value === undefined && !["root", "admin"].includes(auth[0])) {
+  if (auth_value === undefined && !["root", "admin"].includes(auth[0]) && type.length === 0) {
     throw new Error("403.security-context-out-of-scope")
   } else if (["root", "admin"].includes(auth[0]) && !(await CredentialRepository._adminCredential(auth[1]))) {
     throw new Error("403.invalid-credentials")
