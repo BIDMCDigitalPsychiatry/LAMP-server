@@ -1,8 +1,5 @@
-import { ActivityRepository } from "../repository/ActivityRepository"
-import { TypeRepository } from "../repository/TypeRepository"
-import { ParticipantRepository } from "../repository/ParticipantRepository"
-import { SensorEventRepository } from "../repository/SensorEventRepository"
 import fetch from "node-fetch"
+import { ActivityRepository, TypeRepository, ParticipantRepository, SensorEventRepository } from "../repository"
 
 /// List activities for a given ID; if a Participant ID is not provided, undefined = list ALL.
 export const ActivityScheduler = async (): Promise<void> => {

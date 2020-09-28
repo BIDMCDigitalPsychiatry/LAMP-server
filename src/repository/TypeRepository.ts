@@ -1,286 +1,188 @@
-import { SQL, Encrypt, Decrypt, Root } from "../app"
-import ScriptRunner from "../utils/ScriptRunner"
-import sql from "mssql"
-import { Participant } from "../model/Participant"
-import { Study } from "../model/Study"
-import { Researcher } from "../model/Researcher"
-import { Activity } from "../model/Activity"
-import { DynamicAttachment } from "../model/Type"
-import { ResearcherRepository } from "../repository/ResearcherRepository"
-import { ParticipantRepository } from "../repository/ParticipantRepository"
-import { StudyRepository } from "../repository/StudyRepository"
-import { ActivityRepository } from "../repository/ActivityRepository"
+import { Database } from "../app"
+import { DynamicAttachment } from "../model"
+import { ScriptRunner } from "../utils"
 
-export function Identifier_pack(components: any[]): string {
-  if (components.length === 0) return ""
-  return Buffer.from(components.join(":")).toString("base64").replace(/=/g, "~")
-}
-export function Identifier_unpack(components: string): any[] {
-  if (components.match(/^G?U\d+$/)) return []
-  return Buffer.from((<string>components).replace(/~/g, "="), "base64")
-    .toString("utf8")
-    .split(":")
-}
+// FIXME: Support application/json;indent=:spaces format mime type!
 
 export class TypeRepository {
   public static async _parent(type_id: string): Promise<{}> {
     const result: any = {} // obj['#parent'] === [null, undefined] -> top-level object
-    for (const parent_type of TypeRepository._parent_type(type_id))
+    for (const parent_type of await TypeRepository._parent_type(type_id))
       result[parent_type] = await TypeRepository._parent_id(type_id, parent_type)
     return result
   }
 
-  /**
-   * Get the self type of a given ID.
-   */
-  public static _self_type(type_id: string): string {
-    const components = Identifier_unpack(type_id)
-    const from_type: string = components.length === 0 ? (<any>Participant).name : components[0]
-    return from_type
+  public static async _self_type(type_id: string): Promise<string> {
+    try {
+      await Database.use("participant").head(type_id)
+      return "Participant"
+    } catch (e) {}
+    try {
+      await Database.use("researcher").head(type_id)
+      return "Researcher"
+    } catch (e) {}
+    try {
+      await Database.use("study").head(type_id)
+      return "Study"
+    } catch (e) {}
+    try {
+      await Database.use("activity").head(type_id)
+      return "Activity"
+    } catch (e) {}
+    try {
+      await Database.use("sensor").head(type_id)
+      return "Sensor"
+    } catch (e) {}
+    return "__broken_id__"
   }
 
-  /**
-   * Get all parent types of a given ID.
-   */
-  public static _parent_type(type_id: string): string[] {
+  public static async _owner(type_id: string): Promise<string | null> {
+    try {
+      return ((await Database.use("participant").get(type_id)) as any)["#parent"]
+    } catch (e) {}
+    try {
+      await Database.use("researcher").head(type_id)
+      return null
+    } catch (e) {}
+    try {
+      return ((await Database.use("study").get(type_id)) as any)["#parent"]
+    } catch (e) {}
+    try {
+      return ((await Database.use("activity").get(type_id)) as any)["#parent"]
+    } catch (e) {}
+    try {
+      return ((await Database.use("sensor").get(type_id)) as any)["#parent"]
+    } catch (e) {}
+    return null
+  }
+
+  public static async _parent_type(type_id: string): Promise<string[]> {
     const parent_types: { [type: string]: string[] } = {
       Researcher: [],
       Study: ["Researcher"],
       Participant: ["Study", "Researcher"],
       Activity: ["Study", "Researcher"],
+      Sensor: ["Study", "Researcher"],
     }
-    /*
-		// TODO:
-		const shortcode_map = {
-			'Researcher': 'R',
-			'R': 'Researcher',
-			'Study': 'S',
-			'S': 'Study',
-			'Participant': 'P',
-			'P': 'Participant',
-			'Activity': 'A',
-			'A': 'Activity',
-		}
-		*/
-    return parent_types[TypeRepository._self_type(type_id)]
+    return parent_types[await TypeRepository._self_type(type_id)]
   }
 
-  /**
-   * Get a single parent object ID for a given ID.
-   */
   public static async _parent_id(type_id: string, type: string): Promise<string> {
     const self_type: { [type: string]: Function } = {
-      Researcher: ResearcherRepository,
-      Study: StudyRepository,
-      Participant: ParticipantRepository,
-      Activity: ActivityRepository,
+      Researcher: Researcher_parent_id,
+      Study: Study_parent_id,
+      Participant: Participant_parent_id,
+      Activity: Activity_parent_id,
+      Sensor: Sensor_parent_id,
     }
-    return await (<any>self_type[TypeRepository._self_type(type_id)])._parent_id(type_id, self_type[type])
+    return await (self_type[await TypeRepository._self_type(type_id)] as any)(type_id, type)
   }
 
-  /**
-   *
-   */
-  public static async _set(mode: "a" | "b", type: string, id: string, key: string, value?: DynamicAttachment | any) {
-    let result: sql.IResult<any>
-    if (mode === "a" && !value /* null | undefined */) {
-      /* DELETE */ result = await SQL!.request().query(`
-	            DELETE FROM LAMP_Aux.dbo.OOLAttachment
-	            WHERE 
-	                ObjectID = '${id}'
-	                AND [Key] = '${key}'
-	                AND ObjectType = '${type}';
-			`)
-    } else if (mode === "a" && !!value /* JSON value */) {
-      /* INSERT or UPDATE */ const req = SQL!.request()
-      req.input("json_value", sql.NVarChar, JSON.stringify(value))
-      result = await req.query(`
-	            MERGE INTO LAMP_Aux.dbo.OOLAttachment
-	                WITH (HOLDLOCK) AS Output
-	            USING (SELECT
-	                '${type}' AS ObjectType,
-	                '${id}' AS ObjectID,
-	                '${key}' AS [Key]
-	            ) AS Input(ObjectType, ObjectID, [Key])
-	            ON (
-	                Output.[Key] = Input.[Key] 
-	                AND Output.ObjectID = Input.ObjectID 
-	                AND Output.ObjectType = Input.ObjectType 
-	            )
-	            WHEN MATCHED THEN 
-	                UPDATE SET Value = @json_value
-	            WHEN NOT MATCHED THEN 
-	                INSERT (
-	                    ObjectType, ObjectID, [Key], Value
-	                )
-	                VALUES (
-	                    '${type}', '${id}', '${key}', @json_value
-	                );
-			`)
-    } else if (mode === "b" && !value /* null | undefined */) {
-      /* DELETE */ result = await SQL!.request().query(`
-	            DELETE FROM LAMP_Aux.dbo.OOLAttachmentLinker 
-	            WHERE 
-	                AttachmentKey = '${key}'
-	                AND ObjectID = '${id}'
-	                AND ChildObjectType = '${type}';
-			`)
-    } else if (mode === "b" && !!value /* DynamicAttachment */) {
-      /* INSERT or UPDATE */ const { triggers, language, contents, requirements } = value
-      const script_type = JSON.stringify({ language, triggers })
-      const packages = JSON.stringify(requirements) || ""
-
-      const req = SQL!.request()
-      req.input("script_contents", sql.NVarChar, contents)
-      result = await req.query(`
-	            MERGE INTO LAMP_Aux.dbo.OOLAttachmentLinker 
-	                WITH (HOLDLOCK) AS Output
-	            USING (SELECT
-	                '${key}' AS AttachmentKey,
-	                '${id}' AS ObjectID,
-	                '${type}' AS ChildObjectType
-	            ) AS Input(AttachmentKey, ObjectID, ChildObjectType)
-	            ON (
-	                Output.AttachmentKey = Input.AttachmentKey 
-	                AND Output.ObjectID = Input.ObjectID 
-	                AND Output.ChildObjectType = Input.ChildObjectType 
-	            )
-	            WHEN MATCHED THEN 
-	                UPDATE SET 
-	                	ScriptType = '${script_type}',
-	                	ScriptContents = @script_contents, 
-	                	ReqPackages = '${packages}'
-	            WHEN NOT MATCHED THEN 
-	                INSERT (
-	                    AttachmentKey, ObjectID, ChildObjectType, 
-	                    ScriptType, ScriptContents, ReqPackages
-	                )
-	                VALUES (
-	                    '${key}', '${id}', '${type}',
-	                    '${script_type}', @script_contents, '${packages}'
-	                );
-			`)
-    }
-    return result!.rowsAffected[0] !== 0
-  }
-
-  /**
-   * TODO: if key is undefined just return every item instead as an array
-   */
-  public static async _get(mode: "a" | "b", id: string, key: string): Promise<DynamicAttachment[] | any | undefined> {
-    const components = Identifier_unpack(id)
-    const from_type: string = components.length === 0 ? (<any>Participant).name : components[0]
-    let parents = await TypeRepository._parent(<string>id)
-    if (Object.keys(parents).length === 0) parents = { " ": " " } // for the SQL 'IN' operator
-
-    if (mode === "a") {
-      const result = (
-        await SQL!.request().query(`
-	            SELECT TOP 1 * 
-	            FROM LAMP_Aux.dbo.OOLAttachment
-	            WHERE [Key] = '${key}'
-	                AND ((
-	                	ObjectID = '${id}'
-	                	AND ObjectType = 'me'
-	                ) OR (
-	                	ObjectID IN (${Object.values(parents)
-                      .map((x) => `'${x}'`)
-                      .join(", ")})
-	                	AND ObjectType IN ('${from_type}', '${id}')
-	                ));
-			`)
-      ).recordset
-
-      if (result.length === 0) throw new Error("404.object-not-found")
-      return JSON.parse(result[0].Value)
-    } else if (mode === "b") {
-      const result = (
-        await SQL!.request().query(`
-	            SELECT TOP 1 * 
-	            FROM LAMP_Aux.dbo.OOLAttachmentLinker
-	            WHERE AttachmentKey = '${key}'
-	            	AND ((
-	                	ObjectID = '${id}'
-	                	AND ChildObjectType = 'me'
-	                ) OR (
-	                	ObjectID IN (${Object.values(parents)
-                      .map((x) => `'${x}'`)
-                      .join(", ")})
-	                	AND ChildObjectType IN ('${from_type}', '${id}')
-	                ));
-			`)
-      ).recordset
-      if (result.length === 0) throw new Error("404.object-not-found")
-
-      // Convert all to DynamicAttachments.
-      return result.map((x) => {
-        const script_type = x.ScriptType.startsWith("{")
-          ? JSON.parse(x.ScriptType)
-          : { triggers: [], language: x.ScriptType }
-
-        const obj = new DynamicAttachment()
-        obj.key = x.AttachmentKey
-        obj.from = x.ObjectID
-        obj.to = x.ChildObjectType
-        obj.triggers = script_type.triggers
-        obj.language = script_type.language
-        obj.contents = x.ScriptContents
-        obj.requirements = JSON.parse(x.ReqPackages)
-        return obj
-      })[0]
-    }
-  }
-
-  public static async _list(mode: "a" | "b", id: string): Promise<string[]> {
-    // Determine the parent type(s) of `type_id` first.
-    const components = Identifier_unpack(id)
-    const from_type: string = components.length === 0 ? (<any>Participant).name : components[0]
-    let parents = await TypeRepository._parent(<string>id)
-    if (Object.keys(parents).length === 0) parents = { " ": " " } // for the SQL 'IN' operator
-
-    if (mode === "a") {
-      // Request all static attachments.
-      return (
-        await SQL!.request().query(`
-	            SELECT [Key]
-	            FROM LAMP_Aux.dbo.OOLAttachment
-	            WHERE (
-	                	ObjectID = '${id}'
-	                	AND ObjectType = 'me'
-	                ) OR (
-	                	ObjectID IN (${Object.values(parents)
-                      .map((x) => `'${x}'`)
-                      .join(", ")})
-	                	AND ObjectType IN ('${from_type}', '${id}')
-	                );
-			`)
-      ).recordset.map((x) => x.Key)
+  public static async _set(mode: any, type: string, type_id: string, key: string, value?: any): Promise<{}> {
+    const deletion = value === undefined || value === null
+    const existing = (
+      await Database.use("tag").find({
+        selector: { "#parent": type_id, type, key },
+        limit: 2_147_483_647 /* 32-bit INT_MAX */,
+      })
+    ).docs
+    if (existing.length === 0 && !deletion) {
+      // CREATE
+      try {
+        await Database.use("tag").insert({
+          "#parent": type_id,
+          type,
+          key,
+          value,
+        } as any)
+      } catch (e) {
+        console.error(e)
+        throw new Error("500.creation-or-update-failed")
+      }
+    } else if (existing.length > 0 && !deletion) {
+      // UPDATE
+      try {
+        const data = await Database.use("tag").bulk({
+          docs: [{ ...existing[0], value }],
+        })
+        if (data.filter((x) => !!x.error).length > 0) throw new Error()
+      } catch (e) {
+        console.error(e)
+        throw new Error("400.update-failed")
+      }
     } else {
-      // Request all dynamic attachments.
-      return (
-        await SQL!.request().query(`
-	            SELECT AttachmentKey
-	            FROM LAMP_Aux.dbo.OOLAttachmentLinker
-	            WHERE (
-	                	ObjectID = '${id}'
-	                	AND ChildObjectType = 'me'
-	                ) OR (
-	                	ObjectID IN (${Object.values(parents)
-                      .map((x) => `'${x}'`)
-                      .join(", ")})
-	                	AND ChildObjectType IN ('${from_type}', '${id}')
-	                );
-			`)
-      ).recordset.map((x) => x.AttachmentKey)
+      // DELETE
+      try {
+        const data = await Database.use("tag").bulk({
+          docs: [{ ...existing[0], _deleted: true }],
+        })
+        if (data.filter((x) => !!x.error).length > 0) throw new Error()
+      } catch (e) {
+        console.error(e)
+        throw new Error("400.deletion-failed")
+      }
+    }
+    return {}
+  }
+
+  public static async _get(mode: any, type_id: string, attachment_key: string): Promise<any | undefined> {
+    const self_type = await TypeRepository._self_type(type_id)
+    const parents = await TypeRepository._parent(type_id)
+    try {
+      const tag_values = (
+        await Database.use("tag").find({
+          selector: {
+            $or: [
+              /* Explicit self-ownership. */
+              { "#parent": type_id, type: type_id, key: attachment_key },
+              /* Implicit self-ownership. */
+              { "#parent": type_id, type: "me", key: attachment_key },
+              /* Explicit parent-ownership. */
+              ...Object.values(parents).map((pid) => ({ "#parent": pid, type: type_id, key: attachment_key })),
+              /* Implicit parent-ownership. */
+              ...Object.values(parents).map((pid) => ({ "#parent": pid, type: self_type, key: attachment_key })),
+            ],
+          },
+          limit: 2_147_483_647 /* 32-bit INT_MAX */,
+        })
+      ).docs.map((x: any) => x.value as any)
+      return tag_values[0]
+    } catch (e) {
+      console.error(e)
+      throw new Error("404.no-such-object")
     }
   }
 
-  /**
-   *
-   */
+  public static async _list(mode: any, type_id: string): Promise<string[]> {
+    const self_type = await TypeRepository._self_type(type_id)
+    const parents = await TypeRepository._parent(type_id)
+    try {
+      const tag_keys = (
+        await Database.use("tag").find({
+          selector: {
+            $or: [
+              /* Explicit self-ownership. */
+              { "#parent": type_id, type: type_id },
+              /* Implicit self-ownership. */
+              { "#parent": type_id, type: "me" },
+              /* Explicit parent-ownership. */
+              ...Object.values(parents).map((parent_id) => ({ "#parent": parent_id, type: type_id })),
+              /* Implicit parent-ownership. */
+              ...Object.values(parents).map((parent_id) => ({ "#parent": parent_id, type: self_type })),
+            ],
+          },
+          limit: 2_147_483_647 /* 32-bit INT_MAX */,
+        })
+      ).docs.map((x: any) => x.key as string)
+      return tag_keys
+    } catch (e) {
+      console.error(e)
+      throw new Error("404.no-such-object")
+    }
+  }
+
   public static async _invoke(attachment: DynamicAttachment, context: any): Promise<any | undefined> {
     if ((attachment.contents || "").trim().length === 0) return undefined
-
     // Select script runner for the right language...
     let runner: ScriptRunner
     switch (attachment.language) {
@@ -299,15 +201,12 @@ export class TypeRepository {
       default:
         throw new Error("400.invalid-script-runner")
     }
-
     // Execute script.
     return await runner.execute(attachment.contents!, attachment.requirements!.join(","), context)
   }
 
-  /**
-   *
-   */
-  public static async _process_triggers() {
+  /*public static async _process_triggers(): Promise<void> {
+    // FIXME: THIS FUNCTION IS DEPRECATED/OUT OF DATE/DISABLED (!!!)
     console.log("Processing accumulated attachment triggers...")
 
     // Request the set of all updates.
@@ -323,19 +222,17 @@ export class TypeRepository {
 				ON Type = 'Participant' AND Users.UserID = ID
 			ORDER BY LastUpdate DESC;
 		`)
-    ).recordset.map((x) => ({
+    ).recordset.map((x: any) => ({
       ...x,
       _id:
         x.Type === "Participant"
-          ? ParticipantRepository._pack_id({ study_id: Decrypt(<string>x._SID) })
-          : ResearcherRepository._pack_id({ admin_id: x.ID }),
+          ? Participant_pack_id({ study_id: x._SID }) // FIXME: Decrypt(<string>x._SID)
+          : Researcher_pack_id({ admin_id: x.ID }),
       _admin:
-        x.Type === "Participant"
-          ? ResearcherRepository._pack_id({ admin_id: x._AID })
-          : ResearcherRepository._pack_id({ admin_id: x.ID }),
+        x.Type === "Participant" ? Researcher_pack_id({ admin_id: x._AID }) : Researcher_pack_id({ admin_id: x.ID }),
     }))
-    const ax_set1 = accumulated_set.map((x) => x._id)
-    const ax_set2 = accumulated_set.map((x) => x._admin)
+    const ax_set1 = accumulated_set.map((x: any) => x._id)
+    const ax_set2 = accumulated_set.map((x: any) => x._admin)
 
     // Request the set of event masks prepared.
     const registered_set = (
@@ -346,13 +243,13 @@ export class TypeRepository {
 
     // Diff the masks against all updates.
     let working_set = registered_set.filter(
-      (x) =>
-        /* Attachment from self -> self. */
+      (x: any) =>
+        // Attachment from self -> self.
         (x.ChildObjectType === "me" && ax_set1.indexOf(x.ObjectID) >= 0) ||
-        /* Attachment from self -> children of type Participant */
+        // Attachment from self -> children of type Participant
         (x.ChildObjectType === "Participant" && ax_set2.indexOf(x.ObjectID) >= 0) ||
-        /* Attachment from self -> specific child Participant matching an ID */
-        accumulated_set.find((y) => y._id === x.ChildObjectType && y._admin === x.ObjectID) !== undefined
+        // Attachment from self -> specific child Participant matching an ID
+        accumulated_set.find((y: any) => y._id === x.ChildObjectType && y._admin === x.ObjectID) !== undefined
     )
 
     // Completely delete all updates; we're done collecting the working set.
@@ -364,7 +261,7 @@ export class TypeRepository {
 
     // Duplicate the working set into specific entries.
     working_set = working_set
-      .map((x) => {
+      .map((x: any) => {
         const script_type = x.ScriptType.startsWith("{")
           ? JSON.parse(x.ScriptType)
           : { triggers: [], language: x.ScriptType }
@@ -379,176 +276,116 @@ export class TypeRepository {
         obj.requirements = JSON.parse(x.ReqPackages)
         return obj
       })
-      .map((x) => {
+      .map((x: any) => {
         // Apply a subgroup transformation only if we're targetting all
         // child resources of a type (i.e. 'Participant').
         if (x.to === "Participant")
           return accumulated_set
-            .filter((y) => y.Type === "Participant" && y._admin === x.from && y._id !== y._admin)
-            .map((y) => ({ ...x, to: y._id }))
-        return [{ ...x, to: <string>x.from }]
+            .filter((y: any) => y.Type === "Participant" && y._admin === x.from && y._id !== y._admin)
+            .map((y: any) => ({ ...x, to: y._id }))
+        return [{ ...x, to: x.from as string }]
       })
-    ;(<any[]>[]).concat(...working_set).forEach((x) =>
+    ;([] as any[]).concat(...working_set).forEach(async (x) =>
       TypeRepository._invoke(x, {
-        /* The security context originator for the script 
-				   with a magic placeholder to indicate to the LAMP server
-				   that the script's API requests are pre-authenticated. */
-        token:
-          "LAMP" +
-          Encrypt(
-            JSON.stringify({
-              identity: { from: x.from, to: x.to },
-              cosigner: Root,
-            })
-          ),
+        // The security context originator for the script
+        // with a magic placeholder to indicate to the LAMP server
+        // that the script's API requests are pre-authenticated.
+        token: await CredentialRepository._packCosignerData(x.from, x.to),
 
-        /* What object was this automation run for on behalf of an agent? */
+        // What object was this automation run for on behalf of an agent?
         object: {
           id: x.to,
           type: TypeRepository._self_type(x.to),
         },
 
-        /* Currently meaningless but does signify what caused the IA to run. */
+        // Currently meaningless but does signify what caused the IA to run.
         event: ["ActivityEvent", "SensorEvent"],
       })
         .then((y) => {
-          TypeRepository._set("a", x.to!, <string>x.from!, x.key! + "/output", y)
+          TypeRepository._set("a", x.to, x.from as string, x.key + "/output", y)
         })
         .catch((err) => {
           TypeRepository._set(
             "a",
-            x.to!,
-            <string>x.from!,
-            x.key! + "/output",
+            x.to,
+            x.from as string,
+            x.key + "/output",
             JSON.stringify({ output: null, logs: err })
           )
         })
     )
+    // TODO: This is for a single item only;
+    const type_id = ""
+    const attachments: DynamicAttachment[] = await Promise.all(
+      (await TypeRepository._list("b", type_id as string)).map(
+        async (x) => await TypeRepository._get("b", type_id as string, x)
+      )
+    )
+    attachments
+      .filter((x) => !!x.triggers && x.triggers.length > 0)
+      .forEach((x) =>
+        TypeRepository._invoke(x, null).then((y: any) => {
+          TypeRepository._set("a", x.to!, <string>x.from!, x.key! + "/output")
+        })
+      )
+  }*/
+}
 
-    /* // TODO: This is for a single item only;
-		let attachments: DynamicAttachment[] = await Promise.all((await TypeRepository._list('b', <string>type_id))
-												.map(async x => (await TypeRepository._get('b', <string>type_id, x))))
-		attachments
-			.filter(x => !!x.triggers && x.triggers.length > 0)
-			.forEach(x => TypeRepository._invoke(x).then(y => {
-				TypeRepository._set('a', x.to!, <string>x.from!, x.key! + '/output')
-			}))
-		*/
+export async function Researcher_parent_id(id: string, type: string): Promise<string | undefined> {
+  switch (type) {
+    default:
+      return undefined
+    // throw new Error('400.invalid-identifier')
   }
 }
-
-/**
- * Set up a 5-minute interval callback to invoke triggers.
- */
-/*setInterval(() => {
-  if (!!SQL) TypeRepository._process_triggers()
-}, 5 * 60 * 1000)*/
-
-// TODO: below is to convert legacy scheduling into modern cron-like versions
-/* FIXME:
-$obj->schedule = isset($raw->schedule) ? array_merge(...array_map(function($x) {
-	$duration = new DurationInterval(); $ri = $x->repeat_interval;
-	if ($ri >= 0 && $ri <= 4) { // hourly
-		$h = ($ri == 4 ? 12 : ($ri == 3 ? 6 : ($ri == 2 ? 3 : 1)));
-		$duration->interval = new CalendarComponents();
-		$duration->interval->hour = $h;
-	} else if ($ri >= 5 && $ri <= 10) { // weekly+
-		if ($ri == 6) {
-			$duration = [
-				new DurationInterval(strtotime($x->time) * 1000, new CalendarComponents()), 
-				new DurationInterval(strtotime($x->time) * 1000, new CalendarComponents())
-			];
-			$duration[0]->interval->weekday = 2;
-			$duration[1]->interval->weekday = 4;
-		} else if ($ri == 7) {
-			$duration = [
-				new DurationInterval(strtotime($x->time) * 1000, new CalendarComponents()), 
-				new DurationInterval(strtotime($x->time) * 1000, new CalendarComponents()), 
-				new DurationInterval(strtotime($x->time) * 1000, new CalendarComponents())
-			];
-			$duration[0]->interval->weekday = 1;
-			$duration[1]->interval->weekday = 3;
-			$duration[2]->interval->weekday = 5;
-		} else {
-			$duration = [
-				new DurationInterval(strtotime($x->time) * 1000, new CalendarComponents())
-			];
-			$duration[0]->interval->day = ($ri == 5 ? 1 : null);
-			$duration[0]->interval->week_of_month = ($ri == 9 ? 2 : ($ri == 8 ? 1 : null));
-			$duration[0]->interval->month = ($ri == 10 ? 1 : null);
-		}
-	} else if ($ri == 11 && count($x->custom_time) == 1) { // custom+
-		$duration->start = strtotime($x->custom_time[0]) * 1000;
-		$duration->repeat_count = 1;
-	} else if ($ri == 11 && count($x->custom_time) > 2) { // custom*
-		$int_comp = (new DateTime($x->custom_time[0]))
-						->diff(new DateTime($x->custom_time[1]));
-		$duration->start = strtotime($x->custom_time[0]) * 1000;
-		$duration->interval = new CalendarComponents();
-		$duration->interval->year = ($int_comp->y == 0 ? null : $int_comp->y);
-		$duration->interval->month = ($int_comp->m == 0 ? null : $int_comp->m);
-		$duration->interval->day = ($int_comp->d == 0 ? null : $int_comp->d);
-		$duration->interval->hour = ($int_comp->h == 0 ? null : $int_comp->h);
-		$duration->interval->minute = ($int_comp->i == 0 ? null : $int_comp->i);
-		$duration->interval->second = ($int_comp->s == 0 ? null : $int_comp->s);
-		$duration->repeat_count = count($x->custom_time) - 1;
-	} else if ($ri == 12) { // none
-		$duration->start = strtotime($x->time) * 1000;
-		$duration->repeat_count = 1;
-	}
-	return is_array($duration) ? $duration : [$duration];
-}, $raw->schedule)) : null;
-*/
-
-// Schedule:
-//      - Admin_CTestSchedule, Admin_SurveySchedule
-//          - AdminID, CTestID/SurveyID, Version*(C), ScheduleDate, SlotID, Time, RepeatID, IsDeleted
-//      - Admin_CTestScheduleCustomTime, Admin_SurveyScheduleCustomTime, Admin_BatchScheduleCustomTime
-//          - Time
-//      - Admin_BatchSchedule
-//          - AdminID, BatchName, ScheduleDate, SlotID, Time, RepeatID, IsDeleted
-//      - Admin_BatchScheduleCTest, Admin_BatchScheduleSurvey
-//          - CTestID/SurveyID, Version*(C), Order
-//
-// Settings:
-//      - Admin_CTestSurveySettings
-//          - AdminID, CTestID, SurveyID
-//      - Admin_JewelsTrailsASettings, Admin_JewelsTrailsBSettings
-//          - AdminID, ... (")
-//      - SurveyQuestions
-//          - SurveyID, QuestionText, AnswerType, IsDeleted
-//      - SurveyQuestionsOptions
-//          - QuestionID, OptionText
-
-// https://en.wikipedia.org/wiki/Cron#CRON_expression
-/*
-* * * * * *
-| | | | | | 
-| | | | | +-- Year              (range: 1900-3000)
-| | | | +---- Day of the Week   (range: 1-7; L=last, #=ordinal(range: 1-4))
-| | | +------ Month of the Year (range: 1-12)
-| | +-------- Day of the Month  (range: 1-31; L=last, W=nearest-weekday, #=ordinal(range: 1-52))
-| +---------- Hour              (range: 0-23)
-+------------ Minute            (range: 0-59)
-*/
-
-/*
-
-
-
-enum RepeatTypeLegacy {
-	hourly = 'hourly', // 0 * * * * *
-	every3h = 'every3h', // 0 * /3 * * * *
-	every6h = 'every6h', // 0 * /6 * * * *
-	every12h = 'every12h', // 0 * /12 * * * *
-	daily = 'daily', // 0 0 * * * *
-	weekly = 'weekly', // 0 0 * * 0 *
-	biweekly = 'biweekly', // 0 0 1,15 * * *
-	monthly = 'monthly', // 0 0 1 * * *
-	bimonthly = 'bimonthly', // 0 0 1 * /2 * *
-	custom = 'custom', // 1 2 3 4 5 6
-	none = 'none' // 0 0 0 0 0 0
+export async function Study_parent_id(id: string, type: string): Promise<string | undefined> {
+  switch (type) {
+    case "Researcher":
+      const obj: any = await Database.use("study").get(id)
+      return obj["#parent"]
+    default:
+      throw new Error("400.invalid-identifier")
+  }
 }
-
-
-*/
+export async function Participant_parent_id(id: string, type: string): Promise<string | undefined> {
+  let obj: any
+  switch (type) {
+    case "Study":
+      obj = await Database.use("participant").get(id)
+      return obj["#parent"]
+    case "Researcher":
+      obj = await Database.use("participant").get(id)
+      obj = await Database.use("study").get(obj["#parent"])
+      return obj["#parent"]
+    default:
+      throw new Error("400.invalid-identifier")
+  }
+}
+export async function Activity_parent_id(id: string, type: string): Promise<string | undefined> {
+  let obj: any
+  switch (type) {
+    case "Study":
+      obj = await Database.use("activity").get(id)
+      return obj["#parent"]
+    case "Researcher":
+      obj = await Database.use("activity").get(id)
+      obj = await Database.use("study").get(obj["#parent"])
+      return obj["#parent"]
+    default:
+      throw new Error("400.invalid-identifier")
+  }
+}
+export async function Sensor_parent_id(id: string, type: string): Promise<string | undefined> {
+  let obj: any
+  switch (type) {
+    case "Study":
+      obj = await Database.use("sensor").get(id)
+      return obj["#parent"]
+    case "Researcher":
+      obj = await Database.use("sensor").get(id)
+      obj = await Database.use("study").get(obj["#parent"])
+      return obj["#parent"]
+    default:
+      throw new Error("400.invalid-identifier")
+  }
+}

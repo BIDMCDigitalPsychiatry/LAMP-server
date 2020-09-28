@@ -1,70 +1,68 @@
-import { Database } from "../app"
+import { Database, uuid } from "../app"
 import { Sensor } from "../model/Sensor"
 
 export class SensorRepository {
-  /**
-   * Get a set of `Sensor`s matching the criteria parameters.
-   */
-  public static async _select(
-    /**
-     * The identifier of the object or any parent.
-     */
-    id?: string
-  ): Promise<Sensor[]> {
-    const data = await Database.use("sensor").list({ include_docs: true, start_key: id, end_key: id })
-    return (data.rows as any).map((x: any) => ({
+  public static async _select(id?: string): Promise<Sensor[]> {
+    // TODO: for legacy all_by_researcher support:
+    const _studies = !!id
+      ? (
+          await Database.use("study").find({
+            selector: { "#parent": id },
+            sort: [{ timestamp: "asc" }],
+            limit: 2_147_483_647 /* 32-bit INT_MAX */,
+          })
+        ).docs.map((x) => ({ "#parent": x._id }))
+      : []
+    return (
+      await Database.use("sensor").find({
+        selector: !!id ? { $or: [{ _id: id }, { "#parent": id }, ..._studies] } : {},
+        sort: [{ timestamp: "asc" }],
+        limit: 2_147_483_647 /* 32-bit INT_MAX */,
+      })
+    ).docs.map((x: any) => ({
       id: x.doc._id,
       ...x.doc,
       _id: undefined,
       _rev: undefined,
+      "#parent": undefined,
     }))
   }
-
-  /**
-   * Create a `Sensor` with a new object.
-   */
-  public static async _insert(
-    id: string,
-    /**
-     * The new object.
-     */
-    object: Sensor
-  ): Promise<string> {
-    // TODO: Sensors do not exist! They cannot be modified!
-    throw new Error("503.unimplemented")
-    return ""
+  public static async _insert(study_id: string, object: any /*Sensor*/): Promise<string> {
+    const _id = uuid()
+    await Database.use("activity").insert({
+      _id: _id,
+      "#parent": study_id,
+      timestamp: new Date().getTime(),
+      spec: object.spec ?? "__broken_link__",
+      name: object.name ?? "",
+      settings: object.settings ?? {},
+    } as any)
+    return _id
   }
-
-  /**
-   * Update a `Sensor` with new fields.
-   */
-  public static async _update(
-    /**
-     *
-     */
-    sensor_spec_name: string,
-
-    /**
-     * The replacement object or specific fields within.
-     */
-    object: Sensor
-  ): Promise<string> {
-    // TODO: Sensors do not exist! They cannot be modified!
-    throw new Error("503.unimplemented")
-    return ""
+  public static async _update(sensor_id: string, object: any /*Sensor*/): Promise<{}> {
+    const orig: any = await Database.use("sensor").get(sensor_id)
+    await Database.use("sensor").bulk({
+      docs: [
+        {
+          ...orig,
+          name: object.name ?? orig.name,
+          settings: object.settings ?? orig.settings,
+        },
+      ],
+    })
+    return {}
   }
-
-  /**
-   * Delete a `Sensor` row.
-   */
-  public static async _delete(
-    /**
-     *
-     */
-    sensor_spec_name: string
-  ): Promise<string> {
-    // TODO: Sensors do not exist! They cannot be modified!
-    throw new Error("503.unimplemented")
-    return ""
+  public static async _delete(sensor_id: string): Promise<{}> {
+    try {
+      const orig = await Database.use("sensor").get(sensor_id)
+      const data = await Database.use("sensor").bulk({
+        docs: [{ ...orig, _deleted: true }],
+      })
+      if (data.filter((x) => !!x.error).length > 0) throw new Error()
+    } catch (e) {
+      console.error(e)
+      throw new Error("500.deletion-failed")
+    }
+    return {}
   }
 }

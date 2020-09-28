@@ -1,380 +1,169 @@
-import { Request, Response } from "express"
-import { SQL, Encrypt, Decrypt } from "../app"
-import sql from "mssql"
-import { Participant } from "../model/Participant"
-import { Study } from "../model/Study"
-import { Researcher } from "../model/Researcher"
-import { Credential } from "../model/Credential"
-import { ResearcherRepository } from "../repository/ResearcherRepository"
-import { ParticipantRepository } from "../repository/ParticipantRepository"
-import { Identifier_unpack, Identifier_pack } from "../repository/TypeRepository"
-
-// TODO: Credential.delete -> promote tag credential to legacy credential to allow login!
+import crypto from "crypto"
+import { Database } from "../app"
 
 export class CredentialRepository {
-  // DANGER: This decrypts and dumps EVERY SINGLE CREDENTIAL!!! DO NOT USE EXCEPT FOR DEBUGGING!
-  public static async _showAll(): Promise<any[]> {
-    // Reset the legacy/default credential as a Researcher.
-    const result1 = await SQL!.request().query(`
-			SELECT AdminID, Email, Password
-			FROM Admin
-			WHERE IsDeleted = 0
-		;`)
+  // Lazy evaluation of root password if we haven't already loaded it.
+  public static async _adminCredential(admin_secret_key: string): Promise<boolean> {
+    let _all: string[]
+    try {
+      _all = (
+        await Database.use("credential").find({
+          selector: {
+            origin: null,
+            access_key: "admin",
+          },
+          limit: 2_147_483_647 /* 32-bit INT_MAX */,
+        })
+      ).docs.map((x: any) => x.secret_key)
+      if (_all.length === 0) {
+        // eslint-disable-next-line
+        console.dir(`Because no master configuration could be located, an initial administrator password was generated and saved for this installation.`)
 
-    const out1 = result1.recordset.map((x) => ({
-      origin: ResearcherRepository._pack_id({ admin_id: Number.parse(x["AdminID"]) ?? 0 }),
-      access_key: Decrypt(x["Email"]),
-      secret_key: Decrypt(x["Password"], "AES256"),
-      description: "Default Credential",
-    }))
-
-    // Reset the legacy/default credential as a Participant.
-    const result2 = await SQL!.request().query(`
-			SELECT StudyId, Email, Password
-			FROM Users
-			WHERE IsDeleted = 0
-		;`)
-
-    const out2 = result2.recordset.map((x) => ({
-      origin: Decrypt(x["StudyId"]),
-      access_key: Decrypt(x["Email"]),
-      secret_key: Decrypt(x["Password"], "AES256"),
-      description: "Default Credential",
-    }))
-
-    // Get any API credentials.
-    const result3 = await SQL!.request().query(`
-            SELECT ObjectID, Value
-            FROM LAMP_Aux.dbo.OOLAttachment
-            WHERE ObjectType = 'Credential'
-		;`)
-
-    const out3 = result3.recordset
-      .map((x) => JSON.parse(x["Value"]))
-      .map((x) => ({ ...x, secret_key: Decrypt(x.secret_key, "AES256") }))
-    return [...out1, ...out2, ...out3]
+        // Create a new password and emit it to the console while saving it (to share it with the sysadmin).
+        const p = crypto.randomBytes(32).toString("hex")
+        console.table({ "Administrator Password": p })
+        _all = [Encrypt(p, "AES256") as string]
+        await Database.use("credential").insert({
+          origin: null,
+          access_key: "admin",
+          secret_key: _all[0],
+          description: "System Administrator Credential",
+        } as any)
+      }
+    } catch (e) {
+      console.dir(e)
+      return false
+    }
+    return _all.filter((key) => Decrypt(key, "AES256") === admin_secret_key).length > 0
   }
-
   // if used with secret_key, will throw error if mismatch, else, will return confirmation of existence
-  public static async _find(
-    access_key: string,
-
-    secret_key?: string
-  ): Promise<string> {
-    let result = null
-
-    // Get any API credentials.
-    // Note: THIS MUST HAPPEN FIRST! If not, you will see email address conflicts with legacy accounts.
-    result = await SQL!.request().query(`
-            SELECT ObjectID, Value
-            FROM LAMP_Aux.dbo.OOLAttachment
-            WHERE (
-                	[Key] = '${access_key}'
-                	AND ObjectType = 'Credential'
-                )
-		;`)
-    if (result.rowsAffected[0] > 0) {
-      if (!!secret_key && secret_key !== Decrypt(JSON.parse(result.recordset[0]["Value"])["secret_key"], "AES256"))
-        throw new Error("403.no-such-credentials")
-      return result.recordset[0]["ObjectID"]
-    }
-
-    // Reset the legacy/default credential as a Researcher.
-    result = await SQL!.request().query(`
-			SELECT AdminID, Password
-			FROM Admin
-			WHERE IsDeleted = 0 
-				AND Email = '${Encrypt(access_key)}'
-				AND (Password IS NOT NULL AND Password != '')
-		;`)
-    if (result.rowsAffected[0] > 0) {
-      if (!!secret_key && secret_key !== Decrypt(result.recordset[0]["Password"], "AES256"))
-        throw new Error("403.no-such-credentials")
-      return ResearcherRepository._pack_id({ admin_id: Number.parse(result.recordset[0]["AdminID"]) ?? 0 })
-    }
-
-    // Reset the legacy/default credential as a Participant.
-    result = await SQL!.request().query(`
-			SELECT Email, StudyId, Password
-			FROM Users
-			WHERE IsDeleted = 0 
-				AND Email = '${Encrypt(access_key)}'
-				AND (Password IS NOT NULL AND Password != '')
-		;`)
-    if (result.rowsAffected[0] > 0) {
-      if (!!secret_key && secret_key !== Decrypt(result.recordset[0]["Password"], "AES256"))
-        throw new Error("403.no-such-credentials")
-      return <string>Decrypt(result.recordset[0]["StudyId"])
-    }
-
+  public static async _find(access_key: string, secret_key?: string): Promise<string> {
+    const res = (
+      await Database.use("credential").find({
+        selector: { access_key: access_key },
+        limit: 2_147_483_647 /* 32-bit INT_MAX */,
+      })
+    ).docs.filter((x: any) => (!!secret_key ? Decrypt(x.secret_key, "AES256") === secret_key : true))
+    if (res.length !== 0) return (res[0] as any).origin
     throw new Error("403.no-such-credentials")
   }
-
-  public static async _select(type_id: string): Promise<string[]> {
-    // Get the correctly scoped identifier to search within.
-    let user_id: string | undefined
-    let admin_id: number | undefined
-    if (!!type_id && Identifier_unpack(type_id)[0] === (<any>Researcher).name)
-      admin_id = ResearcherRepository._unpack_id(type_id).admin_id
-    else if (!!type_id && Identifier_unpack(type_id).length === 0 /* Participant */)
-      user_id = ParticipantRepository._unpack_id(type_id).study_id
-    else if (!!type_id) throw new Error("400.invalid-identifier")
-
-    // Get the legacy credential.
-    let legacy_key: Credential | undefined = undefined
-    if (!!admin_id) {
-      // Reset the legacy/default credential as a Researcher.
-      const result = await SQL!.request().query(`
-				SELECT Email
-				FROM Admin
-				WHERE IsDeleted = 0 
-					AND (Password IS NOT NULL AND Password != '')
-					AND AdminID = ${admin_id}
-			;`)
-      if (result.rowsAffected[0] > 0)
-        legacy_key = {
-          origin: <string>type_id,
-          access_key: Decrypt(result.recordset[0]["Email"]) || "",
-          secret_key: null,
-          description: "Default Credential",
-        }
-    } else if (!!user_id) {
-      // Reset the legacy/default credential as a Participant.
-      const result = await SQL!.request().query(`
-				SELECT Email
-				FROM Users
-				WHERE IsDeleted = 0 
-					AND (Password IS NOT NULL AND Password != '')
-					AND StudyId = '${Encrypt(user_id)}'
-			;`)
-      if (result.rowsAffected[0] > 0)
-        legacy_key = {
-          origin: <string>type_id,
-          access_key: Decrypt(result.recordset[0]["Email"]) || "",
-          secret_key: null,
-          description: "Default Credential",
-        }
-    }
-
-    // Get any API credentials.
-    const result = (
-      await SQL!.request().query(`
-            SELECT [Key], Value
-            FROM LAMP_Aux.dbo.OOLAttachment
-            WHERE (
-                	ObjectID = '${type_id}'
-                	AND ObjectType = 'Credential'
-                )
-		;`)
-    ).recordset
-
-    //
-    return [legacy_key, ...result.map((x) => JSON.parse(x["Value"])).map((x) => ({ ...x, secret_key: null }))].filter(
-      (x) => !!x
-    )
+  public static async _select(type_id: string): Promise<any[]> {
+    const res = await Database.use("credential").find({
+      selector: { origin: type_id },
+      limit: 2_147_483_647 /* 32-bit INT_MAX */,
+    })
+    return res.docs.map((x) => ({
+      ...x,
+      secret_key: null,
+      _id: undefined,
+      _rev: undefined,
+    }))
   }
-
-  public static async _insert(
-    type_id: string,
-
-    credential: any
-  ): Promise<any> {
-    // Get the correctly scoped identifier to search within.
-    let user_id: string | undefined
-    let admin_id: number | undefined
-    if (!!type_id && Identifier_unpack(type_id)[0] === (<any>Researcher).name)
-      admin_id = ResearcherRepository._unpack_id(type_id).admin_id
-    else if (!!type_id && Identifier_unpack(type_id).length === 0 /* Participant */)
-      user_id = ParticipantRepository._unpack_id(type_id).study_id
-    else if (!!type_id) throw new Error("400.invalid-identifier")
-
-    // HOTFIX ONLY!
-    if (typeof credential === "string") {
-      credential = {
-        origin: type_id,
-        access_key: "",
-        secret_key: credential,
-      }
-      if (!!admin_id) {
-        const result = await SQL!.request().query(`
-					SELECT Email FROM Admin WHERE IsDeleted = 0 AND AdminID = ${admin_id}
-				;`)
-        credential.access_key = Decrypt(result.recordset[0]["Email"])
-      } else if (!!user_id) {
-        const result = await SQL!.request().query(`
-					SELECT Email FROM Users WHERE IsDeleted = 0 AND StudyId = '${Encrypt(user_id)}'
-				;`)
-        credential.access_key = Decrypt(result.recordset[0]["Email"])
-      }
-    }
-    // HOTFIX ONLY!
+  public static async _insert(type_id: string, credential: any): Promise<{}> {
     if (credential.origin === "me") {
-      // context substitution doesn't actually work within the object here, so do it manually.
+      // FIXME: context substitution doesn't actually work within the object here, so do it manually.
       credential.origin = type_id
     }
-
-    // If it's not our credential, don't mess with it!
+    // Verify this is "our" credential correctly
     if (credential.origin !== type_id || !credential.access_key || !credential.secret_key)
       throw new Error("400.malformed-credential-object")
-
-    let x
-    try {
-      x = await CredentialRepository._find(credential.access_key)
-    } catch (e) {}
-    if (!!x) throw new Error("403.access-key-already-in-use")
-
-    if (!!admin_id) {
-      // Reset the legacy/default credential as a Researcher.
-      const result = await SQL!.request().query(`
-				UPDATE Admin 
-				SET 
-					Email = '${Encrypt(credential.access_key)}',
-					Password = '${Encrypt(credential.secret_key, "AES256")}'
-				WHERE IsDeleted = 0 
-					AND (Password IS NULL OR Password = '')
-					AND AdminID = ${admin_id}
-			;`)
-      if (result.rowsAffected[0] > 0) return {}
-    } else if (!!user_id) {
-      // Reset the legacy/default credential as a Participant.
-      const result = await SQL!.request().query(`
-				UPDATE Users 
-				SET 
-					Email = '${Encrypt(credential.access_key)}',
-					Password = '${Encrypt(credential.secret_key, "AES256")}'
-				WHERE IsDeleted = 0 
-					AND (Password IS NULL OR Password = '')
-					AND StudyId = '${Encrypt(user_id)}'
-			;`)
-      if (result.rowsAffected[0] > 0) return {}
-    }
-
-    // Reset an API credential as either a Researcher or Participant.
-    credential.secret_key = Encrypt(credential.secret_key, "AES256")
-    const req = SQL!.request()
-    req.input("json_value", JSON.stringify(credential))
-    const result = await req.query(`
-            INSERT INTO LAMP_Aux.dbo.OOLAttachment (
-                ObjectType, ObjectID, [Key], Value
-            )
-            VALUES (
-                'Credential', '${type_id}', '${credential.access_key}', @json_value
-            )
-		;`)
-    if (result.rowsAffected[0] === 0) throw new Error("404.object-not-found")
+    const res = await Database.use("credential").find({
+      selector: { access_key: credential.access_key },
+      limit: 1 /* single result only */,
+    })
+    if (res.docs.length !== 0) throw new Error("403.access-key-already-in-use")
+    await Database.use("credential").insert({
+      origin: credential.origin,
+      access_key: credential.access_key,
+      secret_key: Encrypt(credential.secret_key, "AES256"),
+      description: credential.description,
+    } as any)
     return {}
   }
-
-  public static async _update(
-    type_id: string,
-
-    access_key: string,
-
-    credential: any
-  ): Promise<any> {
-    // Get the correctly scoped identifier to search within.
-    let user_id: string | undefined
-    let admin_id: number | undefined
-    if (!!type_id && Identifier_unpack(type_id)[0] === (<any>Researcher).name)
-      admin_id = ResearcherRepository._unpack_id(type_id).admin_id
-    else if (!!type_id && Identifier_unpack(type_id).length === 0 /* Participant */)
-      user_id = ParticipantRepository._unpack_id(type_id).study_id
-    else if (!!type_id) throw new Error("400.invalid-identifier")
-
-    // If it's not our credential, don't mess with it!
-    //if (<string>(credential.origin) != <string>type_id)
-    //	throw new BadRequest("The credential origin does not match the requested resource.")
-    if (!credential.access_key || !credential.secret_key)
-      throw new Error("400.credential-requires-access-and-secret-keys")
-
-    if (!!admin_id) {
-      // Reset the legacy/default credential as a Researcher.
-      const result = await SQL!.request().query(`
-				UPDATE Admin 
-				SET 
-					Password = '${Encrypt(credential.secret_key, "AES256")}'
-				WHERE IsDeleted = 0 
-					AND (Password IS NOT NULL AND Password != '')
-					AND Email = '${Encrypt(credential.access_key)}'
-					AND AdminID = ${admin_id}
-			;`)
-      if (result.rowsAffected[0] > 0) return {}
-    } else if (!!user_id) {
-      // Reset the legacy/default credential as a Participant.
-      const result = await SQL!.request().query(`
-				UPDATE Users 
-				SET 
-					Password = '${Encrypt(credential.secret_key, "AES256")}'
-				WHERE IsDeleted = 0 
-					AND (Password IS NOT NULL AND Password != '')
-					AND Email = '${Encrypt(credential.access_key)}'
-					AND StudyId = '${Encrypt(user_id)}'
-			;`)
-      if (result.rowsAffected[0] > 0) return {}
-    }
-
-    // Reset an API credential as either a Researcher or Participant.
-    credential.secret_key = Encrypt(credential.secret_key, "AES256")
-    const req = SQL!.request()
-    req.input("json_value", JSON.stringify(credential))
-    const result = await req.query(`
-            UPDATE LAMP_Aux.dbo.OOLAttachment SET
-	            Value = @json_value
-            WHERE ObjectType = 'Credential'
-            	AND ObjectID = '${type_id}'
-            	AND [Key] = '${credential.access_key}'
-		;`)
-    if (result.rowsAffected[0] === 0) throw new Error("404.object-not-found")
+  public static async _update(type_id: string, access_key: string, credential: any): Promise<{}> {
+    const res = await Database.use("credential").find({
+      selector: { origin: type_id, access_key: access_key },
+      limit: 1 /* single result only */,
+    })
+    if (res.docs.length === 0) throw new Error("404.no-such-credentials")
+    const oldCred = res.docs[0] as any
+    await Database.use("credential").bulk({
+      docs: [
+        {
+          ...oldCred,
+          secret_key: !!credential.secret_key ? Encrypt(credential.secret_key, "AES256") : oldCred.secret_key,
+          description: !!credential.description ? credential.description : oldCred.description,
+        },
+      ],
+    })
     return {}
   }
-
-  public static async _delete(
-    type_id: string,
-
-    access_key: string
-  ): Promise<any> {
-    // Get the correctly scoped identifier to search within.
-    let user_id: string | undefined
-    let admin_id: number | undefined
-    if (!!type_id && Identifier_unpack(type_id)[0] === (<any>Researcher).name)
-      admin_id = ResearcherRepository._unpack_id(type_id).admin_id
-    else if (!!type_id && Identifier_unpack(type_id).length === 0 /* Participant */)
-      user_id = ParticipantRepository._unpack_id(type_id).study_id
-    else if (!!type_id) throw new Error("400.invalid-identifier")
-
-    if (!!admin_id) {
-      // Reset the legacy/default credential as a Researcher.
-      const result = await SQL!.request().query(`
-				UPDATE Admin 
-				SET Password = '' 
-				WHERE IsDeleted = 0 
-					AND Email = '${Encrypt(access_key)}'
-					AND AdminID = ${admin_id}
-					AND (Password IS NOT NULL AND Password != '')
-			;`)
-      if (result.rowsAffected[0] > 0) return {}
-    } else if (!!user_id) {
-      // Reset the legacy/default credential as a Participant.
-      const result = await SQL!.request().query(`
-				UPDATE Users 
-				SET Password = '' 
-				WHERE IsDeleted = 0 
-					AND Email = '${Encrypt(access_key)}'
-					AND StudyId = '${Encrypt(user_id)}'
-					AND (Password IS NOT NULL AND Password != '')
-			;`)
-      if (result.rowsAffected[0] > 0) return {}
-    }
-
-    // Reset an API credential as either a Researcher or Participant.
-    const result = await SQL!.request().query(`
-	        DELETE FROM LAMP_Aux.dbo.OOLAttachment
-            WHERE 
-                ObjectID = '${type_id}'
-                AND [Key] = '${access_key}'
-                AND ObjectType = 'Credential'
-		;`)
-    if (result.rowsAffected[0] === 0) throw new Error("404.access-key-not-found")
+  public static async _delete(type_id: string, access_key: string): Promise<{}> {
+    const res = await Database.use("credential").find({
+      selector: { origin: type_id, access_key: access_key },
+      limit: 1 /* single result only */,
+    })
+    if (res.docs.length === 0) throw new Error("404.no-such-credentials")
+    const oldCred = res.docs[0] as any
+    await Database.use("credential").bulk({
+      docs: [
+        {
+          ...oldCred,
+          _deleted: true,
+        },
+      ],
+    })
     return {}
   }
+  public static async _packCosignerData(from: string, to: string): Promise<string> {
+    const _cosign = ((await Database.use("root").get("#master_config")) as any)?.data?.password
+    const _data = JSON.stringify({
+      identity: { from: from, to: to },
+      cosigner: { id: "root", password: _cosign },
+    })
+    return `LAMP${Encrypt(_data, "AES256")}`
+  }
+  public static _unpackCosignerData(authStr: string): [string, any] {
+    const cosignData = authStr.startsWith("LAMP") ? JSON.parse(Decrypt(authStr.slice(4), "AES256") || "") : undefined
+    if (cosignData !== undefined) return [Object.values(cosignData.cosigner).join(":"), cosignData]
+    else return [authStr, undefined]
+  }
+}
+
+/**
+ * If the data could not be encrypted or is invalid, returns `undefined`.
+ */
+export const Encrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"): string | undefined => {
+  try {
+    if (mode === "Rijndael") {
+      const cipher = crypto.createCipheriv("aes-256-ecb", process.env.DB_KEY || "", "")
+      return cipher.update(data, "utf8", "base64") + cipher.final("base64")
+    } else if (mode === "AES256") {
+      const ivl = crypto.randomBytes(16)
+      const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(process.env.ROOT_KEY || "", "hex"), ivl)
+      return Buffer.concat([ivl, cipher.update(Buffer.from(data, "utf16le")), cipher.final()]).toString("base64")
+    }
+  } catch {}
+  return undefined
+}
+
+/**
+ * If the data could not be decrypted or is invalid, returns `undefined`.
+ */
+export const Decrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"): string | undefined => {
+  try {
+    if (mode === "Rijndael") {
+      const cipher = crypto.createDecipheriv("aes-256-ecb", process.env.DB_KEY || "", "")
+      return cipher.update(data, "base64", "utf8") + cipher.final("utf8")
+    } else if (mode === "AES256") {
+      const dat = Buffer.from(data, "base64")
+      const cipher = crypto.createDecipheriv(
+        "aes-256-cbc",
+        Buffer.from(process.env.ROOT_KEY || "", "hex"),
+        dat.slice(0, 16)
+      )
+      return Buffer.concat([cipher.update(dat.slice(16)), cipher.final()]).toString("utf16le")
+    }
+  } catch {}
+  return undefined
 }
