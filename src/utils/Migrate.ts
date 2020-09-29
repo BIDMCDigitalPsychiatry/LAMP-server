@@ -1,7 +1,6 @@
 import { Database, uuid } from "../app"
 import { Decrypt } from "../repository"
 import { LegacyActivities } from "./LegacyAPI"
-import fs from "fs"
 import sql from "mssql"
 
 let _SQL: sql.ConnectionPool | undefined = undefined

@@ -327,14 +327,14 @@ export class TypeRepository {
   }*/
 }
 
-export async function Researcher_parent_id(id: string, type: string): Promise<string | undefined> {
+async function Researcher_parent_id(id: string, type: string): Promise<string | undefined> {
   switch (type) {
     default:
       return undefined
     // throw new Error('400.invalid-identifier')
   }
 }
-export async function Study_parent_id(id: string, type: string): Promise<string | undefined> {
+async function Study_parent_id(id: string, type: string): Promise<string | undefined> {
   switch (type) {
     case "Researcher":
       const obj: any = await Database.use("study").get(id)
@@ -343,7 +343,7 @@ export async function Study_parent_id(id: string, type: string): Promise<string 
       throw new Error("400.invalid-identifier")
   }
 }
-export async function Participant_parent_id(id: string, type: string): Promise<string | undefined> {
+async function Participant_parent_id(id: string, type: string): Promise<string | undefined> {
   let obj: any
   switch (type) {
     case "Study":
@@ -357,7 +357,7 @@ export async function Participant_parent_id(id: string, type: string): Promise<s
       throw new Error("400.invalid-identifier")
   }
 }
-export async function Activity_parent_id(id: string, type: string): Promise<string | undefined> {
+async function Activity_parent_id(id: string, type: string): Promise<string | undefined> {
   let obj: any
   switch (type) {
     case "Study":
@@ -371,7 +371,7 @@ export async function Activity_parent_id(id: string, type: string): Promise<stri
       throw new Error("400.invalid-identifier")
   }
 }
-export async function Sensor_parent_id(id: string, type: string): Promise<string | undefined> {
+async function Sensor_parent_id(id: string, type: string): Promise<string | undefined> {
   let obj: any
   switch (type) {
     case "Study":

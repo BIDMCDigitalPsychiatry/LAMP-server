@@ -1,5 +1,4 @@
 require("dotenv").config()
-import API from "./service"
 import express, { Application } from "express"
 import bodyParser from "body-parser"
 import https from "https"
@@ -7,8 +6,8 @@ import nano from "nano"
 import cors from "cors"
 import morgan from "morgan"
 import { customAlphabet } from "nanoid"
-import { LegacyAPI } from "./utils/LegacyAPI"
-import { ActivityScheduler, HTTPS_CERT, _bootstrap_db } from "./utils"
+import { LegacyAPI, ActivityScheduler, HTTPS_CERT, _bootstrap_db } from "./utils"
+import API from "./service"
 
 // the database
 export const Database = nano(process.env.CDB ?? "")
