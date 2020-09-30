@@ -41,7 +41,7 @@ export const _migrator_export_table = async (): Promise<{ [key: string]: string 
 
 // BOTH of the above; more performant as well
 export const _migrator_dual_table = async (): Promise<[{ [key: string]: string }, { [key: string]: string }]> => {
-  const _res = await Database.use("root").baseView("", "", { viewPath: "_local_docs" }, { include_docs: true })
+  const _res = await Database.use("migrator").baseView("", "", { viewPath: "_local_docs" }, { include_docs: true })
   const output: { [key: string]: string }[] = [{}, {}]
   for (const x of _res.rows) {
     output[0][x.id.replace("_local/", "")] = x.doc.value
@@ -52,7 +52,7 @@ export const _migrator_dual_table = async (): Promise<[{ [key: string]: string }
 
 export async function _migrate_researcher_and_study(): Promise<void> {
   try {
-    const MigratorLink = Database.use("root")
+    const MigratorLink = Database.use("migrator")
     const _lookup_table = await _migrator_lookup_table()
     const _lookup_migrator_id = (legacyID: string): string => {
       let match = _lookup_table[legacyID]
@@ -103,7 +103,7 @@ export async function _migrate_researcher_and_study(): Promise<void> {
 
 export async function _migrate_participant(): Promise<void> {
   try {
-    const MigratorLink = Database.use("root")
+    const MigratorLink = Database.use("migrator")
     const _lookup_table = await _migrator_lookup_table()
     const _lookup_migrator_id = (legacyID: string): string => {
       let match = _lookup_table[legacyID]
@@ -141,7 +141,7 @@ export async function _migrate_participant(): Promise<void> {
 
 export async function _migrate_activity(): Promise<void> {
   try {
-    const MigratorLink = Database.use("root")
+    const MigratorLink = Database.use("migrator")
     const _lookup_table = await _migrator_lookup_table()
     const _lookup_migrator_id = (legacyID: string): string => {
       let match = _lookup_table[legacyID]
@@ -532,13 +532,7 @@ export async function _migrate_credential(_decrypt = false): Promise<void> {
         secret_key: _decrypt ? Decrypt(x.secret_key, "AES256") : x.secret_key,
       }))
     console.log(`[Credential_Tag] migrating ${out3.length} credentials`)
-    const _p = ((await Database.use("root").get("#master_config")) as any)?.data.password
-    const out4 =
-      _p === undefined
-        ? []
-        : [{ origin: null, access_key: "admin", secret_key: _p, description: "System Administrator Credential" }]
-    console.log(`[Credential_Root] migrating ${out4.length} credentials`)
-    const output = { docs: [...out1, ...out2, ...out3, ...out4] }
+    const output = { docs: [...out1, ...out2, ...out3] }
     await Database.use("credential").bulk(output)
     //fs.writeFileSync("./test.json", JSON.stringify(output, null, 2))
   } catch (e) {
@@ -548,18 +542,7 @@ export async function _migrate_credential(_decrypt = false): Promise<void> {
 
 export async function _migrate_tags(): Promise<void> {
   try {
-    const MigratorLink = Database.use("root")
     const _lookup_table = await _migrator_lookup_table()
-    const _lookup_migrator_id = (legacyID: string): string => {
-      let match = _lookup_table[legacyID]
-      if (match === undefined) {
-        match = uuid() // 20-char id for non-Participant objects
-        _lookup_table[legacyID] = match
-        console.log(`inserting migrator link: ${legacyID} => ${match}`)
-        MigratorLink.insert({ _id: `_local/${legacyID}`, value: match } as any)
-      }
-      return match
-    }
     const result = await (await SQL()).request().query(`
         SELECT ObjectID, ObjectType, [Key], Value
         FROM LAMP_Aux.dbo.OOLAttachment
@@ -582,7 +565,7 @@ export async function _migrate_tags(): Promise<void> {
 }
 
 export async function _migrate_activity_event(): Promise<void> {
-  const MigratorLink = Database.use("root")
+  const MigratorLink = Database.use("migrator")
   const _lookup_table = await _migrator_lookup_table()
   const _lookup_migrator_id = (legacyID: string): string => {
     let match = _lookup_table[legacyID]
@@ -762,19 +745,15 @@ export async function _migrate_activity_event(): Promise<void> {
 }
 
 export async function _migrate_all(): Promise<void> {
-  let info: any = {}
-  info = await Database.use("study").info()
-  if (info.doc_count ?? 0 + info.doc_del_count ?? 0 === 0) await _migrate_researcher_and_study()
-  info = await Database.use("participant").info()
-  if (info.doc_count ?? 0 + info.doc_del_count ?? 0 === 0) await _migrate_participant()
-  info = await Database.use("activity").info()
-  if (info.doc_count ?? 0 + info.doc_del_count ?? 0 === 0) await _migrate_activity()
-  info = await Database.use("credential").info()
-  if (info.doc_count ?? 0 + info.doc_del_count ?? 0 === 0) await _migrate_credential()
-  info = await Database.use("tag").info()
-  if (info.doc_count ?? 0 + info.doc_del_count ?? 0 === 0) await _migrate_tags()
-  info = await Database.use("activity_event").info()
-  if (info.doc_count ?? 0 + info.doc_del_count ?? 0 === 0) await _migrate_activity_event()
+  const _all_dbs = await Database.db.list()
+  if (!_all_dbs.includes("migrator")) await Database.db.create("migrator")
+  if (_all_dbs.includes("researcher") && _all_dbs.includes("study")) await _migrate_researcher_and_study()
+  if (_all_dbs.includes("participant")) await _migrate_participant()
+  if (_all_dbs.includes("activity")) await _migrate_activity()
+  if (_all_dbs.includes("credential")) await _migrate_credential()
+  if (_all_dbs.includes("tag")) await _migrate_tags()
+  if (_all_dbs.includes("activity_event")) await _migrate_activity_event()
+  if (_all_dbs.includes("migrator")) await Database.db.destroy("migrator")
 }
 
 export function Identifier_pack(components: any[]): string {
