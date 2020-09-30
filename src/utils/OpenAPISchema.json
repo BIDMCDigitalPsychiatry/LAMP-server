@@ -1,0 +1,3857 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "LAMP Platform",
+    "description": "The LAMP Platform API.",
+    "termsOfService": "https://lamp.digital/terms-of-service/",
+    "version": "1.0.0",
+    "contact": {
+      "url": "https://digitalpsych.org/",
+      "email": "team@digitalpsych.org",
+      "name": "Division of Digital Psychiatry at Beth Israel Deaconess Medical Center."
+    }
+  },
+  "externalDocs": {
+    "url": "https://docs.lamp.digital/"
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "The current API server."
+    },
+    {
+      "url": "https://api.lamp.digital/",
+      "description": "The global API server."
+    },
+    {
+      "url": "https://localhost:3000/",
+      "description": "The local testing API server (see instructions for usage)."
+    },
+    {
+      "url": "https://{server_url}",
+      "description": "A custom self-hosted API server.",
+      "variables": {
+        "server_url": {
+          "default": "api.lamp.digital",
+          "description": "A specific API server instance (must use HTTPS)."
+        }
+      }
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "operationId": "API.schema",
+        "summary": "View the API schema document.",
+        "description": "View this API schema document from a live server instance.",
+        "tags": [
+          "API"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ContentAvailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "API.query",
+        "summary": "Query the LAMP Database.",
+        "description": "Query the LAMP Database using a transformation document. All GET operations in this API schema document are available by replacing the period with an underscore (i.e. `$Participant_view(...)` instead of `Participant.view(...)`). The `origin`, `from`, and `to` parameters of EventStream functions are preserved but the `transform` parameter is not.",
+        "tags": [
+          "API"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "text/plain": {
+              "schema": {
+                "type": "string"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ContentAvailable"
+          },
+          "default": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/researcher": {
+      "post": {
+        "operationId": "Researcher.create",
+        "summary": "Create a new Researcher.",
+        "description": "Create a new Researcher.",
+        "tags": [
+          "Researcher"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Researcher"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectCreated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "Researcher.all",
+        "summary": "Get the set of all researchers.",
+        "description": "Get the set of all researchers.",
+        "tags": [
+          "Researcher"
+        ],
+        "parameters": [
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/researcher/{researcher_id}": {
+      "put": {
+        "operationId": "Researcher.update",
+        "summary": "Update a Researcher's settings.",
+        "description": "Update a Researcher's settings.",
+        "tags": [
+          "Researcher"
+        ],
+        "parameters": [
+          {
+            "name": "researcher_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Researcher"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectCreated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "Researcher.delete",
+        "summary": "Delete a researcher.",
+        "description": "Delete a researcher.",
+        "tags": [
+          "Researcher"
+        ],
+        "parameters": [
+          {
+            "name": "researcher_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectCreated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "Researcher.view",
+        "summary": "Get a single researcher, by identifier.",
+        "description": "Get a single researcher, by identifier.",
+        "tags": [
+          "Researcher"
+        ],
+        "parameters": [
+          {
+            "name": "researcher_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/researcher/{researcher_id}/study": {
+      "post": {
+        "operationId": "Study.create",
+        "summary": "Create a new Study for the given Researcher.",
+        "description": "Create a new Study for the given Researcher.",
+        "tags": [
+          "Study"
+        ],
+        "parameters": [
+          {
+            "name": "researcher_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Study"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectCreated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "Study.all_by_researcher",
+        "summary": "Get the set of studies for a single researcher.",
+        "description": "Get the set of studies for a single researcher.",
+        "tags": [
+          "Study"
+        ],
+        "parameters": [
+          {
+            "name": "researcher_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/study/{study_id}": {
+      "put": {
+        "operationId": "Study.update",
+        "summary": "Update the study.",
+        "description": "Update the study.",
+        "tags": [
+          "Study"
+        ],
+        "parameters": [
+          {
+            "name": "study_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Study"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectCreated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "Study.delete",
+        "summary": "Delete a study.",
+        "description": "Delete a study.",
+        "tags": [
+          "Study"
+        ],
+        "parameters": [
+          {
+            "name": "study_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectCreated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "Study.view",
+        "summary": "Get a single study, by identifier.",
+        "description": "Get a single study, by identifier.",
+        "tags": [
+          "Study"
+        ],
+        "parameters": [
+          {
+            "name": "study_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/study": {
+      "get": {
+        "operationId": "Study.all",
+        "summary": "Get the set of all studies.",
+        "description": "Get the set of all studies.",
+        "tags": [
+          "Study"
+        ],
+        "parameters": [
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/study/{study_id}/participant": {
+      "post": {
+        "operationId": "Participant.create",
+        "summary": "Create a new Participant for the given Study.",
+        "description": "Create a new Participant for the given Study.",
+        "tags": [
+          "Participant"
+        ],
+        "parameters": [
+          {
+            "name": "study_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Participant"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectCreated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "Participant.all_by_study",
+        "summary": "Get the set of all participants in a single study.",
+        "description": "Get the set of all participants in a single study.",
+        "tags": [
+          "Participant"
+        ],
+        "parameters": [
+          {
+            "name": "study_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/participant/{participant_id}": {
+      "put": {
+        "operationId": "Participant.update",
+        "summary": "Update a Participant's settings.",
+        "description": "Update a Participant's settings.",
+        "tags": [
+          "Participant"
+        ],
+        "parameters": [
+          {
+            "name": "participant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Participant"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectCreated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "Participant.delete",
+        "summary": "Delete a participant AND all owned data or event streams.",
+        "description": "Delete a participant AND all owned data or event streams.",
+        "tags": [
+          "Participant"
+        ],
+        "parameters": [
+          {
+            "name": "participant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectCreated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "Participant.view",
+        "summary": "Get a single participant, by identifier.",
+        "description": "Get a single participant, by identifier.",
+        "tags": [
+          "Participant"
+        ],
+        "parameters": [
+          {
+            "name": "participant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/researcher/{researcher_id}/participant": {
+      "get": {
+        "operationId": "Participant.all_by_researcher",
+        "summary": "Get the set of all participants under a single researcher.",
+        "description": "Get the set of all participants under a single researcher.",
+        "tags": [
+          "Participant"
+        ],
+        "parameters": [
+          {
+            "name": "researcher_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/participant": {
+      "get": {
+        "operationId": "Participant.all",
+        "summary": "Get the set of all participants.",
+        "description": "Get the set of all participants.",
+        "tags": [
+          "Participant"
+        ],
+        "parameters": [
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/type/{type_id}/parent": {
+      "get": {
+        "operationId": "Type.parent",
+        "summary": "Find the owner(s) of the resource.",
+        "description": "Get the parent type identifier of the data structure referenced by the identifier.",
+        "tags": [
+          "Type"
+        ],
+        "parameters": [
+          {
+            "name": "type_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectCreated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/type/{type_id}/attachment": {
+      "get": {
+        "operationId": "Type.list_attachments",
+        "summary": "",
+        "description": "",
+        "tags": [
+          "Type"
+        ],
+        "parameters": [
+          {
+            "name": "type_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ContentAvailable"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/type/{type_id}/attachment/{attachment_key}": {
+      "get": {
+        "operationId": "Type.get_attachment",
+        "summary": "",
+        "description": "",
+        "tags": [
+          "Type"
+        ],
+        "parameters": [
+          {
+            "name": "type_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "attachment_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ContentAvailable"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/type/{type_id}/attachment/{attachment_key}/{target}": {
+      "put": {
+        "operationId": "Type.set_attachment",
+        "summary": "",
+        "description": "",
+        "tags": [
+          "Type"
+        ],
+        "parameters": [
+          {
+            "name": "type_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "target",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attachment_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ContentAvailable"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/type/{type_id}/attachment/dynamic/{attachment_key}": {
+      "get": {
+        "operationId": "Type.get_dynamic_attachment",
+        "summary": "",
+        "description": "",
+        "tags": [
+          "Type"
+        ],
+        "parameters": [
+          {
+            "name": "type_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "attachment_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "invoke_always",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "include_logs",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ignore_output",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ContentAvailable"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/type/{type_id}/attachment/dynamic/{attachment_key}/{target}": {
+      "put": {
+        "operationId": "Type.set_dynamic_attachment",
+        "summary": "",
+        "description": "",
+        "tags": [
+          "Type"
+        ],
+        "parameters": [
+          {
+            "name": "type_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "target",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attachment_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "invoke_once",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DynamicAttachment"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ContentAvailable"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/study/{study_id}/sensor": {
+      "post": {
+        "operationId": "Sensor.create",
+        "summary": "Create a new Sensor under the given Study.",
+        "description": "Create a new Sensor under the given Study.",
+        "tags": [
+          "Sensor"
+        ],
+        "parameters": [
+          {
+            "name": "study_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Sensor"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectCreated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "Sensor.all_by_study",
+        "summary": "View all sensors in a study.",
+        "description": "Get the set of all sensors available to participants of a single  study, by study identifier.",
+        "tags": [
+          "Sensor"
+        ],
+        "parameters": [
+          {
+            "name": "study_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/sensor/{sensor_id}": {
+      "put": {
+        "operationId": "Sensor.update",
+        "summary": "Update an Sensor's settings.",
+        "description": "Update an Sensor's settings.",
+        "tags": [
+          "Sensor"
+        ],
+        "parameters": [
+          {
+            "name": "sensor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Sensor"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectCreated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "Sensor.delete",
+        "summary": "Delete a Sensor.",
+        "description": "Delete a Sensor.",
+        "tags": [
+          "Sensor"
+        ],
+        "parameters": [
+          {
+            "name": "sensor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectCreated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "Sensor.view",
+        "summary": "Get a single sensor, by identifier.",
+        "description": "Get a single sensor, by identifier.",
+        "tags": [
+          "Sensor"
+        ],
+        "parameters": [
+          {
+            "name": "sensor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/participant/{participant_id}/sensor": {
+      "get": {
+        "operationId": "Sensor.all_by_participant",
+        "summary": "Get all sensors for a participant.",
+        "description": "Get the set of all sensors available to a participant, by participant  identifier.",
+        "tags": [
+          "Sensor"
+        ],
+        "parameters": [
+          {
+            "name": "participant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/researcher/{researcher_id}/sensor": {
+      "get": {
+        "operationId": "Sensor.all_by_researcher",
+        "summary": "Get all sensors for a researcher.",
+        "description": "Get the set of all sensors available to participants of any study conducted  by a researcher, by researcher identifier.",
+        "tags": [
+          "Sensor"
+        ],
+        "parameters": [
+          {
+            "name": "researcher_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/sensor": {
+      "get": {
+        "operationId": "Sensor.all",
+        "summary": "Get the set of all sensors.",
+        "description": "Get the set of all sensors.",
+        "tags": [
+          "Sensor"
+        ],
+        "parameters": [
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/study/{study_id}/activity": {
+      "post": {
+        "operationId": "Activity.create",
+        "summary": "Create a new Activity under the given Study.",
+        "description": "Create a new Activity under the given Study.",
+        "tags": [
+          "Activity"
+        ],
+        "parameters": [
+          {
+            "name": "study_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Activity"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectCreated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "Activity.all_by_study",
+        "summary": "Get all activities in a study.",
+        "description": "Get the set of all activities available to  participants of a single  study, by study identifier.",
+        "tags": [
+          "Activity"
+        ],
+        "parameters": [
+          {
+            "name": "study_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/activity/{activity_id}": {
+      "put": {
+        "operationId": "Activity.update",
+        "summary": "Update an Activity's settings.",
+        "description": "Update an Activity's settings.",
+        "tags": [
+          "Activity"
+        ],
+        "parameters": [
+          {
+            "name": "activity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Activity"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectCreated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "Activity.delete",
+        "summary": "Delete an Activity.",
+        "description": "Delete an Activity.",
+        "tags": [
+          "Activity"
+        ],
+        "parameters": [
+          {
+            "name": "activity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectCreated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "Activity.view",
+        "summary": "Get a single activity, by identifier.",
+        "description": "Get a single activity, by identifier.",
+        "tags": [
+          "Activity"
+        ],
+        "parameters": [
+          {
+            "name": "activity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/participant/{participant_id}/activity": {
+      "get": {
+        "operationId": "Activity.all_by_participant",
+        "summary": "Get all activities for a participant.",
+        "description": "Get the set of all activities available to a participant, by  participant identifier.",
+        "tags": [
+          "Activity"
+        ],
+        "parameters": [
+          {
+            "name": "participant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/researcher/{researcher_id}/activity": {
+      "get": {
+        "operationId": "Activity.all_by_researcher",
+        "summary": "Get all activities for a researcher.",
+        "description": "Get the set of all activities available to participants of any study  conducted by a researcher, by researcher identifier.",
+        "tags": [
+          "Activity"
+        ],
+        "parameters": [
+          {
+            "name": "researcher_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/activity": {
+      "get": {
+        "operationId": "Activity.all",
+        "summary": "Get the set of all activities.",
+        "description": "Get the set of all activities.",
+        "tags": [
+          "Activity"
+        ],
+        "parameters": [
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/activity_spec": {
+      "post": {
+        "operationId": "ActivitySpec.create",
+        "summary": "Create a new ActivitySpec.",
+        "description": "Create a new ActivitySpec.",
+        "tags": [
+          "ActivitySpec"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActivitySpec"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectCreated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "ActivitySpec.all",
+        "summary": "Get all ActivitySpecs registered.",
+        "description": "Get all ActivitySpecs registered.",
+        "tags": [
+          "ActivitySpec"
+        ],
+        "parameters": [
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/activity_spec/{activity_spec_name}": {
+      "put": {
+        "operationId": "ActivitySpec.update",
+        "summary": "Update an ActivitySpec.",
+        "description": "Update an ActivitySpec.",
+        "tags": [
+          "ActivitySpec"
+        ],
+        "parameters": [
+          {
+            "name": "activity_spec_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActivitySpec"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectCreated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "ActivitySpec.delete",
+        "summary": "Delete an ActivitySpec.",
+        "description": "Delete an ActivitySpec.",
+        "tags": [
+          "ActivitySpec"
+        ],
+        "parameters": [
+          {
+            "name": "activity_spec_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectCreated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "ActivitySpec.view",
+        "summary": "View an ActivitySpec.",
+        "description": "View an ActivitySpec.",
+        "tags": [
+          "ActivitySpec"
+        ],
+        "parameters": [
+          {
+            "name": "activity_spec_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectCreated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/type/{type_id}/credential": {
+      "get": {
+        "operationId": "Credential.list",
+        "summary": "",
+        "description": "",
+        "tags": [
+          "Credential"
+        ],
+        "parameters": [
+          {
+            "name": "type_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ContentAvailable"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "Credential.create",
+        "summary": "",
+        "description": "",
+        "tags": [
+          "Credential"
+        ],
+        "parameters": [
+          {
+            "name": "type_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ContentAvailable"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/type/{type_id}/credential/{access_key}": {
+      "put": {
+        "operationId": "Credential.update",
+        "summary": "",
+        "description": "",
+        "tags": [
+          "Credential"
+        ],
+        "parameters": [
+          {
+            "name": "type_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "access_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ContentAvailable"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "Credential.delete",
+        "summary": "",
+        "description": "",
+        "tags": [
+          "Credential"
+        ],
+        "parameters": [
+          {
+            "name": "type_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "access_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ContentAvailable"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/participant/{participant_id}/activity_event": {
+      "post": {
+        "operationId": "ActivityEvent.create",
+        "summary": "Create a new ActivityEvent for the given Participant.",
+        "description": "Create a new ActivityEvent for the given Participant.",
+        "tags": [
+          "ActivityEvent"
+        ],
+        "parameters": [
+          {
+            "name": "participant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActivityEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectCreated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "ActivityEvent.delete",
+        "summary": "Delete a ActivityEvent.",
+        "description": "Delete a ActivityEvent.",
+        "tags": [
+          "ActivityEvent"
+        ],
+        "parameters": [
+          {
+            "name": "participant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "origin",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Timestamp"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Timestamp"
+            }
+          },
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectCreated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "ActivityEvent.all_by_participant",
+        "summary": "Get all activity events for a participant.",
+        "description": "Get the set of all activity events produced by a given participant,  by identifier.",
+        "tags": [
+          "ActivityEvent"
+        ],
+        "parameters": [
+          {
+            "name": "participant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "origin",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Timestamp"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Timestamp"
+            }
+          },
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/study/{study_id}/activity_event": {
+      "get": {
+        "operationId": "ActivityEvent.all_by_study",
+        "summary": "Get all activity events for a study by participant.",
+        "description": "Get the set of all activity events produced by participants of a  single study, by study identifier.",
+        "tags": [
+          "ActivityEvent"
+        ],
+        "parameters": [
+          {
+            "name": "study_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "origin",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Timestamp"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Timestamp"
+            }
+          },
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/researcher/{researcher_id}/activity_event": {
+      "get": {
+        "operationId": "ActivityEvent.all_by_researcher",
+        "summary": "Get all activity events for a researcher by participant.",
+        "description": "Get the set of all activity events produced by participants of any  study conducted by a researcher, by researcher identifier.",
+        "tags": [
+          "ActivityEvent"
+        ],
+        "parameters": [
+          {
+            "name": "researcher_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "origin",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Timestamp"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Timestamp"
+            }
+          },
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/participant/{participant_id}/sensor_event": {
+      "post": {
+        "operationId": "SensorEvent.create",
+        "summary": "Create a new SensorEvent for the given Participant.",
+        "description": "Create a new SensorEvent for the given Participant.",
+        "tags": [
+          "SensorEvent"
+        ],
+        "parameters": [
+          {
+            "name": "participant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SensorEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectCreated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "SensorEvent.delete",
+        "summary": "Delete a sensor event.",
+        "description": "Delete a sensor event.",
+        "tags": [
+          "SensorEvent"
+        ],
+        "parameters": [
+          {
+            "name": "participant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "origin",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Timestamp"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Timestamp"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectCreated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "SensorEvent.all_by_participant",
+        "summary": "Get all sensor events for a participant.",
+        "description": "Get the set of all sensor events produced by the given participant.",
+        "tags": [
+          "SensorEvent"
+        ],
+        "parameters": [
+          {
+            "name": "participant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "origin",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Timestamp"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Timestamp"
+            }
+          },
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/study/{study_id}/sensor_event": {
+      "get": {
+        "operationId": "SensorEvent.all_by_study",
+        "summary": "Get all sensor events for a study by participant.",
+        "description": "Get the set of all sensor events produced by participants of a  single study, by study identifier.",
+        "tags": [
+          "SensorEvent"
+        ],
+        "parameters": [
+          {
+            "name": "study_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "origin",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Timestamp"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Timestamp"
+            }
+          },
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/researcher/{researcher_id}/sensor_event": {
+      "get": {
+        "operationId": "SensorEvent.all_by_researcher",
+        "summary": "Get all sensor events for a researcher by participant.",
+        "description": "Get the set of all sensor events produced by participants of any  study conducted by a researcher, by researcher identifier.",
+        "tags": [
+          "SensorEvent"
+        ],
+        "parameters": [
+          {
+            "name": "researcher_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "origin",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Timestamp"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Timestamp"
+            }
+          },
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/sensor_spec": {
+      "post": {
+        "operationId": "SensorSpec.create",
+        "summary": "Create a new SensorSpec.",
+        "description": "Create a new SensorSpec.",
+        "tags": [
+          "SensorSpec"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SensorSpec"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectCreated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "SensorSpec.all",
+        "summary": "Get all SensorSpecs registered.",
+        "description": "Get all SensorSpecs registered by any Researcher.",
+        "tags": [
+          "SensorSpec"
+        ],
+        "parameters": [
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/sensor_spec/{sensor_spec_name}": {
+      "put": {
+        "operationId": "SensorSpec.update",
+        "summary": "Update an SensorSpec.",
+        "description": "Update an SensorSpec.",
+        "tags": [
+          "SensorSpec"
+        ],
+        "parameters": [
+          {
+            "name": "sensor_spec_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SensorSpec"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectCreated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "SensorSpec.delete",
+        "summary": "Delete an SensorSpec.",
+        "description": "Delete an SensorSpec.",
+        "tags": [
+          "SensorSpec"
+        ],
+        "parameters": [
+          {
+            "name": "sensor_spec_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectCreated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "SensorSpec.view",
+        "summary": "Get a SensorSpec.",
+        "description": "Get a SensorSpec.",
+        "tags": [
+          "SensorSpec"
+        ],
+        "parameters": [
+          {
+            "name": "sensor_spec_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataQueried"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthorizationFailed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Timestamp": {
+        "type": "number",
+        "description": "The UNIX Epoch date-time representation: number of milliseconds since 1/1/1970 12:00 AM.",
+        "format": "int64"
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        }
+      },
+      "Identifier": {
+        "type": "string",
+        "description": "A globally unique reference for objects."
+      },
+      "Researcher": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Identifier",
+            "description": "The self-referencing identifier to this object."
+          },
+          "name": {
+            "description": "The name of the researcher.",
+            "type": "string"
+          },
+          "email": {
+            "description": "The email address of the researcher.",
+            "type": "string"
+          },
+          "address": {
+            "description": "The physical address of the researcher.",
+            "type": "string"
+          },
+          "studies": {
+            "description": "The set of all studies conducted by the researcher.",
+            "type": "array",
+            "items": {}
+          }
+        }
+      },
+      "Study": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Identifier",
+            "description": "The self-referencing identifier to this object."
+          },
+          "name": {
+            "description": "The name of the study.",
+            "type": "string"
+          },
+          "activities": {
+            "description": "The set of all activities available in the study.",
+            "type": "array",
+            "items": {}
+          },
+          "participants": {
+            "description": "The set of all enrolled participants in the study.",
+            "type": "array",
+            "items": {}
+          }
+        }
+      },
+      "Participant": {
+        "type": "object",
+        "description": "A participant within a study; a participant cannot be enrolled in more than one study at a time.",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Identifier",
+            "description": "The self-referencing identifier to this object."
+          },
+          "study_code": {
+            "description": "The researcher-provided study code for the participant.",
+            "type": "string"
+          },
+          "language": {
+            "description": "The participant's selected language code for the LAMP app.",
+            "type": "string"
+          },
+          "theme": {
+            "description": "The participant's selected theme for the LAMP app.",
+            "type": "string"
+          },
+          "emergency_contact": {
+            "description": "The participant's emergency contact number.",
+            "type": "string"
+          },
+          "helpline": {
+            "description": "The participant's selected personal helpline number.",
+            "type": "string"
+          }
+        }
+      },
+      "DynamicAttachment": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "key": {
+            "description": "The key.",
+            "type": "string"
+          },
+          "from": {
+            "$ref": "#/components/schemas/Identifier",
+            "description": "The attachment owner."
+          },
+          "to": {
+            "description": "Either \"me\" to apply to the attachment owner only, the ID of an object owned  by the attachment owner, or a string representing the child object type to apply to.",
+            "type": "string"
+          },
+          "triggers": {
+            "description": "The API triggers that activate script execution. These will be event stream types  or object types in the API, or, if scheduling execution periodically, a cron-job string  prefixed with \"!\" (exclamation point).",
+            "type": "array",
+            "items": {}
+          },
+          "language": {
+            "description": "The script language.",
+            "type": "string"
+          },
+          "contents": {
+            "description": "The script contents.",
+            "type": "string"
+          },
+          "requirements": {
+            "description": "The script requirements.",
+            "type": "array",
+            "items": {}
+          }
+        }
+      },
+      "Type": {
+        "type": "object",
+        "description": "Runtime type specification for each object in the LAMP platform.",
+        "properties": {}
+      },
+      "AccessCitation": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "in": {
+            "description": "",
+            "type": "string"
+          },
+          "at": {
+            "description": "",
+            "type": "string"
+          },
+          "on": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "by": {
+            "description": "",
+            "type": "string"
+          }
+        }
+      },
+      "Metadata": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "access": {
+            "$ref": "#/components/schemas/AccessCitation"
+          }
+        }
+      },
+      "Document": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "meta": {
+            "$ref": "#/components/schemas/Metadata"
+          },
+          "data": {
+            "description": "",
+            "type": "array",
+            "items": {}
+          }
+        }
+      },
+      "DurationInterval": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "start": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "interval": {
+            "description": "",
+            "type": "array",
+            "items": {}
+          },
+          "repeat_count": {
+            "description": "",
+            "type": "integer",
+            "format": "int64"
+          },
+          "end": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "DurationIntervalLegacy": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "repeat_type": {
+            "description": "",
+            "type": "string"
+          },
+          "date": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "custom_times": {
+            "description": "",
+            "type": "array",
+            "items": {}
+          }
+        }
+      },
+      "Activity": {
+        "type": "object",
+        "description": "An activity that may be performed by a participant in a study.",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Identifier",
+            "description": "The self-referencing identifier to this object."
+          },
+          "spec": {
+            "$ref": "#/components/schemas/Identifier",
+            "description": "The specification, parameters, and type of the activity."
+          },
+          "name": {
+            "description": "The name of the activity.",
+            "type": "string"
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/DurationIntervalLegacy",
+            "description": "The notification schedule for the activity."
+          },
+          "settings": {
+            "description": "The configuration settings for the activity.",
+            "type": "object"
+          }
+        }
+      },
+      "Sensor": {
+        "type": "object",
+        "description": "A sensor that may or may not be available on a physical device.",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Identifier",
+            "description": "The self-referencing identifier to this object."
+          },
+          "spec": {
+            "$ref": "#/components/schemas/Identifier",
+            "description": "The specification, parameters, and type of the sensor."
+          },
+          "name": {
+            "description": "The name of the sensor.",
+            "type": "string"
+          },
+          "settings": {
+            "description": "The configuration settings for the sensor.",
+            "type": "object"
+          }
+        }
+      },
+      "ActivitySpec": {
+        "type": "object",
+        "description": "The ActivitySpec determines the parameters and properties of an Activity and its corresponding generated ActivityEvents.",
+        "properties": {
+          "name": {
+            "description": "The name of the activity spec.",
+            "type": "string"
+          },
+          "help_contents": {
+            "description": "Either a binary blob containing a document or video, or a string containing  instructional aid about the Activity.",
+            "type": "string"
+          },
+          "script_contents": {
+            "description": "The WebView-compatible script that provides this Activity on mobile or desktop (IFrame) clients.",
+            "type": "string"
+          },
+          "static_data_schema": {
+            "description": "The static data definition of an ActivitySpec.",
+            "type": "object"
+          },
+          "temporal_event_schema": {
+            "description": "The temporal event data definition of an ActivitySpec.",
+            "type": "object"
+          },
+          "settings_schema": {
+            "description": "The Activity settings definition of an ActivitySpec.",
+            "type": "object"
+          }
+        }
+      },
+      "Credential": {
+        "type": "object",
+        "description": "Every object can have one or more credential(s) associated with it. (i.e. `my_researcher.credentials = ['person A', 'person B', 'api A'', 'person C', 'api B']`)",
+        "properties": {
+          "origin": {
+            "description": "The root object this credential is attached to. The scope of this credential is limited to the object itself and any children.",
+            "type": "string"
+          },
+          "access_key": {
+            "description": "Username or machine-readable public key (access).",
+            "type": "string"
+          },
+          "secret_key": {
+            "description": "SALTED HASH OF Password or machine-readable private key (secret).",
+            "type": "string"
+          },
+          "description": {
+            "description": "The user-visible description of the credential.",
+            "type": "string"
+          }
+        }
+      },
+      "TemporalSlice": {
+        "type": "object",
+        "description": "A specific sub-detail of a `ActivityEvent` that contains specific  interaction information that comprises the parent `ActivityEvent`.",
+        "properties": {
+          "item": {
+            "description": "The item that was interacted with; for example, in a Jewels game, the  corresponding alphabet, or in a survey, the question index.",
+            "type": "object"
+          },
+          "value": {
+            "description": "The value of the item that was interacted with; in most games,  this field is  `null`, but in a survey, this field is the question  choice index.",
+            "type": "object"
+          },
+          "type": {
+            "description": "The type of interaction that for this detail; for example, in  a Jewels game,  `none` if the tapped jewel was  incorrect, or `correct` if it was correct, or in  a  survey, this field will be `null`.",
+            "type": "string"
+          },
+          "duration": {
+            "description": "The time difference from the previous detail or the  start of the parent result.",
+            "type": "integer",
+            "format": "int64"
+          },
+          "level": {
+            "description": "The level of activity for this detail; for example, in  games with multiple  levels, this field might be `2` or  `4`, but for surveys and other games this field  will be `null`.",
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ActivityEvent": {
+        "type": "object",
+        "description": "An event generated by the participant interacting with an `Activity`.",
+        "properties": {
+          "timestamp": {
+            "$ref": "#/components/schemas/Timestamp",
+            "description": "The date and time when this event was recorded."
+          },
+          "duration": {
+            "description": "The duration this event lasted before recording ended.",
+            "type": "integer",
+            "format": "int64"
+          },
+          "activity": {
+            "$ref": "#/components/schemas/Identifier",
+            "description": "The activity that produced this activity event."
+          },
+          "data": {
+            "description": "The summary information for the activity event as determined by the activity that created this activity event.",
+            "type": "object"
+          },
+          "temporal_slices": {
+            "description": "The specific interaction details of the activity event.",
+            "type": "array",
+            "items": {}
+          }
+        }
+      },
+      "SensorEvent": {
+        "type": "object",
+        "description": "An event generated by a participant interacting with the LAMP app.",
+        "properties": {
+          "timestamp": {
+            "$ref": "#/components/schemas/Timestamp",
+            "description": "The date and time when this event was recorded."
+          },
+          "sensor": {
+            "description": "The type of the sensor event.",
+            "type": "string"
+          },
+          "data": {
+            "description": "The item information recorded within the sensor event.",
+            "type": "object"
+          }
+        }
+      },
+      "SensorSpec": {
+        "type": "object",
+        "description": "The SensorSpec determines the parameters of generated SensorEvents.",
+        "properties": {
+          "name": {
+            "description": "The name of the sensor.",
+            "type": "string"
+          },
+          "settings_schema": {
+            "description": "The data definition of a SensorSpec.",
+            "type": "object"
+          }
+        }
+      }
+    },
+    "responses": {
+      "ContentAvailable": {
+        "description": "200 Success",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "DataQueried": {
+        "description": "200 Success",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": {}
+            }
+          }
+        }
+      },
+      "ObjectCreated": {
+        "description": "200 Success",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Identifier"
+            }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "400 Bad Request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "401 Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "AuthorizationFailed": {
+        "description": "403 Authorization Failed",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "404 Not Found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "409 Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "500 Internal Error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "Authorization": {
+        "type": "apiKey",
+        "name": "Authorization",
+        "in": "header"
+      }
+    }
+  }
+}

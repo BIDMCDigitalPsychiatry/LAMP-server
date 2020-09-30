@@ -116,7 +116,8 @@ export class CredentialRepository {
     return {}
   }
   public static async _packCosignerData(from: string, to: string): Promise<string> {
-    const _cosign = ((await Database.use("root").get("#master_config")) as any)?.data?.password
+    // FIXME: the #master_config document is deprecated and will not work.
+    const _cosign = ((await Database.use("credential").get("#master_config")) as any)?.data?.password
     const _data = JSON.stringify({
       identity: { from: from, to: to },
       cosigner: { id: "root", password: _cosign },
