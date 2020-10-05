@@ -53,16 +53,13 @@ async function main(): Promise<void> {
   // Begin running activity/automations scheduling AFTER connecting to the database.
   if (process.env.SCHEDULER === "on") {
     console.log("Initializing schedulers...")
-    setInterval(async () => {
-      await ActivityScheduler()
-      //await TypeRepository._process_triggers()
-    }, 60 * 1000 /* every 1m */)
+     ActivityScheduler();
   } else {
     console.log("Running with schedulers disabled.")
   }
   console.groupEnd()
   console.log("Initialization complete.")
-  ActivityScheduler();
+
   // Begin listener on port 3000.
   const _server = process.env.HTTPS === "off" ? app : https.createServer(HTTPS_CERT, app)
   _server.listen(process.env.PORT || 3000)
