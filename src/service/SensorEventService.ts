@@ -3,6 +3,7 @@ import { SensorEvent } from "../model/SensorEvent"
 import { SensorEventRepository } from "../repository/SensorEventRepository"
 import { SecurityContext, ActionContext, _verify } from "./Security"
 import jsonata from "jsonata"
+import {SchedulerDeviceUpdateQueue} from "../utils/queue/SchedulerDeviceUpdateQueue"
 
 export const SensorEventService = Router()
 SensorEventService.post("/participant/:participant_id/sensor_event", async (req: Request, res: Response) => {
@@ -16,6 +17,13 @@ SensorEventService.post("/participant/:participant_id/sensor_event", async (req:
         Array.isArray(sensor_event) ? sensor_event : [sensor_event]
       ),
     }
+    if(sensor_event.sensor==="lamp.analytics" && undefined!==sensor_event.data.device_token) {
+      SchedulerDeviceUpdateQueue.add(
+        {device_type:sensor_event.data.device_type,
+        device_token:sensor_event.data.device_token,
+        participant_id:participant_id,
+        mode:1},{attempts:3,backoff:10,removeOnComplete:true,removeOnFail:true})
+     }
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
