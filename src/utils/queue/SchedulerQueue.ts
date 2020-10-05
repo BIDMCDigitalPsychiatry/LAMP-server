@@ -51,7 +51,7 @@ function sendNotification(device_token: string, device_type: string, payload: an
               message: `${payload.message}`,
               page: `${url}`,
               notificationId: `${payload.title}`,
-              actions: [{ name: "Open App", page: "https://dashboard.lamp.digital" }],
+              actions: [{ name: "Open App", page: `${process.env.DASHBOARD_URL}` }],
               expiry: 3600000,
             },
           },
