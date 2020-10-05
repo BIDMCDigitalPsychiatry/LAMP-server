@@ -24,8 +24,7 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
 
       // Iterate all schedules, and if the schedule should be fired at this instant, iterate all participants
       // and their potential device tokens for which we will send the device push notifications.
-      for (const schedule of activity.schedule) {
-        const DeviceTokens: string[] = []
+      for (const schedule of activity.schedule) {        
         const Participants: any[] = []
         for (const participant of participants) {
           try {
@@ -85,7 +84,7 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
           } else {
             //As the custom time might appear as multiple, process it seperately
             const activity_details: {} = { name: activity.name, activity_id: activity.id, cronStr: cronStr }
-            await setCustomSchedule(activity_details, Participants, DeviceTokens)
+            await setCustomSchedule(activity_details, Participants)
           }
         }
       }
@@ -185,7 +184,7 @@ function getCronScheduleString(schedule: any): string {
 }
 
 //set custom schedule to the queue
-async function setCustomSchedule(activity: any, Participants: string[], DeviceTokens: string[]): Promise<any> {
+async function setCustomSchedule(activity: any, Participants: string[]): Promise<any> {
   
   //split and get individual cron string
   let cronArr = activity.cronStr.split("|")
