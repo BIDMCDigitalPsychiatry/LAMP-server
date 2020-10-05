@@ -47,7 +47,7 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
         }
         const cronStr = await getCronScheduleString(schedule)
         //if participants exists
-        if (Participants !== []) {
+        if (Participants !== []) {          
           if (schedule.repeat_interval !== "custom") {
             if (activity.id) {
               const scheduler_payload: any = {
@@ -82,9 +82,24 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
               }
             }
           } else {
+            if(schedule.repeat_interval === "none") {
+              const scheduler_payload: any = {
+                title: activity.name,
+                message: `You have a mindLAMP activity waiting for you: ${activity.name}.`,
+                activity_id: activity.id,
+                participants: Participants,
+              }
+              await SchedulerQueue.add(scheduler_payload, {
+                removeOnComplete: true,
+                removeOnFail: true,
+                backoff: 10,
+                attempts: 2,               
+               },{delay: new Date(schedule.time).getMilliseconds()})
+            } else {
             //As the custom time might appear as multiple, process it seperately
             const activity_details: {} = { name: activity.name, activity_id: activity.id, cronStr: cronStr }
             await setCustomSchedule(activity_details, Participants)
+            }
           }
         }
       }
@@ -106,7 +121,7 @@ function getCronScheduleString(schedule: any): string {
   //get hour,minute,second formatted time from feed date time
   let feedHoursUtc: any = feedDateTime.getUTCHours()
   let feedMinutesUtc: any = feedDateTime.getUTCMinutes()
-  let feedSecondsUtc: any = feedDateTime.getUTCSeconds()
+  
   // const dayNumber: number = new Date(feedDateTime).getUTCDay()
   const feedMonth: number = new Date(feedDateTime).getUTCMonth() + 1
   const sheduleDayNumber: number = new Date(feedDateTime).getUTCDay()
