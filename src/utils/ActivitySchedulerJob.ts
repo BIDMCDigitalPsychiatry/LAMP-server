@@ -24,7 +24,7 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
 
       // Iterate all schedules, and if the schedule should be fired at this instant, iterate all participants
       // and their potential device tokens for which we will send the device push notifications.
-      for (const schedule of activity.schedule) {        
+      for (const schedule of activity.schedule) {       
         const Participants: any[] = []
         for (const participant of participants) {
           try {
@@ -45,36 +45,50 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
             console.error(error)
           }
         }
-        const cronStr = await getCronScheduleString(schedule)
-        //if participants exists
-        if (Participants !== []) {          
+        const cronStr = (schedule.repeat_interval !== "none") ? await getCronScheduleString(schedule) : ""
+        if (Participants !== []) {
           if (schedule.repeat_interval !== "custom") {
-            if (activity.id) {
-              const scheduler_payload: any = {
-                title: activity.name,
-                message: `You have a mindLAMP activity waiting for you: ${activity.name}.`,
-                activity_id: activity.id,
-                participants: Participants,
-              }
-              //add the payload to schedular queue
-              const SchedulerjobResponse = await SchedulerQueue.add(scheduler_payload, {
+            const scheduler_payload: any = {
+              title: activity.name,
+              message: `You have a mindLAMP activity waiting for you: ${activity.name}.`,
+              activity_id: activity.id,
+              participants: Participants,
+            }
+            let SchedulerjobResponse: any = ""
+            if (schedule.repeat_interval !== "none") {
+              //repeatable job
+              SchedulerjobResponse = await SchedulerQueue.add(scheduler_payload, {
                 removeOnComplete: true,
                 removeOnFail: true,
-                backoff: 10,
+                backoff: 10000,
                 attempts: 2,
                 repeat: { jobId: activity.id, cron: cronStr },
               })
-              //updating ShedulerReference Queue(if already activity_id exists as JobId)
-              const SchedulerReferenceJob = await SchedulerReferenceQueue.getJob(activity.id)
-              if (null !== SchedulerReferenceJob) {
-                const SchedulerReferenceIds: any = SchedulerReferenceJob.data.scheduler_ref_ids
-                await SchedulerReferenceIds.push(SchedulerjobResponse.id)
-                await SchedulerReferenceJob.update({
-                  scheduler_ref_ids: SchedulerReferenceIds,
-                  activity_id: activity.id,
+            } else {
+              if (new Date(schedule.time) > new Date()) {
+                //non repeatable job
+                SchedulerjobResponse = await SchedulerQueue.add(scheduler_payload, {
+                  removeOnComplete: true,
+                  removeOnFail: true,
+                  backoff: 10000,
+                  attempts: 2,
+                  jobId: `${activity.id}|none|${new Date(schedule.time).getTime()}`,
+                  delay: Math.floor(new Date(schedule.time).getTime() - new Date().getTime()),
                 })
-              } else {
-                //add to scheduler reference queue
+              }
+            }
+            // updating ShedulerReference Queue(if already activity_id exists as JobId)
+            const SchedulerReferenceJob = await SchedulerReferenceQueue.getJob(activity.id)
+            if (null !== SchedulerReferenceJob) {
+              const SchedulerReferenceIds: any = SchedulerReferenceJob.data.scheduler_ref_ids
+              await SchedulerReferenceIds.push(SchedulerjobResponse.id)
+              await SchedulerReferenceJob.update({
+                scheduler_ref_ids: SchedulerReferenceIds,
+                activity_id: activity.id,
+              })
+            } else {
+              //add to scheduler reference queue(as we cannot make custom id for repeatable job, we need a reference of schedular jobids)
+              if (SchedulerjobResponse.id != undefined) {
                 await SchedulerReferenceQueue.add(
                   { scheduler_ref_ids: [SchedulerjobResponse.id], activity_id: activity.id },
                   { jobId: activity.id }
@@ -106,8 +120,6 @@ function getCronScheduleString(schedule: any): string {
   //get hour,minute,second formatted time from feed date time
   let feedHoursUtc: any = feedDateTime.getUTCHours()
   let feedMinutesUtc: any = feedDateTime.getUTCMinutes()  
-  // const dayNumber: number = new Date(feedDateTime).getUTCDay()
-  const feedMonth: number = new Date(feedDateTime).getUTCMonth() + 1
   const sheduleDayNumber: number = new Date(feedDateTime).getUTCDay()
   const sheduleMonthDate: number = new Date(feedDateTime).getUTCDate()
   //prepare cronstring for various schedules
@@ -129,7 +141,7 @@ function getCronScheduleString(schedule: any): string {
       schedule.custom_time.map((time: any) => {
         //get hour,minute,second from each of the custom time array
         let customHoursUtc: any = new Date(time).getUTCHours()
-        let customMinutesUtc: any = new Date(time).getUTCMinutes()       
+        let customMinutesUtc: any = new Date(time).getUTCMinutes()
         //set the multiple cron string  with identifier '|'
         cronStr += `${customMinutesUtc} ${customHoursUtc} * * *|`
       })
@@ -171,10 +183,7 @@ function getCronScheduleString(schedule: any): string {
       break
     case "bimonthly":
       cronStr = `${feedMinutesUtc} ${feedHoursUtc} 10,20 * *`
-      break
-    case "none":
-      cronStr = `${feedMinutesUtc} ${feedHoursUtc} ${sheduleMonthDate} ${feedMonth} *`
-      break
+      break   
 
     default:
       break
@@ -184,13 +193,10 @@ function getCronScheduleString(schedule: any): string {
 
 //set custom schedule to the queue
 async function setCustomSchedule(activity: any, Participants: string[]): Promise<any> {
-  
   //split and get individual cron string
   let cronArr = activity.cronStr.split("|")
   for (const cronCustomString of cronArr) {
     if (undefined !== cronCustomString && "" !== cronCustomString) {
-      //take hour,minute and seconds of  cron string
-      const cronCustomArr = cronCustomString.split(" ")
       //custom schedules may occur in multiple times and also need to run daily.
       if (activity.activity_id) {
         const scheduler_payload: any = {
@@ -204,7 +210,7 @@ async function setCustomSchedule(activity: any, Participants: string[]): Promise
           const SchedulerjobResponse = await SchedulerQueue.add(scheduler_payload, {
             removeOnComplete: true,
             removeOnFail: true,
-            backoff: 10,
+            backoff: 10000,
             attempts: 2,
             repeat: { jobId: activity.activity_id, cron: cronCustomString },
           })
@@ -219,10 +225,12 @@ async function setCustomSchedule(activity: any, Participants: string[]): Promise
             })
           } else {
             //add to scheduler reference queue(as we cannot make custom id for repeatable job, we need a reference of schedular jobids)
-            await SchedulerReferenceQueue.add(
-              { scheduler_ref_ids: [SchedulerjobResponse.id], activity_id: activity.activity_id },
-              { jobId: activity.activity_id }
-            )
+            if (SchedulerjobResponse.id !== undefined) {
+              await SchedulerReferenceQueue.add(
+                { scheduler_ref_ids: [SchedulerjobResponse.id], activity_id: activity.activity_id },
+                { jobId: activity.activity_id }
+              )
+            }
           }
         } catch (error) {
           console.log(error)
@@ -231,7 +239,6 @@ async function setCustomSchedule(activity: any, Participants: string[]): Promise
     }
   }
 }
-
 //Remove activities from the queue for a given activity_id, if exists
 export async function removeActivityJobs(activity_id: string): Promise<any> {
   try {
@@ -243,7 +250,6 @@ export async function removeActivityJobs(activity_id: string): Promise<any> {
         const SchedulerJob = await SchedulerQueue.getJob(shedulerId)
         await SchedulerJob?.remove()
       }
-
       //remove from sheduler reference job
       await SchedulerReferenceJob?.remove()
       //remove repeatable job object
@@ -262,9 +268,9 @@ async function removeRepeatableJob(activity_id: string): Promise<void> {
   }
 }
 
-//Add/remove device detail to the scheduler while login
+//Add new device detail to the scheduler while login
 export async function updateDeviceDetails(activityIDs: any, device_details: any): Promise<void> {
-  //form the device detail to be saved, if login.Otherwise, it would be for delete
+  //form the device detail to be saved
   const Device =
     device_details.device_token !== undefined
       ? {
@@ -283,7 +289,7 @@ export async function updateDeviceDetails(activityIDs: any, device_details: any)
       for (const shedulerId of SchedulerReferenceJobs.data.scheduler_ref_ids) {
         //get job details from Sheduler
         const SchedulerJob = await SchedulerQueue.getJob(shedulerId)
-        //get the participants for an scheduler id 
+        //get the participants for an scheduler id in an array
         const participants: any = SchedulerJob?.data.participants
         if (undefined !== participants) {
           const participantID = await participants.filter((participant: any) =>
@@ -304,7 +310,7 @@ export async function updateDeviceDetails(activityIDs: any, device_details: any)
     const SchedulerJob = await SchedulerQueue.getJob(updateDetail.shedulerId)
     if (null != SchedulerJob) {
       const newParticipants: any = await SchedulerJob?.data.participants
-      //remove the participant with old device details (if exists)
+      //remove the participant with old device details
       if (-1 !== updateDetail.index) {
         await newParticipants.splice(updateDetail.index, 1)
       }
