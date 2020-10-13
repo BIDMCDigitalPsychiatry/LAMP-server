@@ -41,12 +41,7 @@ TypeService.get("/type/:type_id/attachment/:attachment_key?/:index?", async (req
       const output = { data: obj !== undefined ? obj : null }
       res.json(output)
     } else {
-      const output = {
-        data: (<string[]>[]).concat(
-          await TypeRepository._list("a", <string>type_id),
-          (await TypeRepository._list("b", <string>type_id)).map((x) => "dynamic/" + x)
-        ),
-      }
+      const output = { data: await TypeRepository._list("a", <string>type_id) }
       res.json(output)
     }
   } catch (e) {

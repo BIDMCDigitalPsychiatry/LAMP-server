@@ -11,35 +11,39 @@ export const ActivityScheduler = async (): Promise<void> => {
     for (const activity of activities) {
       // If the activity has no schedules, ignore it.
       if (activity.schedule.length === 0) continue
+      try {
+        // Get all the participants of the study that the activity belongs to.
+        const parent: any = await TypeRepository._parent(activity.id)
+        const participants = await ParticipantRepository._select(parent["Study"])
 
-      // Get all the participants of the study that the activity belongs to.
-      const parent: any = await TypeRepository._parent(activity.id)
-      const participants = await ParticipantRepository._select(parent["Study"])
+        // Iterate all schedules, and if the schedule should be fired at this instant, iterate all participants
+        // and their potential device tokens for which we will send the device push notifications.
+        for (const schedule of activity.schedule) {
+          if (shouldSendNotification(schedule)) {
+            for (const participant of participants) {
+              try {
+                // Collect the Participant's device token, if there is one saved.
+                const events = await SensorEventRepository._select(participant.id, "lamp.analytics")
+                const device = events.find((x) => x.data?.device_token !== undefined)?.data
+                if (device === undefined || device.device_token.length === 0) continue
 
-      // Iterate all schedules, and if the schedule should be fired at this instant, iterate all participants
-      // and their potential device tokens for which we will send the device push notifications.
-      for (const schedule of activity.schedule) {
-        if (shouldSendNotification(schedule)) {
-          for (const participant of participants) {
-            try {
-              // Collect the Participant's device token, if there is one saved.
-              const events = await SensorEventRepository._select(participant.id, "lamp.analytics")
-              const device = events.find((x) => x.data?.device_token !== undefined)?.data
-              if (device === undefined || device.device_token.length === 0) continue
-
-              // If we have a device token saved for this Participant, we are able to send this notification.
-              sendNotification(device.device_token, device.device_type.toLowerCase(), {
-                title: activity.name,
-                message: `You have a mindLAMP activity waiting for you: ${activity.name}.`,
-                activity_id: activity.id,
-                participant_id: participant.id,
-              })
-            } catch (error) {
-              console.log("Error fetching Participant Device.")
-              console.error(error)
+                // If we have a device token saved for this Participant, we are able to send this notification.
+                sendNotification(device.device_token, device.device_type.toLowerCase(), {
+                  title: activity.name,
+                  message: `You have a mindLAMP activity waiting for you: ${activity.name}.`,
+                  activity_id: activity.id,
+                  participant_id: participant.id,
+                })
+              } catch (error) {
+                console.log(`Error fetching Device for Participant ${participant.id}.`)
+                console.error(error)
+              }
             }
           }
         }
+      } catch (error) {
+        console.log(`Encountered an error in delivering push notifications for ${activity.id}.`)
+        console.error(error)
       }
     }
   } catch (error) {

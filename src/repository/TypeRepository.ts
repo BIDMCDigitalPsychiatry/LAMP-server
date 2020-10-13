@@ -127,54 +127,79 @@ export class TypeRepository {
 
   public static async _get(mode: any, type_id: string, attachment_key: string): Promise<any | undefined> {
     const self_type = await TypeRepository._self_type(type_id)
-    const parents = await TypeRepository._parent(type_id)
-    const tag_values = (
-      await Database.use("tag").find({
-        selector: {
-          $or: [
-            /* Explicit self-ownership. */
-            { "#parent": type_id, type: type_id, key: attachment_key },
-            /* Implicit self-ownership. */
-            { "#parent": type_id, type: "me", key: attachment_key },
-            /* Explicit parent-ownership. */
-            ...Object.values(parents).map((pid) => ({ "#parent": pid, type: type_id, key: attachment_key })),
-            /* Implicit parent-ownership. */
-            ...Object.values(parents).map((pid) => ({ "#parent": pid, type: self_type, key: attachment_key })),
-          ],
-        },
-        limit: 1,
-      })
-    ).docs.map((x: any) => x.value as any)
-    if (tag_values[0] === undefined) throw new Error("404.object-not-found")
-    return tag_values[0]
+    const parents = Object.values(await TypeRepository._parent(type_id)).reverse()
+
+    // All possible conditions to retreive Tags, ordered greatest-to-least priority.
+    const conditions = [
+      // Explicit parent-ownership. (Ordered greatest-to-least ancestor.)
+      ...parents.map((pid) => ({ "#parent": pid, type: type_id, key: attachment_key })),
+      // Implicit parent-ownership. (Ordered greatest-to-least ancestor.)
+      ...parents.map((pid) => ({ "#parent": pid, type: self_type, key: attachment_key })),
+      // Explicit self-ownership.
+      { "#parent": type_id, type: type_id, key: attachment_key },
+      // Implicit self-ownership.
+      { "#parent": type_id, type: "me", key: attachment_key },
+    ]
+
+    // Following greatest-to-least priority, see if the Tag exists. We do this because:
+    // (1) Following priority order allows us to avoid searching the database after we find the
+    //     Tag we're looking for that applies with the greatest priority.
+    // (2) The CouchDB Mango Query API is NOT OPTIMIZED for $or queries that consist of
+    //     multiple keys per-subquery; the difference is almost ~7sec vs. ~150ms.
+    for (const condition of conditions) {
+      try {
+        const value = await Database.use("tag").find({ selector: condition as any, limit: 1 })
+        if (value.docs.length > 0) return value.docs.map((x: any) => x.value as any)[0]
+      } catch (error) {
+        console.error(error, `Failed to search Tag index for ${condition["#parent"]}:${condition.type}.`)
+      }
+    }
+
+    // No such Tag was found, so return an error (for legacy purposes).
+    throw new Error("404.object-not-found")
   }
 
   public static async _list(mode: any, type_id: string): Promise<string[]> {
     const self_type = await TypeRepository._self_type(type_id)
-    const parents = await TypeRepository._parent(type_id)
-    try {
-      const tag_keys = (
-        await Database.use("tag").find({
-          selector: {
-            $or: [
-              /* Explicit self-ownership. */
-              { "#parent": type_id, type: type_id },
-              /* Implicit self-ownership. */
-              { "#parent": type_id, type: "me" },
-              /* Explicit parent-ownership. */
-              ...Object.values(parents).map((parent_id) => ({ "#parent": parent_id, type: type_id })),
-              /* Implicit parent-ownership. */
-              ...Object.values(parents).map((parent_id) => ({ "#parent": parent_id, type: self_type })),
-            ],
-          },
+    const parents = Object.values(await TypeRepository._parent(type_id)).reverse()
+
+    // All possible conditions to retreive Tags, ordered greatest-to-least priority.
+    // Note: We MUST add a "key" selector to force CouchDB to use the right Mango index.
+    const conditions = [
+      // Explicit parent-ownership. (Ordered greatest-to-least ancestor.)
+      ...parents.map((pid) => ({ "#parent": pid, type: type_id, key: { $gt: null } })),
+      // Implicit parent-ownership. (Ordered greatest-to-least ancestor.)
+      ...parents.map((pid) => ({ "#parent": pid, type: self_type, key: { $gt: null } })),
+      // Explicit self-ownership.
+      { "#parent": type_id, type: type_id, key: { $gt: null } },
+      // Implicit self-ownership.
+      { "#parent": type_id, type: "me", key: { $gt: null } },
+    ]
+
+    // Following greatest-to-least priority, see if the Tag exists. We do this because:
+    // (1) Following priority order allows us to avoid searching the database after we find the
+    //     Tag we're looking for that applies with the greatest priority.
+    // (2) The CouchDB Mango Query API is NOT OPTIMIZED for $or queries that consist of
+    //     multiple keys per-subquery; the difference is almost ~7sec vs. ~150ms.
+    let all_keys: string[] = []
+    for (const condition of conditions) {
+      try {
+        const value = await Database.use("tag").find({
+          selector: condition as any,
           limit: 2_147_483_647 /* 32-bit INT_MAX */,
         })
-      ).docs.map((x: any) => x.key as string)
-      return tag_keys
-    } catch (e) {
-      console.error(e)
-      throw new Error("404.object-not-found")
+        console.dir(value)
+        all_keys = [...all_keys, ...value.docs.map((x: any) => x.key as any)]
+      } catch (error) {
+        console.error(error, `Failed to search Tag index for ${condition["#parent"]}:${condition.type}.`)
+      }
     }
+
+    // Return all the Tag keys we found; converting to a Set and back to an Array
+    // removes any duplicates (i.e. parent-specified Tag taking precedence over self-Tag).
+    // Else, if no such Tags were found, return an error (for legacy purposes).
+    if (all_keys.length > 0) return [...new Set(all_keys)]
+    else throw new Error("404.object-not-found")
   }
 
   public static async _invoke(attachment: DynamicAttachment, context: any): Promise<any | undefined> {
