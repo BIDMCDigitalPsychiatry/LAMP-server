@@ -28,7 +28,7 @@ export class ActivityEventRepository {
             timestamp: !!limit && limit < 0 ? "asc" : "desc",
           },
         ],
-        limit: Math.abs(limit ?? 1000),
+        limit: Math.abs(limit ?? 1),
       })
     ).docs.map((x) => ({
       ...x,
