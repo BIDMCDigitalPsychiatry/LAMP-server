@@ -4,6 +4,10 @@ import { SensorEventRepository } from "../repository/SensorEventRepository"
 import { SecurityContext, ActionContext, _verify } from "./Security"
 import jsonata from "jsonata"
 
+// default to LIMIT_NAN, clamped to [-LIMIT_MAX, +LIMIT_MAX]
+const LIMIT_NAN = 1000
+const LIMIT_MAX = 2_147_483_647
+
 export const SensorEventService = Router()
 SensorEventService.post("/participant/:participant_id/sensor_event", async (req: Request, res: Response) => {
   try {
@@ -42,7 +46,7 @@ SensorEventService.get("/participant/:participant_id/sensor_event", async (req: 
     const origin: string = req.query.origin
     const from: number | undefined = Number.parse(req.query.from)
     const to: number | undefined = Number.parse(req.query.to)
-    const limit = Math.min(Math.max(Number.parse(req.query.limit) ?? 1000, -1000), 1000) // clamped to [-1000, 1000]
+    const limit = Math.min(Math.max(Number.parse(req.query.limit) ?? LIMIT_NAN, -LIMIT_MAX), LIMIT_MAX)
     participant_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], participant_id)
     let output = { data: await SensorEventRepository._select(participant_id, origin, from, to, limit) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
@@ -58,7 +62,7 @@ SensorEventService.get("/study/:study_id/sensor_event", async (req: Request, res
     const origin: string = req.query.origin
     const from: number | undefined = Number.parse(req.query.from)
     const to: number | undefined = Number.parse(req.query.to)
-    const limit = Math.min(Math.max(Number.parse(req.query.limit) ?? 1000, -1000), 1000) // clamped to [-1000, 1000]
+    const limit = Math.min(Math.max(Number.parse(req.query.limit) ?? LIMIT_NAN, -LIMIT_MAX), LIMIT_MAX)
     study_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], study_id)
     let output = { data: await SensorEventRepository._select(study_id, origin, from, to, limit) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
@@ -74,7 +78,7 @@ SensorEventService.get("/researcher/:researcher_id/sensor_event", async (req: Re
     const origin: string = req.query.origin
     const from: number | undefined = Number.parse(req.query.from)
     const to: number | undefined = Number.parse(req.query.to)
-    const limit = Math.min(Math.max(Number.parse(req.query.limit) ?? 1000, -1000), 1000) // clamped to [-1000, 1000]
+    const limit = Math.min(Math.max(Number.parse(req.query.limit) ?? LIMIT_NAN, -LIMIT_MAX), LIMIT_MAX)
     researcher_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], researcher_id)
     let output = { data: await SensorEventRepository._select(researcher_id, origin, from, to, limit) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
