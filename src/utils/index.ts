@@ -626,7 +626,7 @@ export async function _bootstrap_db(Database: nano.ServerScope): Promise<void> {
   if (!_db_list.includes("credential")) {
     console.log("Initializing Credential database...")
     await Database.db.create("credential")
-    Database.use("sensor_event").bulk({
+    Database.use("credential").bulk({
       docs: [
         {
           _id: "_design/access_key-index",
@@ -696,7 +696,7 @@ export async function _bootstrap_db(Database: nano.ServerScope): Promise<void> {
   if (!_db_list.includes("tag")) {
     console.log("Initializing Tag database...")
     await Database.db.create("tag")
-    Database.use("sensor_event").bulk({
+    Database.use("tag").bulk({
       docs: [
         {
           _id: "_design/parent-type-key-index",
