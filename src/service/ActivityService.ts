@@ -3,6 +3,8 @@ import { Activity } from "../model/Activity"
 import { ActivityRepository } from "../repository/ActivityRepository"
 import { SecurityContext, ActionContext, _verify } from "./Security"
 import jsonata from "jsonata"
+import {UpdateToSchedulerQueue} from "../utils/queue/UpdateToSchedulerQueue"
+import {DeleteFromSchedulerQueue} from "../utils/queue/DeleteFromSchedulerQueue"
 
 export const ActivityService = Router()
 ActivityService.post("/study/:study_id/activity", async (req: Request, res: Response) => {
@@ -23,6 +25,7 @@ ActivityService.put("/activity/:activity_id", async (req: Request, res: Response
     const activity = req.body
     activity_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], activity_id)
     const output = { data: await ActivityRepository._update(activity_id, activity) }
+    UpdateToSchedulerQueue.add({activity_id:activity_id})
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -34,6 +37,7 @@ ActivityService.delete("/activity/:activity_id", async (req: Request, res: Respo
     let activity_id = req.params.activity_id
     activity_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], activity_id)
     const output = { data: await ActivityRepository._delete(activity_id) }
+    DeleteFromSchedulerQueue.add({activity_id:activity_id})
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)

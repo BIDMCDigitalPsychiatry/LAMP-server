@@ -5,7 +5,8 @@ import express, { Application } from "express"
 import cors from "cors"
 import morgan from "morgan"
 import { customAlphabet } from "nanoid"
-import { LegacyAPI, ActivityScheduler, OpenAPISchema, HTTPS_CERT, _bootstrap_db } from "./utils"
+import { LegacyAPI, OpenAPISchema, HTTPS_CERT, _bootstrap_db } from "./utils"
+import { ActivityScheduler } from "./utils/ActivitySchedulerJob"
 import API from "./service"
 
 // The database connection and ID generators for repository classes.
@@ -47,10 +48,7 @@ async function main(): Promise<void> {
   // Begin running activity/automations scheduling AFTER connecting to the database.
   if (process.env.SCHEDULER === "on") {
     console.log("Initializing schedulers...")
-    setInterval(async () => {
-      await ActivityScheduler()
-      //await TypeRepository._process_triggers()
-    }, 60 * 1000 /* every 1m */)
+     ActivityScheduler();
   } else {
     console.log("Running with schedulers disabled.")
   }
