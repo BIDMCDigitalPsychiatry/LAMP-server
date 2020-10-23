@@ -5,14 +5,20 @@ import express, { Application } from "express"
 import cors from "cors"
 import morgan from "morgan"
 import { customAlphabet } from "nanoid"
-import { LegacyAPI, ActivityScheduler, OpenAPISchema, HTTPS_CERT, _bootstrap_db } from "./utils"
+import { LegacyAPI, OpenAPISchema, HTTPS_CERT, _bootstrap_db } from "./utils"
+import { ActivityScheduler } from "./utils/ActivitySchedulerJob"
 import API from "./service"
 
 // The database connection and ID generators for repository classes.
 export const Database = nano(process.env.CDB ?? "")
 export const uuid = customAlphabet("1234567890abcdefghjkmnpqrstvwxyz", 20)
 export const numeric_uuid = (): string => `U${Math.random().toFixed(10).slice(2, 12)}`
-
+export const queueOpts = {
+  redis: {
+    host: process.env.REDIS_HOST,
+    port: 6379,
+  },
+}
 // Configure the base Express app and middleware.
 export const app: Application = express()
 app.set("json spaces", 2)
@@ -47,10 +53,7 @@ async function main(): Promise<void> {
   // Begin running activity/automations scheduling AFTER connecting to the database.
   if (process.env.SCHEDULER === "on") {
     console.log("Initializing schedulers...")
-    setInterval(async () => {
-      await ActivityScheduler()
-      //await TypeRepository._process_triggers()
-    }, 60 * 1000 /* every 1m */)
+     ActivityScheduler();
   } else {
     console.log("Running with schedulers disabled.")
   }
