@@ -13,12 +13,7 @@ import API from "./service"
 export const Database = nano(process.env.CDB ?? "")
 export const uuid = customAlphabet("1234567890abcdefghjkmnpqrstvwxyz", 20)
 export const numeric_uuid = (): string => `U${Math.random().toFixed(10).slice(2, 12)}`
-export const queueOpts = {
-  redis: {
-    host: process.env.REDIS_HOST,
-    port: 6379,
-  },
-}
+
 // Configure the base Express app and middleware.
 export const app: Application = express()
 app.set("json spaces", 2)

@@ -1,10 +1,9 @@
 import Bull from "bull"
 import fetch from "node-fetch"
-import { queueOpts } from "../../app"
 import { ActivityScheduler } from "../../utils/ActivitySchedulerJob"
 
 //Initialise Scheduler Queue
-export const SchedulerQueue = new Bull("Scheduler", queueOpts)
+export const SchedulerQueue = new Bull("Scheduler", process.env.REDIS_HOST ?? "")
 
 //Consume job from Scheduler
 SchedulerQueue.process(async (job) => {

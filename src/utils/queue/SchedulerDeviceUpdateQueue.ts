@@ -1,10 +1,9 @@
 import Bull from "bull"
 import { ActivityRepository } from "../../repository"
 import { ActivityScheduler, updateDeviceDetails } from "../../utils/ActivitySchedulerJob"
-import { queueOpts } from "../../app"
 
 //Initialise UpdateToSchedulerQueue Queue
-export const SchedulerDeviceUpdateQueue = new Bull("SchedulerDeviceUpdate", queueOpts)
+export const SchedulerDeviceUpdateQueue = new Bull("SchedulerDeviceUpdate", process.env.REDIS_HOST ?? "")
 
 //Consume jobs from SchedulerDeviceUpdateQueue
 SchedulerDeviceUpdateQueue.process(async (job: any) => {
