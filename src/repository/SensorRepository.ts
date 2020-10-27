@@ -2,20 +2,10 @@ import { Database, uuid } from "../app"
 import { Sensor } from "../model/Sensor"
 
 export class SensorRepository {
-  public static async _select(id?: string): Promise<Sensor[]> {
-    // TODO: for legacy all_by_researcher support:
-    const _studies = !!id
-      ? (
-          await Database.use("study").find({
-            selector: { "#parent": id },
-            sort: [{ timestamp: "asc" }],
-            limit: 2_147_483_647 /* 32-bit INT_MAX */,
-          })
-        ).docs.map((x) => ({ "#parent": x._id }))
-      : []
+  public static async _select(id: string | null, parent: boolean = false): Promise<Sensor[]> {
     return (
       await Database.use("sensor").find({
-        selector: !!id ? { $or: [{ _id: id }, { "#parent": id }, ..._studies] } : {},
+        selector: id === null ? {} : { [parent ? "#parent" : "_id"]: id },
         sort: [{ timestamp: "asc" }],
         limit: 2_147_483_647 /* 32-bit INT_MAX */,
       })

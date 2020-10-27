@@ -5,6 +5,7 @@ import { SecurityContext, ActionContext, _verify } from "./Security"
 import jsonata from "jsonata"
 import {UpdateToSchedulerQueue} from "../utils/queue/UpdateToSchedulerQueue"
 import {DeleteFromSchedulerQueue} from "../utils/queue/DeleteFromSchedulerQueue"
+import { TypeRepository } from "../repository"
 
 export const ActivityService = Router()
 ActivityService.post("/study/:study_id/activity", async (req: Request, res: Response) => {
@@ -60,7 +61,10 @@ ActivityService.get("/participant/:participant_id/activity", async (req: Request
   try {
     let participant_id = req.params.participant_id
     participant_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], participant_id)
-    let output = { data: await ActivityRepository._select(participant_id) }
+    let study_id = await TypeRepository._owner(participant_id)
+    if (study_id === null)
+      throw new Error("403.invalid-sibling-ownership")
+    let output = { data: await ActivityRepository._select(study_id, true) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {
@@ -72,30 +76,7 @@ ActivityService.get("/study/:study_id/activity", async (req: Request, res: Respo
   try {
     let study_id = req.params.study_id
     study_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], study_id)
-    let output = { data: await ActivityRepository._select(study_id) }
-    output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
-    res.json(output)
-  } catch (e) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
-    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
-  }
-})
-ActivityService.get("/researcher/:researcher_id/activity", async (req: Request, res: Response) => {
-  try {
-    let researcher_id = req.params.researcher_id
-    researcher_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], researcher_id)
-    let output = { data: await ActivityRepository._select(researcher_id) }
-    output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
-    res.json(output)
-  } catch (e) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
-    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
-  }
-})
-ActivityService.get("/activity", async (req: Request, res: Response) => {
-  try {
-    const _ = await _verify(req.get("Authorization"), ["parent"])
-    let output = { data: await ActivityRepository._select() }
+    let output = { data: await ActivityRepository._select(study_id, true) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {

@@ -2,20 +2,10 @@ import { Database, numeric_uuid } from "../app"
 import { Participant } from "../model/Participant"
 
 export class ParticipantRepository {
-  public static async _select(id?: string): Promise<Participant[]> {
-    // TODO: for legacy all_by_researcher support:
-    const _studies = !!id
-      ? (
-          await Database.use("study").find({
-            selector: { "#parent": id },
-            sort: [{ timestamp: "asc" }],
-            limit: 2_147_483_647 /* 32-bit INT_MAX */,
-          })
-        ).docs.map((x) => ({ "#parent": x._id }))
-      : []
+  public static async _select(id: string | null, parent: boolean = false): Promise<Participant[]> {
     return (
       await Database.use("participant").find({
-        selector: !!id ? { $or: [{ _id: id }, { "#parent": id }, ..._studies] } : {},
+        selector: id === null ? {} : { [parent ? "#parent" : "_id"]: id },
         sort: [{ timestamp: "asc" }],
         limit: 2_147_483_647 /* 32-bit INT_MAX */,
       })

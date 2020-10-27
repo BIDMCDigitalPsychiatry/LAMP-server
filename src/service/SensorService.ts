@@ -3,6 +3,7 @@ import { Sensor } from "../model/Sensor"
 import { SensorRepository } from "../repository/SensorRepository"
 import { SecurityContext, ActionContext, _verify } from "./Security"
 import jsonata from "jsonata"
+import { TypeRepository } from "../repository"
 
 export const SensorService = Router()
 SensorService.post("/study/:study_id/sensor", async (req: Request, res: Response) => {
@@ -56,7 +57,10 @@ SensorService.get("/participant/:participant_id/sensor", async (req: Request, re
   try {
     let participant_id = req.params.participant_id
     participant_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], participant_id)
-    let output = { data: await SensorRepository._select(participant_id) }
+    let study_id = await TypeRepository._owner(participant_id)
+    if (study_id === null)
+      throw new Error("403.invalid-sibling-ownership")
+    let output = { data: await SensorRepository._select(study_id, true) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {
@@ -68,30 +72,7 @@ SensorService.get("/study/:study_id/sensor", async (req: Request, res: Response)
   try {
     let study_id = req.params.study_id
     study_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], study_id)
-    let output = { data: await SensorRepository._select(study_id) }
-    output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
-    res.json(output)
-  } catch (e) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
-    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
-  }
-})
-SensorService.get("/researcher/:researcher_id/sensor", async (req: Request, res: Response) => {
-  try {
-    let researcher_id = req.params.researcher_id
-    researcher_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], researcher_id)
-    let output = { data: await SensorRepository._select(researcher_id) }
-    output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
-    res.json(output)
-  } catch (e) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
-    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
-  }
-})
-SensorService.get("/sensor", async (req: Request, res: Response) => {
-  try {
-    const _ = await _verify(req.get("Authorization"), ["parent"])
-    let output = { data: await SensorRepository._select() }
+    let output = { data: await SensorRepository._select(study_id, true) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {

@@ -5,7 +5,7 @@ import { SecurityContext, ActionContext, _verify } from "./Security"
 import jsonata from "jsonata"
 
 export const CredentialService = Router()
-CredentialService.get("/type/:type_id/credential", async (req: Request, res: Response) => {
+CredentialService.get(["researcher", "study", "participant", "activity", "sensor", "type"].map(type => `/${type}/:type_id/credential`), async (req: Request, res: Response) => {
   try {
     let type_id = req.params.type_id
     type_id = await _verify(req.get("Authorization"), ["self", "parent"], type_id)
@@ -17,7 +17,7 @@ CredentialService.get("/type/:type_id/credential", async (req: Request, res: Res
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-CredentialService.post("/type/:type_id/credential", async (req: Request, res: Response) => {
+CredentialService.post(["researcher", "study", "participant", "activity", "sensor", "type"].map(type => `/${type}/:type_id/credential/`), async (req: Request, res: Response) => {
   try {
     let type_id = req.params.type_id
     const credential = req.body
@@ -29,7 +29,7 @@ CredentialService.post("/type/:type_id/credential", async (req: Request, res: Re
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-CredentialService.put("/type/:type_id/credential/:access_key", async (req: Request, res: Response) => {
+CredentialService.put(["researcher", "study", "participant", "activity", "sensor", "type"].map(type => `/${type}/:type_id/credential/:access_key`), async (req: Request, res: Response) => {
   try {
     let type_id = req.params.type_id
     const access_key = req.params.access_key
@@ -42,7 +42,7 @@ CredentialService.put("/type/:type_id/credential/:access_key", async (req: Reque
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-CredentialService.delete("/type/:type_id/credential/:access_key", async (req: Request, res: Response) => {
+CredentialService.delete(["researcher", "study", "participant", "activity", "sensor", "type"].map(type => `/${type}/:type_id/credential/:access_key`), async (req: Request, res: Response) => {
   try {
     let type_id = req.params.type_id
     const access_key = req.params.access_key

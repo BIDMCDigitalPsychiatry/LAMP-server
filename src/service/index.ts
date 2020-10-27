@@ -32,10 +32,6 @@ export async function Query(query: string, auth: string | undefined, verify = tr
           if (verify) participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
           return await ActivityEventRepository._select(participant_id, origin, from, to)
         },
-        Activity_all: async () => {
-          if (verify) await _verify(auth, ["parent"])
-          return await ActivityRepository._select()
-        },
         Activity_view: async (participant_or_study_id: string) => {
           if (verify)
             participant_or_study_id = await _verify(auth, ["self", "sibling", "parent"], participant_or_study_id)

@@ -6,7 +6,7 @@ import { SchedulerReferenceQueue } from "../utils/queue/SchedulerReferenceQueue"
 export const ActivityScheduler = async (id?: string): Promise<void> => {
   try {
     const activities: any[] =
-      id === undefined ? await ActivityRepository._select() : await ActivityRepository._select(id)
+      id === undefined ? await ActivityRepository._select(null) : await ActivityRepository._select(id)
     console.log("activity_id given", id)
     console.log("Saving to redis")
     console.log(`Processing ${activities.length} activities for push notifications.`)
