@@ -5,7 +5,7 @@ import { SecurityContext, ActionContext, _verify } from "./Security"
 import jsonata from "jsonata"
 
 export const TypeService = Router()
-TypeService.get("/type/:type_id/parent", async (req: Request, res: Response) => {
+TypeService.get(["researcher", "study", "participant", "activity", "sensor", "type"].map(type => `/${type}/:type_id/parent`), async (req: Request, res: Response) => {
   try {
     let type_id = req.params.type_id
     type_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], type_id)
@@ -17,7 +17,7 @@ TypeService.get("/type/:type_id/parent", async (req: Request, res: Response) => 
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-TypeService.get("/type/:type_id/attachment/:attachment_key?/:index?", async (req: Request, res: Response) => {
+TypeService.get(["researcher", "study", "participant", "activity", "sensor", "type"].map(type => `/${type}/:type_id/attachment/:attachment_key?/:index?`), async (req: Request, res: Response) => {
   try {
     let type_id = req.params.type_id
     const attachment_key = req.params.attachment_key
@@ -49,7 +49,7 @@ TypeService.get("/type/:type_id/attachment/:attachment_key?/:index?", async (req
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-TypeService.put("/type/:type_id/attachment/:attachment_key/:target", async (req: Request, res: Response) => {
+TypeService.put(["researcher", "study", "participant", "activity", "sensor", "type"].map(type => `/${type}/:type_id/attachment/:attachment_key/:target`), async (req: Request, res: Response) => {
   try {
     let type_id = req.params.type_id
     const attachment_key = req.params.attachment_key
@@ -67,7 +67,8 @@ TypeService.put("/type/:type_id/attachment/:attachment_key/:target", async (req:
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-TypeService.get("/type/:type_id/attachment/dynamic/:attachment_key", async (req: Request, res: Response) => {
+/*
+TypeService.get(["researcher", "study", "participant", "activity", "sensor", "type"].map(type => `/${type}/:type_id/attachment/dynamic/:attachment_key`), async (req: Request, res: Response) => {
   try {
     let type_id = req.params.type_id
     const attachment_key = req.params.attachment_key
@@ -101,7 +102,7 @@ TypeService.get("/type/:type_id/attachment/dynamic/:attachment_key", async (req:
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-TypeService.put("/type/:type_id/attachment/dynamic/:attachment_key/:target", async (req: Request, res: Response) => {
+TypeService.put(["researcher", "study", "participant", "activity", "sensor", "type"].map(type => `/${type}/:type_id/attachment/dynamic/:attachment_key/:target`), async (req: Request, res: Response) => {
   try {
     let type_id = req.params.type_id
     const attachment_key = req.params.attachment_key
@@ -110,7 +111,7 @@ TypeService.put("/type/:type_id/attachment/dynamic/:attachment_key/:target", asy
     const invoke_once = req.query.invoke_once
     type_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], type_id)
 
-    let result: any = null /* error */
+    let result: any = null // error 
     if (TypeRepository._set("b", target, <string>type_id, attachment_key, attachment_value)) {
       // If needed, invoke the attachment now.
       if (!!invoke_once) {
@@ -127,3 +128,4 @@ TypeService.put("/type/:type_id/attachment/dynamic/:attachment_key/:target", asy
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
+*/

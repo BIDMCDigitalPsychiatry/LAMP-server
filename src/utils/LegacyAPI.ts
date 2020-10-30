@@ -340,7 +340,7 @@ LegacyAPI.post("/SignIn", async (req: Request, res: Response) => {
         },
       },
     ])
-    const CognitionSett = await ActivityRepository._select(StudyId)
+    const CognitionSett = await ActivityRepository._select(StudyId!, true)
     const GameData = CognitionSett.filter((x: any) => LegacyActivities.map((y) => y.Name).includes(x.spec))
 
     if (GameData.length > 0) {
@@ -1246,7 +1246,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
 
   try {
     const UserData = (req as any).AuthUser
-    const Output = await ActivityRepository._select(UserData.StudyId)
+    const Output = await ActivityRepository._select(UserData.StudyId!, true)
 
     // JewelsTrailsASettings
     const JewelsA = Output.filter((x: any) => x.spec === "lamp.jewels_a")
@@ -1340,7 +1340,7 @@ LegacyAPI.post("/GetSurveyAndGameSchedule", [_authorize], async (req: Request, r
       let BatchScheduleSurvey_CTestObj: any = {}
       const BatchScheduleSurvey_CTestArray: any = []
       for (let j = 0; j < arrSetings[i].length; j++) {
-        act = await ActivityRepository._select(arrSetings[i][j])
+        act = await ActivityRepository._select(arrSetings[i][j]!, false)
         BatchCtestArray.push(act[0])
         specData = [act[0].spec]
         BatchCtestFiltered = LegacyActivities.filter((cls) => {
@@ -1705,7 +1705,7 @@ LegacyAPI.post("/GetSurveys", [_authorize], async (req: Request, res: Response) 
 
   const userData = (req as any).AuthUser
   const surveyArray: any = []
-  const output = await ActivityRepository._select(userData.StudyId)
+  const output = await ActivityRepository._select(userData.StudyId!, true)
   const surveyFiltered = output.filter((x: any) => x.spec === "lamp.survey")
   let surveyObj = {}
   surveyFiltered.forEach((item: any, index: any) => {
@@ -1781,7 +1781,7 @@ LegacyAPI.post("/SaveUserSurvey", [_authorize], async (req: Request, res: Respon
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId!, true)
   const activityID = _all_activities.find((x: any) => x.name === data.SurveyName)?.id
   //const activityID = await _lookup_migrator_id(Activity_pack_id({ survey_id: data.SurveyID! }))
   if (!!activityID) {
@@ -2036,7 +2036,7 @@ LegacyAPI.post("/SaveNBackGame", [_authorize], async (req: Request, res: Respons
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId!, true)
   const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
   if (!!activityID) {
     await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
@@ -2102,7 +2102,7 @@ LegacyAPI.post("/SaveTrailsBGame", [_authorize], async (req: Request, res: Respo
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId!, true)
   const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
   if (!!activityID) {
     await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
@@ -2180,7 +2180,7 @@ LegacyAPI.post("/SaveSpatialSpanGame", [_authorize], async (req: Request, res: R
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId!, true)
   const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
   if (!!activityID) {
     await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
@@ -2251,7 +2251,7 @@ LegacyAPI.post("/SaveSimpleMemoryGame", [_authorize], async (req: Request, res: 
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId!, true)
   const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
   if (!!activityID) {
     await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
@@ -2311,7 +2311,7 @@ LegacyAPI.post("/SaveSerial7Game", [_authorize], async (req: Request, res: Respo
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId!, true)
   const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
   if (!!activityID) {
     await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
@@ -2370,7 +2370,7 @@ LegacyAPI.post("/SaveCatAndDogGame", [_authorize], async (req: Request, res: Res
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId!, true)
   const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
   if (!!activityID) {
     await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
@@ -2428,7 +2428,7 @@ LegacyAPI.post("/Save3DFigureGame", [_authorize], async (req: Request, res: Resp
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId!, true)
   const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
   if (!!activityID) {
     const new_filename = `${(req as any).AuthUser.UserID}_${uuidv4()}.png`
@@ -2501,7 +2501,7 @@ LegacyAPI.post("/SaveVisualAssociationGame", [_authorize], async (req: Request, 
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId!, true)
   const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
   if (!!activityID) {
     await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
@@ -2563,7 +2563,7 @@ LegacyAPI.post("/SaveDigitSpanGame", [_authorize], async (req: Request, res: Res
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId!, true)
   const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
   if (!!activityID) {
     await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
@@ -2627,7 +2627,7 @@ LegacyAPI.post("/SaveCatAndDogNewGame", [_authorize], async (req: Request, res: 
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId!, true)
   const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
   if (!!activityID) {
     await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
@@ -2692,7 +2692,7 @@ LegacyAPI.post("/SaveTemporalOrderGame", [_authorize], async (req: Request, res:
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId!, true)
   const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
   if (!!activityID) {
     await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
@@ -2752,7 +2752,7 @@ LegacyAPI.post("/SaveNBackGameNewGame", [_authorize], async (req: Request, res: 
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId!, true)
   const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
   if (!!activityID) {
     await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
@@ -2818,7 +2818,7 @@ LegacyAPI.post("/SaveTrailsBGameNew", [_authorize], async (req: Request, res: Re
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId!, true)
   const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
   if (!!activityID) {
     await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
@@ -2892,7 +2892,7 @@ LegacyAPI.post("/SaveTrailsBDotTouchGame", [_authorize], async (req: Request, re
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId!, true)
   const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
   if (!!activityID) {
     await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
@@ -2967,7 +2967,7 @@ LegacyAPI.post("/SaveJewelsTrailsAGame", [_authorize], async (req: Request, res:
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId!, true)
   const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
   if (!!activityID) {
     await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
@@ -3044,7 +3044,7 @@ LegacyAPI.post("/SaveJewelsTrailsBGame", [_authorize], async (req: Request, res:
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId!, true)
   const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
   if (!!activityID) {
     await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [
@@ -3113,7 +3113,7 @@ LegacyAPI.post("/SaveScratchImageGame", [_authorize], async (req: Request, res: 
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId!, true)
   const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
   if (!!activityID) {
     const new_filename = `${(req as any).AuthUser.UserID}_${uuidv4()}.png`
@@ -3179,7 +3179,7 @@ LegacyAPI.post("/SaveSpinWheelGame", [_authorize], async (req: Request, res: Res
     ErrorMessage?: string
   }
   const data = req.body as APIRequest // TODO: StatusType field?
-  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId)
+  const _all_activities = await ActivityRepository._select((req as any).AuthUser.StudyId!, true)
   const activityID = _all_activities.find((x: any) => x.spec === SpecName)?.id
   if (!!activityID) {
     await ActivityEventRepository._insert((req as any).AuthUser.StudyId, [

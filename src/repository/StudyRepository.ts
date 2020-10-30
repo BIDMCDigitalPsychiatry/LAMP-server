@@ -2,10 +2,10 @@ import { Database, uuid } from "../app"
 import { Study } from "../model/Study"
 
 export class StudyRepository {
-  public static async _select(id?: string): Promise<Study[]> {
+  public static async _select(id: string | null, parent: boolean = false): Promise<Study[]> {
     return (
       await Database.use("study").find({
-        selector: !!id ? { $or: [{ _id: id }, { "#parent": id }] } : {},
+        selector: id === null ? {} : { [parent ? "#parent" : "_id"]: id },
         sort: [{ timestamp: "asc" }],
         limit: 2_147_483_647 /* 32-bit INT_MAX */,
       })

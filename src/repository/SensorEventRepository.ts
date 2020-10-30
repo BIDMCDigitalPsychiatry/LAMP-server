@@ -51,12 +51,4 @@ export class SensorEventRepository {
     if (output.length > 0) console.error(output)
     return {}
   }
-  public static async _delete(
-    participant_id: string,
-    sensor_spec?: string,
-    from_date?: number,
-    to_date?: number
-  ): Promise<{}> {
-    throw new Error("503.unimplemented")
-  }
 }

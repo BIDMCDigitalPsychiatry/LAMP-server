@@ -34,20 +34,6 @@ SensorEventService.post("/participant/:participant_id/sensor_event", async (req:
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-SensorEventService.delete("/participant/:participant_id/sensor_event", async (req: Request, res: Response) => {
-  try {
-    let participant_id = req.params.participant_id
-    const origin: string = req.query.origin
-    const from: number | undefined = Number.parse(req.query.from)
-    const to: number | undefined = Number.parse(req.query.to)
-    participant_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], participant_id)
-    const output = { data: await SensorEventRepository._delete(participant_id, origin, from, to) }
-    res.json(output)
-  } catch (e) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
-    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
-  }
-})
 SensorEventService.get("/participant/:participant_id/sensor_event", async (req: Request, res: Response) => {
   try {
     let participant_id: string = req.params.participant_id
@@ -64,35 +50,4 @@ SensorEventService.get("/participant/:participant_id/sensor_event", async (req: 
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-SensorEventService.get("/study/:study_id/sensor_event", async (req: Request, res: Response) => {
-  try {
-    let study_id = req.params.study_id
-    const origin: string = req.query.origin
-    const from: number | undefined = Number.parse(req.query.from)
-    const to: number | undefined = Number.parse(req.query.to)
-    const limit = Math.min(Math.max(Number.parse(req.query.limit) ?? LIMIT_NAN, -LIMIT_MAX), LIMIT_MAX)
-    study_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], study_id)
-    let output = { data: await SensorEventRepository._select(study_id, origin, from, to, limit) }
-    output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
-    res.json(output)
-  } catch (e) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
-    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
-  }
-})
-SensorEventService.get("/researcher/:researcher_id/sensor_event", async (req: Request, res: Response) => {
-  try {
-    let researcher_id = req.params.researcher_id
-    const origin: string = req.query.origin
-    const from: number | undefined = Number.parse(req.query.from)
-    const to: number | undefined = Number.parse(req.query.to)
-    const limit = Math.min(Math.max(Number.parse(req.query.limit) ?? LIMIT_NAN, -LIMIT_MAX), LIMIT_MAX)
-    researcher_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], researcher_id)
-    let output = { data: await SensorEventRepository._select(researcher_id, origin, from, to, limit) }
-    output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
-    res.json(output)
-  } catch (e) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
-    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
-  }
-})
+// TODO: activity/* and sensor/* entry

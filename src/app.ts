@@ -48,7 +48,7 @@ async function main(): Promise<void> {
   // Begin running activity/automations scheduling AFTER connecting to the database.
   if (process.env.SCHEDULER === "on") {
     console.log("Initializing schedulers...")
-     ActivityScheduler();
+    ActivityScheduler()
   } else {
     console.log("Running with schedulers disabled.")
   }
