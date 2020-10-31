@@ -8,8 +8,22 @@ export const SchedulerQueue = new Bull("Scheduler", process.env.REDIS_HOST ?? ""
 //Consume job from Scheduler
 SchedulerQueue.process(async (job) => {
   console.log("jobs in queue")
+
+  const uniqueParticipants = []
+  const map = new Map()
   const data: any = job.data
-  for (const device of data.participants) {
+  //removing duplicate device token (if any)
+  for (const item of data.participants) {
+    if (!map.has(item.device_token)) {
+      map.set(item.device_token, true)
+      uniqueParticipants.push({
+        device_type: item.device_type,
+        device_token: item.device_token,
+        participant_id: item.participant_id,
+      })
+    }
+  }
+  for (const device of uniqueParticipants) {
     const device_type = device.device_type
     const device_token = device.device_token
     const participant_id = device.participant_id
@@ -110,6 +124,7 @@ function sendNotification(device_token: string, device_type: string, payload: an
             console.log("Error encountered sending APN push notification.")
           })
       } catch (error) {
+        console.log(device_token)
         console.log(`"Error encountered sending APN push notification"-${error}`)
       }
       break
