@@ -1,28 +1,17 @@
 import Bull from "bull"
 import fetch from "node-fetch"
-import { ActivityScheduler } from "../../utils/ActivitySchedulerJob"
+import { ActivityScheduler,removeDuplicateParticipants } from "../../utils/ActivitySchedulerJob"
 
 //Initialise Scheduler Queue
 export const SchedulerQueue = new Bull("Scheduler", process.env.REDIS_HOST ?? "")
 
 //Consume job from Scheduler
 SchedulerQueue.process(async (job) => {
-  console.log("jobs in queue")
-
-  const uniqueParticipants = []
-  const map = new Map()
+  console.log("jobs in queue")  
   const data: any = job.data
+
   //removing duplicate device token (if any)
-  for (const item of data.participants) {
-    if (!map.has(item.device_token)) {
-      map.set(item.device_token, true)
-      uniqueParticipants.push({
-        device_type: item.device_type,
-        device_token: item.device_token,
-        participant_id: item.participant_id,
-      })
-    }
-  }
+  const uniqueParticipants =  await removeDuplicateParticipants(data.participants)     
   for (const device of uniqueParticipants) {
     const device_type = device.device_type
     const device_token = device.device_token

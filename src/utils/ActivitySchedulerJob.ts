@@ -346,7 +346,7 @@ export async function updateDeviceDetails(activityIDs: any, device_details: any)
 }
 
 //remove duplicate participants from participants array in a job queue
-async function removeDuplicateParticipants(participants: any): Promise<any> {
+export async function removeDuplicateParticipants(participants: any): Promise<any> {
   const uniqueParticipants = []
   const map = new Map()
   for (const item of participants) {
