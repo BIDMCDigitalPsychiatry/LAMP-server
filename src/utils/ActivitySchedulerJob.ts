@@ -16,47 +16,54 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
         //remove all jobs created for the an activity from queue
         await removeActivityJobs(activity.id)
       }
+      
       // If the activity has no schedules, ignore it.
       if (activity.schedule.length === 0) continue
       // Get all the participants of the study that the activity belongs to.
       const parent: any = await TypeRepository._parent(activity.id)
       const participants = await ParticipantRepository._select(parent["Study"])
+      const Participants: any[] = []
+      
+      for (const participant of participants) {
+        try {
+          // Collect the Participant's device token, if there is one saved.
+          const events = await SensorEventRepository._select(participant.id, "lamp.analytics")
+          const device = events.find((x) => x.data?.device_token !== undefined)?.data
+          if (device === undefined || device.device_token.length === 0) continue
+          //take Device_Tokens and ParticipantIDs
+          if (participant.id) {
+            Participants.unshift({
+              participant_id: participant.id,
+              device_token: device.device_token,
+              device_type: device.device_type.toLowerCase(),
+            })
+          }
+        } catch (error) {
+          console.log("Error fetching Participant Device.")
+          console.error(error)
+        }
+      }
 
       // Iterate all schedules, and if the schedule should be fired at this instant, iterate all participants
       // and their potential device tokens for which we will send the device push notifications.
-      for (const schedule of activity.schedule) {       
-        const Participants: any[] = []
-        for (const participant of participants) {
-          try {
-            // Collect the Participant's device token, if there is one saved.
-            const events = await SensorEventRepository._select(participant.id, "lamp.analytics")
-            const device = events.find((x) => x.data?.device_token !== undefined)?.data
-            if (device === undefined || device.device_token.length === 0) continue
-            //take Device_Tokens and ParticipantIDs
-            if (participant.id) {
-              Participants.push({
-                participant_id: participant.id,
-                device_token: device.device_token,
-                device_type: device.device_type.toLowerCase(),
-              })
-            }
-          } catch (error) {
-            console.log("Error fetching Participant Device.")
-            console.error(error)
-          }
-        }
-        const cronStr = (schedule.repeat_interval !== "none") ? await getCronScheduleString(schedule) : ""
-        if (Participants !== []) {
+      if (Participants !== []) {
+        for (const schedule of activity.schedule) {
+          if (schedule.time === "1970-01-01T12:48:00.000Z" || schedule.start_date === "1970-01-01T12:48:00.000Z")
+            continue
+
+          const cronStr = schedule.repeat_interval !== "none" ? await getCronScheduleString(schedule) : ""
           if (schedule.repeat_interval !== "custom") {
             const scheduler_payload: any = {
               title: activity.name,
               message: `You have a mindLAMP activity waiting for you: ${activity.name}.`,
               activity_id: activity.id,
-              participants: Participants,
+              participants: await removeDuplicateParticipants(Participants),
             }
+
             let SchedulerjobResponse: any = ""
             if (schedule.repeat_interval !== "none") {
               //repeatable job
+
               SchedulerjobResponse = await SchedulerQueue.add(scheduler_payload, {
                 removeOnComplete: true,
                 removeOnFail: true,
@@ -101,6 +108,8 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
             await setCustomSchedule(activity_details, Participants)
           }
         }
+      } else {
+        continue
       }
     }
     console.log("Saving to Redis completed....")
@@ -119,7 +128,7 @@ function getCronScheduleString(schedule: any): string {
   let feedUTCNewHours = ""
   //get hour,minute,second formatted time from feed date time
   let feedHoursUtc: any = feedDateTime.getUTCHours()
-  let feedMinutesUtc: any = feedDateTime.getUTCMinutes()  
+  let feedMinutesUtc: any = feedDateTime.getUTCMinutes()
   const sheduleDayNumber: number = new Date(feedDateTime).getUTCDay()
   const sheduleMonthDate: number = new Date(feedDateTime).getUTCDate()
   //prepare cronstring for various schedules
@@ -183,7 +192,7 @@ function getCronScheduleString(schedule: any): string {
       break
     case "bimonthly":
       cronStr = `${feedMinutesUtc} ${feedHoursUtc} 10,20 * *`
-      break   
+      break
 
     default:
       break
@@ -203,7 +212,7 @@ async function setCustomSchedule(activity: any, Participants: string[]): Promise
           title: activity.name,
           message: `You have a mindLAMP activity waiting for you: ${activity.name}.`,
           activity_id: activity.activity_id,
-          participants: Participants,
+          participants: await removeDuplicateParticipants(Participants),
         }
         //add to schedular queue
         try {
@@ -215,6 +224,7 @@ async function setCustomSchedule(activity: any, Participants: string[]): Promise
             repeat: { jobId: activity.activity_id, cron: cronCustomString },
           })
           const SchedulerReferenceJob = await SchedulerReferenceQueue.getJob(activity.activity_id)
+
           //updating ShedulerReference Queue, if the activity is not saved (make activity.id as job id)
           if (null !== SchedulerReferenceJob) {
             const SchedulerReferenceIds: any = SchedulerReferenceJob.data.scheduler_ref_ids
@@ -281,14 +291,17 @@ export async function updateDeviceDetails(activityIDs: any, device_details: any)
       : undefined
   //Initialise array to store scheduler details to be updated
   const SheduleToUpdate: any = []
+
   //get the schedulerIds for each activity_id, if present
   for (const activityID of activityIDs) {
     const SchedulerReferenceJobs: any = await SchedulerReferenceQueue.getJob(activityID)
+
     if (null !== SchedulerReferenceJobs) {
       //take sheduler ids to find scheduler job
       for (const shedulerId of SchedulerReferenceJobs.data.scheduler_ref_ids) {
         //get job details from Sheduler
         const SchedulerJob = await SchedulerQueue.getJob(shedulerId)
+
         //get the participants for an scheduler id in an array
         const participants: any = SchedulerJob?.data.participants
         if (undefined !== participants) {
@@ -305,6 +318,7 @@ export async function updateDeviceDetails(activityIDs: any, device_details: any)
       }
     }
   }
+
   //update device details of a participant
   for (const updateDetail of SheduleToUpdate) {
     const SchedulerJob = await SchedulerQueue.getJob(updateDetail.shedulerId)
@@ -316,17 +330,34 @@ export async function updateDeviceDetails(activityIDs: any, device_details: any)
       }
       //mode =1-add sensor_event, mode=2-delete sensor_event
       if (device_details.mode === 1) {
-        await newParticipants.push(Device)
+        await newParticipants.unshift(Device)
       }
       //Prepare scheduler data
       const data = {
         title: SchedulerJob?.data.title,
         message: SchedulerJob?.data.message,
         activity_id: SchedulerJob?.data.activity_id,
-        participants: newParticipants,
+        participants: await removeDuplicateParticipants(newParticipants),
       }
       //update scheduler with new participant
       await SchedulerJob?.update(data)
     }
   }
+}
+
+//remove duplicate participants from participants array in a job queue
+export async function removeDuplicateParticipants(participants: any): Promise<any> {
+  const uniqueParticipants = []
+  const map = new Map()
+  for (const item of participants) {
+    if (!map.has(item.device_token)) {
+      map.set(item.device_token, true)
+      uniqueParticipants.push({
+        device_type: item.device_type,
+        device_token: item.device_token,
+        participant_id: item.participant_id,
+      })
+    }
+  }
+  return uniqueParticipants
 }

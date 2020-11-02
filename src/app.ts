@@ -29,7 +29,7 @@ async function main(): Promise<void> {
 
   // If we have a dynamic schema available in the database, use that instead of the static one.
   const _openAPIschema = {
-    ...(!(await Database.db.list()).includes("root") ? await Database.use("root").get("#schema") : OpenAPISchema),
+    ...((await Database.db.list()).includes("root") ? await Database.use("root").get("#schema") : OpenAPISchema),
     _id: undefined,
     _rev: undefined,
   }

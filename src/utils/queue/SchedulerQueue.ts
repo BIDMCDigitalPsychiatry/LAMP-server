@@ -1,15 +1,18 @@
 import Bull from "bull"
 import fetch from "node-fetch"
-import { ActivityScheduler } from "../../utils/ActivitySchedulerJob"
+import { ActivityScheduler,removeDuplicateParticipants } from "../../utils/ActivitySchedulerJob"
 
 //Initialise Scheduler Queue
 export const SchedulerQueue = new Bull("Scheduler", process.env.REDIS_HOST ?? "")
 
 //Consume job from Scheduler
 SchedulerQueue.process(async (job) => {
-  console.log("jobs in queue")
+  console.log("jobs in queue")  
   const data: any = job.data
-  for (const device of data.participants) {
+
+  //removing duplicate device token (if any)
+  const uniqueParticipants =  await removeDuplicateParticipants(data.participants)     
+  for (const device of uniqueParticipants) {
     const device_type = device.device_type
     const device_token = device.device_token
     const participant_id = device.participant_id
@@ -110,6 +113,7 @@ function sendNotification(device_token: string, device_type: string, payload: an
             console.log("Error encountered sending APN push notification.")
           })
       } catch (error) {
+        console.log(device_token)
         console.log(`"Error encountered sending APN push notification"-${error}`)
       }
       break
