@@ -21,7 +21,7 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
       if (activity.schedule.length === 0) continue
       // Get all the participants of the study that the activity belongs to.
       const parent: any = await TypeRepository._parent(activity.id)
-      const participants = await ParticipantRepository._select(parent["Study"])
+      const participants = await ParticipantRepository._select(parent["Study"],true)
       const Participants: any[] = []
       
       for (const participant of participants) {
