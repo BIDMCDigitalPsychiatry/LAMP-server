@@ -8,7 +8,8 @@ export class SensorEventRepository {
     sensor_spec?: string,
     from_date?: number,
     to_date?: number,
-    limit?: number
+    limit?: number,
+    is_device?:boolean
   ): Promise<SensorEvent[]> {
     const all_res = (
       await Database.use("sensor_event").find({
@@ -22,6 +23,7 @@ export class SensorEventRepository {
                   $gte: from_date,
                   $lt: from_date === to_date ? to_date! + 1 : to_date,
                 },
+          data:(!is_device)?(undefined as any):{device_type:{ $ne: 'Dashboard'}}
         },
         sort: [
           {

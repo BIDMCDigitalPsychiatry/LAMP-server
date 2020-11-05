@@ -7,6 +7,7 @@
     "@types/bull": "^3.14.2",
     "ajv": "^6.10.2",
     "alasql": "^0.4.11",
+    "async-mutex": "^0.2.4",
     "aws-sdk": "^2.711.0",
     "body-parser": "^1.19.0",
     "bull": "^3.18.0",
@@ -75,7 +76,7 @@
   },
   "scripts": {
     "start": "tsc-watch --onSuccess \"node -r source-map-support/register ./build/app.js\"",
-    "build": "tsc",
+    "build": "tsc",    
     "deploy": "pkg . -t node10-alpine-x64,node10-linux-x64,node10-macos-x64 --out-path bin/"
   },
   "pkg": {
