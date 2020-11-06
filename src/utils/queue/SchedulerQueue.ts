@@ -51,7 +51,7 @@ function sendNotification(device_token: string, device_type: string, payload: an
   console.dir({ device_token, device_type, payload })
   // Send this specific page URL to the device to show the actual activity.
   // eslint-disable-next-line prettier/prettier
-  const url = `${process.env.DASHBOARD_URL}/participant/${payload.participant_id}/activity/${payload.activity_id}`
+  const url =`https://${process.env.DASHBOARD_URL ?? "dashboard-staging.lamp.digital"}/#/participant/${payload.participant_id}/activity/${payload.activity_id}`
   console.log(url)
   switch (device_type) {
     case "android.watch":
