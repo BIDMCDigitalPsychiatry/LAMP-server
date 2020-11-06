@@ -373,3 +373,29 @@ export async function removeDuplicateParticipants(participants: any): Promise<an
   }
   return uniqueParticipants
 }
+
+
+//clean all jobs
+export async function cleanAllQueues(): Promise<any> {
+  console.log("CLEANING ALL QUEUE")
+      await SchedulerQueue.clean(0, 'delayed');
+      await SchedulerQueue.clean(0, 'wait');
+      await   SchedulerQueue.clean(0, 'active');
+      await  SchedulerQueue.clean(0, 'completed');
+      await  SchedulerQueue.clean(0, 'failed');
+      let multi_1 = SchedulerQueue.multi();
+      await   multi_1.del(SchedulerQueue.toKey('repeat'));
+      await  multi_1.exec();
+
+      await SchedulerReferenceQueue.clean(0, 'delayed');
+      await SchedulerReferenceQueue.clean(0, 'wait');
+      await   SchedulerReferenceQueue.clean(0, 'active');
+      await  SchedulerReferenceQueue.clean(0, 'completed');
+      await  SchedulerReferenceQueue.clean(0, 'failed');
+      let multi_2 = SchedulerReferenceQueue.multi();    
+      await  multi_2.exec();
+
+      await SchedulerQueue.empty()
+      await SchedulerReferenceQueue.empty()
+      console.log("DONE--CLEANING ALL QUEUE")
+}
