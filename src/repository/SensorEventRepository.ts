@@ -22,6 +22,7 @@ export class SensorEventRepository {
                   $gte: from_date,
                   $lt: from_date === to_date ? to_date! + 1 : to_date,
                 },
+            
         },
         sort: [
           {

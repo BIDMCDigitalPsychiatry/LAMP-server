@@ -16,19 +16,22 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
         //remove all jobs created for the an activity from queue
         await removeActivityJobs(activity.id)
       }
-      
+
       // If the activity has no schedules, ignore it.
       if (activity.schedule.length === 0) continue
       // Get all the participants of the study that the activity belongs to.
       const parent: any = await TypeRepository._parent(activity.id)
-      const participants = await ParticipantRepository._select(parent["Study"],true)
+      const participants = await ParticipantRepository._select(parent["Study"], true)
+
       const Participants: any[] = []
-      
       for (const participant of participants) {
         try {
           // Collect the Participant's device token, if there is one saved.
-          const events = await SensorEventRepository._select(participant.id, "lamp.analytics")
-          const device = events.find((x) => x.data?.device_token !== undefined)?.data
+           // Collect the Participant's device token, if there is one saved.          
+           const event_data = await SensorEventRepository._select(participant.id, "lamp.analytics",undefined,undefined,1000)            
+           const events:any = await event_data.filter(x=>x.data.device_type!=='Dashboard')[0];          
+           const device =(undefined!==events && undefined!==events.data)? events.data:undefined;
+           
           if (device === undefined || device.device_token.length === 0) continue
           //take Device_Tokens and ParticipantIDs
           if (participant.id) {
@@ -40,13 +43,12 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
           }
         } catch (error) {
           console.log("Error fetching Participant Device.")
-          console.error(error)
+          throw new Error("error_fetching_participants")
         }
       }
-
       // Iterate all schedules, and if the schedule should be fired at this instant, iterate all participants
       // and their potential device tokens for which we will send the device push notifications.
-      if (Participants !== []) {
+      if (Participants.length !== 0) {
         for (const schedule of activity.schedule) {
           if (schedule.time === "1970-01-01T12:48:00.000Z" || schedule.start_date === "1970-01-01T12:48:00.000Z")
             continue
@@ -115,7 +117,7 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
     console.log("Saving to Redis completed....")
   } catch (error) {
     console.log("Encountered an error in handling the queue job.")
-    console.error(error)
+    throw new Error("error_scheduling_job")
   }
 }
 
@@ -243,7 +245,8 @@ async function setCustomSchedule(activity: any, Participants: string[]): Promise
             }
           }
         } catch (error) {
-          console.log(error)
+          console.log("error_scheduling_job")
+          throw new Error("error_scheduling_job")
         }
       }
     }
@@ -267,6 +270,7 @@ export async function removeActivityJobs(activity_id: string): Promise<any> {
     }
   } catch (error) {
     console.log("Error encountered while removing the jobs")
+    throw new Error("error_removing_job")
   }
 }
 //Remove repeatable jobs for given activity_id
@@ -291,57 +295,61 @@ export async function updateDeviceDetails(activityIDs: any, device_details: any)
       : undefined
   //Initialise array to store scheduler details to be updated
   const SheduleToUpdate: any = []
+  try {
+    //get the schedulerIds for each activity_id, if present
+    for (const activityID of activityIDs) {
+      const SchedulerReferenceJobs: any = await SchedulerReferenceQueue.getJob(activityID)
 
-  //get the schedulerIds for each activity_id, if present
-  for (const activityID of activityIDs) {
-    const SchedulerReferenceJobs: any = await SchedulerReferenceQueue.getJob(activityID)
+      if (null !== SchedulerReferenceJobs) {
+        //take sheduler ids to find scheduler job
+        for (const shedulerId of SchedulerReferenceJobs.data.scheduler_ref_ids) {
+          //get job details from Sheduler
+          const SchedulerJob = await SchedulerQueue.getJob(shedulerId)
 
-    if (null !== SchedulerReferenceJobs) {
-      //take sheduler ids to find scheduler job
-      for (const shedulerId of SchedulerReferenceJobs.data.scheduler_ref_ids) {
-        //get job details from Sheduler
-        const SchedulerJob = await SchedulerQueue.getJob(shedulerId)
-
-        //get the participants for an scheduler id in an array
-        const participants: any = SchedulerJob?.data.participants
-        if (undefined !== participants) {
-          const participantID = await participants.filter((participant: any) =>
-            participant.participant_id.includes(device_details.participant_id)
-          )
-          if (undefined !== participantID) {
-            SheduleToUpdate.push({
-              index: participants.indexOf(participantID[0]),
-              shedulerId: shedulerId,
-            })
+          //get the participants for an scheduler id in an array
+          const participants: any = SchedulerJob?.data.participants
+          if (undefined !== participants) {
+            const participantID = await participants.filter((participant: any) =>
+              participant.participant_id.includes(device_details.participant_id)
+            )
+            if (undefined !== participantID) {
+              SheduleToUpdate.push({
+                index: participants.indexOf(participantID[0]),
+                shedulerId: shedulerId,
+              })
+            }
           }
         }
       }
     }
-  }
 
-  //update device details of a participant
-  for (const updateDetail of SheduleToUpdate) {
-    const SchedulerJob = await SchedulerQueue.getJob(updateDetail.shedulerId)
-    if (null != SchedulerJob) {
-      const newParticipants: any = await SchedulerJob?.data.participants
-      //remove the participant with old device details
-      if (-1 !== updateDetail.index) {
-        await newParticipants.splice(updateDetail.index, 1)
+    //update device details of a participant
+    for (const updateDetail of SheduleToUpdate) {
+      const SchedulerJob = await SchedulerQueue.getJob(updateDetail.shedulerId)
+      if (null != SchedulerJob) {
+        const newParticipants: any = await SchedulerJob?.data.participants
+        //remove the participant with old device details
+        if (-1 !== updateDetail.index) {
+          await newParticipants.splice(updateDetail.index, 1)
+        }
+        //mode =1-add sensor_event, mode=2-delete sensor_event
+        if (device_details.mode === 1) {
+          await newParticipants.unshift(Device)
+        }
+        //Prepare scheduler data
+        const data = {
+          title: SchedulerJob?.data.title,
+          message: SchedulerJob?.data.message,
+          activity_id: SchedulerJob?.data.activity_id,
+          participants: await removeDuplicateParticipants(newParticipants),
+        }
+
+        //update scheduler with new participant
+        await SchedulerJob?.update(data)
       }
-      //mode =1-add sensor_event, mode=2-delete sensor_event
-      if (device_details.mode === 1) {
-        await newParticipants.unshift(Device)
-      }
-      //Prepare scheduler data
-      const data = {
-        title: SchedulerJob?.data.title,
-        message: SchedulerJob?.data.message,
-        activity_id: SchedulerJob?.data.activity_id,
-        participants: await removeDuplicateParticipants(newParticipants),
-      }
-      //update scheduler with new participant
-      await SchedulerJob?.update(data)
     }
+  } catch (error) {
+    throw new Error("error_updating_device_in_job")
   }
 }
 
@@ -360,4 +368,30 @@ export async function removeDuplicateParticipants(participants: any): Promise<an
     }
   }
   return uniqueParticipants
+}
+
+
+//clean all jobs
+export async function cleanAllQueues(): Promise<any> {
+  console.log("CLEANING ALL QUEUE")
+      await SchedulerQueue.clean(0, 'delayed');
+      await SchedulerQueue.clean(0, 'wait');
+      await   SchedulerQueue.clean(0, 'active');
+      await  SchedulerQueue.clean(0, 'completed');
+      await  SchedulerQueue.clean(0, 'failed');
+      let multi_1 = SchedulerQueue.multi();
+      await   multi_1.del(SchedulerQueue.toKey('repeat'));
+      await  multi_1.exec();
+
+      await SchedulerReferenceQueue.clean(0, 'delayed');
+      await SchedulerReferenceQueue.clean(0, 'wait');
+      await   SchedulerReferenceQueue.clean(0, 'active');
+      await  SchedulerReferenceQueue.clean(0, 'completed');
+      await  SchedulerReferenceQueue.clean(0, 'failed');
+      let multi_2 = SchedulerReferenceQueue.multi();    
+      await  multi_2.exec();
+
+      await SchedulerQueue.empty()
+      await SchedulerReferenceQueue.empty()
+      console.log("DONE--CLEANING ALL QUEUE")
 }

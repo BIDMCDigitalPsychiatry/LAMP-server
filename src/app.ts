@@ -8,6 +8,7 @@ import { customAlphabet } from "nanoid"
 import { LegacyAPI, OpenAPISchema, HTTPS_CERT, _bootstrap_db } from "./utils"
 import { ActivityScheduler } from "./utils/ActivitySchedulerJob"
 import API from "./service"
+import {cleanAllQueues} from "./utils/ActivitySchedulerJob"
 
 // The database connection and ID generators for repository classes.
 export const Database = nano(process.env.CDB ?? "")
@@ -47,6 +48,8 @@ async function main(): Promise<void> {
 
   // Begin running activity/automations scheduling AFTER connecting to the database.
   if (process.env.SCHEDULER === "on") {
+    console.log("Clean all queues...")
+    await cleanAllQueues();
     console.log("Initializing schedulers...")
     ActivityScheduler()
   } else {
