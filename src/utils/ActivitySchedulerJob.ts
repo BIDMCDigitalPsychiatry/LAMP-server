@@ -27,15 +27,11 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
       for (const participant of participants) {
         try {
           // Collect the Participant's device token, if there is one saved.
-          const events = await SensorEventRepository._select(
-            participant.id,
-            "lamp.analytics",
-            undefined,
-            undefined,
-            1,
-            true
-          )
-          const device = events.find((x) => x.data?.device_token !== undefined)?.data
+           // Collect the Participant's device token, if there is one saved.          
+           const event_data = await SensorEventRepository._select(participant.id, "lamp.analytics",undefined,undefined,1000)            
+           const events:any = await event_data.filter(x=>x.data.device_type!=='Dashboard')[0];          
+           const device =(undefined!==events && undefined!==events.data)? events.data:undefined;
+           
           if (device === undefined || device.device_token.length === 0) continue
           //take Device_Tokens and ParticipantIDs
           if (participant.id) {
