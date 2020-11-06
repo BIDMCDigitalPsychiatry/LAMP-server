@@ -8,6 +8,8 @@ import { customAlphabet } from "nanoid"
 import { LegacyAPI, OpenAPISchema, HTTPS_CERT, _bootstrap_db } from "./utils"
 import { ActivityScheduler } from "./utils/ActivitySchedulerJob"
 import API from "./service"
+import {SchedulerQueue} from "./utils/queue/SchedulerQueue"
+import {SchedulerReferenceQueue} from "./utils/queue/SchedulerReferenceQueue"
 
 // The database connection and ID generators for repository classes.
 export const Database = nano(process.env.CDB ?? "")
@@ -23,6 +25,29 @@ app.use(cors())
 app.use(morgan(":method :url :status - :response-time ms"))
 app.use(express.urlencoded({ extended: true }))
 
+
+//clean all jobs
+async function cleanAllQueues(): Promise<any> {
+  await SchedulerQueue.clean(0, 'delayed');
+  await SchedulerQueue.clean(0, 'wait');
+  await   SchedulerQueue.clean(0, 'active');
+  await  SchedulerQueue.clean(0, 'completed');
+  await  SchedulerQueue.clean(0, 'failed');
+  let multi_1 = SchedulerQueue.multi();
+  await   multi_1.del(SchedulerQueue.toKey('repeat'));
+  await  multi_1.exec();
+
+  await SchedulerReferenceQueue.clean(0, 'delayed');
+  await SchedulerReferenceQueue.clean(0, 'wait');
+  await   SchedulerReferenceQueue.clean(0, 'active');
+  await  SchedulerReferenceQueue.clean(0, 'completed');
+  await  SchedulerReferenceQueue.clean(0, 'failed');
+  let multi_2 = SchedulerReferenceQueue.multi();    
+  await  multi_2.exec();
+
+  await SchedulerQueue.empty()
+  await SchedulerReferenceQueue.empty()
+}
 // Initialize and configure the application.
 async function main(): Promise<void> {
   console.group("Initializing LAMP API server...")
@@ -47,6 +72,8 @@ async function main(): Promise<void> {
 
   // Begin running activity/automations scheduling AFTER connecting to the database.
   if (process.env.SCHEDULER === "on") {
+    console.log("Clean all queues...")
+    await cleanAllQueues();
     console.log("Initializing schedulers...")
     ActivityScheduler()
   } else {
