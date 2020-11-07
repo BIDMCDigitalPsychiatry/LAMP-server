@@ -4,38 +4,58 @@ import { SchedulerReferenceQueue } from "../utils/queue/SchedulerReferenceQueue"
 
 /// List activities for a given ID; if a Participant ID is not provided, undefined = list ALL.
 export const ActivityScheduler = async (id?: string): Promise<void> => {
-  try {
-    const activities: any[] =
-      id === undefined ? await ActivityRepository._select(null) : await ActivityRepository._select(id)
-    console.log("activity_id given", id)
-    console.log("Saving to redis")
-    console.log(`Processing ${activities.length} activities for push notifications.`)
-    // Process activities to find schedules and corresponding participants.
-    for (const activity of activities) {
+  const activities: any[] =
+    id === undefined ? await ActivityRepository._select(null) : await ActivityRepository._select(id)
+  console.log("activity_id given", id)
+  console.log("Saving to redis")
+  console.log(`Processing ${activities.length} activities for push notifications.`)
+  // Process activities to find schedules and corresponding participants.
+  for (const activity of activities) {
+    try {
       if (undefined !== activity.id) {
         //remove all jobs created for the an activity from queue
         await removeActivityJobs(activity.id)
       }
-
+      console.log("actvityId", activity.id)
       // If the activity has no schedules, ignore it.
       if (activity.schedule.length === 0) continue
       // Get all the participants of the study that the activity belongs to.
-      const parent: any = await TypeRepository._parent(activity.id)
-      const participants = await ParticipantRepository._select(parent["Study"], true)
-      
+      let study: any = ""
+      let participants: any = ""
+      try {
+        const parent: any = await TypeRepository._parent(activity.id)
+        study = parent["Study"]
+      } catch (error) {
+        console.log("Error fetching Study")
+        continue
+      }
+      try {
+        const particpantDetails = await ParticipantRepository._select(study, true)
+        participants = particpantDetails
+      } catch (error) {
+        console.log("Error fetching participants by study")
+        continue
+      }
+      console.log("participantslength", participants.length)
+      if (participants.length === 0) continue
       const Participants: any[] = []
       for (const participant of participants) {
-        try {          
+        try {
           // Collect the Participant's device token, if there is one saved.
-           const event_data = await SensorEventRepository._select(participant.id, "lamp.analytics",undefined,undefined,1000)                     
-           if(event_data.length===0) continue
-           const filteredArray:any = await event_data.filter(x=>x.data.device_type!=='Dashboard')           
-           if(filteredArray.length===0) continue
-           const events:any = filteredArray[0]    
-                
-           const device =(undefined!==events && undefined!==events.data)? events.data:undefined;
-           
-          if (device === undefined || device.device_token=== undefined) continue
+          const event_data = await SensorEventRepository._select(
+            participant.id,
+            "lamp.analytics",
+            undefined,
+            undefined,
+            1000
+          )
+          if (event_data.length === 0) continue
+          const filteredArray: any = await event_data.filter((x) => x.data.device_type !== "Dashboard")
+          if (filteredArray.length === 0) continue
+          const events: any = filteredArray[0]
+          const device = undefined !== events && undefined !== events.data ? events.data : undefined
+
+          if (device === undefined || device.device_token === undefined) continue
           //take Device_Tokens and ParticipantIDs
           if (participant.id && device.device_token && device.device_type) {
             Participants.unshift({
@@ -45,7 +65,7 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
             })
           }
         } catch (error) {
-          console.log(`"Error fetching Participant Device-${error}"`)          
+          console.log(`"Error fetching Participant Device-${error}"`)
         }
       }
       // Iterate all schedules, and if the schedule should be fired at this instant, iterate all participants
@@ -67,7 +87,6 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
             let SchedulerjobResponse: any = ""
             if (schedule.repeat_interval !== "none") {
               //repeatable job
-
               SchedulerjobResponse = await SchedulerQueue.add(scheduler_payload, {
                 removeOnComplete: true,
                 removeOnFail: true,
@@ -115,11 +134,11 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
       } else {
         continue
       }
+    } catch (error) {
+      console.log("Encountered an error in handling the queue job")
     }
-    console.log("Saving to Redis completed....")
-  } catch (error) {
-    console.log(`"Encountered an error in handling the queue job-${error}"`)    
   }
+  console.log("Saving to Redis completed....")
 }
 
 //Get the cron string for each schedule
@@ -246,7 +265,7 @@ async function setCustomSchedule(activity: any, Participants: string[]): Promise
             }
           }
         } catch (error) {
-          console.log(`"error scheduling custom job-${error}"`)         
+          console.log(`"error scheduling custom job-${error}"`)
         }
       }
     }
@@ -254,23 +273,28 @@ async function setCustomSchedule(activity: any, Participants: string[]): Promise
 }
 //Remove activities from the queue for a given activity_id, if exists
 export async function removeActivityJobs(activity_id: string): Promise<any> {
-  try {
-    //fetch all jobs from the SchedulerReference
-    const SchedulerReferenceJob = await SchedulerReferenceQueue.getJob(activity_id)
-    if (null !== SchedulerReferenceJob) {
-      const SchedulerReferenceIds: any = SchedulerReferenceJob.data.scheduler_ref_ids
-      for (const shedulerId of SchedulerReferenceIds) {
+  //fetch all jobs from the SchedulerReference
+  const SchedulerReferenceJob = await SchedulerReferenceQueue.getJob(activity_id)
+
+  if (null !== SchedulerReferenceJob) {
+    const SchedulerReferenceIds: any = SchedulerReferenceJob.data.scheduler_ref_ids
+
+    for (const shedulerId of SchedulerReferenceIds) {
+      try {        
         const SchedulerJob = await SchedulerQueue.getJob(shedulerId)
         await SchedulerJob?.remove()
+      } catch (error) {
+        console.log(`"Error encountered while removing the jobs-${shedulerId}"`)
       }
+    }
+    try {
       //remove from sheduler reference job
       await SchedulerReferenceJob?.remove()
       //remove repeatable job object
       await removeRepeatableJob(activity_id)
+    } catch (error) {
+      console.log(`"Error encountered while ref/repeatable removing the jobs-${error}"`)
     }
-  } catch (error) {    
-    console.log(`"Error encountered while removing the jobs-${error}"`) 
-         
   }
 }
 //Remove repeatable jobs for given activity_id
@@ -295,36 +319,42 @@ export async function updateDeviceDetails(activityIDs: any, device_details: any)
       : undefined
   //Initialise array to store scheduler details to be updated
   const SheduleToUpdate: any = []
-  try {
-    //get the schedulerIds for each activity_id, if present
-    for (const activityID of activityIDs) {
-      const SchedulerReferenceJobs: any = await SchedulerReferenceQueue.getJob(activityID)
 
-      if (null !== SchedulerReferenceJobs) {
-        //take sheduler ids to find scheduler job
-        for (const shedulerId of SchedulerReferenceJobs.data.scheduler_ref_ids) {
+  //get the schedulerIds for each activity_id, if present
+  for (const activityID of activityIDs) {
+    const SchedulerReferenceJobs: any = await SchedulerReferenceQueue.getJob(activityID)
+
+    if (null !== SchedulerReferenceJobs) {
+      //take sheduler ids to find scheduler job
+      for (const shedulerId of SchedulerReferenceJobs.data.scheduler_ref_ids) {
+        try {          
           //get job details from Sheduler
           const SchedulerJob = await SchedulerQueue.getJob(shedulerId)
-
-          //get the participants for an scheduler id in an array
-          const participants: any = SchedulerJob?.data.participants
-          if (undefined !== participants) {
-            const participantID = await participants.filter((participant: any) =>
-              participant.participant_id.includes(device_details.participant_id)
-            )
-            if (undefined !== participantID) {
-              SheduleToUpdate.push({
-                index: participants.indexOf(participantID[0]),
-                shedulerId: shedulerId,
-              })
+          if (null !== SchedulerJob) {
+            //get the participants for an scheduler id in an array
+            const participants: any = SchedulerJob?.data.participants
+            if (undefined !== participants) {
+              const participantID = await participants.filter((participant: any) =>
+                participant.participant_id.includes(device_details.participant_id)
+              )
+              if (undefined !== participantID) {
+                SheduleToUpdate.push({
+                  index: participants.indexOf(participantID[0]),
+                  shedulerId: shedulerId,
+                })
+              }
             }
           }
+        } catch (error) {
+          console.log(`"error updating device in job1-${error}"`)
         }
       }
     }
+  }
 
-    //update device details of a participant
-    for (const updateDetail of SheduleToUpdate) {
+  //update device details of a participant
+  for (const updateDetail of SheduleToUpdate) {
+    try {
       const SchedulerJob = await SchedulerQueue.getJob(updateDetail.shedulerId)
       if (null != SchedulerJob) {
         const newParticipants: any = await SchedulerJob?.data.participants
@@ -337,7 +367,7 @@ export async function updateDeviceDetails(activityIDs: any, device_details: any)
           await newParticipants.unshift(Device)
         }
         //Prepare scheduler data
-        const data = {
+        const data = { 
           title: SchedulerJob?.data.title,
           message: SchedulerJob?.data.message,
           activity_id: SchedulerJob?.data.activity_id,
@@ -347,10 +377,9 @@ export async function updateDeviceDetails(activityIDs: any, device_details: any)
         //update scheduler with new participant
         await SchedulerJob?.update(data)
       }
+    } catch (error) {
+      console.log(`"error updating device in job2-${error}"`)
     }
-  } catch (error) {    
-    console.log(`"error updating device in job-${error}"`) 
-          
   }
 }
 
@@ -371,28 +400,27 @@ export async function removeDuplicateParticipants(participants: any): Promise<an
   return uniqueParticipants
 }
 
-
 //clean all jobs
 export async function cleanAllQueues(): Promise<any> {
   console.log("CLEANING ALL QUEUE")
-      await SchedulerQueue.clean(0, 'delayed');
-      await SchedulerQueue.clean(0, 'wait');
-      await   SchedulerQueue.clean(0, 'active');
-      await  SchedulerQueue.clean(0, 'completed');
-      await  SchedulerQueue.clean(0, 'failed');
-      let multi_1 = SchedulerQueue.multi();
-      await   multi_1.del(SchedulerQueue.toKey('repeat'));
-      await  multi_1.exec();
+  await SchedulerQueue.clean(0, "delayed")
+  await SchedulerQueue.clean(0, "wait")
+  await SchedulerQueue.clean(0, "active")
+  await SchedulerQueue.clean(0, "completed")
+  await SchedulerQueue.clean(0, "failed")
+  let multi_1 = SchedulerQueue.multi()
+  await multi_1.del(SchedulerQueue.toKey("repeat"))
+  await multi_1.exec()
 
-      await SchedulerReferenceQueue.clean(0, 'delayed');
-      await SchedulerReferenceQueue.clean(0, 'wait');
-      await   SchedulerReferenceQueue.clean(0, 'active');
-      await  SchedulerReferenceQueue.clean(0, 'completed');
-      await  SchedulerReferenceQueue.clean(0, 'failed');
-      let multi_2 = SchedulerReferenceQueue.multi();    
-      await  multi_2.exec();
+  await SchedulerReferenceQueue.clean(0, "delayed")
+  await SchedulerReferenceQueue.clean(0, "wait")
+  await SchedulerReferenceQueue.clean(0, "active")
+  await SchedulerReferenceQueue.clean(0, "completed")
+  await SchedulerReferenceQueue.clean(0, "failed")
+  let multi_2 = SchedulerReferenceQueue.multi()
+  await multi_2.exec()
 
-      await SchedulerQueue.empty()
-      await SchedulerReferenceQueue.empty()
-      console.log("DONE--CLEANING ALL QUEUE")
+  await SchedulerQueue.empty()
+  await SchedulerReferenceQueue.empty()
+  console.log("DONE--CLEANING ALL QUEUE")
 }
