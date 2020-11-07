@@ -19,11 +19,11 @@ SchedulerDeviceUpdateQueue.process(async (job: any, done: any) => {
     if (activities.length != 0) {
       for (const activity of activities) {
         // If the activity has no schedules, ignore it.
-        if (activity.schedule.length === 0) continue
+        if (activity.schedule===undefined || activity.schedule.length === 0) continue
         await activityIDs.push(activity.id)
-      }
-
+      }     
       await updateDeviceDetails(activityIDs, job.data)
+      
     }
     //release the lock for thread
     release()
