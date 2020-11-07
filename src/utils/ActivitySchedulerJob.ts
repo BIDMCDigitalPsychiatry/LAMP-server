@@ -22,19 +22,22 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
       // Get all the participants of the study that the activity belongs to.
       const parent: any = await TypeRepository._parent(activity.id)
       const participants = await ParticipantRepository._select(parent["Study"], true)
-
+      
       const Participants: any[] = []
       for (const participant of participants) {
-        try {
+        try {          
           // Collect the Participant's device token, if there is one saved.
-           // Collect the Participant's device token, if there is one saved.          
-           const event_data = await SensorEventRepository._select(participant.id, "lamp.analytics",undefined,undefined,1000)            
-           const events:any = await event_data.filter(x=>x.data.device_type!=='Dashboard')[0];          
+           const event_data = await SensorEventRepository._select(participant.id, "lamp.analytics",undefined,undefined,1000)                     
+           if(event_data.length===0) continue
+           const filteredArray:any = await event_data.filter(x=>x.data.device_type!=='Dashboard')           
+           if(filteredArray.length===0) continue
+           const events:any = filteredArray[0]    
+                
            const device =(undefined!==events && undefined!==events.data)? events.data:undefined;
            
-          if (device === undefined || device.device_token.length === 0) continue
+          if (device === undefined || device.device_token=== undefined) continue
           //take Device_Tokens and ParticipantIDs
-          if (participant.id) {
+          if (participant.id && device.device_token && device.device_type) {
             Participants.unshift({
               participant_id: participant.id,
               device_token: device.device_token,
@@ -42,8 +45,7 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
             })
           }
         } catch (error) {
-          console.log("Error fetching Participant Device.")
-          throw new Error("error_fetching_participants")
+          console.log(`"Error fetching Participant Device-${error}"`)          
         }
       }
       // Iterate all schedules, and if the schedule should be fired at this instant, iterate all participants
@@ -116,8 +118,7 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
     }
     console.log("Saving to Redis completed....")
   } catch (error) {
-    console.log("Encountered an error in handling the queue job.")
-    throw new Error("error_scheduling_job")
+    console.log(`"Encountered an error in handling the queue job-${error}"`)    
   }
 }
 
@@ -245,8 +246,7 @@ async function setCustomSchedule(activity: any, Participants: string[]): Promise
             }
           }
         } catch (error) {
-          console.log("error_scheduling_job")
-          throw new Error("error_scheduling_job")
+          console.log(`"error scheduling custom job-${error}"`)         
         }
       }
     }
@@ -268,9 +268,9 @@ export async function removeActivityJobs(activity_id: string): Promise<any> {
       //remove repeatable job object
       await removeRepeatableJob(activity_id)
     }
-  } catch (error) {
-    console.log("Error encountered while removing the jobs")
-    throw new Error("error_removing_job")
+  } catch (error) {    
+    console.log(`"Error encountered while removing the jobs-${error}"`) 
+         
   }
 }
 //Remove repeatable jobs for given activity_id
@@ -348,8 +348,9 @@ export async function updateDeviceDetails(activityIDs: any, device_details: any)
         await SchedulerJob?.update(data)
       }
     }
-  } catch (error) {
-    throw new Error("error_updating_device_in_job")
+  } catch (error) {    
+    console.log(`"error updating device in job-${error}"`) 
+          
   }
 }
 
