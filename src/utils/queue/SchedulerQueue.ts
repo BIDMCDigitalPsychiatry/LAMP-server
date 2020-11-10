@@ -67,7 +67,7 @@ function sendNotification(device_token: string, device_type: string, payload: an
               title: `${payload.title}`,
               message: `${payload.message}`,
               page: `${url}`,
-              notificationId: `${payload.title}`,
+              notificationId: Math.floor(Math.random() * 10000) + 1,
               actions: [{ name: "Open App", page: `${process.env.DASHBOARD_URL}` }],
               expiry: 3600000,
             },
