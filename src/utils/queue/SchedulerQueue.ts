@@ -51,7 +51,7 @@ function sendNotification(device_token: string, device_type: string, payload: an
   console.dir({ device_token, device_type, payload })
   // Send this specific page URL to the device to show the actual activity.
   // eslint-disable-next-line prettier/prettier
-  const url =`https://${process.env.DASHBOARD_URL ?? process.env.DASHBOARD_URL}/#/participant/${payload.participant_id}/activity/${payload.activity_id}`
+  const url =`/participant/${payload.participant_id}/activity/${payload.activity_id}`
   console.log(url)
   switch (device_type) {
     case "android.watch":
@@ -63,6 +63,7 @@ function sendNotification(device_token: string, device_type: string, payload: an
           device_token: device_token,
           payload: {
             priority: "high",
+            to: device_token,
             data: {
               title: `${payload.title}`,
               message: `${payload.message}`,
