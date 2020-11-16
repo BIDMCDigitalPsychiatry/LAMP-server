@@ -62,7 +62,8 @@ function sendNotification(device_token: string, device_type: string, payload: an
           api_key: `${process.env.PUSH_GATEWAY_APIKEY}`,
           device_token: device_token,
           payload: {
-            priority: "high",
+            priority: "high",            
+            to: device_token,
             data: {
               title: `${payload.title}`,
               message: `${payload.message}`,
