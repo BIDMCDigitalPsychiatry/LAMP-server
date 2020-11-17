@@ -1,7 +1,8 @@
 import { ActivityRepository, TypeRepository, ParticipantRepository, SensorEventRepository } from "../repository"
 import { SchedulerQueue } from "../utils/queue/SchedulerQueue"
 import { SchedulerReferenceQueue } from "../utils/queue/SchedulerReferenceQueue"
-
+import { Mutex } from "async-mutex"
+const clientLock = new Mutex()
 /// List activities for a given ID; if a Participant ID is not provided, undefined = list ALL.
 export const ActivityScheduler = async (id?: string): Promise<void> => {
   const activities: any[] =
@@ -9,6 +10,8 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
   console.log("activity_id given", id)
   console.log("Saving to redis")
   console.log(`Processing ${activities.length} activities for push notifications.`)
+  const release = await clientLock.acquire()
+  console.log(`locked job on activity_scheduler`)
   // Process activities to find schedules and corresponding participants.
   for (const activity of activities) {
     try {
@@ -50,7 +53,9 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
             1000
           )
           if (event_data.length === 0) continue
-          const filteredArray: any = await event_data.filter((x) => x.data.device_type !== "Dashboard")
+          const filteredArray: any = await event_data.filter(
+            (x) => (x.data.action !== "notification" && x.data.device_type !== "Dashboard")
+          )
           if (filteredArray.length === 0) continue
           const events: any = filteredArray[0]
           const device = undefined !== events && undefined !== events.data ? events.data : undefined
@@ -111,11 +116,16 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
             const SchedulerReferenceJob = await SchedulerReferenceQueue.getJob(activity.id)
             if (null !== SchedulerReferenceJob) {
               const SchedulerReferenceIds: any = SchedulerReferenceJob.data.scheduler_ref_ids
-              await SchedulerReferenceIds.push(SchedulerjobResponse.id)
-              await SchedulerReferenceJob.update({
-                scheduler_ref_ids: SchedulerReferenceIds,
-                activity_id: activity.id,
-              })
+              const existSchedulerId = await SchedulerReferenceIds.filter((referenceId: any) =>
+                referenceId.includes(SchedulerjobResponse.id)
+              )
+              if (existSchedulerId.length === 0 && undefined === existSchedulerId[0]) {
+                await SchedulerReferenceIds.push(SchedulerjobResponse.id)
+                await SchedulerReferenceJob.update({
+                  scheduler_ref_ids: SchedulerReferenceIds,
+                  activity_id: activity.id,
+                })
+              }
             } else {
               //add to scheduler reference queue(as we cannot make custom id for repeatable job, we need a reference of schedular jobids)
               if (SchedulerjobResponse.id != undefined) {
@@ -139,6 +149,8 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
     }
   }
   console.log("Saving to Redis completed....")
+  release()
+  console.log(`release lock  on success  activity_scheduler`)
 }
 
 //Get the cron string for each schedule
@@ -226,6 +238,7 @@ function getCronScheduleString(schedule: any): string {
 async function setCustomSchedule(activity: any, Participants: string[]): Promise<any> {
   //split and get individual cron string
   let cronArr = activity.cronStr.split("|")
+
   for (const cronCustomString of cronArr) {
     if (undefined !== cronCustomString && "" !== cronCustomString) {
       //custom schedules may occur in multiple times and also need to run daily.
@@ -236,7 +249,7 @@ async function setCustomSchedule(activity: any, Participants: string[]): Promise
           activity_id: activity.activity_id,
           participants: await removeDuplicateParticipants(Participants),
         }
-        //add to schedular queue
+        //add to schedular queue        
         try {
           const SchedulerjobResponse = await SchedulerQueue.add(scheduler_payload, {
             removeOnComplete: true,
@@ -250,11 +263,17 @@ async function setCustomSchedule(activity: any, Participants: string[]): Promise
           //updating ShedulerReference Queue, if the activity is not saved (make activity.id as job id)
           if (null !== SchedulerReferenceJob) {
             const SchedulerReferenceIds: any = SchedulerReferenceJob.data.scheduler_ref_ids
-            await SchedulerReferenceIds.push(SchedulerjobResponse.id)
-            await SchedulerReferenceJob.update({
-              scheduler_ref_ids: SchedulerReferenceIds,
-              activity_id: activity.activity_id,
-            })
+            const existSchedulerId = await SchedulerReferenceIds.filter((referenceId: any) =>
+              referenceId.includes(SchedulerjobResponse.id)
+            )
+
+            if (existSchedulerId.length === 0 && undefined === existSchedulerId[0]) {
+              await SchedulerReferenceIds.push(SchedulerjobResponse.id)
+              await SchedulerReferenceJob.update({
+                scheduler_ref_ids: SchedulerReferenceIds,
+                activity_id: activity.activity_id,
+              })
+            }
           } else {
             //add to scheduler reference queue(as we cannot make custom id for repeatable job, we need a reference of schedular jobids)
             if (SchedulerjobResponse.id !== undefined) {
@@ -280,7 +299,7 @@ export async function removeActivityJobs(activity_id: string): Promise<any> {
     const SchedulerReferenceIds: any = SchedulerReferenceJob.data.scheduler_ref_ids
 
     for (const shedulerId of SchedulerReferenceIds) {
-      try {        
+      try {
         const SchedulerJob = await SchedulerQueue.getJob(shedulerId)
         await SchedulerJob?.remove()
       } catch (error) {
@@ -327,16 +346,18 @@ export async function updateDeviceDetails(activityIDs: any, device_details: any)
     if (null !== SchedulerReferenceJobs) {
       //take sheduler ids to find scheduler job
       for (const shedulerId of SchedulerReferenceJobs.data.scheduler_ref_ids) {
-        try {          
+        try {
           //get job details from Sheduler
           const SchedulerJob = await SchedulerQueue.getJob(shedulerId)
           if (null !== SchedulerJob) {
             //get the participants for an scheduler id in an array
             const participants: any = SchedulerJob?.data.participants
+
             if (undefined !== participants) {
               const participantID = await participants.filter((participant: any) =>
                 participant.participant_id.includes(device_details.participant_id)
               )
+
               if (undefined !== participantID) {
                 SheduleToUpdate.push({
                   index: participants.indexOf(participantID[0]),
@@ -349,6 +370,11 @@ export async function updateDeviceDetails(activityIDs: any, device_details: any)
           console.log(`"error updating device in job1-${error}"`)
         }
       }
+    } else {
+      //only for login
+      if (device_details.mode !== 2) {
+        await ActivityScheduler(activityID)
+      }
     }
   }
 
@@ -358,6 +384,7 @@ export async function updateDeviceDetails(activityIDs: any, device_details: any)
       const SchedulerJob = await SchedulerQueue.getJob(updateDetail.shedulerId)
       if (null != SchedulerJob) {
         const newParticipants: any = await SchedulerJob?.data.participants
+
         //remove the participant with old device details
         if (-1 !== updateDetail.index) {
           await newParticipants.splice(updateDetail.index, 1)
@@ -366,8 +393,9 @@ export async function updateDeviceDetails(activityIDs: any, device_details: any)
         if (device_details.mode === 1) {
           await newParticipants.unshift(Device)
         }
+
         //Prepare scheduler data
-        const data = { 
+        const data = {
           title: SchedulerJob?.data.title,
           message: SchedulerJob?.data.message,
           activity_id: SchedulerJob?.data.activity_id,

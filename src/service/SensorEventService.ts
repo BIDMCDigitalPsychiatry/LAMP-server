@@ -28,6 +28,14 @@ SensorEventService.post("/participant/:participant_id/sensor_event", async (req:
         participant_id:participant_id,
         mode:1},{attempts:3,backoff:10,removeOnComplete:true,removeOnFail:true})
      }
+    if(sensor_event.sensor==="lamp.analytics" &&      
+        sensor_event.data.action==="logout") {      
+      SchedulerDeviceUpdateQueue.add(
+        {device_type:undefined,
+        device_token:undefined,
+        participant_id:participant_id,
+        mode:2},{attempts:3,backoff:10,removeOnComplete:true,removeOnFail:true})
+     }
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
