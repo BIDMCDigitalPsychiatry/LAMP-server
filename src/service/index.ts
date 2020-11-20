@@ -22,6 +22,7 @@ import { SensorEventRepository } from "../repository/SensorEventRepository"
 import { StudyRepository } from "../repository/StudyRepository"
 import { TypeRepository } from "../repository/TypeRepository"
 import { ResearcherRepository } from "../repository/ResearcherRepository"
+import { ListenerAPI } from "../utils/ListenerAPI"
 
 export async function Query(query: string, auth: string | undefined, verify = true): Promise<any> {
   return new Promise((resolve, reject) => {
@@ -109,6 +110,10 @@ API.use(ActivityEventService)
 API.use(SensorService)
 API.use(SensorSpecService)
 API.use(SensorEventService)
+
+const ListenerAPIs = Router()
+ListenerAPIs.use(ListenerAPI)
+
 API.post("/", async (req, res) => {
   try {
     const data = await Query(req.body ?? "", req.get("Authorization"))

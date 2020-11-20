@@ -3,6 +3,7 @@ import { ActivityEvent } from "../model/ActivityEvent"
 import { ActivityEventRepository } from "../repository/ActivityEventRepository"
 import { SecurityContext, ActionContext, _verify } from "./Security"
 import jsonata from "jsonata"
+import { PubSubAPIListenerQueue } from "../utils/queue/PubSubAPIListenerQueue"
 
 // default to LIMIT_NAN, clamped to [-LIMIT_MAX, +LIMIT_MAX]
 const LIMIT_NAN = 1000
@@ -20,6 +21,36 @@ ActivityEventService.post("/participant/:participant_id/activity_event", async (
         Array.isArray(activity_event) ? activity_event : [activity_event]
       ),
     }
+
+    //publishing data
+    PubSubAPIListenerQueue.add({
+      topic: `activity_event`,
+      token: `activity_event.*`,
+      action: "create",
+      participant_id: participant_id,
+      payload: Array.isArray(activity_event) ? activity_event : [activity_event],
+    })
+
+    PubSubAPIListenerQueue.add({
+      topic: `participant.*.activity_event`,
+      action: "create",
+      participant_id: participant_id,
+      payload: Array.isArray(activity_event) ? activity_event : [activity_event],
+    })
+
+     PubSubAPIListenerQueue.add({
+      topic: `activity.*.activity_event`,
+      action: "create",
+      participant_id: participant_id,
+      payload: Array.isArray(activity_event) ? activity_event : [activity_event],
+    })
+
+    PubSubAPIListenerQueue.add({
+      topic: `participant.*.activity.*.activity_event`,
+      action: "create",
+      participant_id: participant_id,
+      payload: Array.isArray(activity_event) ? activity_event : [activity_event],
+    })
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)

@@ -3,6 +3,7 @@ import { Researcher } from "../model/Researcher"
 import { ResearcherRepository } from "../repository/ResearcherRepository"
 import { SecurityContext, ActionContext, _verify } from "./Security"
 import jsonata from "jsonata"
+import { PubSubAPIListenerQueue } from "../utils/queue/PubSubAPIListenerQueue"
 
 export const ResearcherService = Router()
 ResearcherService.post("/researcher", async (req: Request, res: Response) => {
@@ -10,6 +11,10 @@ ResearcherService.post("/researcher", async (req: Request, res: Response) => {
     const researcher = req.body
     const _ = await _verify(req.get("Authorization"), [])
     const output = { data: await ResearcherRepository._insert(researcher) }
+    researcher.action = "create"
+
+    //publishing data
+    PubSubAPIListenerQueue.add({ topic: `researcher`, token: `researcher.*`, payload: researcher })
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -22,6 +27,12 @@ ResearcherService.put("/researcher/:researcher_id", async (req: Request, res: Re
     const researcher = req.body
     researcher_id = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
     const output = { data: await ResearcherRepository._update(researcher_id, researcher) }
+    researcher.action = "update"
+    researcher.researcher_id = researcher_id
+
+    //publishing data
+    PubSubAPIListenerQueue.add({ topic: `researcher.*`, token: `researcher.${researcher_id}`, payload: researcher })
+    PubSubAPIListenerQueue.add({ topic: `researcher`, token: `researcher.*`, payload: researcher })
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -33,6 +44,17 @@ ResearcherService.delete("/researcher/:researcher_id", async (req: Request, res:
     let researcher_id = req.params.researcher_id
     researcher_id = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
     const output = { data: await ResearcherRepository._delete(researcher_id) }
+
+    //publishing data
+    PubSubAPIListenerQueue.add({
+      topic: `researcher.*`,
+      token: `researcher.${researcher_id}`,
+      payload: { action: "delete", researcher_id: researcher_id },
+    })
+    PubSubAPIListenerQueue.add({
+      topic: `researcher`,
+      payload: { action: "delete", token: `researcher`, researcher_id: researcher_id },
+    })
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)

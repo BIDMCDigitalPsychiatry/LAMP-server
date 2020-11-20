@@ -3,6 +3,8 @@ import { Study } from "../model/Study"
 import { StudyRepository } from "../repository/StudyRepository"
 import { SecurityContext, ActionContext, _verify } from "./Security"
 import jsonata from "jsonata"
+import { TypeRepository } from "../repository/TypeRepository"
+import { PubSubAPIListenerQueue } from "../utils/queue/PubSubAPIListenerQueue"
 
 export const StudyService = Router()
 StudyService.post("/researcher/:researcher_id/study", async (req: Request, res: Response) => {
@@ -11,6 +13,16 @@ StudyService.post("/researcher/:researcher_id/study", async (req: Request, res: 
     const study = req.body
     researcher_id = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
     const output = { data: await StudyRepository._insert(researcher_id, study) }
+
+    study.researcher_id = researcher_id
+    study.action = "create"
+    //publishing data
+    PubSubAPIListenerQueue.add({ topic: `study`, token: `researcher.*.study.*`, payload: study })
+    PubSubAPIListenerQueue.add({
+      topic: `researcher.*.study`,
+      token: `researcher.${researcher_id}.study.*`,
+      payload: study,
+    })
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -23,6 +35,15 @@ StudyService.put("/study/:study_id", async (req: Request, res: Response) => {
     const study = req.body
     study_id = await _verify(req.get("Authorization"), ["self", "parent"], study_id)
     const output = { data: await StudyRepository._update(study_id, study) }
+
+    study.study_id = study_id
+    study.action = "update"
+
+    //publishing data
+    PubSubAPIListenerQueue.add({ topic: `study.*`, payload: study })
+    PubSubAPIListenerQueue.add({ topic: `study`, token: `researcher.*.study.*`, payload: study })
+    PubSubAPIListenerQueue.add({ topic: `researcher.*.study`, payload: study })
+
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -32,9 +53,33 @@ StudyService.put("/study/:study_id", async (req: Request, res: Response) => {
 StudyService.delete("/study/:study_id", async (req: Request, res: Response) => {
   try {
     let study_id = req.params.study_id
+    let parent: any = ""
+    try {
+      parent = await TypeRepository._parent(study_id)
+    } catch (error) {
+      console.log("Error fetching Study")
+    }
     study_id = await _verify(req.get("Authorization"), ["self", "parent"], study_id)
     let output = { data: await StudyRepository._delete(study_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
+
+    //publishing data
+    PubSubAPIListenerQueue.add({
+      topic: `study.*`,
+      token: `researcher.${parent["Researcher"]}.study.${study_id}`,
+      payload: { action: "delete", study_id: study_id, researcher_id: parent["Researcher"] },
+    })
+    PubSubAPIListenerQueue.add({
+      topic: `study`,
+      token: `researcher.*.study.*`,
+      payload: { action: "delete", study_id: study_id, researcher_id: parent["Researcher"] },
+    })
+    PubSubAPIListenerQueue.add({
+      topic: `researcher.*.study`,
+      token: `researcher.${parent["Researcher"]}.study.*`,
+      payload: { action: "delete", study_id: study_id, researcher_id: parent["Researcher"] },
+    })
+
     res.json()
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
