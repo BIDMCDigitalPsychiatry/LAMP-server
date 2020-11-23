@@ -104,8 +104,8 @@ PubSubAPIListenerQueue.process(async (job: any) => {
       }
     }
     if (job.data.topic === "activity_event") {
-      try {
-        for (const payload of job.data.payload) {
+      for (const payload of job.data.payload) {
+        try {
           const Data: any = {}
           payload.topic = job.data.topic
           payload.participant_id = job.data.participant_id
@@ -113,16 +113,16 @@ PubSubAPIListenerQueue.process(async (job: any) => {
           Data.data = JSON.stringify(payload)
           Data.token = job.data.token
           await publishActivityEvent(payload.topic, Data)
+        } catch (error) {
+          publishStatus = false
+          console.log("Error creating token")
         }
-        publishStatus = false
-      } catch (error) {
-        publishStatus = false
-        console.log("Error creating token")
       }
+      publishStatus = false
     }
     if (job.data.topic === "participant.*.activity_event") {
-      try {
-        for (const payload of job.data.payload) {
+      for (const payload of job.data.payload) {
+        try {
           job.data.token = `participant.${job.data.participant_id}.activity_event.*`
           const Data: any = {}
           payload.topic = job.data.topic
@@ -131,17 +131,17 @@ PubSubAPIListenerQueue.process(async (job: any) => {
           Data.data = JSON.stringify(payload)
           Data.token = job.data.token
           await publishActivityEvent(payload.topic, Data)
+        } catch (error) {
+          publishStatus = false
+          console.log("Error creating token")
         }
-        publishStatus = false
-      } catch (error) {
-        publishStatus = false
-        console.log("Error creating token")
       }
+      publishStatus = false
     }
 
     if (job.data.topic === "activity.*.activity_event") {
-      try {
-        for (const payload of job.data.payload) {
+      for (const payload of job.data.payload) {
+        try {
           const Data: any = {}
           payload.topic = job.data.topic
           payload.participant_id = job.data.participant_id
@@ -150,16 +150,16 @@ PubSubAPIListenerQueue.process(async (job: any) => {
           Data.data = JSON.stringify(payload)
           Data.token = job.data.token
           await publishActivityEvent(payload.topic, Data)
+        } catch (error) {
+          publishStatus = false
+          console.log("Error creating token")
         }
-        publishStatus = false
-      } catch (error) {
-        publishStatus = false
-        console.log("Error creating token")
       }
+      publishStatus = false
     }
     if (job.data.topic === "participant.*.activity.*.activity_event") {
-      try {
-        for (const payload of job.data.payload) {
+      for (const payload of job.data.payload) {
+        try {
           const Data: any = {}
           payload.topic = job.data.topic
           payload.participant_id = job.data.participant_id
@@ -168,17 +168,17 @@ PubSubAPIListenerQueue.process(async (job: any) => {
           Data.data = JSON.stringify(payload)
           Data.token = job.data.token
           await publishActivityEvent(payload.topic, Data)
+        } catch (error) {
+          console.log(error)
+          publishStatus = false
+          console.log("Error creating token")
         }
-        publishStatus = false
-      } catch (error) {
-        console.log(error)
-        publishStatus = false
-        console.log("Error creating token")
       }
+      publishStatus = false
     }
     if (job.data.topic === "sensor_event") {
-      try {
-        for (const payload of job.data.payload) {
+      for (const payload of job.data.payload) {
+        try {
           const Data: any = {}
           payload.topic = job.data.topic
           const inputSensor = payload.sensor.split(".")
@@ -187,19 +187,19 @@ PubSubAPIListenerQueue.process(async (job: any) => {
           payload.sensor = sensor_
           payload.action = job.data.action
           Data.data = JSON.stringify(payload)
-          Data.token = job.data.token         
+          Data.token = job.data.token
           await publishSensorEvent(payload.topic, Data)
+        } catch (error) {
+          publishStatus = false
+          console.log("Error creating token")
         }
-        publishStatus = false
-      } catch (error) {
-        publishStatus = false
-        console.log("Error creating token")
       }
+      publishStatus = false
     }
 
     if (job.data.topic === "participant.*.sensor_event") {
-      try {
-        for (const payload of job.data.payload) {
+      for (const payload of job.data.payload) {
+        try {
           job.data.token = `participant.${job.data.participant_id}.sensor_event.*`
           const Data: any = {}
           payload.topic = job.data.topic
@@ -210,18 +210,18 @@ PubSubAPIListenerQueue.process(async (job: any) => {
           payload.sensor = sensor_
           Data.data = JSON.stringify(payload)
           job.data.token = `participant.${job.data.participant_id}.sensor_event.*`
-          Data.token = job.data.token        
+          Data.token = job.data.token
           await publishSensorEvent(payload.topic, Data)
+        } catch (error) {
+          publishStatus = false
+          console.log("Error creating token")
         }
-        publishStatus = false
-      } catch (error) {
-        publishStatus = false
-        console.log("Error creating token")
       }
+      publishStatus = false
     }
     if (job.data.topic === "sensor.*.sensor_event") {
-      try {
-        for (const payload of job.data.payload) {
+      for (const payload of job.data.payload) {
+        try {
           const Data: any = {}
           payload.topic = job.data.topic
           payload.action = job.data.action
@@ -231,19 +231,18 @@ PubSubAPIListenerQueue.process(async (job: any) => {
           payload.sensor = sensor_
           job.data.token = `sensor.${payload.sensor}.sensor_event.*`
           Data.token = job.data.token
-          Data.data = JSON.stringify(payload)         
+          Data.data = JSON.stringify(payload)
           await publishSensorEvent(payload.topic, Data)
+        } catch (error) {
+          publishStatus = false
+          console.log("Error creating token")
         }
-        publishStatus = false
-      } catch (error) {
-        publishStatus = false
-        console.log("Error creating token")
       }
+      publishStatus = false
     }
     if (job.data.topic === "participant.*.sensor.*.sensor_event") {
-      try {
-        for (const payload of job.data.payload) {
-          console.log(payload.participant_id)
+      for (const payload of job.data.payload) {
+        try {        
 
           const Data: any = {}
           payload.topic = job.data.topic
@@ -254,14 +253,14 @@ PubSubAPIListenerQueue.process(async (job: any) => {
           payload.sensor = sensor_
           job.data.token = `participant.${job.data.participant_id}.sensor.${payload.sensor}.sensor_event.*`
           Data.data = JSON.stringify(payload)
-          Data.token = job.data.token         
+          Data.token = job.data.token
           await publishSensorEvent(payload.topic, Data)
+        } catch (error) {
+          publishStatus = false
+          console.log("Error creating token")
         }
-        publishStatus = false
-      } catch (error) {
-        publishStatus = false
-        console.log("Error creating token")
       }
+      publishStatus = false
     }
 
     if (publishStatus) {
@@ -278,9 +277,9 @@ PubSubAPIListenerQueue.process(async (job: any) => {
 })
 
 /** publishing sensor event
- * 
- * @param topic 
- * @param data 
+ *
+ * @param topic
+ * @param data
  */
 async function publishSensorEvent(topic: any, data: any): Promise<void> {
   try {
@@ -290,9 +289,9 @@ async function publishSensorEvent(topic: any, data: any): Promise<void> {
 }
 
 /** publishing activity event
- * 
- * @param topic 
- * @param data 
+ *
+ * @param topic
+ * @param data
  */
 async function publishActivityEvent(topic: any, data: any): Promise<void> {
   try {
@@ -301,8 +300,8 @@ async function publishActivityEvent(topic: any, data: any): Promise<void> {
   } catch (error) {}
 }
 
-/** Nats server connect 
- * 
+/** Nats server connect
+ *
  */
 async function natsConnect(): Promise<any> {
   try {
