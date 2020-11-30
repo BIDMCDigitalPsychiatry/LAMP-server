@@ -5,7 +5,7 @@ import express, { Application } from "express"
 import cors from "cors"
 import morgan from "morgan"
 import { customAlphabet } from "nanoid"
-import { LegacyAPI, ListenerAPI, OpenAPISchema, HTTPS_CERT, _bootstrap_db } from "./utils"
+import { LegacyAPI, ListenerAPI,PushNotificationAPI, OpenAPISchema, HTTPS_CERT, _bootstrap_db } from "./utils"
 import { ActivityScheduler } from "./utils/ActivitySchedulerJob"
 import API from "./service"
 import {cleanAllQueues} from "./utils/ActivitySchedulerJob"
@@ -39,6 +39,7 @@ async function main(): Promise<void> {
   app.use("/", API)
   app.use("/v0", LegacyAPI)
   app.subscribe("*", ListenerAPI)
+  app.use("/send", PushNotificationAPI)
   app.get("/", async (req, res) => res.json(_openAPIschema))
   app.get(["/favicon.ico", "/service-worker.js"], (req, res) => res.status(204))
   app.all("*", (req, res) => res.status(404).json({ message: "404.api-endpoint-unimplemented" }))
