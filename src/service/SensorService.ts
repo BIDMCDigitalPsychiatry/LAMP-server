@@ -17,8 +17,8 @@ SensorService.post("/study/:study_id/sensor", async (req: Request, res: Response
     sensor.action = "create"
 
     //publishing data
-    PubSubAPIListenerQueue.add({ topic: `sensor`, token: `study.*.sensor.*`, payload: sensor })
-    PubSubAPIListenerQueue.add({ topic: `study.*.sensor`, token: `study.${study_id}.sensor.*`, payload: sensor })
+    PubSubAPIListenerQueue.add({ topic: `sensor`, token: `study.${study_id}.sensor.${output['data']}`, payload: sensor })
+    PubSubAPIListenerQueue.add({ topic: `study.*.sensor`, token: `study.${study_id}.sensor.${output['data']}`, payload: sensor })
 
     res.json(output)
   } catch (e) {
@@ -37,7 +37,7 @@ SensorService.put("/sensor/:sensor_id", async (req: Request, res: Response) => {
 
     //publishing data
     PubSubAPIListenerQueue.add({ topic: `sensor.*`, payload: sensor })
-    PubSubAPIListenerQueue.add({ topic: `sensor`, token: `study.*.sensor.*`, payload: sensor })
+    PubSubAPIListenerQueue.add({ topic: `sensor`, payload: sensor })
     PubSubAPIListenerQueue.add({ topic: `study.*.sensor`, payload: sensor })
 
     res.json(output)
@@ -62,7 +62,7 @@ SensorService.delete("/sensor/:sensor_id", async (req: Request, res: Response) =
     if (parent !== undefined && parent !== "") {
       PubSubAPIListenerQueue.add({
         topic: `study.*.sensor`,
-        token: `study.${parent["Study"]}.sensor.*`,
+        token: `study.${parent["Study"]}.sensor.${sensor_id}`,
         payload: { action: "delete", sensor_id: sensor_id, study_id: parent["Study"] },
       })
 
@@ -74,7 +74,7 @@ SensorService.delete("/sensor/:sensor_id", async (req: Request, res: Response) =
 
       PubSubAPIListenerQueue.add({
         topic: `sensor`,
-        token: `study.*.sensor.*`,
+        token: `study.${parent["Study"]}.sensor.${sensor_id}`,
         payload: { action: "delete", sensor_id: sensor_id, study_id: parent["Study"] },
       })
     }

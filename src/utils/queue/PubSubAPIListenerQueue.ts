@@ -10,70 +10,35 @@ PubSubAPIListenerQueue.process(async (job: any) => {
   try {
     const nc = await natsConnect()
     console.log("topic", job.data.topic)
-    if (job.data.topic === "study.*.activity" && job.data.payload.action === "update") {
-      try {
-        const parent: any = await TypeRepository._parent(job.data.payload.activity_id)
-        job.data.payload.study_id = parent["Study"]
-        job.data.token = `study.${parent["Study"]}.activity.*`
-      } catch (error) {
-        publishStatus = false
-        console.log("Error fetching Study")
-      }
-    }
-    if (job.data.topic === "study.*.participant" && job.data.payload.action === "update") {
+    
+    if ((job.data.topic === "study.*.participant"|| job.data.topic === "participant.*" ||
+         job.data.topic === "participant") && job.data.payload.action === "update") {
       try {
         const parent: any = await TypeRepository._parent(job.data.payload.participant_id)
         job.data.payload.study_id = parent["Study"]
-        job.data.token = `study.${parent["Study"]}.participant.*`
+        job.data.token = `study.${parent["Study"]}.participant.${job.data.payload.participant_id}`
       } catch (error) {
         publishStatus = false
         console.log("Error fetching Study")
       }
-    }
-    if (job.data.topic === "study.*.sensor" && job.data.payload.action === "update") {
-      try {
-        const parent: any = await TypeRepository._parent(job.data.payload.sensor_id)
-        job.data.payload.study_id = parent["Study"]
-        job.data.token = `study.${parent["Study"]}.sensor.*`
-      } catch (error) {
-        publishStatus = false
-        console.log("Error fetching Study")
-      }
-    }
-    if (job.data.topic === "study.*.participant" && job.data.payload.action === "update") {
-      try {
-        const parent: any = await TypeRepository._parent(job.data.payload.participant_id)
-        job.data.payload.study_id = parent["Study"]
-        job.data.token = `study.${parent["Study"]}.participant.*`
-        console.log("study_id", job.data.payload.study_id)
-      } catch (error) {
-        publishStatus = false
-        console.log("Error fetching participants")
-      }
-    }
-    if (job.data.topic === "researcher.*.study" && job.data.payload.action === "update") {
-      try {
-        const parent: any = await TypeRepository._parent(job.data.payload.study_id)
-        job.data.payload.researcher_id = parent["Researcher"]
-        job.data.token = `researcher.${parent["Researcher"]}.study.*`
-        console.log("researcher_id", job.data.payload.researcher_id)
-      } catch (error) {
-        publishStatus = false
-        console.log("Error fetching participants")
-      }
-    }
-    if (job.data.topic === "study.*" && job.data.payload.action === "update") {
+    }   
+   
+    if ((job.data.topic === "study" || 
+         job.data.topic === "study.*" || 
+         job.data.topic === "researcher.*.study")
+       && job.data.payload.action === "update") {
       try {
         const parent: any = await TypeRepository._parent(job.data.payload.study_id)
         job.data.payload.researcher_id = parent["Researcher"]
         job.data.token = `researcher.${parent["Researcher"]}.study.${job.data.payload.study_id}`
-        console.log("researcher_id", job.data.payload.researcher_id)
+        
       } catch (error) {
         publishStatus = false
         console.log("Error fetching participants")
       }
     }
-    if (job.data.topic === "activity.*" && job.data.payload.action === "update") {
+    if ((job.data.topic === "activity" || job.data.topic === "activity.*" ||
+         job.data.topic === "study.*.activity" ) && job.data.payload.action === "update") {
       try {
         const parent: any = await TypeRepository._parent(job.data.payload.activity_id)
         job.data.payload.study_id = parent["Study"]
@@ -83,7 +48,8 @@ PubSubAPIListenerQueue.process(async (job: any) => {
         console.log("Error fetching Study")
       }
     }
-    if (job.data.topic === "sensor.*" && job.data.payload.action === "update") {
+    if ((job.data.topic === "sensor" || job.data.topic === "sensor.*" ||
+    job.data.topic === "study.*.sensor" ) && job.data.payload.action === "update") {
       try {
         const parent: any = await TypeRepository._parent(job.data.payload.sensor_id)
         job.data.payload.study_id = parent["Study"]
@@ -93,17 +59,11 @@ PubSubAPIListenerQueue.process(async (job: any) => {
         console.log("Error fetching Study")
       }
     }
-    if (job.data.topic === "participant.*" && job.data.payload.action === "update") {
-      try {
-        const parent: any = await TypeRepository._parent(job.data.payload.participant_id)
-        job.data.payload.study_id = parent["Study"]
-        job.data.token = `study.${parent["Study"]}.participant.${job.data.payload.participant_id}`
-      } catch (error) {
-        publishStatus = false
-        console.log("Error fetching Study")
-      }
-    }
-    if (job.data.topic === "activity_event") {
+   
+    if (job.data.topic === "activity_event" || 
+        job.data.topic === "participant.*.activity_event" ||
+        job.data.topic === "activity.*.activity_event" || 
+        job.data.topic === "participant.*.activity.*.activity_event") {
       for (const payload of job.data.payload) {
         try {
           const Data: any = {}
@@ -111,7 +71,7 @@ PubSubAPIListenerQueue.process(async (job: any) => {
           payload.participant_id = job.data.participant_id
           payload.action = job.data.action
           Data.data = JSON.stringify(payload)
-          Data.token = job.data.token
+          Data.token = `activity.${payload.activity}.participant.${job.data.participant_id}`
           await publishActivityEvent(payload.topic, Data)
         } catch (error) {
           publishStatus = false
@@ -119,107 +79,11 @@ PubSubAPIListenerQueue.process(async (job: any) => {
         }
       }
       publishStatus = false
-    }
-    if (job.data.topic === "participant.*.activity_event") {
-      for (const payload of job.data.payload) {
-        try {
-          job.data.token = `participant.${job.data.participant_id}.activity_event.*`
-          const Data: any = {}
-          payload.topic = job.data.topic
-          payload.participant_id = job.data.participant_id
-          payload.action = job.data.action
-          Data.data = JSON.stringify(payload)
-          Data.token = job.data.token
-          await publishActivityEvent(payload.topic, Data)
-        } catch (error) {
-          publishStatus = false
-          console.log("Error creating token")
-        }
-      }
-      publishStatus = false
-    }
-
-    if (job.data.topic === "activity.*.activity_event") {
-      for (const payload of job.data.payload) {
-        try {
-          const Data: any = {}
-          payload.topic = job.data.topic
-          payload.participant_id = job.data.participant_id
-          payload.action = job.data.action
-          job.data.token = `activity.${payload.activity}.activity_event.*`
-          Data.data = JSON.stringify(payload)
-          Data.token = job.data.token
-          await publishActivityEvent(payload.topic, Data)
-        } catch (error) {
-          publishStatus = false
-          console.log("Error creating token")
-        }
-      }
-      publishStatus = false
-    }
-    if (job.data.topic === "participant.*.activity.*.activity_event") {
-      for (const payload of job.data.payload) {
-        try {
-          const Data: any = {}
-          payload.topic = job.data.topic
-          payload.participant_id = job.data.participant_id
-          payload.action = job.data.action
-          job.data.token = `participant.${job.data.participant_id}.activity.${payload.activity}.activity_event.*`
-          Data.data = JSON.stringify(payload)
-          Data.token = job.data.token
-          await publishActivityEvent(payload.topic, Data)
-        } catch (error) {
-          console.log(error)
-          publishStatus = false
-          console.log("Error creating token")
-        }
-      }
-      publishStatus = false
-    }
-    if (job.data.topic === "sensor_event") {
-      for (const payload of job.data.payload) {
-        try {
-          const Data: any = {}
-          payload.topic = job.data.topic
-          const inputSensor = payload.sensor.split(".")
-          payload.participant_id = job.data.participant_id
-          const sensor_ = inputSensor[inputSensor.length - 1]
-          payload.sensor = sensor_
-          payload.action = job.data.action
-          Data.data = JSON.stringify(payload)
-          Data.token = job.data.token
-          await publishSensorEvent(payload.topic, Data)
-        } catch (error) {
-          publishStatus = false
-          console.log("Error creating token")
-        }
-      }
-      publishStatus = false
-    }
-
-    if (job.data.topic === "participant.*.sensor_event") {
-      for (const payload of job.data.payload) {
-        try {
-          job.data.token = `participant.${job.data.participant_id}.sensor_event.*`
-          const Data: any = {}
-          payload.topic = job.data.topic
-          payload.action = job.data.action
-          payload.participant_id = job.data.participant_id
-          const inputSensor = payload.sensor.split(".")
-          const sensor_ = inputSensor[inputSensor.length - 1]
-          payload.sensor = sensor_
-          Data.data = JSON.stringify(payload)
-          job.data.token = `participant.${job.data.participant_id}.sensor_event.*`
-          Data.token = job.data.token
-          await publishSensorEvent(payload.topic, Data)
-        } catch (error) {
-          publishStatus = false
-          console.log("Error creating token")
-        }
-      }
-      publishStatus = false
-    }
-    if (job.data.topic === "sensor.*.sensor_event") {
+    } 
+    if (job.data.topic ===  "sensor_event" || 
+       job.data.topic === "participant.*.sensor_event" ||  
+       job.data.topic === "sensor.*.sensor_event" ||
+       job.data.topic === "participant.*.sensor.*.sensor_event") {
       for (const payload of job.data.payload) {
         try {
           const Data: any = {}
@@ -229,30 +93,8 @@ PubSubAPIListenerQueue.process(async (job: any) => {
           const inputSensor = payload.sensor.split(".")
           const sensor_ = inputSensor[inputSensor.length - 1]
           payload.sensor = sensor_
-          job.data.token = `sensor.${payload.sensor}.sensor_event.*`
-          Data.token = job.data.token
           Data.data = JSON.stringify(payload)
-          await publishSensorEvent(payload.topic, Data)
-        } catch (error) {
-          publishStatus = false
-          console.log("Error creating token")
-        }
-      }
-      publishStatus = false
-    }
-    if (job.data.topic === "participant.*.sensor.*.sensor_event") {
-      for (const payload of job.data.payload) {
-        try {        
-
-          const Data: any = {}
-          payload.topic = job.data.topic
-          payload.action = job.data.action
-          payload.participant_id = job.data.participant_id
-          const inputSensor = payload.sensor.split(".")
-          const sensor_ = inputSensor[inputSensor.length - 1]
-          payload.sensor = sensor_
-          job.data.token = `participant.${job.data.participant_id}.sensor.${payload.sensor}.sensor_event.*`
-          Data.data = JSON.stringify(payload)
+          job.data.token = `sensor.${sensor_}.participant.${payload.participant_id}`
           Data.token = job.data.token
           await publishSensorEvent(payload.topic, Data)
         } catch (error) {
@@ -261,7 +103,7 @@ PubSubAPIListenerQueue.process(async (job: any) => {
         }
       }
       publishStatus = false
-    }
+    }   
 
     if (publishStatus) {
       const Data: any = {}

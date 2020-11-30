@@ -22,6 +22,7 @@ SchedulerQueue.process(async (job: any, done: any) => {
           activity_id: data.activity_id,
           message: data.message,
           title: data.title,
+          url:`/participant/${participant_id}/activity/${data.activity_id}`
         })
       }
     }
@@ -47,11 +48,12 @@ SchedulerQueue.on("completed", async (job) => {
 })
 
 /// Send to device with payload and device token given.
-function sendNotification(device_token: string, device_type: string, payload: any): void {
+export function sendNotification(device_token: string, device_type: string, payload: any): void {
   console.dir({ device_token, device_type, payload })
   // Send this specific page URL to the device to show the actual activity.
   // eslint-disable-next-line prettier/prettier
-  const url =`/participant/${payload.participant_id}/activity/${payload.activity_id}`
+  const url = payload.url
+const notificationId =Math.floor(Math.random() * 10000) + 1
   console.log(url)
   switch (device_type) {
     case "android.watch":
@@ -67,7 +69,7 @@ function sendNotification(device_token: string, device_type: string, payload: an
               title: `${payload.title}`,
               message: `${payload.message}`,
               page: `${url}`,
-              notificationId: Math.floor(Math.random() * 10000) + 1,
+              notificationId: notificationId,
               actions: [{ name: "Open App", page: `${process.env.DASHBOARD_URL}` }],
               expiry: 3600000,
             },
@@ -107,11 +109,12 @@ function sendNotification(device_token: string, device_type: string, payload: an
               "mutable-content": 1,
               "content-available": 1,
             },
-            notificationId: `${payload.title}`,
+            notificationId: notificationId,
             expiry: 600000,
             page: `${url}`,
             actions: [{ name: "Open App", page: `${url}` }],
           },
+          headers:{"apns-collapse-id":notificationId, "apns-push-type": "background", "apns-priority": "5"}
         }
         //connect to api gateway and send notifications
         fetch(`${process.env.PUSH_GATEWAY}`, {
@@ -146,17 +149,18 @@ function sendNotification(device_token: string, device_type: string, payload: an
               "mutable-content": 1,
               "content-available": 1,
             },
-            notificationId: `${payload.title}`,
-            expiry: 60000,
+            notificationId: notificationId,
+            expiry: 600000,
             page: `${url}`,
             actions: [{ name: "Open App", page: `${url}` }],
           },
+          headers:{"apns-collapse-id":notificationId, "apns-push-type": "background", "apns-priority": "5"}
         }
         //connect to api gateway and send notifications
         fetch(`${process.env.PUSH_GATEWAY}`, {
           method: "post",
           body: JSON.stringify(opts),
-          headers: { "Content-Type": "application/json", "apns-push-type": "background", "apns-priority": "5" },
+          headers: { "Content-Type": "application/json" },
         })
           .then((res) => {
             if (!res.ok) {

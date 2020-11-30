@@ -14,7 +14,7 @@ ResearcherService.post("/researcher", async (req: Request, res: Response) => {
     researcher.action = "create"
 
     //publishing data
-    PubSubAPIListenerQueue.add({ topic: `researcher`, token: `researcher.*`, payload: researcher })
+    PubSubAPIListenerQueue.add({ topic: `researcher`, token: `researcher.${output['data']}`, payload: researcher })
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -32,7 +32,7 @@ ResearcherService.put("/researcher/:researcher_id", async (req: Request, res: Re
 
     //publishing data
     PubSubAPIListenerQueue.add({ topic: `researcher.*`, token: `researcher.${researcher_id}`, payload: researcher })
-    PubSubAPIListenerQueue.add({ topic: `researcher`, token: `researcher.*`, payload: researcher })
+    PubSubAPIListenerQueue.add({ topic: `researcher`, token: `researcher.${researcher_id}`, payload: researcher })
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -53,7 +53,7 @@ ResearcherService.delete("/researcher/:researcher_id", async (req: Request, res:
     })
     PubSubAPIListenerQueue.add({
       topic: `researcher`,
-      payload: { action: "delete", token: `researcher`, researcher_id: researcher_id },
+      payload: { action: "delete", token: `researcher.${researcher_id}`, researcher_id: researcher_id },
     })
     res.json(output)
   } catch (e) {

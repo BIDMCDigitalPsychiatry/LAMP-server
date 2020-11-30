@@ -25,7 +25,6 @@ ActivityEventService.post("/participant/:participant_id/activity_event", async (
     //publishing data
     PubSubAPIListenerQueue.add({
       topic: `activity_event`,
-      token: `activity_event.*`,
       action: "create",
       participant_id: participant_id,
       payload: Array.isArray(activity_event) ? activity_event : [activity_event],

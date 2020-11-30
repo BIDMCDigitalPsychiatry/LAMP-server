@@ -7,7 +7,7 @@ export const ListenerAPI = Router()
 //changes in researcher api  
 //example token: researcher
 //example api listener api in external client:http://localhost:3000/listen/researcher
-ListenerAPI.get("/researcher", async (req: Request, res: Response) => {
+ListenerAPI.subscribe("/researcher", async (req: Request, res: Response) => {
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
@@ -52,7 +52,7 @@ ListenerAPI.get("/researcher", async (req: Request, res: Response) => {
 //changes in study api 
 //example token: study
 //example api listener api in external client:http://localhost:3000/listen/study
-ListenerAPI.get("/researcher/study", async (req: Request, res: Response) => {
+ListenerAPI.subscribe("/researcher/study", async (req: Request, res: Response) => {
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
@@ -112,7 +112,7 @@ ListenerAPI.get("/researcher/study", async (req: Request, res: Response) => {
 //changes in activity api 
 //example token: activity
 //example api listener api in external client:http://localhost:3000/listen/activity
-ListenerAPI.get("/study/activity", async (req: Request, res: Response) => {
+ListenerAPI.subscribe("/study/activity", async (req: Request, res: Response) => {
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
@@ -172,7 +172,7 @@ ListenerAPI.get("/study/activity", async (req: Request, res: Response) => {
 //changes in sensor api
 //example token: sensor
 //example api listener api in external client:http://localhost:3000/listen/sensor
-ListenerAPI.get("/study/sensor", async (req: Request, res: Response) => {
+ListenerAPI.subscribe("/study/sensor", async (req: Request, res: Response) => {
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
@@ -235,7 +235,7 @@ ListenerAPI.get("/study/sensor", async (req: Request, res: Response) => {
 //changes in participant api 
 //example token: participant
 //example api listener api in external client:http://localhost:3000/listen/participant
-ListenerAPI.get("/study/participant", async (req: Request, res: Response) => {
+ListenerAPI.subscribe("/study/participant", async (req: Request, res: Response) => {
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
@@ -295,7 +295,7 @@ ListenerAPI.get("/study/participant", async (req: Request, res: Response) => {
 
 //register for creation of activity_event 
 //example token: participant.U680456029.activity_event.*
-ListenerAPI.get("/participant/activity_event", async (req: Request, res: Response) => {
+ListenerAPI.subscribe("/participant/activity_event", async (req: Request, res: Response) => {
   let participant_id = req.params.participant_id
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
@@ -377,7 +377,7 @@ ListenerAPI.get("/participant/activity_event", async (req: Request, res: Respons
 
 //register for creation sensor_event objects
 //example token: participant.U680456029.sensor_event.*
-ListenerAPI.get("/participant/sensor_event", async (req: Request, res: Response) => {
+ListenerAPI.subscribe("/participant/sensor_event", async (req: Request, res: Response) => {
   let participant_id = req.params.participant_id
   res.writeHead(200, {
     "Content-Type": "text/event-stream",

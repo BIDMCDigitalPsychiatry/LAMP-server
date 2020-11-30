@@ -19,8 +19,8 @@ ActivityService.post("/study/:study_id/activity", async (req: Request, res: Resp
     activity.action = "create"
 
     //publishing data
-    PubSubAPIListenerQueue.add({ topic: `activity`, token: `study.*.activity.*`, payload: activity })
-    PubSubAPIListenerQueue.add({ topic: `study.*.activity`, token: `study.${study_id}.activity.*`, payload: activity })
+    PubSubAPIListenerQueue.add({ topic: `activity`, token: `study.${study_id}.activity.${output['data']}`, payload: activity })
+    PubSubAPIListenerQueue.add({ topic: `study.*.activity`, token: `study.${study_id}.activity.${output['data']}`, payload: activity })
 
     res.json(output)
   } catch (e) {
@@ -40,7 +40,7 @@ ActivityService.put("/activity/:activity_id", async (req: Request, res: Response
 
     //publishing data
     PubSubAPIListenerQueue.add({ topic: `activity.*`, payload: activity })
-    PubSubAPIListenerQueue.add({ topic: `activity`, token: `study.*.activity.*`, payload: activity })
+    PubSubAPIListenerQueue.add({ topic: `activity`, payload: activity })
     PubSubAPIListenerQueue.add({ topic: `study.*.activity`, payload: activity })
     res.json(output)
   } catch (e) {

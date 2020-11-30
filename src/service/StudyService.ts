@@ -17,10 +17,10 @@ StudyService.post("/researcher/:researcher_id/study", async (req: Request, res: 
     study.researcher_id = researcher_id
     study.action = "create"
     //publishing data
-    PubSubAPIListenerQueue.add({ topic: `study`, token: `researcher.*.study.*`, payload: study })
+    PubSubAPIListenerQueue.add({ topic: `study`, token: `researcher.${researcher_id}.study.${output['data']}`, payload: study })
     PubSubAPIListenerQueue.add({
       topic: `researcher.*.study`,
-      token: `researcher.${researcher_id}.study.*`,
+      token: `researcher.${researcher_id}.study.${output['data']}`,
       payload: study,
     })
     res.json(output)
@@ -41,7 +41,7 @@ StudyService.put("/study/:study_id", async (req: Request, res: Response) => {
 
     //publishing data
     PubSubAPIListenerQueue.add({ topic: `study.*`, payload: study })
-    PubSubAPIListenerQueue.add({ topic: `study`, token: `researcher.*.study.*`, payload: study })
+    PubSubAPIListenerQueue.add({ topic: `study`, payload: study })
     PubSubAPIListenerQueue.add({ topic: `researcher.*.study`, payload: study })
 
     res.json(output)
@@ -71,12 +71,12 @@ StudyService.delete("/study/:study_id", async (req: Request, res: Response) => {
     })
     PubSubAPIListenerQueue.add({
       topic: `study`,
-      token: `researcher.*.study.*`,
+      token: `researcher.${parent["Researcher"]}.study.${study_id}`,
       payload: { action: "delete", study_id: study_id, researcher_id: parent["Researcher"] },
     })
     PubSubAPIListenerQueue.add({
       topic: `researcher.*.study`,
-      token: `researcher.${parent["Researcher"]}.study.*`,
+      token: `researcher.${parent["Researcher"]}.study.${study_id}`,
       payload: { action: "delete", study_id: study_id, researcher_id: parent["Researcher"] },
     })
 

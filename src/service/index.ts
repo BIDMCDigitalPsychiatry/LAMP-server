@@ -23,6 +23,7 @@ import { StudyRepository } from "../repository/StudyRepository"
 import { TypeRepository } from "../repository/TypeRepository"
 import { ResearcherRepository } from "../repository/ResearcherRepository"
 import { ListenerAPI } from "../utils/ListenerAPI"
+import { PushNotificationAPI } from "../utils/PushNotificationAPI"
 
 export async function Query(query: string, auth: string | undefined, verify = true): Promise<any> {
   return new Promise((resolve, reject) => {
@@ -113,6 +114,10 @@ API.use(SensorEventService)
 
 const ListenerAPIs = Router()
 ListenerAPIs.use(ListenerAPI)
+
+
+const PushNotificationService = Router()
+PushNotificationService.use(PushNotificationAPI)
 
 API.post("/", async (req, res) => {
   try {

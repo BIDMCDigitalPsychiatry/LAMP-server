@@ -14,12 +14,12 @@ ParticipantService.post("/study/:study_id/participant", async (req: Request, res
     const output = { data: await ParticipantRepository._insert(study_id, participant) }
     participant.study_id = study_id
     participant.action = "create"
-
+    
     //publishing data
-    PubSubAPIListenerQueue.add({ topic: `participant`, token: `study.*.participant.*`, payload: participant })
+    PubSubAPIListenerQueue.add({ topic: `participant`, token: `study.${study_id}.participant.${output['data'].id}`, payload: participant })
     PubSubAPIListenerQueue.add({
       topic: `study.*.participant`,
-      token: `study.${study_id}.participant.*`,
+      token: `study.${study_id}.participant.${output['data'].id}`,
       payload: participant,
     })
     res.json(output)
@@ -39,7 +39,7 @@ ParticipantService.put("/participant/:participant_id", async (req: Request, res:
 
     //publishing data
     PubSubAPIListenerQueue.add({ topic: `participant.*`, payload: participant })
-    PubSubAPIListenerQueue.add({ topic: `participant`, token: `study.*.participant.*`, payload: participant })
+    PubSubAPIListenerQueue.add({ topic: `participant`, payload: participant })
     PubSubAPIListenerQueue.add({ topic: `study.*.participant`, payload: participant })
 
     res.json(output)
@@ -64,7 +64,7 @@ ParticipantService.delete("/participant/:participant_id", async (req: Request, r
     if (parent !== undefined && parent !== "") {
       PubSubAPIListenerQueue.add({
         topic: `study.*.participant`,
-        token: `study.${parent["Study"]}.participant.*`,
+        token: `study.${parent["Study"]}.participant.${participant_id}`,
         payload: { action: "delete", participant_id: participant_id, study_id: parent["Study"] },
       })
       PubSubAPIListenerQueue.add({
@@ -74,7 +74,7 @@ ParticipantService.delete("/participant/:participant_id", async (req: Request, r
       })
       PubSubAPIListenerQueue.add({
         topic: `participant`,
-        token: `study.*.participant.*`,
+        token: `study.${parent["Study"]}.participant.${participant_id}`,
         payload: { action: "delete", participant_id: participant_id, study_id: parent["Study"] },
       })
     }

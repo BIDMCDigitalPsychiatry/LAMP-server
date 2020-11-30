@@ -3,6 +3,7 @@ export * from "./LegacyAPI"
 export * from "./ScriptRunner"
 export * from "./Migrate"
 export * from "./ListenerAPI"
+export * from "./PushNotificationAPI"
 import * as _OpenAPISchema from "./OpenAPISchema.json"
 export const OpenAPISchema = _OpenAPISchema
 

@@ -38,7 +38,7 @@ async function main(): Promise<void> {
   // Establish the API and LegacyAPI routers, as well as a few individual utility routes.
   app.use("/", API)
   app.use("/v0", LegacyAPI)
-  app.use("/SUBSCRIBE", ListenerAPI)
+  app.subscribe("*", ListenerAPI)
   app.get("/", async (req, res) => res.json(_openAPIschema))
   app.get(["/favicon.ico", "/service-worker.js"], (req, res) => res.status(204))
   app.all("*", (req, res) => res.status(404).json({ message: "404.api-endpoint-unimplemented" }))
