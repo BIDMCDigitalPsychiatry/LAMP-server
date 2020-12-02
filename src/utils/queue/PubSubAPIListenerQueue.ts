@@ -148,8 +148,8 @@ async function publishActivityEvent(topic: any, data: any): Promise<void> {
 async function natsConnect(): Promise<any> {
   try {
     const nc = await connect({
-      servers: [`${process.env.NATSServers}`],
-      payload: Payload.JSON,
+      servers: [`${process.env.NATS_SERVER}`],
+      payload: Payload.JSON
     })
     return nc
   } catch (error) {}

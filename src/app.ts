@@ -38,7 +38,7 @@ async function main(): Promise<void> {
   // Establish the API and LegacyAPI routers, as well as a few individual utility routes.
   app.use("/", API)
   app.use("/v0", LegacyAPI)
-  app.subscribe("*", ListenerAPI)
+  app.use("/subscribe", ListenerAPI)
   app.use("/send", PushNotificationAPI)
   app.get("/", async (req, res) => res.json(_openAPIschema))
   app.get(["/favicon.ico", "/service-worker.js"], (req, res) => res.status(204))

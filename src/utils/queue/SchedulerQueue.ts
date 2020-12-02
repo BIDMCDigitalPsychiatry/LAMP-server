@@ -109,12 +109,12 @@ const notificationId =Math.floor(Math.random() * 10000) + 1
               "mutable-content": 1,
               "content-available": 1,
             },
-            notificationId: notificationId,
-            expiry: 600000,
+            notificationId: `${notificationId}`,
+            expiry: 300000,
             page: `${url}`,
             actions: [{ name: "Open App", page: `${url}` }],
           },
-          headers:{"apns-collapse-id":notificationId, "apns-push-type": "background", "apns-priority": "5"}
+          headers:{"apns-collapse-id":`${notificationId}`, "apns-push-type": "background", "apns-priority": "5"}
         }
         //connect to api gateway and send notifications
         fetch(`${process.env.PUSH_GATEWAY}`, {
@@ -149,12 +149,12 @@ const notificationId =Math.floor(Math.random() * 10000) + 1
               "mutable-content": 1,
               "content-available": 1,
             },
-            notificationId: notificationId,
-            expiry: 600000,
+            notificationId: `${notificationId}`,
+            expiry: 300000,
             page: `${url}`,
             actions: [{ name: "Open App", page: `${url}` }],
           },
-          headers:{"apns-collapse-id":notificationId, "apns-push-type": "background", "apns-priority": "5"}
+          headers:{"apns-collapse-id":`${notificationId}`, "apns-push-type": "background", "apns-priority": "5"}
         }
         //connect to api gateway and send notifications
         fetch(`${process.env.PUSH_GATEWAY}`, {

@@ -7,14 +7,14 @@ export const ListenerAPI = Router()
 //changes in researcher api  
 //example token: researcher
 //example api listener api in external client:http://localhost:3000/listen/researcher
-ListenerAPI.subscribe("/researcher", async (req: Request, res: Response) => {
+ListenerAPI.get("/researcher", async (req: Request, res: Response) => {
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
   })
 
-  const nc = await connect({ servers: [`${process.env.NATSServers}`] })
+  const nc = await connect({ servers: [`${process.env.NATS_SERVER}`] })
   if (undefined !== req.query.researcher_id) {
     let researcher_id = req.query.researcher_id
     await nc.subscribe(`researcher.*`, (err, msg) => {
@@ -52,13 +52,13 @@ ListenerAPI.subscribe("/researcher", async (req: Request, res: Response) => {
 //changes in study api 
 //example token: study
 //example api listener api in external client:http://localhost:3000/listen/study
-ListenerAPI.subscribe("/researcher/study", async (req: Request, res: Response) => {
+ListenerAPI.get("/researcher/study", async (req: Request, res: Response) => {
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
   })
-  const nc = await connect({ servers: [`${process.env.NATSServers}`] })
+  const nc = await connect({ servers: [`${process.env.NATS_SERVER}`] })
   if (undefined !== req.query.researcher_id) {
     let researcher_id = req.query.researcher_id
     let sub = await nc.subscribe(`researcher.*.study`, (err, msg) => {
@@ -112,13 +112,13 @@ ListenerAPI.subscribe("/researcher/study", async (req: Request, res: Response) =
 //changes in activity api 
 //example token: activity
 //example api listener api in external client:http://localhost:3000/listen/activity
-ListenerAPI.subscribe("/study/activity", async (req: Request, res: Response) => {
+ListenerAPI.get("/study/activity", async (req: Request, res: Response) => {
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
   })
-  const nc = await connect({ servers: [`${process.env.NATSServers}`] })
+  const nc = await connect({ servers: [`${process.env.NATS_SERVER}`] })
   if (undefined !== req.query.activity_id) {
     let activity_id = req.query.activity_id
     let sub = await nc.subscribe(`activity.*`, (err, msg) => {
@@ -172,13 +172,13 @@ ListenerAPI.subscribe("/study/activity", async (req: Request, res: Response) => 
 //changes in sensor api
 //example token: sensor
 //example api listener api in external client:http://localhost:3000/listen/sensor
-ListenerAPI.subscribe("/study/sensor", async (req: Request, res: Response) => {
+ListenerAPI.get("/study/sensor", async (req: Request, res: Response) => {
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
   })
-  const nc = await connect({ servers: [`${process.env.NATSServers}`] })
+  const nc = await connect({ servers: [`${process.env.NATS_SERVER}`] })
   if (undefined !== req.query.sensor_id) {
     let sensor_id = req.query.sensor_id
     await nc.subscribe(`sensor.*`, (err, msg) => {
@@ -235,13 +235,13 @@ ListenerAPI.subscribe("/study/sensor", async (req: Request, res: Response) => {
 //changes in participant api 
 //example token: participant
 //example api listener api in external client:http://localhost:3000/listen/participant
-ListenerAPI.subscribe("/study/participant", async (req: Request, res: Response) => {
+ListenerAPI.get("/study/participant", async (req: Request, res: Response) => {
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
   })
-  const nc = await connect({ servers: [`${process.env.NATSServers}`] })
+  const nc = await connect({ servers: [`${process.env.NATS_SERVER}`] })
   if (undefined !== req.query.participant_id) {
     let participant_id = req.query.participant_id
     await nc.subscribe(`participant.*`, (err, msg) => {
@@ -295,14 +295,14 @@ ListenerAPI.subscribe("/study/participant", async (req: Request, res: Response) 
 
 //register for creation of activity_event 
 //example token: participant.U680456029.activity_event.*
-ListenerAPI.subscribe("/participant/activity_event", async (req: Request, res: Response) => {
+ListenerAPI.get("/participant/activity_event", async (req: Request, res: Response) => {
   let participant_id = req.params.participant_id
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
   })
-  const nc = await connect({ servers: [`${process.env.NATSServers}`] })
+  const nc = await connect({ servers: [`${process.env.NATS_SERVER}`] })
   if (undefined !== req.query.participant_id) {
     let participant_id = req.query.participant_id
     await nc.subscribe(`participant.*.activity_event`, (err, msg) => {
@@ -377,14 +377,14 @@ ListenerAPI.subscribe("/participant/activity_event", async (req: Request, res: R
 
 //register for creation sensor_event objects
 //example token: participant.U680456029.sensor_event.*
-ListenerAPI.subscribe("/participant/sensor_event", async (req: Request, res: Response) => {
+ListenerAPI.get("/participant/sensor_event", async (req: Request, res: Response) => {
   let participant_id = req.params.participant_id
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
   })
-  const nc = await connect({ servers: [`${process.env.NATSServers}`] })
+  const nc = await connect({ servers: [`${process.env.NATS_SERVER}`] })
   if (undefined !== req.query.participant_id) {
     let participant_id = req.query.participant_id
     await nc.subscribe(`participant.*.sensor_event`, (err, msg) => {
