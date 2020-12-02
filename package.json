@@ -36,6 +36,7 @@
     "sendmail": "^1.6.1",
     "source-map-support": "^0.5.16",
     "tar-stream": "^1.6.2",
+    "ts-nats": "^1.2.15",
     "typescript": "^3.7.4",
     "uniqid": "^5.2.0",
     "unzip-stream": "^0.3.0",
@@ -76,7 +77,7 @@
   },
   "scripts": {
     "start": "tsc-watch --onSuccess \"node -r source-map-support/register ./build/app.js\"",
-    "build": "tsc",
+    "build": "tsc",    
     "deploy": "pkg . -t node10-alpine-x64,node10-linux-x64,node10-macos-x64 --out-path bin/"
   },
   "pkg": {

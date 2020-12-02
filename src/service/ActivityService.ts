@@ -3,9 +3,10 @@ import { Activity } from "../model/Activity"
 import { ActivityRepository } from "../repository/ActivityRepository"
 import { SecurityContext, ActionContext, _verify } from "./Security"
 import jsonata from "jsonata"
-import {UpdateToSchedulerQueue} from "../utils/queue/UpdateToSchedulerQueue"
-import {DeleteFromSchedulerQueue} from "../utils/queue/DeleteFromSchedulerQueue"
+import { UpdateToSchedulerQueue } from "../utils/queue/UpdateToSchedulerQueue"
+import { DeleteFromSchedulerQueue } from "../utils/queue/DeleteFromSchedulerQueue"
 import { TypeRepository } from "../repository"
+import { PubSubAPIListenerQueue } from "../utils/queue/PubSubAPIListenerQueue"
 
 export const ActivityService = Router()
 ActivityService.post("/study/:study_id/activity", async (req: Request, res: Response) => {
@@ -14,6 +15,13 @@ ActivityService.post("/study/:study_id/activity", async (req: Request, res: Resp
     const activity = req.body
     study_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], study_id)
     const output = { data: await ActivityRepository._insert(study_id, activity) }
+    activity.study_id = study_id
+    activity.action = "create"
+
+    //publishing data
+    PubSubAPIListenerQueue.add({ topic: `activity`, token: `study.${study_id}.activity.${output['data']}`, payload: activity })
+    PubSubAPIListenerQueue.add({ topic: `study.*.activity`, token: `study.${study_id}.activity.${output['data']}`, payload: activity })
+
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -26,7 +34,14 @@ ActivityService.put("/activity/:activity_id", async (req: Request, res: Response
     const activity = req.body
     activity_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], activity_id)
     const output = { data: await ActivityRepository._update(activity_id, activity) }
-    UpdateToSchedulerQueue.add({activity_id:activity_id})
+    UpdateToSchedulerQueue.add({ activity_id: activity_id })
+    activity.activity_id = activity_id
+    activity.action = "update"
+
+    //publishing data
+    PubSubAPIListenerQueue.add({ topic: `activity.*`, payload: activity })
+    PubSubAPIListenerQueue.add({ topic: `activity`, payload: activity })
+    PubSubAPIListenerQueue.add({ topic: `study.*.activity`, payload: activity })
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -36,9 +51,36 @@ ActivityService.put("/activity/:activity_id", async (req: Request, res: Response
 ActivityService.delete("/activity/:activity_id", async (req: Request, res: Response) => {
   try {
     let activity_id = req.params.activity_id
+    let parent: any = ""
+    try {
+      parent = await TypeRepository._parent(activity_id)
+    } catch (error) {
+      console.log("Error fetching Study")
+    }
     activity_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], activity_id)
     const output = { data: await ActivityRepository._delete(activity_id) }
-    DeleteFromSchedulerQueue.add({activity_id:activity_id})
+    DeleteFromSchedulerQueue.add({ activity_id: activity_id })
+
+    //publishing data
+    if (parent !== undefined && parent !== "") {
+      PubSubAPIListenerQueue.add({
+        topic: `study.*.activity`,
+        token: `study.${parent["Study"]}.activity.*`,
+        payload: { action: "delete", activity_id: activity_id, study_id: parent["Study"] },
+      })
+
+      PubSubAPIListenerQueue.add({
+        topic: `activity.*`,
+        token: `study.${parent["Study"]}.activity.${activity_id}`,
+        payload: { action: "delete", activity_id: activity_id, study_id: parent["Study"] },
+      })
+
+      PubSubAPIListenerQueue.add({
+        topic: `activity`,
+        token: `study.*.activity.*`,
+        payload: { action: "delete", activity_id: activity_id, study_id: parent["Study"] },
+      })
+    }
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -62,8 +104,7 @@ ActivityService.get("/participant/:participant_id/activity", async (req: Request
     let participant_id = req.params.participant_id
     participant_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], participant_id)
     let study_id = await TypeRepository._owner(participant_id)
-    if (study_id === null)
-      throw new Error("403.invalid-sibling-ownership")
+    if (study_id === null) throw new Error("403.invalid-sibling-ownership")
     let output = { data: await ActivityRepository._select(study_id, true) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
