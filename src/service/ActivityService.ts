@@ -18,7 +18,7 @@ ActivityService.post("/study/:study_id/activity", async (req: Request, res: Resp
     activity.study_id = study_id
     activity.action = "create"
 
-    //publishing data
+    //publishing data for activity add api with token = study.{study_id}.activity.{_id}
     PubSubAPIListenerQueue.add({ topic: `activity`, token: `study.${study_id}.activity.${output['data']}`, payload: activity })
     PubSubAPIListenerQueue.add({ topic: `study.*.activity`, token: `study.${study_id}.activity.${output['data']}`, payload: activity })
 
@@ -38,7 +38,7 @@ ActivityService.put("/activity/:activity_id", async (req: Request, res: Response
     activity.activity_id = activity_id
     activity.action = "update"
 
-    //publishing data
+    //publishing data for activity update api (Token will be created in PubSubAPIListenerQueue consumer, as study for this activity need to fetched to create token)
     PubSubAPIListenerQueue.add({ topic: `activity.*`, payload: activity })
     PubSubAPIListenerQueue.add({ topic: `activity`, payload: activity })
     PubSubAPIListenerQueue.add({ topic: `study.*.activity`, payload: activity })
@@ -52,6 +52,7 @@ ActivityService.delete("/activity/:activity_id", async (req: Request, res: Respo
   try {
     let activity_id = req.params.activity_id
     let parent: any = ""
+    //find the study id before delete, as it cannot be fetched after delete 
     try {
       parent = await TypeRepository._parent(activity_id)
     } catch (error) {
@@ -61,11 +62,11 @@ ActivityService.delete("/activity/:activity_id", async (req: Request, res: Respo
     const output = { data: await ActivityRepository._delete(activity_id) }
     DeleteFromSchedulerQueue.add({ activity_id: activity_id })
 
-    //publishing data
+     //publishing data for participant delete api for the Token study.{study_id}.activity.{activity_id}
     if (parent !== undefined && parent !== "") {
       PubSubAPIListenerQueue.add({
         topic: `study.*.activity`,
-        token: `study.${parent["Study"]}.activity.*`,
+        token: `study.${parent["Study"]}.activity.${activity_id}`,
         payload: { action: "delete", activity_id: activity_id, study_id: parent["Study"] },
       })
 
@@ -77,7 +78,7 @@ ActivityService.delete("/activity/:activity_id", async (req: Request, res: Respo
 
       PubSubAPIListenerQueue.add({
         topic: `activity`,
-        token: `study.*.activity.*`,
+        token: `study.${parent["Study"]}.activity.${activity_id}`,
         payload: { action: "delete", activity_id: activity_id, study_id: parent["Study"] },
       })
     }

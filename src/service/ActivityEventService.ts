@@ -22,7 +22,7 @@ ActivityEventService.post("/participant/:participant_id/activity_event", async (
       ),
     }
 
-    //publishing data
+    //publishing data for activity_event add api((Token will be created in PubSubAPIListenerQueue consumer, as request is assumed as array and token should be created individually)
     PubSubAPIListenerQueue.add({
       topic: `activity_event`,
       action: "create",

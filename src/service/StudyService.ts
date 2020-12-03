@@ -16,7 +16,7 @@ StudyService.post("/researcher/:researcher_id/study", async (req: Request, res: 
 
     study.researcher_id = researcher_id
     study.action = "create"
-    //publishing data
+    //publishing data for study add api with token = researcher.{researcher_id}.study.{_id}
     PubSubAPIListenerQueue.add({ topic: `study`, token: `researcher.${researcher_id}.study.${output['data']}`, payload: study })
     PubSubAPIListenerQueue.add({
       topic: `researcher.*.study`,
@@ -39,7 +39,7 @@ StudyService.put("/study/:study_id", async (req: Request, res: Response) => {
     study.study_id = study_id
     study.action = "update"
 
-    //publishing data
+    //publishing data for study update api(Token will be created in PubSubAPIListenerQueue consumer, as researcher for this study need to fetched to create token)
     PubSubAPIListenerQueue.add({ topic: `study.*`, payload: study })
     PubSubAPIListenerQueue.add({ topic: `study`, payload: study })
     PubSubAPIListenerQueue.add({ topic: `researcher.*.study`, payload: study })
@@ -63,7 +63,7 @@ StudyService.delete("/study/:study_id", async (req: Request, res: Response) => {
     let output = { data: await StudyRepository._delete(study_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
 
-    //publishing data
+    //publishing data for study delete api with Token researcher.{researcher_id}.study.{study_id}
     PubSubAPIListenerQueue.add({
       topic: `study.*`,
       token: `researcher.${parent["Researcher"]}.study.${study_id}`,
