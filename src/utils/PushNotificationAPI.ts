@@ -5,94 +5,154 @@ import { PushNotificationQueue } from "../utils/queue/PushNotificationQueue"
 
 export const PushNotificationAPI = Router()
 
-/**Push notification API--used by external clients to send notifications
- *
- *
- */
+/**Push notification API--used by external clients to send notifications- supports 3 types:participants,study,activity
+
+ *************************************************************
+ Participant based : send notifications to all participants given
+ //Request
+{
+ "type":"participants",  
+ "participants":
+ [
+ {"participant_id":"U1155520779","title":"title1","message":"message1","activity_id":"activity_id1"},
+ {"participant_id":"U1155520779","title":"title2","message":"message2","activity_id":"activity_id2"}
+ ],
+ "schedule: '2020-12-06T10:15:00.000Z' //optional
+}
+//Response 
+{
+   "status": true,
+   "error": false
+}
+
+****************************************************************
+Study based : send notifications to all participants under studies given
+//Request
+{
+"type":"study",
+ "study":
+ [
+ {"study":"study1","title":"title1","message":"message1"},
+ {"study":"study2","title":"title2","message":"message2"},
+ {"study":"study3","title":"title3","message":"message3"}
+ ],
+ "schedule: '2020-12-06T10:15:00.000Z' //optional
+}
+//Response 
+{
+   "status": true,
+   "error": false
+}
+
+*******************************************************************
+activity based : send notifications to all participants for activities given  
+//Request
+{
+"type":"activity",
+ "activity":
+ [
+ {"activityID":"activity1","title":"title1","message":"message1"},
+ {"activityID":"activity2","title":"title2","message":"message2"}
+ 
+ ],
+ "schedule: '2020-12-06T10:15:00.000Z' //optional
+}
+
+//Response 
+{
+   "status": true,
+   "error": false
+}
+****************************************************************
+*
+*/
 PushNotificationAPI.post("/notifications", async (req: Request, res: Response) => {
   let scheduleTime: any = ""
-  
+  let responseMsg: any = { status: true, error: false }
   if (undefined !== req.body.schedule) {
+    //take schedule time from request
     scheduleTime = req.body.schedule
   } else {
-    //set default time to send notification
+    //set scheduleTime to null, if not given(immediate notification gets fires in this case)
     scheduleTime = ""
   }
+
+  //if type not given(type should be participants,study or activity)
   if (req.body.type === undefined) {
-    res.json(false)
+    responseMsg = { status: false, error: true }
+    res.status(404).json(responseMsg)
   }
+
+  //processing request
   switch (req.body.type) {
-    //Participant based
+
+    //Participant based- Prepare notifications to participants given
     case "participants":
       try {
         const Participants: any = req.body.participants
         if (Participants.length === 0) {
           break
         }
-        //send notifications
+        //send notifications to the participants given
         sendToParticipants(Participants, scheduleTime)
-        res.json(true)
+        res.status(200).json(responseMsg)
       } catch (error) {
         res.status(parseInt(error.message.split(".")[0]) || 500).json({ error: error.message })
       }
       break
 
-    //study based
+    //study based - Prepare notifications to particpants of given study
     case "study":
-      try {
-        const studyDetails: any = req.body.study
-        for (const studyDetail of studyDetails) {
-          const title = studyDetail.title
-          const message = studyDetail.message
-          const study: any = studyDetail.study
-          try {
-            const Participants = await ParticipantRepository._select(study, true)
-            if (Participants.length === 0) {
-              break
-            }
-            const newParticipants = await prepareParticipants(Participants, title, message, study)
-            //send notifications
-            sendToParticipants(newParticipants, scheduleTime)
-          } catch (error) {
-            console.log("Error fetching participants")
+      const studyDetails: any = Array.isArray(req.body.study) ? req.body.study : [req.body.study]
+      for (const studyDetail of studyDetails) {
+        const title = studyDetail.title
+        const message = studyDetail.message
+        const study: any = studyDetail.study
+        try {
+          //find the participants of the given study
+          const Participants = await ParticipantRepository._select(study, true)
+          if (Participants.length === 0) {
+            continue
           }
+          //form participants payload
+          const newParticipants = await prepareParticipants(Participants, title, message, study)
+          //send notifications to participants of given study
+          sendToParticipants(newParticipants, scheduleTime)
+        } catch (error) {
+          console.log("Error fetching participants")
         }
-        res.json(true)
-      } catch (error) {
-        res.status(parseInt(error.message.split(".")[0]) || 500).json({ error: error.message })
       }
+      res.status(200).json(responseMsg)
       break
 
-    //activity based
+    //activity based - Prepare notifications to particpants for given activity
     case "activity":
-      try {
-        const activityDetails: any = req.body.activity
+      const activityDetails: any = Array.isArray(req.body.activity) ? req.body.activity : [req.body.activity]
+      for (const activityDetail of activityDetails) {
+        const activityID: any = activityDetail.activityID
+        try {
+          const title = activityDetail.title
+          const message = activityDetail.message
 
-        for (const activityDetail of activityDetails) {
-          const activityID: any = activityDetail.activityID
-          try {
-            const title = activityDetail.title
-            const message = activityDetail.message
-            const parent: any = await TypeRepository._parent(activityID)
+          //find the study of the given activityID
+          const parent: any = await TypeRepository._parent(activityID)
+          const study = parent["Study"]
+          //find the Participants for the given study
+          const Participants = await ParticipantRepository._select(study, true)
 
-            const study = parent["Study"]
-            const Participants = await ParticipantRepository._select(study, true)
-            
-            if (Participants.length === 0) {
-              break
-            }
-            const newParticipants = await prepareParticipants(Participants, title, message, activityID)
-            //send notifications
-            sendToParticipants(newParticipants, scheduleTime)
-          } catch (error) {
-            console.log("Error fetching participants")
+          if (Participants.length === 0) {
+            continue
           }
+          //form participants payload
+          const newParticipants = await prepareParticipants(Participants, title, message, activityID)
+          //send notifications to participants for given activity
+          sendToParticipants(newParticipants, scheduleTime)
+        } catch (error) {
+          console.log("Error fetching participants")
         }
-
-        res.json(true)
-      } catch (error) {
-        res.status(parseInt(error.message.split(".")[0]) || 500).json({ error: error.message })
       }
+      res.status(200).json(responseMsg)
+
       break
 
     default:
@@ -124,6 +184,7 @@ async function sendToParticipants(Participants: any, schedule: any): Promise<voi
           const events: any = filteredArray[0]
           const device = undefined !== events && undefined !== events.data ? events.data : undefined
           if (device !== undefined && (device.device_type || device.device_token || participant.title)) {
+            //Schedule the notifications for the time given
             if (schedule !== "" && schedule !== undefined) {
               if (new Date(schedule) > new Date()) {
                 let jobId: any = ""
@@ -132,10 +193,13 @@ async function sendToParticipants(Participants: any, schedule: any): Promise<voi
                 } else {
                   jobId = `${participant.participant_id}|${new Date(schedule).getTime()}`
                 }
+                //get job for given job id
                 const PushNotificationQueueJob = await PushNotificationQueue.getJob(jobId)
+                //Remove the job, if one with same job id exists
                 if (null !== PushNotificationQueueJob) {
                   await PushNotificationQueueJob?.remove
                 }
+                //add to PushNotificationQueue with schedule
                 PushNotificationQueue.add(
                   {
                     device_type: device.device_type.toLowerCase(),
@@ -157,6 +221,7 @@ async function sendToParticipants(Participants: any, schedule: any): Promise<voi
                 )
               }
             } else {
+              //add to PushNotificationQueue without schedule(immediate push would happen)
               PushNotificationQueue.add(
                 {
                   device_type: device.device_type.toLowerCase(),

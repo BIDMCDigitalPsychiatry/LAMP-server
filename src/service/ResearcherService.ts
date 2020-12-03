@@ -13,7 +13,7 @@ ResearcherService.post("/researcher", async (req: Request, res: Response) => {
     const output = { data: await ResearcherRepository._insert(researcher) }
     researcher.action = "create"
 
-    //publishing data
+    //publishing data for researcher add api with token = researcher.{_id}
     PubSubAPIListenerQueue.add({ topic: `researcher`, token: `researcher.${output['data']}`, payload: researcher })
     res.json(output)
   } catch (e) {
@@ -30,7 +30,7 @@ ResearcherService.put("/researcher/:researcher_id", async (req: Request, res: Re
     researcher.action = "update"
     researcher.researcher_id = researcher_id
 
-    //publishing data
+    //publishing data for researcher update api with token = researcher.{researcher_id}
     PubSubAPIListenerQueue.add({ topic: `researcher.*`, token: `researcher.${researcher_id}`, payload: researcher })
     PubSubAPIListenerQueue.add({ topic: `researcher`, token: `researcher.${researcher_id}`, payload: researcher })
     res.json(output)
@@ -45,7 +45,7 @@ ResearcherService.delete("/researcher/:researcher_id", async (req: Request, res:
     researcher_id = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
     const output = { data: await ResearcherRepository._delete(researcher_id) }
 
-    //publishing data
+    //publishing data for researcher delete api with token = researcher.{researcher_id}
     PubSubAPIListenerQueue.add({
       topic: `researcher.*`,
       token: `researcher.${researcher_id}`,

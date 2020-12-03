@@ -16,7 +16,7 @@ SensorService.post("/study/:study_id/sensor", async (req: Request, res: Response
     sensor.study_id = study_id
     sensor.action = "create"
 
-    //publishing data
+    //publishing data for sensor add api with token = study.{study_id}.sensor.{_id}
     PubSubAPIListenerQueue.add({ topic: `sensor`, token: `study.${study_id}.sensor.${output['data']}`, payload: sensor })
     PubSubAPIListenerQueue.add({ topic: `study.*.sensor`, token: `study.${study_id}.sensor.${output['data']}`, payload: sensor })
 
@@ -35,7 +35,7 @@ SensorService.put("/sensor/:sensor_id", async (req: Request, res: Response) => {
     sensor.sensor_id = sensor_id
     sensor.action = "update"
 
-    //publishing data
+    //publishing data for sensor update api (Token will be created in PubSubAPIListenerQueue consumer, as study for this sensor need to fetched to create token)
     PubSubAPIListenerQueue.add({ topic: `sensor.*`, payload: sensor })
     PubSubAPIListenerQueue.add({ topic: `sensor`, payload: sensor })
     PubSubAPIListenerQueue.add({ topic: `study.*.sensor`, payload: sensor })
@@ -50,6 +50,7 @@ SensorService.delete("/sensor/:sensor_id", async (req: Request, res: Response) =
   try {
     let sensor_id = req.params.sensor_id
     let parent: any = ""
+    //find the study id before delete, as it cannot be fetched after delete
     try {
       parent = await TypeRepository._parent(sensor_id)
     } catch (error) {
@@ -58,7 +59,7 @@ SensorService.delete("/sensor/:sensor_id", async (req: Request, res: Response) =
     sensor_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], sensor_id)
     const output = { data: await SensorRepository._delete(sensor_id) }
 
-    //publishing data
+    //publishing data for participant delete api for the Token study.{study_id}.sensor.{sensor_id}
     if (parent !== undefined && parent !== "") {
       PubSubAPIListenerQueue.add({
         topic: `study.*.sensor`,

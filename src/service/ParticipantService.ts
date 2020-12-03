@@ -15,7 +15,7 @@ ParticipantService.post("/study/:study_id/participant", async (req: Request, res
     participant.study_id = study_id
     participant.action = "create"
     
-    //publishing data
+    //publishing data for participant add api with token = study.{study_id}.participant.{_id}
     PubSubAPIListenerQueue.add({ topic: `participant`, token: `study.${study_id}.participant.${output['data'].id}`, payload: participant })
     PubSubAPIListenerQueue.add({
       topic: `study.*.participant`,
@@ -37,7 +37,7 @@ ParticipantService.put("/participant/:participant_id", async (req: Request, res:
     participant.participant_id = participant_id
     participant.action = "update"
 
-    //publishing data
+    //publishing data for participant update api (Token will be created in PubSubAPIListenerQueue consumer, as study for this participant need to fetched to create token)
     PubSubAPIListenerQueue.add({ topic: `participant.*`, payload: participant })
     PubSubAPIListenerQueue.add({ topic: `participant`, payload: participant })
     PubSubAPIListenerQueue.add({ topic: `study.*.participant`, payload: participant })
@@ -52,6 +52,7 @@ ParticipantService.delete("/participant/:participant_id", async (req: Request, r
   try {
     let participant_id = req.params.participant_id
     let parent: any = ""
+    //find the study id before delete, as it cannot be fetched after delete
     try {
       parent = await TypeRepository._parent(participant_id)
     } catch (error) {
@@ -60,7 +61,7 @@ ParticipantService.delete("/participant/:participant_id", async (req: Request, r
     participant_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], participant_id)
     const output = { data: await ParticipantRepository._delete(participant_id) }
 
-    //publishing data
+    //publishing data for participant delete api for the Token study.{study_id}.participant.{participant_id}
     if (parent !== undefined && parent !== "") {
       PubSubAPIListenerQueue.add({
         topic: `study.*.participant`,
