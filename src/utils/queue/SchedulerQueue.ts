@@ -98,8 +98,7 @@ const notificationId =(Math.floor(Math.random() * 10000) + 1) + new Date().getTi
       try {
         //preparing curl request
         const opts: any = {
-          push_type: "apns",
-          deviceType:0, //for phone         
+          push_type: "apns",               
           api_key: `${process.env.PUSH_GATEWAY_APIKEY}`,
           device_token: device_token,
           payload: {
@@ -109,13 +108,17 @@ const notificationId =(Math.floor(Math.random() * 10000) + 1) + new Date().getTi
               sound: "default",
               "mutable-content": 1,
               "content-available": 1,
-            },
+              "push-type":"alert",
+              "collapse-id":`${notificationId}`,
+              "expiration":10
+            },  
             notificationId: `${notificationId}`,
-            expiry: 21600000,
+            expiry: 21600000,          
             page: `${url}`,
             actions: [{ name: "Open App", page: `${url}` }],
           }
         }
+        
         //connect to api gateway and send notifications
         fetch(`${process.env.PUSH_GATEWAY}`, {
           method: "post",
@@ -139,7 +142,6 @@ const notificationId =(Math.floor(Math.random() * 10000) + 1) + new Date().getTi
         //preparing curl request
         const opts: any = {
           push_type: "apns",          
-          deviceType:1,//for watch
           api_key: `${process.env.PUSH_GATEWAY_APIKEY}`,
           device_token: device_token,
           payload: {
@@ -149,9 +151,12 @@ const notificationId =(Math.floor(Math.random() * 10000) + 1) + new Date().getTi
               sound: "default",
               "mutable-content": 1,
               "content-available": 1,
-            },
+              "push-type":"background",
+              "collapse-id":`${notificationId}`,
+              "expiration":10
+            },  
             notificationId: `${notificationId}`,
-            expiry: 21600000,
+            expiry: 21600000,            
             page: `${url}`,
             actions: [{ name: "Open App", page: `${url}` }],
           }
