@@ -118,7 +118,7 @@ const notificationId =(Math.floor(Math.random() * 10000) + 1) + new Date().getTi
             actions: [{ name: "Open App", page: `${url}` }],
           }
         }
-        console.log("opts",opts)
+        
         //connect to api gateway and send notifications
         fetch(`${process.env.PUSH_GATEWAY}`, {
           method: "post",
