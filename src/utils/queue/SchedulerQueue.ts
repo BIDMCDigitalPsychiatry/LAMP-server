@@ -53,7 +53,7 @@ export function sendNotification(device_token: string, device_type: string, payl
   // Send this specific page URL to the device to show the actual activity.
   // eslint-disable-next-line prettier/prettier
   const url = payload.url
-const notificationId =Math.floor(Math.random() * 10000) + 1
+const notificationId =(Math.floor(Math.random() * 10000) + 1) + new Date().getTime()
   console.log(url)
   switch (device_type) {
     case "android.watch":
@@ -99,6 +99,7 @@ const notificationId =Math.floor(Math.random() * 10000) + 1
         //preparing curl request
         const opts: any = {
           push_type: "apns",
+          deviceType:0, //for phone         
           api_key: `${process.env.PUSH_GATEWAY_APIKEY}`,
           device_token: device_token,
           payload: {
@@ -113,8 +114,7 @@ const notificationId =Math.floor(Math.random() * 10000) + 1
             expiry: 21600000,
             page: `${url}`,
             actions: [{ name: "Open App", page: `${url}` }],
-          },
-          headers:{"apns-collapse-id":`${notificationId}`, "apns-push-type": "background", "apns-priority": "5"}
+          }
         }
         //connect to api gateway and send notifications
         fetch(`${process.env.PUSH_GATEWAY}`, {
@@ -138,7 +138,8 @@ const notificationId =Math.floor(Math.random() * 10000) + 1
       try {
         //preparing curl request
         const opts: any = {
-          push_type: "apns",
+          push_type: "apns",          
+          deviceType:1,//for watch
           api_key: `${process.env.PUSH_GATEWAY_APIKEY}`,
           device_token: device_token,
           payload: {
@@ -153,8 +154,7 @@ const notificationId =Math.floor(Math.random() * 10000) + 1
             expiry: 21600000,
             page: `${url}`,
             actions: [{ name: "Open App", page: `${url}` }],
-          },
-          headers:{"apns-collapse-id":`${notificationId}`, "apns-push-type": "background", "apns-priority": "5"}
+          }
         }
         //connect to api gateway and send notifications
         fetch(`${process.env.PUSH_GATEWAY}`, {
