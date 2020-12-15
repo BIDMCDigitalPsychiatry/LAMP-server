@@ -53,7 +53,8 @@ ResearcherService.delete("/researcher/:researcher_id", async (req: Request, res:
     })
     PubSubAPIListenerQueue.add({
       topic: `researcher`,
-      payload: { action: "delete", token: `researcher.${researcher_id}`, researcher_id: researcher_id },
+      token: `researcher.${researcher_id}`,
+      payload: { action: "delete",  researcher_id: researcher_id },
     })
     res.json(output)
   } catch (e) {
