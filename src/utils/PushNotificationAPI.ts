@@ -197,7 +197,7 @@ async function sendToParticipants(Participants: any, schedule: any): Promise<voi
                 const PushNotificationQueueJob = await PushNotificationQueue.getJob(jobId)
                 //Remove the job, if one with same job id exists
                 if (null !== PushNotificationQueueJob) {
-                  await PushNotificationQueueJob?.remove
+                  await PushNotificationQueueJob?.remove()
                 }
                 //add to PushNotificationQueue with schedule
                 PushNotificationQueue.add(
