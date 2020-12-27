@@ -178,7 +178,7 @@ async function sendToParticipants(Participants: any, schedule: any): Promise<voi
       )
       if (event_data.length !== 0) {
         const filteredArray: any = await event_data.filter(
-          (x) => x.data.action !== "notification" && x.data.device_type !== "Dashboard"
+          (x) => x.data.action !== "notification" && x.data.device_type !== "Dashboard" && x.data.action !== "logout"
         )
         if (filteredArray.length !== 0) {
           const events: any = filteredArray[0]
