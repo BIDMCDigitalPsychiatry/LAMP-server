@@ -133,7 +133,7 @@ PubSubAPIListenerQueue.process(async (job: any) => {
       await nc.publish(job.data.topic, Data)
     }
   } catch (error) {
-    console.log(error)
+    console.log("Nats server is disconnected")
   }
 })
 
@@ -146,7 +146,9 @@ async function publishSensorEvent(topic: any, data: any): Promise<void> {
   try {
     const nc = await natsConnect()
     await nc.publish(topic, data)
-  } catch (error) {}
+  } catch (error) {
+    console.log("Nats server is disconnected")
+  }
 }
 
 /** publishing activity event
@@ -158,7 +160,9 @@ async function publishActivityEvent(topic: any, data: any): Promise<void> {
   try {
     const nc = await natsConnect()
     await nc.publish(topic, data)
-  } catch (error) {}
+  } catch (error) {
+    console.log("Nats server is disconnected")
+  }
 }
 
 /** Nats server connect
