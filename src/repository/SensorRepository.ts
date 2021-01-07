@@ -19,7 +19,7 @@ export class SensorRepository {
   }
   public static async _insert(study_id: string, object: any /*Sensor*/): Promise<string> {
     const _id = uuid()
-    await Database.use("activity").insert({
+    await Database.use("sensor").insert({
       _id: _id,
       "#parent": study_id,
       timestamp: new Date().getTime(),
