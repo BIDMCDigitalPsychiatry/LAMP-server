@@ -54,7 +54,7 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
           )
           if (event_data.length === 0) continue
           const filteredArray: any = await event_data.filter(
-            (x) => (x.data.action !== "notification" && x.data.device_type !== "Dashboard")
+            (x) => (x.data.type === undefined && x.data.action !== "notification" && x.data.device_type !== "Dashboard")
           )
           if (filteredArray.length === 0) continue
           const events: any = filteredArray[0]
