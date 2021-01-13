@@ -410,6 +410,27 @@ export async function _bootstrap_db(Database: nano.ServerScope): Promise<void> {
             },
           },
         },
+        {
+          _id: "_design/id-timestamp-index",
+          language: "query",
+          views: {
+            "id-timestamp": {
+              map: {
+                fields: {
+                  _id: "asc",
+                  timestamp: "asc",
+                },
+                partial_filter_selector: {},
+              },
+              reduce: "_count",
+              options: {
+                def: {
+                  fields: ["_id", "timestamp"],
+                },
+              },
+            },
+          },
+        },
       ],
     })
   }
