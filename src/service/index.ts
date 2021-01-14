@@ -26,14 +26,19 @@ import { ResearcherRepository } from "../repository/ResearcherRepository"
 import { ListenerAPI } from "../utils/ListenerAPI"
 import { PushNotificationAPI } from "../utils/PushNotificationAPI"
 
+// default to LIMIT_NAN, clamped to [-LIMIT_MAX, +LIMIT_MAX]
+const LIMIT_NAN = 1000
+const LIMIT_MAX = 2_147_483_647
+
 export async function Query(query: string, auth: string | undefined, verify = true): Promise<any> {
   return new Promise((resolve, reject) => {
     jsonata(query).evaluate(
       {},
       {
-        ActivityEvent_all: async (participant_id: string, origin: string, from: number, to: number) => {
+        ActivityEvent_all: async (participant_id: string, origin: string, from: number, to: number, limit: number) => {
           if (verify) participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
-          return await ActivityEventRepository._select(participant_id, origin, from, to)
+          const _limit = Math.min(Math.max(limit ?? LIMIT_NAN, -LIMIT_MAX), LIMIT_MAX)
+          return await ActivityEventRepository._select(participant_id, origin ?? undefined, from ?? undefined, to ?? undefined, _limit)
         },
         Activity_all: async (participant_or_study_id: string) => {
           if (verify)
@@ -64,9 +69,10 @@ export async function Query(query: string, auth: string | undefined, verify = tr
           if (verify) researcher_id = await _verify(auth, ["self", "sibling", "parent"], researcher_id)
           return await ResearcherRepository._select(researcher_id)
         },
-        SensorEvent_all: async (participant_id: string, origin: string, from: number, to: number) => {
+        SensorEvent_all: async (participant_id: string, origin: string, from: number, to: number, limit: number) => {
           if (verify) participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
-          return await SensorEventRepository._select(participant_id, origin, from, to)
+          const _limit = Math.min(Math.max(limit ?? LIMIT_NAN, -LIMIT_MAX), LIMIT_MAX)
+          return await SensorEventRepository._select(participant_id, origin ?? undefined, from ?? undefined, to ?? undefined, _limit)
         },
         Study_all: async (researcher_id: string) => {
           if (verify) researcher_id = await _verify(auth, ["self", "sibling", "parent"], researcher_id)
