@@ -34,10 +34,14 @@ export async function Query(query: string, auth: string | undefined, verify = tr
           if (verify) participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
           return await ActivityEventRepository._select(participant_id, origin, from, to)
         },
-        Activity_view: async (participant_or_study_id: string) => {
+        Activity_all: async (participant_or_study_id: string) => {
           if (verify)
             participant_or_study_id = await _verify(auth, ["self", "sibling", "parent"], participant_or_study_id)
-          return await ActivityRepository._select(participant_or_study_id)
+          return await ActivityRepository._select(participant_or_study_id, true)
+        },
+        Activity_view: async (activity_id: string) => {
+          if (verify) activity_id = await _verify(auth, ["self", "sibling", "parent"], activity_id)
+          return await ActivityRepository._select(activity_id)
         },
         Credential_list: async (type_id: string) => {
           if (verify) type_id = await _verify(auth, ["self", "parent"], type_id)
@@ -45,7 +49,7 @@ export async function Query(query: string, auth: string | undefined, verify = tr
         },
         Participant_all: async (study_id: string) => {
           if (verify) study_id = await _verify(auth, ["self", "sibling", "parent"], study_id)
-          return await ParticipantRepository._select(study_id)
+          return await ParticipantRepository._select(study_id, true)
         },
         Participant_view: async (participant_id: string) => {
           if (verify) participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
@@ -65,11 +69,20 @@ export async function Query(query: string, auth: string | undefined, verify = tr
         },
         Study_all: async (researcher_id: string) => {
           if (verify) researcher_id = await _verify(auth, ["self", "sibling", "parent"], researcher_id)
-          return await StudyRepository._select(researcher_id)
+          return await StudyRepository._select(researcher_id, true)
         },
         Study_view: async (study_id: string) => {
           if (verify) study_id = await _verify(auth, ["self", "sibling", "parent"], study_id)
           return await StudyRepository._select(study_id)
+        },
+        Sensor_all: async (participant_or_study_id: string) => {
+          if (verify)
+            participant_or_study_id = await _verify(auth, ["self", "sibling", "parent"], participant_or_study_id)
+          return await SensorRepository._select(participant_or_study_id, true)
+        },
+        Sensor_view: async (sensor_id: string) => {
+          if (verify) sensor_id = await _verify(auth, ["self", "sibling", "parent"], sensor_id)
+          return await SensorRepository._select(sensor_id)
         },
         Type_parent: async (type_id: string) => {
           if (verify) type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
