@@ -7,11 +7,11 @@ const clientLock = new Mutex()
 export const ActivityScheduler = async (id?: string): Promise<void> => {
   const activities: any[] =
     id === undefined ? await ActivityRepository._select(null) : await ActivityRepository._select(id)
-  console.log("activity_id given", id)
-  console.log("Saving to redis")
-  console.log(`Processing ${activities.length} activities for push notifications.`)
+    //  console.log("activity_id given", id)
+  //  console.log("Saving to redis")
+  //  console.log(`Processing ${activities.length} activities for push notifications.`)
   const release = await clientLock.acquire()
-  console.log(`locked job on activity_scheduler`)
+  //  console.log(`locked job on activity_scheduler`)
   // Process activities to find schedules and corresponding participants.
   for (const activity of activities) {
     try {
@@ -19,7 +19,7 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
         //remove all jobs created for the an activity from queue
         await removeActivityJobs(activity.id)
       }
-      console.log("actvityId", activity.id)
+      //      console.log("actvityId", activity.id)
       // If the activity has no schedules, ignore it.
       if (activity.schedule.length === 0) continue
       // Get all the participants of the study that the activity belongs to.
@@ -39,7 +39,7 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
         console.log("Error fetching participants by study")
         continue
       }
-      console.log("participantslength", participants.length)
+      //      console.log("participantslength", participants.length)
       if (participants.length === 0) continue
       const Participants: any[] = []
       for (const participant of participants) {
@@ -54,7 +54,7 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
           )
           if (event_data.length === 0) continue
           const filteredArray: any = await event_data.filter(
-            (x) => (x.data.type === undefined && x.data.action !== "notification" && x.data.device_type !== "Dashboard")
+            (x) => (x.data.type===undefined &&  x.data.action !== "notification" && x.data.device_type !== "Dashboard")
           )
           if (filteredArray.length === 0) continue
           const events: any = filteredArray[0]

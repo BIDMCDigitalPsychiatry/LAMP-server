@@ -69,6 +69,7 @@ activity based : send notifications to all participants for activities given
 PushNotificationAPI.post("/notifications", async (req: Request, res: Response) => {
   let scheduleTime: any = ""
   let responseMsg: any = { status: true, error: false }
+
   if (undefined !== req.body.schedule) {
     //take schedule time from request
     scheduleTime = req.body.schedule
@@ -85,7 +86,6 @@ PushNotificationAPI.post("/notifications", async (req: Request, res: Response) =
 
   //processing request
   switch (req.body.type) {
-
     //Participant based- Prepare notifications to participants given
     case "participants":
       try {
@@ -159,7 +159,6 @@ PushNotificationAPI.post("/notifications", async (req: Request, res: Response) =
       break
   }
 })
-
 /**
  *
  * @param Participants
@@ -178,7 +177,11 @@ async function sendToParticipants(Participants: any, schedule: any): Promise<voi
       )
       if (event_data.length !== 0) {
         const filteredArray: any = await event_data.filter(
-          (x) => x.data.type === undefined && x.data.action !== "notification" && x.data.device_type !== "Dashboard" && x.data.action !== "logout"
+          (x) =>
+            x.data.type === undefined &&
+            x.data.action !== "notification" &&
+            x.data.device_type !== "Dashboard" &&
+            x.data.action !== "logout"
         )
         if (filteredArray.length !== 0) {
           const events: any = filteredArray[0]
@@ -199,6 +202,7 @@ async function sendToParticipants(Participants: any, schedule: any): Promise<voi
                 if (null !== PushNotificationQueueJob) {
                   await PushNotificationQueueJob?.remove()
                 }
+
                 //add to PushNotificationQueue with schedule
                 PushNotificationQueue.add(
                   {

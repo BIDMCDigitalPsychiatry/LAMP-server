@@ -34,10 +34,11 @@ async function main(): Promise<void> {
     _id: undefined,
     _rev: undefined,
   }
-
+  
   // Establish the API and LegacyAPI routers, as well as a few individual utility routes.
   app.use("/", API)
   app.use("/v0", LegacyAPI)
+  
   app.use("/subscribe", ListenerAPI)
   app.use("/send", PushNotificationAPI)
   app.get("/", async (req, res) => res.json(_openAPIschema))
@@ -50,10 +51,10 @@ async function main(): Promise<void> {
 
   // Begin running activity/automations scheduling AFTER connecting to the database.
   if (process.env.SCHEDULER === "on") {
-    console.log("Clean all queues...")
-    await cleanAllQueues();
+     console.log("Clean all queues...")
+       await cleanAllQueues();
     console.log("Initializing schedulers...")
-    ActivityScheduler()
+      ActivityScheduler()
   } else {
     console.log("Running with schedulers disabled.")
   }

@@ -11,7 +11,7 @@ ResearcherService.post("/researcher", async (req: Request, res: Response) => {
     const researcher = req.body
     const _ = await _verify(req.get("Authorization"), [])
     const output = { data: await ResearcherRepository._insert(researcher) }
-    researcher.action = "create"
+    researcher.action = "create"    
 
     //publishing data for researcher add api with token = researcher.{_id}
     PubSubAPIListenerQueue.add({ topic: `researcher`, token: `researcher.${output['data']}`, payload: researcher })
@@ -51,7 +51,7 @@ ResearcherService.delete("/researcher/:researcher_id", async (req: Request, res:
       token: `researcher.${researcher_id}`,
       payload: { action: "delete", researcher_id: researcher_id },
     })
-    PubSubAPIListenerQueue.add({
+PubSubAPIListenerQueue.add({
       topic: `researcher`,
       token: `researcher.${researcher_id}`,
       payload: { action: "delete",  researcher_id: researcher_id },

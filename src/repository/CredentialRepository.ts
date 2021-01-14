@@ -17,7 +17,9 @@ export class CredentialRepository {
       ).docs.map((x: any) => x.secret_key)
       if (_all.length === 0) {
         // eslint-disable-next-line
-        console.dir(`Because no master configuration could be located, an initial administrator password was generated and saved for this installation.`)
+        console.dir(
+          `Because no master configuration could be located, an initial administrator password was generated and saved for this installation.`
+        )
 
         // Create a new password and emit it to the console while saving it (to share it with the sysadmin).
         const p = crypto.randomBytes(32).toString("hex")
@@ -34,6 +36,7 @@ export class CredentialRepository {
       console.dir(e)
       return false
     }
+
     return _all.filter((key) => Decrypt(key, "AES256") === admin_secret_key).length > 0
   }
   // if used with secret_key, will throw error if mismatch, else, will return confirmation of existence

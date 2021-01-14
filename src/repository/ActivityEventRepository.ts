@@ -1,5 +1,6 @@
 import { Database } from "../app"
 import { ActivityEvent } from "../model/ActivityEvent"
+import CryptoJS from "crypto-js"
 // FIXME: does not support filtering by ActivitySpec yet.
 
 export class ActivityEventRepository {
@@ -36,8 +37,27 @@ export class ActivityEventRepository {
       _rev: undefined,
       "#parent": undefined,
     })) as any
+
+    // if the data is encrypted in db
+    if ("on" === process.env.Activity_Event_Encryption) {
+      for (let index = 0; index < all_res.length; index++) {
+        try {
+          const bytesStaticData = CryptoJS.AES.decrypt(all_res[index].static_data, `${process.env.ENC_KEY}`)
+          const decryptedStaticData = JSON.parse(bytesStaticData.toString(CryptoJS.enc.Utf8))
+          const bytesTemporalSlices = CryptoJS.AES.decrypt(all_res[index].temporal_slices, `${process.env.ENC_KEY}`)
+          const decryptedTemporalSlices = JSON.parse(bytesTemporalSlices.toString(CryptoJS.enc.Utf8))
+          all_res[index].static_data = decryptedStaticData
+          all_res[index].temporal_slices = decryptedTemporalSlices
+        } catch (error) {}
+      }
+    }
     return all_res
   }
+  /** encrypt and insering data
+   * 
+   * @param participant_id 
+   * @param objects 
+   */
   public static async _insert(participant_id: string, objects: ActivityEvent[]): Promise<{}> {
     const data = await Database.use("activity_event").bulk({
       docs: objects.map((x) => ({
@@ -45,8 +65,14 @@ export class ActivityEventRepository {
         timestamp: Number.parse(x.timestamp) ?? 0,
         duration: Number.parse(x.duration) ?? 0,
         activity: String(x.activity),
-        static_data: x.static_data ?? {},
-        temporal_slices: x.temporal_slices ?? [],
+        static_data:
+          (process.env.Activity_Event_Encryption === "on"
+            ? CryptoJS.AES.encrypt(JSON.stringify(x.static_data), `${process.env.ENC_KEY}`).toString()
+            : x.static_data) ?? {},
+        temporal_slices:
+          (process.env.Activity_Event_Encryption === "on"
+            ? CryptoJS.AES.encrypt(JSON.stringify(x.temporal_slices), `${process.env.ENC_KEY}`).toString()
+            : x.temporal_slices) ?? [],
       })),
     })
     const output = data.filter((x) => !!x.error)

@@ -14,13 +14,13 @@ export async function _verify(
   type: Array<"self" | "sibling" | "parent"> /* 'root' = [] */,
   auth_value?: string
 ): Promise<string> {
+  //	console.dir({authHeader,type,auth_value});
   // Get the authorization components from the header and tokenize them.
-  // TODO: ignoring the other authorization location stuff for now...
+  // TODO: ignoring the other authorization location stuff for n
   const [authStr, cosignData] = CredentialRepository._unpackCosignerData((authHeader ?? "").replace("Basic", "").trim())
   const auth = (authStr.indexOf(":") >= 0 ? authStr : Buffer.from(authStr, "base64").toString()).split(":", 2)
   // If no authorization is provided, ask for something.
   if (auth.length !== 2 || !auth[1]) throw new Error("401.missing-credentials")
-
   // Handle basic no credentials and root auth required cases.
   let sub_auth_value = undefined
   if (auth_value === undefined && !["root", "admin"].includes(auth[0]) && type.length === 0) {

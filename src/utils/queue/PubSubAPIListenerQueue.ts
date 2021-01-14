@@ -71,10 +71,7 @@ PubSubAPIListenerQueue.process(async (job: any) => {
     }
    
     //for the activity_event api changes
-    if (job.data.topic === "activity_event" || 
-        job.data.topic === "participant.*.activity_event" ||
-        job.data.topic === "activity.*.activity_event" || 
-        job.data.topic === "participant.*.activity.*.activity_event") {
+    if ( job.data.topic === "unity_consumer") {
       for (const payload of job.data.payload) {
         try {
           const Data: any = {}
@@ -130,6 +127,7 @@ PubSubAPIListenerQueue.process(async (job: any) => {
       job.data.payload.topic = job.data.topic
       Data.data = JSON.stringify(job.data.payload)      
       Data.token = job.data.token
+   
       await nc.publish(job.data.topic, Data)
     }
   } catch (error) {

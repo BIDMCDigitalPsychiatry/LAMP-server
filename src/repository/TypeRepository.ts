@@ -187,8 +187,7 @@ export class TypeRepository {
         const value = await Database.use("tag").find({
           selector: condition as any,
           limit: 2_147_483_647 /* 32-bit INT_MAX */,
-        })
-        console.dir(value)
+        })        
         all_keys = [...all_keys, ...value.docs.map((x: any) => x.key as any)]
       } catch (error) {
         console.error(error, `Failed to search Tag index for ${condition["#parent"]}:${condition.type}.`)

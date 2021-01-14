@@ -24,7 +24,7 @@ TypeService.get(_parent_routes, async (req: Request, res: Response) => {
     let output = { data: await TypeRepository._parent(type_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
-  } catch (e) {
+    } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
