@@ -1,4 +1,4 @@
-import { Database } from "../app"
+import { Database } from "./Bootstrap"
 import { DynamicAttachment } from "../model"
 import { ScriptRunner } from "../utils"
 

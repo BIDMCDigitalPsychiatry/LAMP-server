@@ -1,4 +1,4 @@
-import { Database } from "../app"
+import { Database } from "./Bootstrap"
 import { ActivitySpec } from "../model/ActivitySpec"
 
 export class ActivitySpecRepository {

@@ -1,4 +1,4 @@
-import { Database } from "../app"
+import { Database } from "./Bootstrap"
 import { ActivityEvent } from "../model/ActivityEvent"
 // FIXME: does not support filtering by ActivitySpec yet.
 

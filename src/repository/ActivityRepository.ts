@@ -1,4 +1,4 @@
-import { Database, uuid } from "../app"
+import { Database, uuid } from "./Bootstrap"
 import { Activity } from "../model/Activity"
 
 export class ActivityRepository {

@@ -1,4 +1,4 @@
-import { Database } from "../app"
+import { Database } from "./Bootstrap"
 import { SensorEvent } from "../model/SensorEvent"
 // FIXME: does not support filtering by Sensor yet.
 

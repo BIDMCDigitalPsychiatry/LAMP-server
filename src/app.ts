@@ -1,19 +1,12 @@
 require("dotenv").config()
 import https from "https"
-import nano from "nano"
 import express, { Application } from "express"
 import cors from "cors"
 import morgan from "morgan"
-import { customAlphabet } from "nanoid"
 import { ListenerAPI, PushNotificationAPI, OpenAPISchema, HTTPS_CERT } from "./utils"
 import { ActivityScheduler, cleanAllQueues } from "./utils/ActivitySchedulerJob"
 import API from "./service"
-import { _bootstrap_db } from "./repository"
-
-// The database connection and ID generators for repository classes.
-export const Database = nano(process.env.CDB ?? "")
-export const uuid = customAlphabet("1234567890abcdefghjkmnpqrstvwxyz", 20)
-export const numeric_uuid = (): string => `U${Math.random().toFixed(10).slice(2, 12)}`
+import { Bootstrap } from "./repository"
 
 // Configure the base Express app and middleware.
 export const app: Application = express()
@@ -28,29 +21,22 @@ app.use(express.urlencoded({ extended: true }))
 async function main(): Promise<void> {
   console.group("Initializing LAMP API server...")
 
-  // If we have a dynamic schema available in the database, use that instead of the static one.
-  const _openAPIschema = {
-    ...((await Database.db.list()).includes("root") ? await Database.use("root").get("#schema") : OpenAPISchema),
-    _id: undefined,
-    _rev: undefined,
-  }
+  // Initialize the database or confirm that it is online.
+  await Bootstrap()
 
   // Establish the API router, as well as a few individual utility routes.
   app.use("/", API)
   app.use("/subscribe", ListenerAPI)
   app.use("/send", PushNotificationAPI)
-  app.get("/", async (req, res) => res.json(_openAPIschema))
+  app.get("/", async (req, res) => res.json(OpenAPISchema))
   app.get(["/favicon.ico", "/service-worker.js"], (req, res) => res.status(204))
   app.all("*", (req, res) => res.status(404).json({ message: "404.api-endpoint-unimplemented" }))
   console.log("Server routing initialized.")
 
-  // Initialize the database or confirm that it is online.
-  await _bootstrap_db(Database)
-
   // Begin running activity/automations scheduling AFTER connecting to the database.
   if (process.env.SCHEDULER === "on") {
     console.log("Clean all queues...")
-    await cleanAllQueues();
+    await cleanAllQueues()
     console.log("Initializing schedulers...")
     ActivityScheduler()
   } else {

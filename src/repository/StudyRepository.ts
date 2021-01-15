@@ -1,4 +1,4 @@
-import { Database, uuid } from "../app"
+import { Database, uuid } from "./Bootstrap"
 import { Study } from "../model/Study"
 
 export class StudyRepository {

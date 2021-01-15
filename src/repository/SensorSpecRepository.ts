@@ -1,4 +1,4 @@
-import { Database } from "../app"
+import { Database } from "./Bootstrap"
 import { SensorSpec } from "../model/SensorSpec"
 
 export class SensorSpecRepository {
