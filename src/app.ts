@@ -5,10 +5,10 @@ import express, { Application } from "express"
 import cors from "cors"
 import morgan from "morgan"
 import { customAlphabet } from "nanoid"
-import { LegacyAPI, ListenerAPI,PushNotificationAPI, OpenAPISchema, HTTPS_CERT, _bootstrap_db } from "./utils"
-import { ActivityScheduler } from "./utils/ActivitySchedulerJob"
+import { ListenerAPI, PushNotificationAPI, OpenAPISchema, HTTPS_CERT } from "./utils"
+import { ActivityScheduler, cleanAllQueues } from "./utils/ActivitySchedulerJob"
 import API from "./service"
-import {cleanAllQueues} from "./utils/ActivitySchedulerJob"
+import { _bootstrap_db } from "./repository"
 
 // The database connection and ID generators for repository classes.
 export const Database = nano(process.env.CDB ?? "")
@@ -35,9 +35,8 @@ async function main(): Promise<void> {
     _rev: undefined,
   }
 
-  // Establish the API and LegacyAPI routers, as well as a few individual utility routes.
+  // Establish the API router, as well as a few individual utility routes.
   app.use("/", API)
-  app.use("/v0", LegacyAPI)
   app.use("/subscribe", ListenerAPI)
   app.use("/send", PushNotificationAPI)
   app.get("/", async (req, res) => res.json(_openAPIschema))
