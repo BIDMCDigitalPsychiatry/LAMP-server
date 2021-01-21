@@ -169,7 +169,7 @@ PubSubAPIListenerQueue.process(async (job: any) => {
       console.log(error)
      }
     }
-  } catch (error) {  console.log("er---",error)  
+  } catch (error) { 
     console.log("Nats server is disconnected")
   }
 })
