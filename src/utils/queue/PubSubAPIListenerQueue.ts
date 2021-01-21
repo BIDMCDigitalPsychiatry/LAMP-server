@@ -1,12 +1,15 @@
 import Bull from "bull"
 import { setTimeout } from "timers"
 import { connect, NatsConnectionOptions, Payload } from "ts-nats"
-import { TypeRepository, ParticipantRepository } from "../../repository"
+import { TypeRepository } from "../../repository"
+import { Mutex } from "async-mutex"
+const clientLock = new Mutex()
 //Initialise PubSubAPIListenerQueue Queue
 export const PubSubAPIListenerQueue = new Bull("PubSubAPIListener", process.env.REDIS_HOST ?? "")
 
 PubSubAPIListenerQueue.process(async (job: any) => {
   let publishStatus = true
+  const maxPayloadSize = !!process.env.NATS_PAYLOAD_SIZE ? process.env.NATS_PAYLOAD_SIZE:1047846
   try {
     //connect to nats server
     const nc = await natsConnect()   
@@ -76,6 +79,7 @@ PubSubAPIListenerQueue.process(async (job: any) => {
         job.data.topic === "activity.*.activity_event" || 
         job.data.topic === "participant.*.activity.*.activity_event") {
       for (const payload of job.data.payload) {
+        const release = await clientLock.acquire() 
         try {
           const Data: any = {}
           payload.topic = job.data.topic
@@ -84,12 +88,21 @@ PubSubAPIListenerQueue.process(async (job: any) => {
           Data.data = JSON.stringify(payload)
           //form the token for the consumer
           Data.token = `activity.${payload.activity}.participant.${job.data.participant_id}`
+          const size = Buffer.byteLength(Data.data)
+           
+          if(size > maxPayloadSize) {
+            throw new Error("Nats maximum payload error")
+          }
 
           //publish activity_event data seperately
           await publishActivityEvent(payload.topic, Data)
+          release()
         } catch (error) {
+          release()
           publishStatus = false
-          console.log("Error creating token")
+          console.log("activity_event_payload_size",Buffer.byteLength(JSON.stringify(payload)))
+          console.log("activity_event_payload",payload)  
+          console.log(error)
         }
       }
       publishStatus = false
@@ -101,6 +114,7 @@ PubSubAPIListenerQueue.process(async (job: any) => {
        job.data.topic === "sensor.*.sensor_event" ||
        job.data.topic === "participant.*.sensor.*.sensor_event") {
       for (const payload of job.data.payload) {
+        const release = await clientLock.acquire() 
         try {
           const Data: any = {}
           payload.topic = job.data.topic
@@ -113,26 +127,49 @@ PubSubAPIListenerQueue.process(async (job: any) => {
          //form the token for the consumer
           job.data.token = `sensor.${sensor_}.participant.${payload.participant_id}`
           Data.token = job.data.token
+          const size = Buffer.byteLength(Data.data)
+           
+          if(size > maxPayloadSize) {
+            throw new Error("Nats maximum payload error")
+          }
 
           //publish sensor_event data seperately
           await publishSensorEvent(payload.topic, Data)
+          release()
         } catch (error) {
+          release()
           publishStatus = false
-          console.log("Error creating token")
+          console.log("sensor_event_payload_size",Buffer.byteLength(JSON.stringify(payload)))
+          console.log("sensor_event_payload",payload)  
+          console.log(error)
         }
       }
       publishStatus = false
     }   
     //if no error, publish the data to nats  
     if (publishStatus) {
+      const release = await clientLock.acquire() 
+      try {     
+        console.log("publishing...")
       //initialize Data object to get published for a topic
       const Data: any = {}
       job.data.payload.topic = job.data.topic
       Data.data = JSON.stringify(job.data.payload)      
       Data.token = job.data.token
+      const size = Buffer.byteLength(Data.data)
+       if(size > maxPayloadSize) {
+         throw new Error("Nats maximum payload error")
+       }
       await nc.publish(job.data.topic, Data)
+      release()
+    } catch (error) {  
+      console.log("payload_size",Buffer.byteLength(JSON.stringify(job.data.payload)))
+      console.log("payload",job.data.payload)           
+      release()
+      console.log(error)
+     }
     }
-  } catch (error) {
+  } catch (error) {  console.log("er---",error)  
     console.log("Nats server is disconnected")
   }
 })
