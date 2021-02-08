@@ -12,6 +12,7 @@ const LIMIT_MAX = 2_147_483_647
 export const ActivityEventService = Router()
 ActivityEventService.post("/participant/:participant_id/activity_event", async (req: Request, res: Response) => {
   try {
+    let timestamp=new Date().getTime()
     let participant_id = req.params.participant_id
     const activity_event = req.body
     participant_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], participant_id)
@@ -26,6 +27,7 @@ ActivityEventService.post("/participant/:participant_id/activity_event", async (
     PubSubAPIListenerQueue.add({
       topic: `activity_event`,
       action: "create",
+      timestamp:timestamp,
       participant_id: participant_id,
       payload: Array.isArray(activity_event) ? activity_event : [activity_event],
     })
@@ -33,6 +35,7 @@ ActivityEventService.post("/participant/:participant_id/activity_event", async (
     PubSubAPIListenerQueue.add({
       topic: `participant.*.activity_event`,
       action: "create",
+      timestamp:timestamp,
       participant_id: participant_id,
       payload: Array.isArray(activity_event) ? activity_event : [activity_event],
     })
@@ -40,6 +43,7 @@ ActivityEventService.post("/participant/:participant_id/activity_event", async (
      PubSubAPIListenerQueue.add({
       topic: `activity.*.activity_event`,
       action: "create",
+      timestamp:timestamp,
       participant_id: participant_id,
       payload: Array.isArray(activity_event) ? activity_event : [activity_event],
     })
@@ -47,6 +51,7 @@ ActivityEventService.post("/participant/:participant_id/activity_event", async (
     PubSubAPIListenerQueue.add({
       topic: `participant.*.activity.*.activity_event`,
       action: "create",
+      timestamp:timestamp,
       participant_id: participant_id,
       payload: Array.isArray(activity_event) ? activity_event : [activity_event],
     })

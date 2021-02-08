@@ -13,6 +13,7 @@ ParticipantService.post("/study/:study_id/participant", async (req: Request, res
     study_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], study_id)
     const output = { data: await ParticipantRepository._insert(study_id, participant) }
     participant.study_id = study_id
+    participant.participant_id = output['data'].id
     participant.action = "create"
     
     //publishing data for participant add api with token = study.{study_id}.participant.{_id}
