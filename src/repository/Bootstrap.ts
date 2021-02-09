@@ -1,6 +1,7 @@
 import nano from "nano"
 import crypto from "crypto"
 import { customAlphabet } from "nanoid"
+import { connect, NatsConnectionOptions, Payload } from "ts-nats"
 
 // The database connection and ID generators for repository classes.
 export const Database = nano(process.env.CDB ?? "")
@@ -696,3 +697,18 @@ export async function Bootstrap(): Promise<void> {
   console.groupEnd()
   console.log("Database verification complete.")
 }
+
+//Initialize NATS connection for publisher and subscriber
+export const nc =  connect({
+    servers: [`${process.env.NATS_SERVER}`],
+    payload: Payload.JSON
+}).then((x)=>x.on('connect',(y)=>{
+  console.log("Connected to Nats Pub Server")
+}));
+export const ncSub =  connect({
+  servers: [`${process.env.NATS_SERVER}`],
+  payload: Payload.JSON
+}).then((x)=>x.on('connect',(y)=>{
+  console.log("Connected to Nats Sub Server")
+}));
+

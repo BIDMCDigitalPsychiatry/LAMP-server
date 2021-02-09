@@ -17,6 +17,7 @@ ActivityService.post("/study/:study_id/activity", async (req: Request, res: Resp
     const output = { data: await ActivityRepository._insert(study_id, activity) }
     activity.study_id = study_id
     activity.action = "create"
+    activity.activity_id = output['data']
 
     //publishing data for activity add api with token = study.{study_id}.activity.{_id}
     PubSubAPIListenerQueue.add({ topic: `activity`, token: `study.${study_id}.activity.${output['data']}`, payload: activity })

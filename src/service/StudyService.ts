@@ -15,6 +15,7 @@ StudyService.post("/researcher/:researcher_id/study", async (req: Request, res: 
     const output = { data: await StudyRepository._insert(researcher_id, study) }
 
     study.researcher_id = researcher_id
+    study.study_id = output['data']
     study.action = "create"
     //publishing data for study add api with token = researcher.{researcher_id}.study.{_id}
     PubSubAPIListenerQueue.add({ topic: `study`, token: `researcher.${researcher_id}.study.${output['data']}`, payload: study })

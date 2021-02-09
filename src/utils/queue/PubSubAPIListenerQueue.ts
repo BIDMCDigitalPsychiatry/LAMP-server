@@ -1,19 +1,18 @@
 import Bull from "bull"
 import { setTimeout } from "timers"
-import { connect, NatsConnectionOptions, Payload } from "ts-nats"
 import { TypeRepository } from "../../repository"
+import { nc } from "../../repository/Bootstrap"
 import { Mutex } from "async-mutex"
 const clientLock = new Mutex()
+
 //Initialise PubSubAPIListenerQueue Queue
 export const PubSubAPIListenerQueue = new Bull("PubSubAPIListener", process.env.REDIS_HOST ?? "")
 
 PubSubAPIListenerQueue.process(async (job: any) => {
   let publishStatus = true
+
   const maxPayloadSize = !!process.env.NATS_PAYLOAD_SIZE ? process.env.NATS_PAYLOAD_SIZE : 1047846
   try {
-    //connect to nats server
-    const nc = await natsConnect()
-
     //for the participant api changes
     if (
       (job.data.topic === "study.*.participant" ||
@@ -106,6 +105,7 @@ PubSubAPIListenerQueue.process(async (job: any) => {
               subject_id: job.data.participant_id,
               timestamp: job.data.timestamp,
             })
+
             // throw new Error("Nats maximum payload error")
             await publishIDs(job.data.topic, dataNew)
           } else {
@@ -146,6 +146,7 @@ PubSubAPIListenerQueue.process(async (job: any) => {
           job.data.token = `sensor.${sensor_}.participant.${payload.participant_id}`
           Data.token = job.data.token
           const size = Buffer.byteLength(Data.data)
+
           //IF SIZE GREATER THAN NATS PAYLOAD MAX SIZE
           if (size > maxPayloadSize) {
             const dataNew: any = {}
@@ -181,7 +182,7 @@ PubSubAPIListenerQueue.process(async (job: any) => {
         Data.token = job.data.token
         const size = Buffer.byteLength(Data.data)
 
-        //IF SIZE GREATER THAN NATS PAYLOAD MAX SIZE-TAKE CORRESPONDIG IDs AND PUBLISH 
+        //IF SIZE GREATER THAN NATS PAYLOAD MAX SIZE-TAKE CORRESPONDIG IDs AND PUBLISH
         if (size > maxPayloadSize) {
           const dataNew: any = {}
           switch (job.data.topic) {
@@ -191,49 +192,87 @@ PubSubAPIListenerQueue.process(async (job: any) => {
               dataNew.data = JSON.stringify({
                 action: job.data.payload.action,
                 subject_id: job.data.payload.researcher_id,
-              })            
+              })
               await publishIDs(job.data.topic, dataNew)
               break
             //FOR study APIS
             case "study":
             case "study.*":
             case "researcher.*.study":
-              dataNew.data = JSON.stringify({ action: job.data.payload.action, subject_id: job.data.payload.study_id })
+              if (job.data.payload.action !== "delete") {
+                dataNew.data = JSON.stringify({
+                  action: job.data.payload.action,
+                  subject_id: job.data.payload.study_id,
+                })
+              } else {
+                dataNew.data = JSON.stringify({
+                  action: job.data.payload.action,
+                  subject_id: job.data.payload.study_id,
+                  researcher_id: job.data.payload.researcher_id,
+                })
+              }
               await publishIDs(job.data.topic, dataNew)
               break
             //FOR participant APIS
             case "participant":
             case "participant.*":
             case "study.*.participant":
-              dataNew.data = JSON.stringify({
-                action: job.data.payload.action,
-                subject_id: job.data.payload.participant_id,
-              })
+              if (job.data.payload.action !== "delete") {
+                dataNew.data = JSON.stringify({
+                  action: job.data.payload.action,
+                  subject_id: job.data.payload.participant_id,
+                })
+              } else {
+                dataNew.data = JSON.stringify({
+                  action: job.data.payload.action,
+                  subject_id: job.data.payload.participant_id,
+                  study_id: job.data.payload.study_id,
+                })
+              }
               await publishIDs(job.data.topic, dataNew)
               break
             //FOR activity APIS
             case "activity":
             case "activity.*":
             case "study.*.activity":
-              dataNew.data = JSON.stringify({
-                action: job.data.payload.action,
-                subject_id: job.data.payload.activity_id,
-              })
-              await publishIDs(job.data.topic, dataNew)
+              if (job.data.payload.action !== "delete") {
+                dataNew.data = JSON.stringify({
+                  action: job.data.payload.action,
+                  subject_id: job.data.payload.activity_id,
+                })
+                await publishIDs(job.data.topic, dataNew)
+              } else {
+                dataNew.data = JSON.stringify({
+                  action: job.data.payload.action,
+                  subject_id: job.data.payload.activity_id,
+                  study_id: job.data.payload.study_id,
+                })
+              }
               break
             //FOR sensor APIS
             case "sensor":
             case "sensor.*":
             case "study.*.sensor":
-              dataNew.data = JSON.stringify({ action: job.data.payload.action, subject_id: job.data.payload.sensor_id })
-              await publishIDs(job.data.topic, dataNew)
+              if (job.data.payload.action !== "delete") {
+                dataNew.data = JSON.stringify({
+                  action: job.data.payload.action,
+                  subject_id: job.data.payload.sensor_id,
+                })
+                await publishIDs(job.data.topic, dataNew)
+              } else {
+                dataNew.data = JSON.stringify({
+                  action: job.data.payload.action,
+                  subject_id: job.data.payload.sensor_id,
+                  study_id: job.data.payload.study_id,
+                })
+              }
               break
 
             default:
               break
           }
         } else {
-          await nc.publish(job.data.topic, Data)
+          ;(await nc).publish(job.data.topic, Data)
         }
         release()
       } catch (error) {
@@ -253,8 +292,7 @@ PubSubAPIListenerQueue.process(async (job: any) => {
  */
 async function publishSensorEvent(topic: any, data: any): Promise<void> {
   try {
-    const nc = await natsConnect()
-    await nc.publish(topic, data)
+    ;(await nc).publish(topic, data)
   } catch (error) {
     console.log("Nats server is disconnected")
   }
@@ -267,8 +305,7 @@ async function publishSensorEvent(topic: any, data: any): Promise<void> {
  */
 async function publishActivityEvent(topic: any, data: any): Promise<void> {
   try {
-    const nc = await natsConnect()
-    await nc.publish(topic, data)
+    ;(await nc).publish(topic, data)
   } catch (error) {
     console.log("Nats server is disconnected")
   }
@@ -279,23 +316,8 @@ async function publishActivityEvent(topic: any, data: any): Promise<void> {
  */
 async function publishIDs(topic: string, Data: any): Promise<any> {
   try {
-    //connect to nats server
-    const nc = await natsConnect()
-    await nc.publish(topic, Data)
+    ;(await nc).publish(topic, Data)
   } catch (error) {
     console.log("Nats server is disconnected")
   }
-}
-
-/** Nats server connect
- *
- */
-async function natsConnect(): Promise<any> {
-  try {
-    const nc = await connect({
-      servers: [`${process.env.NATS_SERVER}`],
-      payload: Payload.JSON,
-    })
-    return nc
-  } catch (error) {}
 }
