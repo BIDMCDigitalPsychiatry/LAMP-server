@@ -12,6 +12,7 @@ ResearcherService.post("/researcher", async (req: Request, res: Response) => {
     const _ = await _verify(req.get("Authorization"), [])
     const output = { data: await ResearcherRepository._insert(researcher) }
     researcher.action = "create"
+    researcher.researcher_id = output['data']
 
     //publishing data for researcher add api with token = researcher.{_id}
     PubSubAPIListenerQueue.add({ topic: `researcher`, token: `researcher.${output['data']}`, payload: researcher })

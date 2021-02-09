@@ -15,6 +15,7 @@ SensorService.post("/study/:study_id/sensor", async (req: Request, res: Response
     const output = { data: await SensorRepository._insert(study_id, sensor) }
     sensor.study_id = study_id
     sensor.action = "create"
+    sensor.sensor_id = output['data']
 
     //publishing data for sensor add api with token = study.{study_id}.sensor.{_id}
     PubSubAPIListenerQueue.add({ topic: `sensor`, token: `study.${study_id}.sensor.${output['data']}`, payload: sensor })
