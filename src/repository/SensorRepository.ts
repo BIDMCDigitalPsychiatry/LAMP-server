@@ -10,7 +10,7 @@ export class SensorRepository {
         limit: 2_147_483_647 /* 32-bit INT_MAX */,
       })
     ).docs.map((x: any) => ({
-      id: x.doc._id,
+      id: x._id,
       ...x.doc,
       _id: undefined,
       _rev: undefined,
