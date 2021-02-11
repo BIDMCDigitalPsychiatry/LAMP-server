@@ -11,7 +11,7 @@ export class SensorRepository {
       })
     ).docs.map((x: any) => ({
       id: x._id,
-      ...x.doc,
+      ...x,
       _id: undefined,
       _rev: undefined,
       "#parent": undefined,
