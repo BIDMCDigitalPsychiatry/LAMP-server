@@ -2,9 +2,26 @@ import nano from "nano"
 import crypto from "crypto"
 import { customAlphabet } from "nanoid"
 import { connect, NatsConnectionOptions, Payload } from "ts-nats"
+import mongoose from "mongoose"
 
-// The database connection and ID generators for repository classes.
-export const Database = nano(process.env.CDB ?? "")
+export const Database: any = process.env.DB_DRIVER === "couchdb" ? nano(process.env.CDB ?? "") : ""
+
+try {
+  //MongoDB connection
+  process.env.DB_DRIVER === "mongodb"
+    ? mongoose
+        .connect(`${process.env.MDB}`, { useUnifiedTopology: true, useNewUrlParser: true } ?? "")
+        .then(() => {
+          console.log(`connected to MONGODB`)
+          try {
+          } catch (error) {
+            console.log(`error`, error)
+          }
+        })
+    : ""
+} catch (error) {
+  console.log(`No Mongo DB Connection`)
+}
 export const uuid = customAlphabet("1234567890abcdefghjkmnpqrstvwxyz", 20)
 export const numeric_uuid = (): string => `U${Math.random().toFixed(10).slice(2, 12)}`
 
@@ -48,6 +65,7 @@ export const Decrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"):
 
 // Initialize the CouchDB databases if any of them do not exist.
 export async function Bootstrap(): Promise<void> {
+  if(process.env.DB_DRIVER === "couchdb") {
   console.group("Initializing database connection...")
   const _db_list = await Database.db.list()
   if (!_db_list.includes("activity_spec")) {
@@ -697,18 +715,22 @@ export async function Bootstrap(): Promise<void> {
   console.groupEnd()
   console.log("Database verification complete.")
 }
+}
 
 //Initialize NATS connection for publisher and subscriber
-export const nc =  connect({
-    servers: [`${process.env.NATS_SERVER}`],
-    payload: Payload.JSON
-}).then((x)=>x.on('connect',(y)=>{
-  console.log("Connected to Nats Pub Server")
-}));
-export const ncSub =  connect({
+export const nc = connect({
   servers: [`${process.env.NATS_SERVER}`],
-  payload: Payload.JSON
-}).then((x)=>x.on('connect',(y)=>{
-  console.log("Connected to Nats Sub Server")
-}));
-
+  payload: Payload.JSON,
+}).then((x) =>
+  x.on("connect", (y) => {
+    console.log("Connected to Nats Pub Server")
+  })
+)
+export const ncSub = connect({
+  servers: [`${process.env.NATS_SERVER}`],
+  payload: Payload.JSON,
+}).then((x) =>
+  x.on("connect", (y) => {
+    console.log("Connected to Nats Sub Server")
+  })
+)

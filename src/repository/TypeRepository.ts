@@ -1,6 +1,12 @@
 import { Database } from "./Bootstrap"
 import { DynamicAttachment } from "../model"
 import { ScriptRunner } from "../utils"
+import { ParticipantModel } from "../model/Participant"
+import { StudyModel } from "../model/Study"
+import { ActivityModel } from "../model/Activity"
+import { SensorModel } from "../model/Sensor"
+import { ResearcherModel } from "../model/Researcher"
+import { TagsModel } from "../model/Type"
 
 // FIXME: Support application/json;indent=:spaces format mime type!
 
@@ -14,44 +20,89 @@ export class TypeRepository {
 
   public static async _self_type(type_id: string): Promise<string> {
     try {
-      await Database.use("participant").head(type_id)
-      return "Participant"
+      if (process.env.DB_DRIVER === "couchdb") {
+        await Database.use("participant").head(type_id)
+        return "Participant"
+      } else {
+        const data: any = await (ParticipantModel.findOne({ _id: type_id }) as any)
+        if (null !== data) return "Participant"
+      }
     } catch (e) {}
     try {
-      await Database.use("researcher").head(type_id)
-      return "Researcher"
+      if (process.env.DB_DRIVER === "couchdb") {
+        await Database.use("researcher").head(type_id)
+        return "Researcher"
+      } else {
+        const data: any = await (ResearcherModel.findOne({ _id: type_id }) as any)
+        if (null !== data) return "Researcher"
+      }
     } catch (e) {}
     try {
-      await Database.use("study").head(type_id)
-      return "Study"
+      if (process.env.DB_DRIVER === "couchdb") {
+        await Database.use("study").head(type_id)
+        return "Study"
+      } else {
+        const data: any = await (StudyModel.findOne({ _id: type_id }) as any)
+        if (null !== data) return "Study"
+      }
     } catch (e) {}
     try {
-      await Database.use("activity").head(type_id)
-      return "Activity"
+      if (process.env.DB_DRIVER === "couchdb") {
+        await Database.use("activity").head(type_id)
+        return "Activity"
+      } else {
+        const data: any = await (ActivityModel.findOne({ _id: type_id }) as any)
+        if (null !== data) return "Activity"
+      }
     } catch (e) {}
     try {
-      await Database.use("sensor").head(type_id)
-      return "Sensor"
+      if (process.env.DB_DRIVER === "couchdb") {
+        await Database.use("sensor").head(type_id)
+        return "Sensor"
+      } else {
+        const data: any = await (SensorModel.findOne({ _id: type_id }) as any)
+        if (null !== data) return "Sensor"
+      }
     } catch (e) {}
     return "__broken_id__"
   }
 
   public static async _owner(type_id: string): Promise<string | null> {
     try {
-      return ((await Database.use("participant").get(type_id)) as any)["#parent"]
+      if (process.env.DB_DRIVER === "couchdb") {
+        return ((await Database.use("participant").get(type_id)) as any)["#parent"]
+      } else {
+        return ((await ParticipantModel.findOne({ _id: type_id })) as any)["#parent"]
+      }
     } catch (e) {}
     try {
-      await Database.use("researcher").head(type_id)
-      return null
+      if (process.env.DB_DRIVER === "couchdb") {
+        await Database.use("researcher").head(type_id)
+      } else {
+        const data: any = await (ResearcherModel.findOne({ _id: type_id }) as any)
+        if (null !== data) return null
+      }
     } catch (e) {}
     try {
-      return ((await Database.use("study").get(type_id)) as any)["#parent"]
+      if (process.env.DB_DRIVER === "couchdb") {
+        return ((await Database.use("study").get(type_id)) as any)["#parent"]
+      } else {
+        return ((await StudyModel.findOne({ _id: type_id })) as any)["#parent"]
+      }
     } catch (e) {}
     try {
-      return ((await Database.use("activity").get(type_id)) as any)["#parent"]
+      if (process.env.DB_DRIVER === "couchdb") {
+        return ((await Database.use("activity").get(type_id)) as any)["#parent"]
+      } else {
+        return ((await ActivityModel.findOne({ _id: type_id })) as any)["#parent"]
+      }
     } catch (e) {}
     try {
-      return ((await Database.use("sensor").get(type_id)) as any)["#parent"]
+      if (process.env.DB_DRIVER === "couchdb") {
+        return ((await Database.use("sensor").get(type_id)) as any)["#parent"]
+      } else {
+        return ((await SensorModel.findOne({ _id: type_id })) as any)["#parent"]
+      }
     } catch (e) {}
     return null
   }
@@ -80,48 +131,78 @@ export class TypeRepository {
 
   public static async _set(mode: any, type: string, type_id: string, key: string, value?: any): Promise<{}> {
     const deletion = value === undefined || value === null
-    const existing = (
-      await Database.use("tag").find({
-        selector: { "#parent": type_id, type, key },
-        limit: 1,
-      })
-    ).docs
-    if (existing.length === 0 && !deletion) {
-      // CREATE
-      try {
-        await Database.use("tag").insert({
-          "#parent": type_id,
-          type,
-          key,
-          value,
-        } as any)
-      } catch (e) {
-        console.error(e)
-        throw new Error("500.creation-or-update-failed")
-      }
-    } else if (existing.length > 0 && !deletion) {
-      // UPDATE
-      try {
-        const data = await Database.use("tag").bulk({
-          docs: [{ ...existing[0], value }],
+    let existing: any = ""
+    if (process.env.DB_DRIVER === "couchdb") {
+      existing = (
+        await Database.use("tag").find({
+          selector: { "#parent": type_id, type, key },
+          limit: 1,
         })
-        if (data.filter((x) => !!x.error).length > 0) throw new Error()
-      } catch (e) {
-        console.error(e)
-        throw new Error("400.update-failed")
-      }
+      ).docs
     } else {
-      // DELETE
-      try {
-        const data = await Database.use("tag").bulk({
-          docs: [{ ...existing[0], _deleted: true }],
-        })
-        if (data.filter((x) => !!x.error).length > 0) throw new Error()
-      } catch (e) {
-        console.error(e)
-        throw new Error("400.deletion-failed")
-      }
+      existing = await TagsModel.findOne({ "#parent": type_id, type, key })
     }
+
+    switch (process.env.DB_DRIVER) {
+      case "couchdb":
+        if (existing.length === 0 && !deletion) {
+          // CREATE
+          try {
+            await Database.use("tag").insert({
+              "#parent": type_id,
+              type,
+              key,
+              value,
+            } as any)
+          } catch (e) {
+            console.error(e)
+            throw new Error("500.creation-or-update-failed")
+          }
+        } else if (existing.length > 0 && !deletion) {
+          // UPDATE
+          try {
+            const data = await Database.use("tag").bulk({
+              docs: [{ ...existing[0], value }],
+            })
+            if (data.filter((x: any) => !!x.error).length > 0) throw new Error()
+          } catch (e) {
+            console.error(e)
+            throw new Error("400.update-failed")
+          }
+        } else {
+          // DELETE
+          try {
+            const data = await Database.use("tag").bulk({
+              docs: [{ ...existing[0], _deleted: true }],
+            })
+            if (data.filter((x: any) => !!x.error).length > 0) throw new Error()
+          } catch (e) {
+            console.error(e)
+            throw new Error("400.deletion-failed")
+          }
+        }
+        break
+
+      case "mongodb":
+        if (existing === null && !deletion) {
+          await new TagsModel({
+            "#parent": type_id,
+            type,
+            key,
+            value,
+          } as any).save()
+        } else if (existing !== null && !deletion) {
+          const data: any = await TagsModel.findByIdAndUpdate(existing._id, { ...existing.value, value })
+        } else {
+          // DELETE
+          await TagsModel.deleteOne({ _id: existing._id })
+        }
+        break
+
+      default:
+        break
+    }
+
     return {}
   }
 
@@ -148,8 +229,13 @@ export class TypeRepository {
     //     multiple keys per-subquery; the difference is almost ~7sec vs. ~150ms.
     for (const condition of conditions) {
       try {
-        const value = await Database.use("tag").find({ selector: condition as any, limit: 1 })
-        if (value.docs.length > 0) return value.docs.map((x: any) => x.value as any)[0]
+        if (process.env.DB_DRIVER === "couchdb") {
+          const value = await Database.use("tag").find({ selector: condition as any, limit: 1 })
+          if (value.docs.length > 0) return value.docs.map((x: any) => x.value as any)[0]
+        } else {
+          const value = await TagsModel.find(condition).limit(1)
+          if (value.length > 0) return value.map((x: any) => x._doc.value)[0]
+        }
       } catch (error) {
         console.error(error, `Failed to search Tag index for ${condition["#parent"]}:${condition.type}.`)
       }
@@ -162,19 +248,34 @@ export class TypeRepository {
   public static async _list(mode: any, type_id: string): Promise<string[]> {
     const self_type = await TypeRepository._self_type(type_id)
     const parents = Object.values(await TypeRepository._parent(type_id)).reverse()
+    let conditions: any[] = []
+    if (process.env.DB_DRIVER === "couchdb") {
+      // All possible conditions to retreive Tags, ordered greatest-to-least priority.
+      // Note: We MUST add a "key" selector to force CouchDB to use the right Mango index.
+      conditions = [
+        // Explicit parent-ownership. (Ordered greatest-to-least ancestor.)
 
-    // All possible conditions to retreive Tags, ordered greatest-to-least priority.
-    // Note: We MUST add a "key" selector to force CouchDB to use the right Mango index.
-    const conditions = [
-      // Explicit parent-ownership. (Ordered greatest-to-least ancestor.)
-      ...parents.map((pid) => ({ "#parent": pid, type: type_id, key: { $gt: null } })),
-      // Implicit parent-ownership. (Ordered greatest-to-least ancestor.)
-      ...parents.map((pid) => ({ "#parent": pid, type: self_type, key: { $gt: null } })),
-      // Explicit self-ownership.
-      { "#parent": type_id, type: type_id, key: { $gt: null } },
-      // Implicit self-ownership.
-      { "#parent": type_id, type: "me", key: { $gt: null } },
-    ]
+        ...parents.map((pid) => ({ "#parent": pid, type: type_id, key: { $gt: null } })),
+        // Implicit parent-ownership. (Ordered greatest-to-least ancestor.)
+        ...parents.map((pid) => ({ "#parent": pid, type: self_type, key: { $gt: null } })),
+        // Explicit self-ownership.
+        { "#parent": type_id, type: type_id, key: { $gt: null } },
+        // Implicit self-ownership.
+        { "#parent": type_id, type: "me", key: { $gt: null } },
+      ]
+    } else {
+      conditions = [
+        // Explicit parent-ownership. (Ordered greatest-to-least ancestor.)
+
+        ...parents.map((pid) => ({ "#parent": pid, type: type_id, key: { $ne: null } })),
+        // Implicit parent-ownership. (Ordered greatest-to-least ancestor.)
+        ...parents.map((pid) => ({ "#parent": pid, type: self_type, key: { $ne: null } })),
+        // Explicit self-ownership.
+        { "#parent": type_id, type: type_id, key: { $ne: null } },
+        // Implicit self-ownership.
+        { "#parent": type_id, type: "me", key: { $ne: null } },
+      ]
+    }
 
     // Following greatest-to-least priority, see if the Tag exists. We do this because:
     // (1) Following priority order allows us to avoid searching the database after we find the
@@ -184,12 +285,16 @@ export class TypeRepository {
     let all_keys: string[] = []
     for (const condition of conditions) {
       try {
-        const value = await Database.use("tag").find({
-          selector: condition as any,
-          limit: 2_147_483_647 /* 32-bit INT_MAX */,
-        })
-        console.dir(value)
-        all_keys = [...all_keys, ...value.docs.map((x: any) => x.key as any)]
+        if (process.env.DB_DRIVER === "couchdb") {
+          const value = await Database.use("tag").find({
+            selector: condition as any,
+            limit: 2_147_483_647 /* 32-bit INT_MAX */,
+          })
+          all_keys = [...all_keys, ...value.docs.map((x: any) => x.key as any)]
+        } else {
+          const value = await TagsModel.find(condition).limit(2_147_483_647)
+          all_keys = [...all_keys, ...value.map((x: any) => x._doc.key as any)]
+        }
       } catch (error) {
         console.error(error, `Failed to search Tag index for ${condition["#parent"]}:${condition.type}.`)
       }
@@ -362,8 +467,14 @@ async function Researcher_parent_id(id: string, type: string): Promise<string | 
 async function Study_parent_id(id: string, type: string): Promise<string | undefined> {
   switch (type) {
     case "Researcher":
-      const obj: any = await Database.use("study").get(id)
-      return obj["#parent"]
+      if (process.env.DB_DRIVER === "couchdb") {
+        const obj = await Database.use("study").get(id)
+        return obj["#parent"]
+      } else {
+        const obj: any = await StudyModel.findOne({ _id: id })
+        return obj["#parent"]
+      }
+
     default:
       throw new Error("400.invalid-identifier")
   }
@@ -372,12 +483,24 @@ async function Participant_parent_id(id: string, type: string): Promise<string |
   let obj: any
   switch (type) {
     case "Study":
-      obj = await Database.use("participant").get(id)
-      return obj["#parent"]
+      if (process.env.DB_DRIVER === "couchdb") {
+        obj = await Database.use("participant").get(id)
+        return obj["#parent"]
+      } else {
+        obj = await ParticipantModel.findOne({ _id: id })
+        return obj["#parent"]
+      }
     case "Researcher":
-      obj = await Database.use("participant").get(id)
-      obj = await Database.use("study").get(obj["#parent"])
-      return obj["#parent"]
+      if (process.env.DB_DRIVER === "couchdb") {
+        obj = await Database.use("participant").get(id)
+        obj = await Database.use("study").get(obj["#parent"])
+        return obj["#parent"]
+      } else {
+        obj = await ParticipantModel.findOne({ _id: id })
+        obj = await StudyModel.findOne({ _id: obj["#parent"] })
+        return obj["#parent"]
+      }
+
     default:
       throw new Error("400.invalid-identifier")
   }
@@ -386,12 +509,24 @@ async function Activity_parent_id(id: string, type: string): Promise<string | un
   let obj: any
   switch (type) {
     case "Study":
-      obj = await Database.use("activity").get(id)
-      return obj["#parent"]
+      if (process.env.DB_DRIVER === "couchdb") {
+        obj = await Database.use("activity").get(id)
+        return obj["#parent"]
+      } else {
+        obj = await ActivityModel.findOne({ _id: id })
+        return obj["#parent"]
+      }
     case "Researcher":
-      obj = await Database.use("activity").get(id)
-      obj = await Database.use("study").get(obj["#parent"])
-      return obj["#parent"]
+      if (process.env.DB_DRIVER === "couchdb") {
+        obj = await Database.use("activity").get(id)
+        obj = await Database.use("study").get(obj["#parent"])
+        return obj["#parent"]
+      } else {
+        obj = await ActivityModel.findOne({ _id: id })
+        obj = await StudyModel.findOne({ _id: obj["#parent"] })
+        return obj["#parent"]
+      }
+
     default:
       throw new Error("400.invalid-identifier")
   }
@@ -400,12 +535,23 @@ async function Sensor_parent_id(id: string, type: string): Promise<string | unde
   let obj: any
   switch (type) {
     case "Study":
-      obj = await Database.use("sensor").get(id)
-      return obj["#parent"]
+      if (process.env.DB_DRIVER === "couchdb") {
+        obj = await Database.use("sensor").get(id)
+        return obj["#parent"]
+      } else {
+        obj = await SensorModel.findOne({ _id: id })
+        return obj["#parent"]
+      }
     case "Researcher":
-      obj = await Database.use("sensor").get(id)
-      obj = await Database.use("study").get(obj["#parent"])
-      return obj["#parent"]
+      if (process.env.DB_DRIVER === "couchdb") {
+        obj = await Database.use("sensor").get(id)
+        obj = await Database.use("study").get(obj["#parent"])
+        return obj["#parent"]
+      } else {
+        obj = await SensorModel.findOne({ _id: id })
+        obj = await StudyModel.findOne({ _id: obj["#parent"] })
+        return obj["#parent"]
+      }
     default:
       throw new Error("400.invalid-identifier")
   }
