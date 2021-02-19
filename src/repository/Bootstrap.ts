@@ -48,7 +48,7 @@ try {
   //MongoDB connection
   process.env.DB_DRIVER === "mongodb"
     ? mongoose
-        .connect(`${process.env.MDB}`, { useUnifiedTopology: true, useNewUrlParser: true, dbName: "LampV2" } ?? "")
+        .connect(`${process.env.MDB}`, { useUnifiedTopology: true, useNewUrlParser: true } ?? "")
         .then(() => {
           console.log(`connected to MONGODB`)
           try {
