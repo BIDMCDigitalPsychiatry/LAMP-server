@@ -1,8 +1,9 @@
-import { Database, numeric_uuid } from "./Bootstrap"
-import { Participant } from "../model/Participant"
+import { Database, numeric_uuid } from "../Bootstrap"
+import { Participant } from "../../model/Participant"
+import { ParticipantInterface } from "../interface/RepositoryInterface"
 
-export class ParticipantRepository {
-  public static async _select(id: string | null, parent: boolean = false): Promise<Participant[]> {
+export class ParticipantRepository implements ParticipantInterface {
+  public async _select(id: string | null, parent = false): Promise<Participant[]> {
     return (
       await Database.use("participant").find({
         selector: id === null ? {} : { [parent ? "#parent" : "_id"]: id },
@@ -14,7 +15,7 @@ export class ParticipantRepository {
     }))
   }
   // eslint-disable-next-line
-  public static async _insert(study_id: string, object: Participant): Promise<any> {
+  public async _insert(study_id: string, object: Participant): Promise<any> {
     const _id = numeric_uuid()
     //if (study_id === undefined) throw new Error("404.study-does-not-exist") // FIXME
     try {
@@ -30,16 +31,16 @@ export class ParticipantRepository {
     return { id: _id }
   }
   // eslint-disable-next-line
-  public static async _update(participant_id: string, object: Participant): Promise<{}> {
+  public async _update(participant_id: string, object: Participant): Promise<{}> {
     throw new Error("503.unimplemented")
   }
-  public static async _delete(participant_id: string): Promise<{}> {
+  public async _delete(participant_id: string): Promise<{}> {
     try {
       const orig = await Database.use("participant").get(participant_id)
       const data = await Database.use("participant").bulk({
         docs: [{ ...orig, _deleted: true }],
       })
-      if (data.filter((x) => !!x.error).length > 0) throw new Error()
+      if (data.filter((x: any) => !!x.error).length > 0) throw new Error()
     } catch (e) {
       console.error(e)
       throw new Error("500.deletion-failed")

@@ -1,27 +1,19 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { Request, Response, Router } from "express"
-import { ncSub as nc } from "../repository/Bootstrap"
-import {
-  ResearcherRepository,
-  StudyRepository,
-  TypeRepository,
-  ActivityRepository,
-  SensorRepository,
-  ParticipantRepository,
-  ActivityEventRepository,
-  SensorEventRepository,
-} from "../repository"
+import { ncSub as nc, Repository } from "../repository/Bootstrap"
 export const ListenerAPI = Router()
 
-//changes in researcher api
-//example token: researcher
-//example api listener api in external client:http://localhost:3000/listen/researcher
+// //changes in researcher api
+// //example token: researcher
+// //example api listener api in external client:http://localhost:3000/listen/researcher
 ListenerAPI.get("/researcher", async (req: Request, res: Response) => {
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
   })
+  const repo = new Repository()
+  const ResearcherRepository = repo.getResearcherRepository()
 
   if (undefined !== req.query.researcher_id) {
     let researcher_id = req.query.researcher_id
@@ -154,6 +146,9 @@ ListenerAPI.get("/researcher/study", async (req: Request, res: Response) => {
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
   })
+  const repo = new Repository()
+  const StudyRepository = repo.getStudyRepository()
+  const TypeRepository = repo.getTypeRepository()
 
   if (undefined !== req.query.researcher_id) {
     let researcher_id = req.query.researcher_id
@@ -385,6 +380,9 @@ ListenerAPI.get("/study/activity", async (req: Request, res: Response) => {
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
   })
+  const repo = new Repository()
+  const ActivityRepository = repo.getActivityRepository()
+  const TypeRepository = repo.getTypeRepository()
 
   if (undefined !== req.query.activity_id) {
     let activity_id = req.query.activity_id
@@ -617,6 +615,9 @@ ListenerAPI.get("/study/sensor", async (req: Request, res: Response) => {
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
   })
+  const repo = new Repository()
+  const SensorRepository = repo.getSensorRepository()
+  const TypeRepository = repo.getTypeRepository()
 
   if (undefined !== req.query.sensor_id) {
     let sensor_id = req.query.sensor_id
@@ -850,6 +851,9 @@ ListenerAPI.get("/study/participant", async (req: Request, res: Response) => {
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
   })
+  const repo = new Repository()
+  const ParticipantRepository = repo.getParticipantRepository()
+  const TypeRepository = repo.getTypeRepository()
 
   if (undefined !== req.query.participant_id) {
     let participant_id = req.query.participant_id
@@ -950,12 +954,11 @@ ListenerAPI.get("/study/participant", async (req: Request, res: Response) => {
                   //PREPARE VALUES TO BE SENT
                   let data_: any = {}
                   data_ = JSON.parse(msg.data.data)
-                  
+
                   try {
                     studyID = await TypeRepository._owner(ID)
                   } catch (err) {}
                   if (study_id === studyID) {
-                    
                     data_ = {
                       ...data_,
                       name: data[0].name,
@@ -990,7 +993,7 @@ ListenerAPI.get("/study/participant", async (req: Request, res: Response) => {
             }
           } catch (err) {}
         } else {
-          if (study_id === JSON.parse(msg.data.data).study_id) {          
+          if (study_id === JSON.parse(msg.data.data).study_id) {
             //generate event id
             const _id = new Date().toLocaleTimeString()
             //APPENDING DATA
@@ -1086,6 +1089,8 @@ ListenerAPI.get("/participant/activity_event", async (req: Request, res: Respons
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
   })
+  const repo = new Repository()
+  const ActivityEventRepository = repo.getActivityEventRepository()
 
   if (undefined !== req.query.participant_id) {
     let participant_id = req.query.participant_id
@@ -1336,7 +1341,8 @@ ListenerAPI.get("/participant/sensor_event", async (req: Request, res: Response)
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
   })
-
+  const repo = new Repository()
+  const SensorEventRepository = repo.getSensorEventRepository()
   if (undefined !== req.query.participant_id) {
     let participant_id = req.query.participant_id
     ;(await nc).subscribe(`participant.*.sensor_event`, async (err, msg) => {

@@ -6,7 +6,7 @@ import morgan from "morgan"
 import { ListenerAPI, PushNotificationAPI, OpenAPISchema, HTTPS_CERT } from "./utils"
 import { ActivityScheduler, cleanAllQueues } from "./utils/ActivitySchedulerJob"
 import API from "./service"
-import { Bootstrap } from "./repository"
+import { Bootstrap } from "./repository/Bootstrap"
 
 // Configure the base Express app and middleware.
 export const app: Application = express()

@@ -1,9 +1,10 @@
 import crypto from "crypto"
-import { Database, Encrypt, Decrypt } from "./Bootstrap"
+import { Database, Encrypt, Decrypt } from "../Bootstrap"
+import { CredentialInterface } from "../interface/RepositoryInterface"
 
-export class CredentialRepository {
+export class CredentialRepository implements CredentialInterface {
   // Lazy evaluation of root password if we haven't already loaded it.
-  public static async _adminCredential(admin_secret_key: string): Promise<boolean> {
+  public async _adminCredential(admin_secret_key: string): Promise<boolean> {
     let _all: string[]
     try {
       _all = (
@@ -17,7 +18,9 @@ export class CredentialRepository {
       ).docs.map((x: any) => x.secret_key)
       if (_all.length === 0) {
         // eslint-disable-next-line
-        console.dir(`Because no master configuration could be located, an initial administrator password was generated and saved for this installation.`)
+        console.dir(
+          `Because no master configuration could be located, an initial administrator password was generated and saved for this installation.`
+        )
 
         // Create a new password and emit it to the console while saving it (to share it with the sysadmin).
         const p = crypto.randomBytes(32).toString("hex")
@@ -37,7 +40,7 @@ export class CredentialRepository {
     return _all.filter((key) => Decrypt(key, "AES256") === admin_secret_key).length > 0
   }
   // if used with secret_key, will throw error if mismatch, else, will return confirmation of existence
-  public static async _find(access_key: string, secret_key?: string): Promise<string> {
+  public async _find(access_key: string, secret_key?: string): Promise<string> {
     const res = (
       await Database.use("credential").find({
         selector: { access_key: access_key },
@@ -47,19 +50,19 @@ export class CredentialRepository {
     if (res.length !== 0) return (res[0] as any).origin
     throw new Error("403.no-such-credentials")
   }
-  public static async _select(type_id: string): Promise<any[]> {
+  public async _select(type_id: string): Promise<any[]> {
     const res = await Database.use("credential").find({
       selector: { origin: type_id },
       limit: 2_147_483_647 /* 32-bit INT_MAX */,
     })
-    return res.docs.map((x) => ({
+    return res.docs.map((x: any) => ({
       ...x,
       secret_key: null,
       _id: undefined,
       _rev: undefined,
     }))
   }
-  public static async _insert(type_id: string, credential: any): Promise<{}> {
+  public async _insert(type_id: string, credential: any): Promise<{}> {
     if (credential.origin === "me") {
       // FIXME: context substitution doesn't actually work within the object here, so do it manually.
       credential.origin = type_id
@@ -80,7 +83,7 @@ export class CredentialRepository {
     } as any)
     return {}
   }
-  public static async _update(type_id: string, access_key: string, credential: any): Promise<{}> {
+  public async _update(type_id: string, access_key: string, credential: any): Promise<{}> {
     const res = await Database.use("credential").find({
       selector: { origin: type_id, access_key: access_key },
       limit: 1 /* single result only */,
@@ -98,7 +101,7 @@ export class CredentialRepository {
     })
     return {}
   }
-  public static async _delete(type_id: string, access_key: string): Promise<{}> {
+  public async _delete(type_id: string, access_key: string): Promise<{}> {
     const res = await Database.use("credential").find({
       selector: { origin: type_id, access_key: access_key },
       limit: 1 /* single result only */,
@@ -115,7 +118,7 @@ export class CredentialRepository {
     })
     return {}
   }
-  public static async _packCosignerData(from: string, to: string): Promise<string> {
+  public async _packCosignerData(from: string, to: string): Promise<string> {
     // FIXME: the #master_config document is deprecated and will not work.
     const _cosign = ((await Database.use("credential").get("#master_config")) as any)?.data?.password
     const _data = JSON.stringify({
@@ -124,7 +127,7 @@ export class CredentialRepository {
     })
     return `LAMP${Encrypt(_data, "AES256")}`
   }
-  public static _unpackCosignerData(authStr: string): [string, any] {
+  public _unpackCosignerData(authStr: string): [string, any] {
     const cosignData = authStr.startsWith("LAMP") ? JSON.parse(Decrypt(authStr.slice(4), "AES256") || "") : undefined
     if (cosignData !== undefined) return [Object.values(cosignData.cosigner).join(":"), cosignData]
     else return [authStr, undefined]

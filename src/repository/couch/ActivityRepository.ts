@@ -1,8 +1,9 @@
-import { Database, uuid } from "./Bootstrap"
-import { Activity } from "../model/Activity"
+import { Database, uuid } from "../Bootstrap"
+import { Activity } from "../../model/Activity"
+import { ActivityInterface } from "../interface/RepositoryInterface"
 
-export class ActivityRepository {
-  public static async _select(id: string | null, parent: boolean = false): Promise<Activity[]> {
+export class ActivityRepository implements ActivityInterface {
+  public async _select(id: string | null, parent = false): Promise<Activity[]> {
     return (
       await Database.use("activity").find({
         selector: id === null ? {} : { [parent ? "#parent" : "_id"]: id },
@@ -18,7 +19,7 @@ export class ActivityRepository {
       timestamp: undefined,
     }))
   }
-  public static async _insert(study_id: string, object: Activity): Promise<string> {
+  public async _insert(study_id: string, object: Activity): Promise<string> {
     const _id = uuid()
     await Database.use("activity").insert({
       _id: _id,
@@ -31,7 +32,7 @@ export class ActivityRepository {
     } as any)
     return _id
   }
-  public static async _update(activity_id: string, object: Activity): Promise<{}> {
+  public async _update(activity_id: string, object: Activity): Promise<{}> {
     const orig: any = await Database.use("activity").get(activity_id)
     await Database.use("activity").bulk({
       docs: [
@@ -45,13 +46,13 @@ export class ActivityRepository {
     })
     return {}
   }
-  public static async _delete(activity_id: string): Promise<{}> {
+  public async _delete(activity_id: string): Promise<{}> {
     try {
       const orig = await Database.use("activity").get(activity_id)
       const data = await Database.use("activity").bulk({
         docs: [{ ...orig, _deleted: true }],
       })
-      if (data.filter((x) => !!x.error).length > 0) throw new Error()
+      if (data.filter((x: any) => !!x.error).length > 0) throw new Error()
     } catch (e) {
       console.error(e)
       throw new Error("500.deletion-failed")

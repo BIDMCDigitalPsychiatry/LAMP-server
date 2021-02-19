@@ -1,6 +1,4 @@
-import { TypeRepository } from "../repository/TypeRepository"
-import { CredentialRepository } from "../repository/CredentialRepository"
-
+import { Repository } from "../repository/Bootstrap"
 export function SecurityContext(): Promise<{ type: string; id: string }> {
   return Promise.resolve({ type: "", id: "" })
 }
@@ -14,6 +12,9 @@ export async function _verify(
   type: Array<"self" | "sibling" | "parent"> /* 'root' = [] */,
   auth_value?: string
 ): Promise<string> {
+  const repo = new Repository()
+  const CredentialRepository = repo.getCredentialRepository()
+  const TypeRepository = repo.getTypeRepository()
   // Get the authorization components from the header and tokenize them.
   // TODO: ignoring the other authorization location stuff for now...
   const [authStr, cosignData] = CredentialRepository._unpackCosignerData((authHeader ?? "").replace("Basic", "").trim())
