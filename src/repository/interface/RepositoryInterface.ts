@@ -8,6 +8,7 @@ import { SensorEvent } from "../../model/SensorEvent"
 import { SensorSpec } from "../../model/SensorSpec"
 import { ActivitySpec } from "../../model/ActivitySpec"
 
+
 //Interface for Researcher Repository
 export interface ResearcherInterface {
   _select(id?: string): Promise<Researcher[]>;
