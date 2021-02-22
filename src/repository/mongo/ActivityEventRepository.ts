@@ -14,7 +14,7 @@ export class ActivityEventRepository implements ActivityEventInterface {
     // preparing filter params
     let filteredQuery: any = {}
     if (!!id) {
-      filteredQuery["#parent"] = id
+      filteredQuery._parent = id
     }
     if (!!activity_id_or_spec) {
       filteredQuery.activity = activity_id_or_spec
@@ -32,7 +32,7 @@ export class ActivityEventRepository implements ActivityEventInterface {
       ...x._doc,
       _id: undefined,
       __v: undefined,
-      "#parent": undefined,
+      _parent: undefined,
     }))
   }
   public async _insert(participant_id: string, objects: ActivityEvent[]): Promise<{}> {
@@ -41,7 +41,7 @@ export class ActivityEventRepository implements ActivityEventInterface {
     for (const object of objects) {
       await data.push({
         ...object,
-        "#parent": participant_id,
+        _parent: participant_id,
         timestamp: Number.parse(object.timestamp) ?? 0,
         duration: Number.parse(object.duration) ?? 0,
         activity: String(object.activity),

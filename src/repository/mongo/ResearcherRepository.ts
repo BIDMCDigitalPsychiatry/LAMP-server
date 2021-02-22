@@ -12,7 +12,7 @@ export class ResearcherRepository implements ResearcherInterface {
       id: x._doc._id,
       ...x._doc,
       _id: undefined,
-      "#parent": undefined,
+      _parent: undefined,
       __v: undefined,
       timestamp: undefined,
     }))
@@ -32,7 +32,7 @@ export class ResearcherRepository implements ResearcherInterface {
     const _id2 = uuid()
     await new StudyModel({
       _id: _id2,
-      "#parent": _id,
+      _parent: _id,
       timestamp: new Date().getTime(),
       name: object.name ?? "",
     } as any).save()
@@ -50,7 +50,7 @@ export class ResearcherRepository implements ResearcherInterface {
   public async _delete(researcher_id: string): Promise<{}> {
     const session = await ResearcherModel.startSession()
     session.startTransaction()
-    await StudyModel.deleteMany({ "#parent": researcher_id })
+    await StudyModel.deleteMany({ _parent: researcher_id })
     await ResearcherModel.deleteOne({ _id: researcher_id })
     await session.commitTransaction()
     session.endSession()

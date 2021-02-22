@@ -24,7 +24,7 @@ export class DynamicAttachment {
 export const TagsModel = mongoose.model(
   "tags",
   new Schema(
-    {}, {collection: "tags",strict:false }).index([{ "#parent": 1 , type: 1 ,  key: 1 }])
+    {}, {collection: "tags",strict:false }).index([{ _parent: 1 , type: 1 ,  key: 1 }])
 )
 
 

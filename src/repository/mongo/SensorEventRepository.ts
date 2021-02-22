@@ -13,7 +13,7 @@ export class SensorEventRepository implements SensorEventInterface {
   ): Promise<SensorEvent[]> {
     let filteredQuery: any = {}
     if (!!id) {
-      filteredQuery["#parent"] = id
+      filteredQuery._parent = id
     }
     if (!!sensor_spec) {
       filteredQuery.sensor = sensor_spec
@@ -31,7 +31,7 @@ export class SensorEventRepository implements SensorEventInterface {
       ...x._doc,
       _id: undefined,
       __v: undefined,
-      "#parent": undefined,
+      _parent: undefined,
     }))
   }
   public async _insert(participant_id: string, objects: SensorEvent[]): Promise<{}> {
@@ -40,7 +40,7 @@ export class SensorEventRepository implements SensorEventInterface {
     for (const object of objects) {
       await data.push({
         ...object,
-        "#parent": participant_id,
+        _parent: participant_id,
         timestamp: Number.parse(object.timestamp),
         sensor: String(object.sensor),
         data: object.data ?? {},

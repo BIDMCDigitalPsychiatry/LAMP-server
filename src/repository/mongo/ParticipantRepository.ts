@@ -6,7 +6,7 @@ import { ParticipantInterface } from "../interface/RepositoryInterface"
 export class ParticipantRepository implements ParticipantInterface {
   public async _select(id: string | null, parent = false): Promise<Participant[]> {
     //get data from  Participant via  Participant model
-    const data = await ParticipantModel.find(!!id ? (parent ? { "#parent": id } : { _id: id }) : {})
+    const data = await ParticipantModel.find(!!id ? (parent ? { _parent: id } : { _id: id }) : {})
       .sort({ timestamp: 1 })
       .limit(2_147_483_647)
     return (data as any).map((x: any) => ({
@@ -21,7 +21,7 @@ export class ParticipantRepository implements ParticipantInterface {
       //save Participant via Participant model
       await new ParticipantModel({
         _id: _id,
-        "#parent": study_id,
+        _parent: study_id,
         timestamp: new Date().getTime(),
       } as any).save()
     } catch (e) {

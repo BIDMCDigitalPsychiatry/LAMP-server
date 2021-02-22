@@ -5,14 +5,14 @@ import { SensorInterface } from "../interface/RepositoryInterface"
 
 export class SensorRepository implements SensorInterface {
   public async _select(id: string | null, parent = false): Promise<Sensor[]> {
-    const data = await SensorModel.find(!!id ? (parent ? { "#parent": id } : { _id: id }) : {})
+    const data = await SensorModel.find(!!id ? (parent ? { _parent: id } : { _id: id }) : {})
       .sort({ timestamp: 1 })
       .limit(2_147_483_647)
     return (data as any).map((x: any) => ({
       id: x._doc._id,
       ...x._doc,
       _id: undefined,
-      "#parent": undefined,
+      _parent: undefined,
       __v: undefined,
       timestamp: undefined,
     }))
@@ -20,10 +20,9 @@ export class SensorRepository implements SensorInterface {
   public async _insert(study_id: string, object: any /*Sensor*/): Promise<string> {
     const _id = uuid()
     //save Sensor via Sensor model
-
     await new SensorModel({
       _id: _id,
-      "#parent": study_id,
+      _parent: study_id,
       timestamp: new Date().getTime(),
       spec: object.spec ?? "__broken_link__",
       name: object.name ?? "",

@@ -6,14 +6,14 @@ import { ActivityInterface } from "../interface/RepositoryInterface"
 export class ActivityRepository implements ActivityInterface {
   public async _select(id: string | null, parent = false): Promise<Activity[]> {
     //get data from  Activity via  Activity model
-    const data = await ActivityModel.find(!!id ? (parent ? { "#parent": id } : { _id: id }) : {})
+    const data = await ActivityModel.find(!!id ? (parent ? { _parent: id } : { _id: id }) : {})
       .sort({ timestamp: 1 })
       .limit(2_147_483_647)
     return (data as any).map((x: any) => ({
       id: x._doc._id,
       ...x._doc,
       _id: undefined,
-      "#parent": undefined,
+      _parent: undefined,
       __v: undefined,
       timestamp: undefined,
     }))
@@ -23,7 +23,7 @@ export class ActivityRepository implements ActivityInterface {
     //save Activity via Activity model
     await new ActivityModel({
       _id: _id,
-      "#parent": study_id,
+      _parent: study_id,
       timestamp: new Date().getTime(),
       spec: object.spec ?? "__broken_link__",
       name: object.name ?? "",

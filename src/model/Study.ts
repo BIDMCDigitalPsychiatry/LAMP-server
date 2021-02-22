@@ -19,9 +19,9 @@ export const StudyModel = mongoose.model<mongoose.Document>(
       _id: { type: String, required: true },
       name: { type: String, required: true },
 
-      "#parent": { type: String, required: true },
+      _parent: { type: String, required: true },
       timestamp: { type: Number, required: true },
     },
     { collection: "study", autoCreate: true }
-  ).index([{ timestamp: 1 }, { timestamp: 1, _id: 1 }, { timestamp: 1, _id: 1, "#parent": 1 }])
+  ).index([{ timestamp: 1 }, { timestamp: 1, _id: 1 }, { timestamp: 1, _id: 1, _parent: 1 }])
 )

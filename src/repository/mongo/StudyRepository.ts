@@ -6,14 +6,14 @@ import { StudyInterface } from "../interface/RepositoryInterface"
 export class StudyRepository implements StudyInterface {
   public async _select(id: string | null, parent = false): Promise<Study[]> {
     //get data from study via study model
-    const data = await StudyModel.find(!!id ? (parent ? { "#parent": id } : { _id: id }) : {})
+    const data = await StudyModel.find(!!id ? (parent ? { _parent: id } : { _id: id }) : {})
       .sort({ timestamp: 1 })
       .limit(2_147_483_647)
     return (data as any).map((x: any) => ({
       id: x._doc._id,
       ...x._doc,
       _id: undefined,
-      "#parent": undefined,
+      _parent: undefined,
       __v: undefined,
       timestamp: undefined,
     }))
@@ -23,7 +23,7 @@ export class StudyRepository implements StudyInterface {
     //save data in CouchDb/Mongo
     await new StudyModel({
       _id: _id,
-      "#parent": researcher_id,
+      _parent: researcher_id,
       timestamp: new Date().getTime(),
       name: object.name ?? "",
     } as any).save()

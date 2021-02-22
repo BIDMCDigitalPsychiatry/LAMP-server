@@ -12,7 +12,7 @@ import { TypeInterface } from "../interface/RepositoryInterface"
 
 export class TypeRepository implements TypeInterface {
   public async _parent(type_id: string): Promise<{}> {
-    const result: any = {} // obj['#parent'] === [null, undefined] -> top-level object
+    const result: any = {} // obj['_parent'] === [null, undefined] -> top-level object
     const repo = new Repository()
     const TypeRepository = repo.getTypeRepository()
     for (const parent_type of await TypeRepository._parent_type(type_id))
@@ -46,20 +46,20 @@ export class TypeRepository implements TypeInterface {
 
   public async _owner(type_id: string): Promise<string | null> {
     try {
-      return ((await ParticipantModel.findOne({ _id: type_id })) as any)["#parent"]
+      return ((await ParticipantModel.findOne({ _id: type_id })) as any)._parent
     } catch (e) {}
     try {
       const data: any = await (ResearcherModel.findOne({ _id: type_id }) as any)
       if (null !== data) return null
     } catch (e) {}
     try {
-      return ((await StudyModel.findOne({ _id: type_id })) as any)["#parent"]
+      return ((await StudyModel.findOne({ _id: type_id })) as any)._parent
     } catch (e) {}
     try {
-      return ((await ActivityModel.findOne({ _id: type_id })) as any)["#parent"]
+      return ((await ActivityModel.findOne({ _id: type_id })) as any)._parent
     } catch (e) {}
     try {
-      return ((await SensorModel.findOne({ _id: type_id })) as any)["#parent"]
+      return ((await SensorModel.findOne({ _id: type_id })) as any)._parent
     } catch (e) {}
     return null
   }
@@ -94,12 +94,12 @@ export class TypeRepository implements TypeInterface {
     const deletion = value === undefined || value === null
     let existing: any = ""
 
-    existing = await TagsModel.findOne({ "#parent": type_id, type, key })
+    existing = await TagsModel.findOne({ _parent: type_id, type, key })
 
     if (existing === null && !deletion) {
       try {
         await new TagsModel({
-          "#parent": type_id,
+          _parent: type_id,
           type,
           key,
           value,
@@ -137,13 +137,13 @@ export class TypeRepository implements TypeInterface {
     // All possible conditions to retreive Tags, ordered greatest-to-least priority.
     const conditions = [
       // Explicit parent-ownership. (Ordered greatest-to-least ancestor.)
-      ...parents.map((pid) => ({ "#parent": pid, type: type_id, key: attachment_key })),
+      ...parents.map((pid) => ({ _parent: pid, type: type_id, key: attachment_key })),
       // Implicit parent-ownership. (Ordered greatest-to-least ancestor.)
-      ...parents.map((pid) => ({ "#parent": pid, type: self_type, key: attachment_key })),
+      ...parents.map((pid) => ({ _parent: pid, type: self_type, key: attachment_key })),
       // Explicit self-ownership.
-      { "#parent": type_id, type: type_id, key: attachment_key },
+      { _parent: type_id, type: type_id, key: attachment_key },
       // Implicit self-ownership.
-      { "#parent": type_id, type: "me", key: attachment_key },
+      { _parent: type_id, type: "me", key: attachment_key },
     ]
 
     // Following greatest-to-least priority, see if the Tag exists. We do this because:
@@ -156,7 +156,7 @@ export class TypeRepository implements TypeInterface {
         const value = await TagsModel.find(condition).limit(1)
         if (value.length > 0) return value.map((x: any) => x._doc.value)[0]
       } catch (error) {
-        console.error(error, `Failed to search Tag index for ${condition["#parent"]}:${condition.type}.`)
+        console.error(error, `Failed to search Tag index for ${condition._parent}:${condition.type}.`)
       }
     }
 
@@ -173,13 +173,13 @@ export class TypeRepository implements TypeInterface {
     conditions = [
       // Explicit parent-ownership. (Ordered greatest-to-least ancestor.)
 
-      ...parents.map((pid) => ({ "#parent": pid, type: type_id, key: { $ne: null } })),
+      ...parents.map((pid) => ({ _parent: pid, type: type_id, key: { $ne: null } })),
       // Implicit parent-ownership. (Ordered greatest-to-least ancestor.)
-      ...parents.map((pid) => ({ "#parent": pid, type: self_type, key: { $ne: null } })),
+      ...parents.map((pid) => ({ _parent: pid, type: self_type, key: { $ne: null } })),
       // Explicit self-ownership.
-      { "#parent": type_id, type: type_id, key: { $ne: null } },
+      { _parent: type_id, type: type_id, key: { $ne: null } },
       // Implicit self-ownership.
-      { "#parent": type_id, type: "me", key: { $ne: null } },
+      { _parent: type_id, type: "me", key: { $ne: null } },
     ]
 
     // Following greatest-to-least priority, see if the Tag exists. We do this because:
@@ -193,7 +193,7 @@ export class TypeRepository implements TypeInterface {
         const value = await TagsModel.find(condition).limit(2_147_483_647)
         all_keys = [...all_keys, ...value.map((x: any) => x._doc.key as any)]
       } catch (error) {
-        console.error(error, `Failed to search Tag index for ${condition["#parent"]}:${condition.type}.`)
+        console.error(error, `Failed to search Tag index for ${condition._parent}:${condition.type}.`)
       }
     }
 
@@ -365,7 +365,7 @@ async function Study_parent_id(id: string, type: string): Promise<string | undef
   switch (type) {
     case "Researcher":
       const obj: any = await StudyModel.findOne({ _id: id })
-      return obj["#parent"]
+      return obj._parent
 
     default:
       throw new Error("400.invalid-identifier")
@@ -376,12 +376,12 @@ async function Participant_parent_id(id: string, type: string): Promise<string |
   switch (type) {
     case "Study":
       obj = await ParticipantModel.findOne({ _id: id })
-      return obj["#parent"]
+      return obj._parent
 
     case "Researcher":
       obj = await ParticipantModel.findOne({ _id: id })
-      obj = await StudyModel.findOne({ _id: obj["#parent"] })
-      return obj["#parent"]
+      obj = await StudyModel.findOne({ _id: obj._parent })
+      return obj._parent
 
     default:
       throw new Error("400.invalid-identifier")
@@ -392,12 +392,12 @@ async function Activity_parent_id(id: string, type: string): Promise<string | un
   switch (type) {
     case "Study":
       obj = await ActivityModel.findOne({ _id: id })
-      return obj["#parent"]
+      return obj._parent
 
     case "Researcher":
       obj = await ActivityModel.findOne({ _id: id })
-      obj = await StudyModel.findOne({ _id: obj["#parent"] })
-      return obj["#parent"]
+      obj = await StudyModel.findOne({ _id: obj._parent })
+      return obj._parent
 
     default:
       throw new Error("400.invalid-identifier")
@@ -408,12 +408,12 @@ async function Sensor_parent_id(id: string, type: string): Promise<string | unde
   switch (type) {
     case "Study":
       obj = await SensorModel.findOne({ _id: id })
-      return obj["#parent"]
+      return obj._parent
 
     case "Researcher":
       obj = await SensorModel.findOne({ _id: id })
-      obj = await StudyModel.findOne({ _id: obj["#parent"] })
-      return obj["#parent"]
+      obj = await StudyModel.findOne({ _id: obj._parent })
+      return obj._parent
 
     default:
       throw new Error("400.invalid-identifier")
