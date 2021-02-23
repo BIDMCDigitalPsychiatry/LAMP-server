@@ -137,12 +137,13 @@ export function sendNotification(device_token: string, device_type: string, payl
             headers: { "Content-Type": "application/json" },
           })
             .then((res) => {
+              console.log("response",res)
               if (!res.ok) {
                 throw new Error(`HTTP error!`)
               }
             })
             .catch((e) => {
-              console.log("Error encountered sending APN push notification.")
+              console.log(`"Error encountered sending APN push notification."--${e}`)
             })
         } catch (error) {
           console.log(`"Error encountered sending APN push notification"-${error}`)
@@ -180,12 +181,13 @@ export function sendNotification(device_token: string, device_type: string, payl
             headers: { "Content-Type": "application/json" },
           })
             .then((res) => {
+              console.log("response",res)
               if (!res.ok) {
                 throw new Error(`HTTP error!`)
               }
             })
             .catch((e) => {
-              console.log("Error encountered sending APN push notification.")
+              console.log(`"Error encountered sending APN push notification."--${e}`)
             })
         } catch (error) {
           console.log(`"Error encountered sending APN push notification"-${error}`)
