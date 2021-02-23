@@ -1,24 +1,37 @@
 import { Request, Response, Router } from "express"
 import { DynamicAttachment } from "../model/Type"
-import { TypeRepository } from "../repository/TypeRepository"
+
 import { SecurityContext, ActionContext, _verify } from "./Security"
 import jsonata from "jsonata"
+import { Repository } from "../repository/Bootstrap"
 
-// In migrating from the legacy fixed /type/:id/... paths to the modern /:type/:id/ paths, 
+// In migrating from the legacy fixed /type/:id/... paths to the modern /:type/:id/ paths,
 // we need to compute all the paths up here once and use them later as arrays.
-const _parent_routes = ["researcher", "study", "participant", "activity", "sensor", "type"].map(type => `/${type}/:type_id/parent`)
+const _parent_routes = ["researcher", "study", "participant", "activity", "sensor", "type"].map(
+  (type) => `/${type}/:type_id/parent`
+)
 const _get_routes = (<string[]>[]).concat(
-  ...["researcher", "study", "participant", "activity", "sensor", "type"].map(type => `/${type}/:type_id/attachment/:attachment_key?/:index?`),
-  ...["researcher", "study", "participant", "activity", "sensor", "type"].map(type => `/${type}/:type_id/tag/:attachment_key?/:index?`)
+  ...["researcher", "study", "participant", "activity", "sensor", "type"].map(
+    (type) => `/${type}/:type_id/attachment/:attachment_key?/:index?`
+  ),
+  ...["researcher", "study", "participant", "activity", "sensor", "type"].map(
+    (type) => `/${type}/:type_id/tag/:attachment_key?/:index?`
+  )
 )
 const _put_routes = (<string[]>[]).concat(
-  ...["researcher", "study", "participant", "activity", "sensor", "type"].map(type => `/${type}/:type_id/attachment/:attachment_key/:target`),
-  ...["researcher", "study", "participant", "activity", "sensor", "type"].map(type => `/${type}/:type_id/tag/:attachment_key/:target`)
+  ...["researcher", "study", "participant", "activity", "sensor", "type"].map(
+    (type) => `/${type}/:type_id/attachment/:attachment_key/:target`
+  ),
+  ...["researcher", "study", "participant", "activity", "sensor", "type"].map(
+    (type) => `/${type}/:type_id/tag/:attachment_key/:target`
+  )
 )
 
 export const TypeService = Router()
 TypeService.get(_parent_routes, async (req: Request, res: Response) => {
   try {
+    const repo = new Repository()
+    const TypeRepository = repo.getTypeRepository()
     let type_id = req.params.type_id
     type_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], type_id)
     let output = { data: await TypeRepository._parent(type_id) }
@@ -31,6 +44,8 @@ TypeService.get(_parent_routes, async (req: Request, res: Response) => {
 })
 TypeService.get(_get_routes, async (req: Request, res: Response) => {
   try {
+    const repo = new Repository()
+    const TypeRepository = repo.getTypeRepository()
     let type_id = req.params.type_id
     const attachment_key = req.params.attachment_key
     const index = req.params.index
@@ -63,6 +78,8 @@ TypeService.get(_get_routes, async (req: Request, res: Response) => {
 })
 TypeService.put(_put_routes, async (req: Request, res: Response) => {
   try {
+    const repo = new Repository()
+    const TypeRepository = repo.getTypeRepository()
     let type_id = req.params.type_id
     const attachment_key = req.params.attachment_key
     const target = req.params.target

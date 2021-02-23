@@ -1,5 +1,4 @@
 import Bull from "bull"
-import { ActivityRepository, TypeRepository, ParticipantRepository, SensorEventRepository } from "../../repository"
 import { Mutex } from "async-mutex"
 import { ActivityScheduler } from "../../utils/ActivitySchedulerJob"
 const clientLock = new Mutex()
@@ -10,8 +9,7 @@ export const UpdateToSchedulerQueue = new Bull("UpdateToScheduler", process.env.
 UpdateToSchedulerQueue.process(async (job: any, done: any) => {
   //locking the thread
   const release = await clientLock.acquire()
-
-  console.log(`locked job on ${job.data.activity_id}`)
+    console.log(`locked job on ${job.data.activity_id}`)
   try {
     await ActivityScheduler(job.data.activity_id)
     console.log(`processed ${job.data.activity_id}`)

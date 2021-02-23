@@ -1,5 +1,5 @@
 import Bull from "bull"
-import { ActivityRepository, TypeRepository } from "../../repository"
+import { Repository } from "../../repository/Bootstrap"
 import { updateDeviceDetails } from "../../utils/ActivitySchedulerJob"
 import { Mutex } from "async-mutex"
 const clientLock = new Mutex()
@@ -10,6 +10,9 @@ export const SchedulerDeviceUpdateQueue = new Bull("SchedulerDeviceUpdate", proc
 SchedulerDeviceUpdateQueue.process(async (job: any, done: any) => {
   const release = await clientLock.acquire()
   console.log(`locked job on ${job.data.participant_id}`)
+  const repo =  new Repository();   
+  const TypeRepository = repo.getTypeRepository();
+  const ActivityRepository = repo.getActivityRepository();
   const activityIDs: any = []
   try {
     const study_id = await TypeRepository._owner(job.data.participant_id)

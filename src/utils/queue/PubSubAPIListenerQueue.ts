@@ -1,7 +1,6 @@
 import Bull from "bull"
 import { setTimeout } from "timers"
-import { TypeRepository } from "../../repository"
-import { nc } from "../../repository/Bootstrap"
+import { nc, Repository } from "../../repository/Bootstrap"
 import { Mutex } from "async-mutex"
 const clientLock = new Mutex()
 
@@ -10,7 +9,8 @@ export const PubSubAPIListenerQueue = new Bull("PubSubAPIListener", process.env.
 
 PubSubAPIListenerQueue.process(async (job: any) => {
   let publishStatus = true
-
+  const repo =  new Repository();   
+  const TypeRepository = repo.getTypeRepository();
   const maxPayloadSize = !!process.env.NATS_PAYLOAD_SIZE ? process.env.NATS_PAYLOAD_SIZE : 1047846
   try {
     //for the participant api changes

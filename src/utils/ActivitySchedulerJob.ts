@@ -1,10 +1,15 @@
-import { ActivityRepository, TypeRepository, ParticipantRepository, SensorEventRepository } from "../repository"
 import { SchedulerQueue } from "../utils/queue/SchedulerQueue"
 import { SchedulerReferenceQueue } from "../utils/queue/SchedulerReferenceQueue"
+import { Repository } from "../repository/Bootstrap"
 import { Mutex } from "async-mutex"
 const clientLock = new Mutex()
 /// List activities for a given ID; if a Participant ID is not provided, undefined = list ALL.
 export const ActivityScheduler = async (id?: string): Promise<void> => {
+  const repo = new Repository()
+  const ActivityRepository = repo.getActivityRepository()
+  const TypeRepository = repo.getTypeRepository()
+  const ParticipantRepository = repo.getParticipantRepository()
+  const SensorEventRepository = repo.getSensorEventRepository()
   const activities: any[] =
     id === undefined ? await ActivityRepository._select(null) : await ActivityRepository._select(id)
   console.log("activity_id given", id)
@@ -54,7 +59,8 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
           )
           if (event_data.length === 0) continue
           const filteredArray: any = await event_data.filter(
-            (x) => (x.data.type === undefined && x.data.action !== "notification" && x.data.device_type !== "Dashboard")
+            (x: any) =>
+              x.data.type === undefined && x.data.action !== "notification" && x.data.device_type !== "Dashboard"
           )
           if (filteredArray.length === 0) continue
           const events: any = filteredArray[0]
@@ -249,7 +255,7 @@ async function setCustomSchedule(activity: any, Participants: string[]): Promise
           activity_id: activity.activity_id,
           participants: await removeDuplicateParticipants(Participants),
         }
-        //add to schedular queue        
+        //add to schedular queue
         try {
           const SchedulerjobResponse = await SchedulerQueue.add(scheduler_payload, {
             removeOnComplete: true,

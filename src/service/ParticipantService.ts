@@ -1,26 +1,33 @@
 import { Request, Response, Router } from "express"
 import { Participant } from "../model/Participant"
-import { ParticipantRepository } from "../repository/ParticipantRepository"
+
 import { SecurityContext, ActionContext, _verify } from "./Security"
 import jsonata from "jsonata"
-import { TypeRepository } from "../repository"
+
 import { PubSubAPIListenerQueue } from "../utils/queue/PubSubAPIListenerQueue"
+import { Repository } from "../repository/Bootstrap"
 export const ParticipantService = Router()
 ParticipantService.post("/study/:study_id/participant", async (req: Request, res: Response) => {
   try {
+    const repo = new Repository()
+    const ParticipantRepository = repo.getParticipantRepository()
     let study_id = req.params.study_id
     const participant = req.body
     study_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], study_id)
     const output = { data: await ParticipantRepository._insert(study_id, participant) }
     participant.study_id = study_id
-    participant.participant_id = output['data'].id
+    participant.participant_id = output["data"].id
     participant.action = "create"
-    
+
     //publishing data for participant add api with token = study.{study_id}.participant.{_id}
-    PubSubAPIListenerQueue.add({ topic: `participant`, token: `study.${study_id}.participant.${output['data'].id}`, payload: participant })
+    PubSubAPIListenerQueue.add({
+      topic: `participant`,
+      token: `study.${study_id}.participant.${output["data"].id}`,
+      payload: participant,
+    })
     PubSubAPIListenerQueue.add({
       topic: `study.*.participant`,
-      token: `study.${study_id}.participant.${output['data'].id}`,
+      token: `study.${study_id}.participant.${output["data"].id}`,
       payload: participant,
     })
     res.json(output)
@@ -31,6 +38,8 @@ ParticipantService.post("/study/:study_id/participant", async (req: Request, res
 })
 ParticipantService.put("/participant/:participant_id", async (req: Request, res: Response) => {
   try {
+    const repo = new Repository()
+    const ParticipantRepository = repo.getParticipantRepository()
     let participant_id = req.params.participant_id
     const participant = req.body
     participant_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], participant_id)
@@ -51,6 +60,9 @@ ParticipantService.put("/participant/:participant_id", async (req: Request, res:
 })
 ParticipantService.delete("/participant/:participant_id", async (req: Request, res: Response) => {
   try {
+    const repo = new Repository()
+    const ParticipantRepository = repo.getParticipantRepository()
+    const TypeRepository = repo.getTypeRepository()
     let participant_id = req.params.participant_id
     let parent: any = ""
     //find the study id before delete, as it cannot be fetched after delete
@@ -88,6 +100,8 @@ ParticipantService.delete("/participant/:participant_id", async (req: Request, r
 })
 ParticipantService.get("/participant/:participant_id", async (req: Request, res: Response) => {
   try {
+    const repo = new Repository()
+    const ParticipantRepository = repo.getParticipantRepository()
     let participant_id = req.params.participant_id
     participant_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], participant_id)
     let output = { data: await ParticipantRepository._select(participant_id) }
@@ -100,6 +114,10 @@ ParticipantService.get("/participant/:participant_id", async (req: Request, res:
 })
 ParticipantService.get("/activity/:activity_id/participant", async (req: Request, res: Response) => {
   try {
+    const repo = new Repository()
+    const ParticipantRepository = repo.getParticipantRepository()
+    const TypeRepository = repo.getTypeRepository()
+
     let activity_id = req.params.activity_id
     activity_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], activity_id)
     let study_id = await TypeRepository._owner(activity_id)
@@ -114,6 +132,9 @@ ParticipantService.get("/activity/:activity_id/participant", async (req: Request
 })
 ParticipantService.get("/sensor/:sensor_id/participant", async (req: Request, res: Response) => {
   try {
+    const repo = new Repository()
+    const ParticipantRepository = repo.getParticipantRepository()
+    const TypeRepository = repo.getTypeRepository()
     let sensor_id = req.params.sensor_id
     sensor_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], sensor_id)
     let study_id = await TypeRepository._owner(sensor_id)
@@ -128,6 +149,8 @@ ParticipantService.get("/sensor/:sensor_id/participant", async (req: Request, re
 })
 ParticipantService.get("/study/:study_id/participant", async (req: Request, res: Response) => {
   try {
+    const repo = new Repository()
+    const ParticipantRepository = repo.getParticipantRepository()
     let study_id = req.params.study_id
     study_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], study_id)
     let output = { data: await ParticipantRepository._select(study_id, true) }

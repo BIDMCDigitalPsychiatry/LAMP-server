@@ -1,27 +1,33 @@
 import { Request, Response, Router } from "express"
 import { Study } from "../model/Study"
-import { StudyRepository } from "../repository/StudyRepository"
+
 import { SecurityContext, ActionContext, _verify } from "./Security"
 import jsonata from "jsonata"
-import { TypeRepository } from "../repository/TypeRepository"
 import { PubSubAPIListenerQueue } from "../utils/queue/PubSubAPIListenerQueue"
+import { Repository } from "../repository/Bootstrap"
 
 export const StudyService = Router()
 StudyService.post("/researcher/:researcher_id/study", async (req: Request, res: Response) => {
   try {
+    const repo = new Repository()
+    const StudyRepository = repo.getStudyRepository()
     let researcher_id = req.params.researcher_id
     const study = req.body
     researcher_id = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
     const output = { data: await StudyRepository._insert(researcher_id, study) }
 
     study.researcher_id = researcher_id
-    study.study_id = output['data']
+    study.study_id = output["data"]
     study.action = "create"
     //publishing data for study add api with token = researcher.{researcher_id}.study.{_id}
-    PubSubAPIListenerQueue.add({ topic: `study`, token: `researcher.${researcher_id}.study.${output['data']}`, payload: study })
+    PubSubAPIListenerQueue.add({
+      topic: `study`,
+      token: `researcher.${researcher_id}.study.${output["data"]}`,
+      payload: study,
+    })
     PubSubAPIListenerQueue.add({
       topic: `researcher.*.study`,
-      token: `researcher.${researcher_id}.study.${output['data']}`,
+      token: `researcher.${researcher_id}.study.${output["data"]}`,
       payload: study,
     })
     res.json(output)
@@ -32,6 +38,8 @@ StudyService.post("/researcher/:researcher_id/study", async (req: Request, res: 
 })
 StudyService.put("/study/:study_id", async (req: Request, res: Response) => {
   try {
+    const repo = new Repository()
+    const StudyRepository = repo.getStudyRepository()
     let study_id = req.params.study_id
     const study = req.body
     study_id = await _verify(req.get("Authorization"), ["self", "parent"], study_id)
@@ -53,6 +61,9 @@ StudyService.put("/study/:study_id", async (req: Request, res: Response) => {
 })
 StudyService.delete("/study/:study_id", async (req: Request, res: Response) => {
   try {
+    const repo = new Repository()
+    const StudyRepository = repo.getStudyRepository()
+    const TypeRepository = repo.getTypeRepository()
     let study_id = req.params.study_id
     let parent: any = ""
     try {
@@ -89,6 +100,8 @@ StudyService.delete("/study/:study_id", async (req: Request, res: Response) => {
 })
 StudyService.get("/study/:study_id", async (req: Request, res: Response) => {
   try {
+    const repo = new Repository()
+    const StudyRepository = repo.getStudyRepository()
     let study_id = req.params.study_id
     study_id = await _verify(req.get("Authorization"), ["self", "parent"], study_id)
     let output = { data: await StudyRepository._select(study_id) }
@@ -101,6 +114,8 @@ StudyService.get("/study/:study_id", async (req: Request, res: Response) => {
 })
 StudyService.get("/researcher/:researcher_id/study", async (req: Request, res: Response) => {
   try {
+    const repo = new Repository()
+    const StudyRepository = repo.getStudyRepository()
     let researcher_id = req.params.researcher_id
     researcher_id = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
     let output = { data: await StudyRepository._select(researcher_id, true) }

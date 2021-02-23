@@ -23,6 +23,7 @@
     "jsonata": "^1.8.1",
     "jsonwebtoken": "^8.5.1",
     "morgan": "^1.9.1",
+    "mongoose": "^5.11.15",
     "mssql": "^6.0.0",
     "nano": "^8.2.2",
     "nanoid": "^3.1.3",

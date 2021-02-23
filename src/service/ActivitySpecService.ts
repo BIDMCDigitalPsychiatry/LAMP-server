@@ -1,12 +1,14 @@
 import { Request, Response, Router } from "express"
 import { ActivitySpec } from "../model/ActivitySpec"
-import { ActivitySpecRepository } from "../repository/ActivitySpecRepository"
 import { SecurityContext, ActionContext, _verify } from "./Security"
 import jsonata from "jsonata"
+import { Repository } from "../repository/Bootstrap"
 
 export const ActivitySpecService = Router()
 ActivitySpecService.post("/activity_spec", async (req: Request, res: Response) => {
   try {
+    const repo = new Repository()
+    const ActivitySpecRepository = repo.getActivitySpecRepository()
     const activity_spec = req.body
     const _ = await _verify(req.get("Authorization"), [])
     const output = { data: await ActivitySpecRepository._insert(activity_spec) }
@@ -18,6 +20,8 @@ ActivitySpecService.post("/activity_spec", async (req: Request, res: Response) =
 })
 ActivitySpecService.put("/activity_spec/:activity_spec_name", async (req: Request, res: Response) => {
   try {
+    const repo = new Repository()
+    const ActivitySpecRepository = repo.getActivitySpecRepository()
     const activity_spec_name = req.params.activity_spec_name
     const activity_spec = req.body
     const _ = await _verify(req.get("Authorization"), [])
@@ -30,6 +34,8 @@ ActivitySpecService.put("/activity_spec/:activity_spec_name", async (req: Reques
 })
 ActivitySpecService.delete("/activity_spec/:activity_spec_name", async (req: Request, res: Response) => {
   try {
+    const repo = new Repository()
+    const ActivitySpecRepository = repo.getActivitySpecRepository()
     const activity_spec_name = req.params.activity_spec_name
     const _ = await _verify(req.get("Authorization"), [])
     const output = { data: await ActivitySpecRepository._delete(activity_spec_name) }
@@ -41,6 +47,8 @@ ActivitySpecService.delete("/activity_spec/:activity_spec_name", async (req: Req
 })
 ActivitySpecService.get("/activity_spec/:activity_spec_name", async (req: Request, res: Response) => {
   try {
+    const repo = new Repository()
+    const ActivitySpecRepository = repo.getActivitySpecRepository()
     const activity_spec_name = req.params.activity_spec_name
     const _ = await _verify(req.get("Authorization"), ["self", "sibling", "parent"])
     let output = { data: await ActivitySpecRepository._select(activity_spec_name) }
@@ -53,6 +61,8 @@ ActivitySpecService.get("/activity_spec/:activity_spec_name", async (req: Reques
 })
 ActivitySpecService.get("/activity_spec", async (req: Request, res: Response) => {
   try {
+    const repo = new Repository()
+    const ActivitySpecRepository = repo.getActivitySpecRepository()
     const _ = await _verify(req.get("Authorization"), ["self", "sibling", "parent"])
     let output = { data: await ActivitySpecRepository._select() }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output

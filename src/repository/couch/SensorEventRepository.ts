@@ -1,9 +1,10 @@
-import { Database } from "./Bootstrap"
-import { SensorEvent } from "../model/SensorEvent"
+import { Database } from "../Bootstrap"
+import { SensorEvent } from "../../model/SensorEvent"
+import { SensorEventInterface } from "../interface/RepositoryInterface"
 // FIXME: does not support filtering by Sensor yet.
 
-export class SensorEventRepository {
-  public static async _select(
+export class SensorEventRepository implements SensorEventInterface {
+  public async _select(
     id?: string,
     sensor_spec?: string,
     from_date?: number,
@@ -22,7 +23,6 @@ export class SensorEventRepository {
                   $gte: from_date,
                   $lt: from_date === to_date ? to_date! + 1 : to_date,
                 },
-            
         },
         sort: [
           {
@@ -31,7 +31,7 @@ export class SensorEventRepository {
         ],
         limit: Math.abs(limit ?? 1),
       })
-    ).docs.map((x) => ({
+    ).docs.map((x: any) => ({
       ...x,
       _id: undefined,
       _rev: undefined,
@@ -39,7 +39,7 @@ export class SensorEventRepository {
     })) as any
     return all_res
   }
-  public static async _insert(participant_id: string, objects: SensorEvent[]): Promise<{}> {
+  public async _insert(participant_id: string, objects: SensorEvent[]): Promise<{}> {
     const data = await Database.use("sensor_event").bulk({
       docs: (objects as any[]).map((x) => ({
         "#parent": participant_id,
@@ -48,7 +48,7 @@ export class SensorEventRepository {
         data: x.data ?? {},
       })),
     })
-    const output = data.filter((x) => !!x.error)
+    const output = data.filter((x: any) => !!x.error)
     if (output.length > 0) console.error(output)
     return {}
   }

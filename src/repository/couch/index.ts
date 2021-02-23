@@ -1,4 +1,3 @@
-export * from "./Bootstrap"
 export * from "./TypeRepository"
 export * from "./CredentialRepository"
 export * from "./ResearcherRepository"

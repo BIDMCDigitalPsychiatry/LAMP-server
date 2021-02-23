@@ -1,9 +1,10 @@
-import { Database } from "./Bootstrap"
-import { ActivityEvent } from "../model/ActivityEvent"
+import { Database } from "../Bootstrap"
+import { ActivityEvent } from "../../model/ActivityEvent"
 // FIXME: does not support filtering by ActivitySpec yet.
+import { ActivityEventInterface } from "../interface/RepositoryInterface"
 
-export class ActivityEventRepository {
-  public static async _select(
+export class ActivityEventRepository implements ActivityEventInterface {
+  public async _select(
     id?: string,
     activity_id_or_spec?: string,
     from_date?: number,
@@ -30,7 +31,7 @@ export class ActivityEventRepository {
         ],
         limit: Math.abs(limit ?? 1),
       })
-    ).docs.map((x) => ({
+    ).docs.map((x: any) => ({
       ...x,
       _id: undefined,
       _rev: undefined,
@@ -38,7 +39,7 @@ export class ActivityEventRepository {
     })) as any
     return all_res
   }
-  public static async _insert(participant_id: string, objects: ActivityEvent[]): Promise<{}> {
+  public async _insert(participant_id: string, objects: ActivityEvent[]): Promise<{}> {
     const data = await Database.use("activity_event").bulk({
       docs: objects.map((x) => ({
         "#parent": participant_id,
@@ -49,7 +50,7 @@ export class ActivityEventRepository {
         temporal_slices: x.temporal_slices ?? [],
       })),
     })
-    const output = data.filter((x) => !!x.error)
+    const output = data.filter((x: any) => !!x.error)
     if (output.length > 0) console.error(output)
     return {}
   }
