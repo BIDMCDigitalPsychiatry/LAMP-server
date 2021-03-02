@@ -52,7 +52,7 @@ if (process.env.DB?.startsWith("mongodb://")) {
   DB_DRIVER = "mongodb"
   //MongoDB connection
   mongoose
-    .connect(`${process.env.DB}`, { useUnifiedTopology: true, useNewUrlParser: true, dbName: "LampV2" } ?? "")
+    .connect(`${process.env.DB}`, { useUnifiedTopology: true, useNewUrlParser: true } ?? "")
     .then(() => {
       console.log(`MONGODB adapter in use`)
       adminCredential()
