@@ -67,10 +67,10 @@ ActivityEventService.get("/participant/:participant_id/activity_event", async (r
     const repo = new Repository()
     const ActivityEventRepository = repo.getActivityEventRepository()
     let participant_id = req.params.participant_id
-    const origin: string = req.query.origin
-    const from: number | undefined = Number.parse(req.query.from)
-    const to: number | undefined = Number.parse(req.query.to)
-    const limit = Math.min(Math.max(Number.parse(req.query.limit) ?? LIMIT_NAN, -LIMIT_MAX), LIMIT_MAX)
+    const origin: string = req.query.origin as string
+    const from: number | undefined = Number.parse((req.query as any).from)
+    const to: number | undefined = Number.parse((req.query as any).to)
+    const limit = Math.min(Math.max(Number.parse((req.query as any).limit) ?? LIMIT_NAN, -LIMIT_MAX), LIMIT_MAX)
     participant_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], participant_id)
     let output = { data: await ActivityEventRepository._select(participant_id, origin, from, to, limit) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output

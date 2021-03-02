@@ -1405,7 +1405,7 @@ ListenerAPI.get("/participant/sensor_event", async (req: Request, res: Response)
     })
   }
   if (undefined !== req.query.sensor) {
-    let sensor = req.query.sensor
+    let sensor: string = req.query.sensor as string
     ;(await nc).subscribe(`sensor.*.sensor_event`, async (err, msg) => {
       if (err) {
         console.log("error while subscribing", msg)
@@ -1467,7 +1467,7 @@ ListenerAPI.get("/participant/sensor_event", async (req: Request, res: Response)
   }
   if (undefined !== req.query.sensor && undefined !== req.query.participant_id) {
     let participant_id = req.query.participant_id
-    let sensor = req.query.sensor
+    let sensor: string = req.query.sensor as string 
     ;(await nc).subscribe(`participant.*.sensor.*.sensor_event`, async (err, msg) => {
       if (err) {
         console.log("error while subscribing", msg)

@@ -2,7 +2,6 @@ import { Identifier, Timestamp } from "./Type"
 import { Study } from "./Study"
 import { Researcher } from "./Researcher"
 import mongoose from "mongoose"
-import { DateTime } from "mssql"
 import { timeStamp } from "console"
 const { Schema } = mongoose
 export class Participant {
