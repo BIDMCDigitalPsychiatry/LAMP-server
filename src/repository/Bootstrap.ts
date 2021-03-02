@@ -14,7 +14,7 @@ import {
   ActivitySpecRepository,
   SensorSpecRepository,
   CredentialRepository,
-  TypeRepository
+  TypeRepository,
 } from "./couch"
 import {
   ResearcherRepository as ResearcherRepositoryMongo,
@@ -27,7 +27,7 @@ import {
   ActivitySpecRepository as ActivitySpecRepositoryMongo,
   SensorSpecRepository as SensorSpecRepositoryMongo,
   CredentialRepository as CredentialRepositoryMongo,
-  TypeRepository as TypeRepositoryMongo
+  TypeRepository as TypeRepositoryMongo,
 } from "./mongo"
 import {
   ResearcherInterface,
@@ -42,24 +42,42 @@ import {
   CredentialInterface,
   TypeInterface,
 } from "./interface/RepositoryInterface"
+import { adminCredential } from "../model/Credential"
 
-export const Database: any = process.env.DB_DRIVER === "couchdb" ? nano(process.env.CDB ?? "") : ""
-try {
+//initialize driver for db
+let DB_DRIVER:string = ''
+//Identifying the Database driver -- IF the DB in env starts with mongodb://, create mongodb connection
+                                 //--ELSEIF the DB/CDB in env starts with http or https, create couch db connection
+if (process.env.DB?.startsWith("mongodb://")) {
+  DB_DRIVER = "mongodb"
   //MongoDB connection
-  process.env.DB_DRIVER === "mongodb"
-    ? mongoose
-        .connect(`${process.env.MDB}`, { useUnifiedTopology: true, useNewUrlParser: true } ?? "")
-        .then(() => {
-          console.log(`connected to MONGODB`)
-          try {
-          } catch (error) {
-            console.log(`error`, error)
-          }
-        })
-    : ""
-} catch (error) {
-  console.log(`No Mongo DB Connection`)
+  mongoose
+    .connect(`${process.env.DB}`, { useUnifiedTopology: true, useNewUrlParser: true, dbName: "LampV2" } ?? "")
+    .then(() => {
+      console.log(`MONGODB adapter in use`)
+      adminCredential()
+      try {
+      } catch (error) {
+        console.log(`error`, error)
+      }
+    })
+} else if (process.env.DB?.startsWith("http") || process.env.DB?.startsWith("https")) {
+   DB_DRIVER = "couchdb"
+   console.log(`COUCHDB adapter in use `)
+} else {
+  if (process.env.CDB?.startsWith("http") || process.env.CDB?.startsWith("https")) {   
+    DB_DRIVER = "couchdb"
+    console.log(`COUCHDB adapter in use `)
+  } else {
+    console.log(`Missing repository adapter.`)
+  }
 }
+
+//IF the DB/CDB in env starts with http or https, create and export couch db connection
+export const Database: any =
+  (process.env.DB?.startsWith("http") || process.env.DB?.startsWith("https")) ? nano(process.env.DB ?? "") : 
+  (process.env.CDB?.startsWith("http") || process.env.CDB?.startsWith("https")) ? nano(process.env.CDB ?? ""):""
+
 export const uuid = customAlphabet("1234567890abcdefghjkmnpqrstvwxyz", 20)
 export const numeric_uuid = (): string => `U${Math.random().toFixed(10).slice(2, 12)}`
 
@@ -103,7 +121,7 @@ export const Decrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"):
 
 // Initialize the CouchDB databases if any of them do not exist.
 export async function Bootstrap(): Promise<void> {
-  if (process.env.DB_DRIVER === "couchdb") {
+  if (DB_DRIVER === "couchdb") {
     console.group("Initializing database connection...")
     const _db_list = await Database.db.list()
     if (!_db_list.includes("activity_spec")) {
@@ -777,50 +795,50 @@ export const ncSub = connect({
 export class Repository {
   //GET Researcher Repository
   public getResearcherRepository(): ResearcherInterface {
-    return process.env.DB_DRIVER === "couchdb" ? new ResearcherRepository() : new ResearcherRepositoryMongo()
+    return DB_DRIVER === "couchdb" ? new ResearcherRepository() : new ResearcherRepositoryMongo()
   }
   //GET Study Repository
   public getStudyRepository(): StudyInterface {
-    return process.env.DB_DRIVER === "couchdb" ? new StudyRepository() : new StudyRepositoryMongo()
+    return DB_DRIVER === "couchdb" ? new StudyRepository() : new StudyRepositoryMongo()
   }
   //GET Participant Repository
   public getParticipantRepository(): ParticipantInterface {
-    return process.env.DB_DRIVER === "couchdb" ? new ParticipantRepository() : new ParticipantRepositoryMongo()
+    return DB_DRIVER === "couchdb" ? new ParticipantRepository() : new ParticipantRepositoryMongo()
   }
   //GET Activity Repository
   public getActivityRepository(): ActivityInterface {
-    return process.env.DB_DRIVER === "couchdb" ? new ActivityRepository() : new ActivityRepositoryMongo()
+    return DB_DRIVER === "couchdb" ? new ActivityRepository() : new ActivityRepositoryMongo()
   }
   //GET Activity Repository
   public getSensorRepository(): SensorInterface {
-    return process.env.DB_DRIVER === "couchdb" ? new SensorRepository() : new SensorRepositoryMongo()
+    return DB_DRIVER === "couchdb" ? new SensorRepository() : new SensorRepositoryMongo()
   }
   //GET ActivityEvent Repository
   public getActivityEventRepository(): ActivityEventInterface {
-    return process.env.DB_DRIVER === "couchdb" ? new ActivityEventRepository() : new ActivityEventRepositoryMongo()
+    return DB_DRIVER === "couchdb" ? new ActivityEventRepository() : new ActivityEventRepositoryMongo()
   }
 
   //GET SensorEvent Repository
   public getSensorEventRepository(): SensorEventInterface {
-    return process.env.DB_DRIVER === "couchdb" ? new SensorEventRepository() : new SensorEventRepositoryMongo()
+    return DB_DRIVER === "couchdb" ? new SensorEventRepository() : new SensorEventRepositoryMongo()
   }
   //GET ActivitySpec Repository
   public getActivitySpecRepository(): ActivitySpecInterface {
-    return process.env.DB_DRIVER === "couchdb" ? new ActivitySpecRepository() : new ActivitySpecRepositoryMongo()
+    return DB_DRIVER === "couchdb" ? new ActivitySpecRepository() : new ActivitySpecRepositoryMongo()
   }
 
   //GET SensorSpec Repository
   public getSensorSpecRepository(): SensorSpecInterface {
-    return process.env.DB_DRIVER === "couchdb" ? new SensorSpecRepository() : new SensorSpecRepositoryMongo()
+    return DB_DRIVER === "couchdb" ? new SensorSpecRepository() : new SensorSpecRepositoryMongo()
   }
 
   //GET Credential Repository
   public getCredentialRepository(): CredentialInterface {
-    return process.env.DB_DRIVER === "couchdb" ? new CredentialRepository() : new CredentialRepositoryMongo()
+    return DB_DRIVER === "couchdb" ? new CredentialRepository() : new CredentialRepositoryMongo()
   }
 
   //GET TypeRepository Repository
   public getTypeRepository(): TypeInterface {
-    return process.env.DB_DRIVER === "couchdb" ? new TypeRepository() : new TypeRepositoryMongo()
+    return DB_DRIVER === "couchdb" ? new TypeRepository() : new TypeRepositoryMongo()
   }
 }

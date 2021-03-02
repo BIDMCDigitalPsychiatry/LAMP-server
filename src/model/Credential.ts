@@ -26,19 +26,19 @@ export const CredentialModel = mongoose.model<mongoose.Document>(
   ).index([{ access_key: 1 }, { origin: 1 }, { origin: 1, access_key: 1 }])
 )
 
-if (process.env.DB_DRIVER === "mongodb") {
+export async function adminCredential() {   
   let _all: string[] = []
-  const data = CredentialModel.find({ origin: null, access_key: "admin" })
+  const data = await CredentialModel.find({ origin: null, access_key: "admin" })  
     .limit(2_147_483_647)
-    .then((x: any) => {
+    .then((x: any) => {      
       if (x.length === 0) {
         console.dir(
           `Because no master configuration could be located, an initial administrator password was generated and saved for this installation.`
-        )
-        const p = crypto.randomBytes(32).toString("hex")
-        console.table({ "Administrator Password": p })
-        _all = [Encrypt(p, "AES256") as string]
-        new CredentialModel({
+        );
+        const p = crypto.randomBytes(32).toString("hex");
+        console.table({ "Administrator Password": p });
+        _all = [Encrypt(p, "AES256") as string];
+         new CredentialModel({
           origin: null,
           access_key: "admin",
           secret_key: _all[0],
@@ -46,4 +46,5 @@ if (process.env.DB_DRIVER === "mongodb") {
         } as any).save()
       }
     })
-}
+  }
+
