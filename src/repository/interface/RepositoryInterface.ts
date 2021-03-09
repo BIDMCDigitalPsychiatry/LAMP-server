@@ -35,7 +35,7 @@ export interface ParticipantInterface {
 
 //Interface for Activity Repository
 export interface ActivityInterface {
-  _select(id: string | null, parent?: boolean): Promise<Activity[]>
+  _select(id: string | null, parent?: boolean, ignore_binary?: boolean): Promise<Activity[]>
   _insert(study_id: string, object: {}): Promise<string> 
   _update(activity_id: string, object: {}): Promise<{}>
   _delete(activity_id: string): Promise<{}>;
@@ -43,7 +43,7 @@ export interface ActivityInterface {
 
 //Interface for Sensor Repository
 export interface SensorInterface {
-  _select(id: string | null, parent?: boolean): Promise<Sensor[]>
+  _select(id: string | null, parent?: boolean, ignore_binary?: boolean): Promise<Sensor[]>
   _insert(study_id: string, object: any): Promise<string>
   _update(sensor_id: string, object: any): Promise<{}>
   _delete(sensor_id: string): Promise<{}>

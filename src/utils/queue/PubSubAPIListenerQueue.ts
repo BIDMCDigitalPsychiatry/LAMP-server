@@ -7,7 +7,7 @@ const clientLock = new Mutex()
 //Initialise PubSubAPIListenerQueue Queue
 export const PubSubAPIListenerQueue = new Bull("PubSubAPIListener", process.env.REDIS_HOST ?? "")
 
-PubSubAPIListenerQueue.process(async (job: any) => {
+PubSubAPIListenerQueue.process(async (job) => {
   let publishStatus = true
   const repo =  new Repository();   
   const TypeRepository = repo.getTypeRepository();

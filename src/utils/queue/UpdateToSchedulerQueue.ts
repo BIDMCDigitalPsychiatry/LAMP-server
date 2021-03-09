@@ -6,7 +6,7 @@ const clientLock = new Mutex()
 //Initialise UpdateToSchedulerQueue Queue
 export const UpdateToSchedulerQueue = new Bull("UpdateToScheduler", process.env.REDIS_HOST ?? "")
 
-UpdateToSchedulerQueue.process(async (job: any, done: any) => {
+UpdateToSchedulerQueue.process(async (job, done) => {
   //locking the thread
   const release = await clientLock.acquire()
     console.log(`locked job on ${job.data.activity_id}`)

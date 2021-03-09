@@ -18,6 +18,7 @@ export class DurationInterval {
   public interval?: CronDefinition[]
   public repeat_count?: number
   public end?: Timestamp
+  public notification_ids?: number[]
 }
 enum RepeatTypeLegacy {
   hourly = "hourly", // 0 * * * * *

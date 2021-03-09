@@ -122,6 +122,9 @@ SensorService.get("/participant/:participant_id/sensor", async (req: Request, re
 
     const TypeRepository = repo.getTypeRepository()
     let participant_id = req.params.participant_id
+    //check for inclusion of binary data     
+    let ignore_binary:boolean=!!req.query.ignore_binary?(req.query.ignore_binary=="true"?true:false):false
+    
     participant_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], participant_id)
     let study_id = await TypeRepository._owner(participant_id)
     if (study_id === null) throw new Error("403.invalid-sibling-ownership")

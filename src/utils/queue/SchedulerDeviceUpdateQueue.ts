@@ -7,7 +7,7 @@ const clientLock = new Mutex()
 export const SchedulerDeviceUpdateQueue = new Bull("SchedulerDeviceUpdate", process.env.REDIS_HOST ?? "")
 
 //Consume jobs from SchedulerDeviceUpdateQueue
-SchedulerDeviceUpdateQueue.process(async (job: any, done: any) => {
+SchedulerDeviceUpdateQueue.process(async (job, done) => {
   const release = await clientLock.acquire()
   console.log(`locked job on ${job.data.participant_id}`)
   const repo =  new Repository();   

@@ -7,7 +7,7 @@ const clientLock = new Mutex()
 export const SchedulerQueue = new Bull("Scheduler", process.env.REDIS_HOST ?? "")
 
 //Consume job from Scheduler
-SchedulerQueue.process(async (job: any, done: any) => {
+SchedulerQueue.process(async (job, done) => {
   const data: any = job.data
   try {
     //removing duplicate device token (if any)
@@ -23,6 +23,7 @@ SchedulerQueue.process(async (job: any, done: any) => {
           message: data.message,
           title: data.title,
           url: `/participant/${participant_id}/activity/${data.activity_id}`,
+          notificationId: data.notificationIds ?? undefined,
         })
       }
     }
@@ -53,7 +54,7 @@ export function sendNotification(device_token: string, device_type: string, payl
   // Send this specific page URL to the device to show the actual activity.
   // eslint-disable-next-line prettier/prettier
   const url = payload.url
-  const notificationId = Math.floor(Math.random() * 10000) + 1 + new Date().getTime()
+  const notificationId =!!payload.notificationId?payload.notificationId: Math.floor(Math.random() * 10000) + 1 + new Date().getTime()
   const gatewayURL: any = !!process.env.APP_GATEWAY ? `https://${process.env.APP_GATEWAY}/push`
     : `${process.env.PUSH_GATEWAY}`
   const gatewayApiKey: any = !!process.env.PUSH_API_KEY ? `${process.env.PUSH_API_KEY}`

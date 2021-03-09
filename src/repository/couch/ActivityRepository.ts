@@ -3,7 +3,7 @@ import { Activity } from "../../model/Activity"
 import { ActivityInterface } from "../interface/RepositoryInterface"
 
 export class ActivityRepository implements ActivityInterface {
-  public async _select(id: string | null, parent = false): Promise<Activity[]> {
+  public async _select(id: string | null, parent = false,ignore_binary=false): Promise<Activity[]> {
     return (
       await Database.use("activity").find({
         selector: id === null ? {} : { [parent ? "#parent" : "_id"]: id },
@@ -16,6 +16,7 @@ export class ActivityRepository implements ActivityInterface {
       _id: undefined,
       _rev: undefined,
       "#parent": undefined,
+       settings:ignore_binary?undefined:x.settings,
       timestamp: undefined,
     }))
   }
@@ -34,13 +35,38 @@ export class ActivityRepository implements ActivityInterface {
   }
   public async _update(activity_id: string, object: Activity): Promise<{}> {
     const orig: any = await Database.use("activity").get(activity_id)
+    const schedules:any = object.schedule ?? undefined
+    let newSchedules: object[] = []
+    if (!!schedules) {
+      //find notification id for schedules
+      for (let schedule of schedules) {
+        //if not custom, single notification id would be there
+        if (schedule.repeat_interval !== "custom") {
+          const notificationId: number = Math.floor(Math.random() * 10000) + 1 + new Date().getTime()
+          schedule = { ...schedule, notification_ids: [notificationId] }
+          await newSchedules.push(schedule)
+        } else {
+          //if  custom, multiple notification ids would be there
+          if (!!schedule.custom_time) {
+            let custNotids: number[] = []
+            //find notification id for multiple custom times
+            for (const customTimes of schedule.custom_time) {
+              const notificationId: number = Math.floor(Math.random() * 10000) + 1 + new Date().getTime()
+              custNotids.push(notificationId)
+            }
+            schedule = { ...schedule, notification_ids: custNotids }
+            await newSchedules.push(schedule)
+          }
+        }
+      }
+    }
     await Database.use("activity").bulk({
       docs: [
         {
           ...orig,
           name: object.name ?? orig.name,
           settings: object.settings ?? orig.settings,
-          schedule: object.schedule ?? orig.schedule,
+          schedule: (newSchedules.length !== 0 ? newSchedules : object.schedule) ?? orig.schedule,
         },
       ],
     })

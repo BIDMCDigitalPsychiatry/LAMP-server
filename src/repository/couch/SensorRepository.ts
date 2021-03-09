@@ -3,7 +3,7 @@ import { Sensor } from "../../model/Sensor"
 import { SensorInterface } from "../interface/RepositoryInterface"
 
 export class SensorRepository implements SensorInterface {
-  public async _select(id: string | null, parent = false): Promise<Sensor[]> {
+  public async _select(id: string | null, parent = false,ignore_binary=false): Promise<Sensor[]> {
     return (
       await Database.use("sensor").find({
         selector: id === null ? {} : { [parent ? "#parent" : "_id"]: id },
@@ -16,6 +16,7 @@ export class SensorRepository implements SensorInterface {
       _id: undefined,
       _rev: undefined,
       "#parent": undefined,
+      settings:ignore_binary?undefined:x.settings
     }))
   }
   public async _insert(study_id: string, object: any /*Sensor*/): Promise<string> {
