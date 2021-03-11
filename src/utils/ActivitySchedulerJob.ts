@@ -144,7 +144,7 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
               }
             }
           } else {
-            const notification_id = !!schedule.notification_ids?schedule.notification_ids[0]:undefined  
+            const notification_id = !!schedule.notification_ids?schedule.notification_ids:undefined  
             //As the custom time might appear as multiple, process it seperately
             const activity_details: {} = { name: activity.name, activity_id: activity.id, cronStr: cronStr, 
                                             notificationIds:notification_id  }
