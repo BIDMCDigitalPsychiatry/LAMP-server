@@ -88,12 +88,13 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
 
           const cronStr = schedule.repeat_interval !== "none" ? await getCronScheduleString(schedule) : ""
           if (schedule.repeat_interval !== "custom") {
+            const notification_id = !!schedule.notification_ids?schedule.notification_ids:undefined            
             const scheduler_payload: any = {
               title: activity.name,
               message: `You have a mindLAMP activity waiting for you: ${activity.name}.`,
               activity_id: activity.id,
               participants: await removeDuplicateParticipants(Participants),
-              notificationIds:!!schedule.notification_ids?schedule.notification_ids[0] : undefined
+              notificationIds:notification_id
             }
 
             let SchedulerjobResponse: any = ""
@@ -143,9 +144,10 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
               }
             }
           } else {
+            const notification_id = !!schedule.notification_ids?schedule.notification_ids:undefined  
             //As the custom time might appear as multiple, process it seperately
             const activity_details: {} = { name: activity.name, activity_id: activity.id, cronStr: cronStr, 
-                                            notificationIds:schedule.notification_ids ?? undefined  }
+                                            notificationIds:notification_id  }
             await setCustomSchedule(activity_details, Participants)
           }
         }
@@ -246,20 +248,21 @@ function getCronScheduleString(schedule: any): string {
 async function setCustomSchedule(activity: any, Participants: string[]): Promise<any> {
   //split and get individual cron string
   let cronArr = activity.cronStr.split("|")
-  const notificationIds=activity.notificationIds?activity.notificationIds:undefined
+  const notificationIds=activity.notificationIds
   let count=0
   for (const cronCustomString of cronArr) {
     if (undefined !== cronCustomString && "" !== cronCustomString) {
       //custom schedules may occur in multiple times and also need to run daily.
       if (activity.activity_id) {
+        const notification_id = !!notificationIds[count]?notificationIds[count]:undefined
         const scheduler_payload: any = {
           title: activity.name,
           message: `You have a mindLAMP activity waiting for you: ${activity.name}.`,
           activity_id: activity.activity_id,
           participants: await removeDuplicateParticipants(Participants),
-          notificationIds:(!!notificationIds?notificationIds[count]:undefined)
+          notificationIds:notification_id
         }
-        count++
+        
         //add to schedular queue
         try {
           const SchedulerjobResponse = await SchedulerQueue.add(scheduler_payload, {
@@ -298,6 +301,7 @@ async function setCustomSchedule(activity: any, Participants: string[]): Promise
           console.log(`"error scheduling custom job-${error}"`)
         }
       }
+      count++
     }
   }
 }

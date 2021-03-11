@@ -23,7 +23,7 @@ SchedulerQueue.process(async (job, done) => {
           message: data.message,
           title: data.title,
           url: `/participant/${participant_id}/activity/${data.activity_id}`,
-          notificationId: data.notificationIds ?? undefined,
+          notificationId: !!data.notificationIds?data.notificationIds:undefined
         })
       }
     }
