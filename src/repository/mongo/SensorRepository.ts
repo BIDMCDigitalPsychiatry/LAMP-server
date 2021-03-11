@@ -4,7 +4,7 @@ import { SensorModel } from "../../model/Sensor"
 import { SensorInterface } from "../interface/RepositoryInterface"
 
 export class SensorRepository implements SensorInterface {
-  public async _select(id: string | null, parent = false): Promise<Sensor[]> {
+  public async _select(id: string | null, parent = false, ignore_binary = false): Promise<Sensor[]> {
     const data = await SensorModel.find(!!id ? (parent ? { _parent: id } : { _id: id }) : {})
       .sort({ timestamp: 1 })
       .limit(2_147_483_647)
@@ -14,7 +14,7 @@ export class SensorRepository implements SensorInterface {
       _id: undefined,
       _parent: undefined,
       __v: undefined,
-      timestamp: undefined,
+      settings: ignore_binary ? undefined : x._doc.settings,
     }))
   }
   public async _insert(study_id: string, object: any /*Sensor*/): Promise<string> {

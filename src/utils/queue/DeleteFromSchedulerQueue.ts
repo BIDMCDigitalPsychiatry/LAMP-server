@@ -5,7 +5,7 @@ import { Mutex } from "async-mutex"
 export const DeleteFromSchedulerQueue = new Bull("DeleteFromScheduler", process.env.REDIS_HOST ?? "")
 const clientLock = new Mutex()
 //Consume jobs from DeleteFromSchedulerQueue
-DeleteFromSchedulerQueue.process(async (job: any, done: any) => {
+DeleteFromSchedulerQueue.process(async (job, done) => {
   const release = await clientLock.acquire()
   console.log(`locked job on ${job.data.activity_id}`)
   try {

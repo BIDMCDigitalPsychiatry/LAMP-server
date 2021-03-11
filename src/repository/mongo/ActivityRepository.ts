@@ -4,7 +4,7 @@ import { ActivityModel } from "../../model/Activity"
 import { ActivityInterface } from "../interface/RepositoryInterface"
 
 export class ActivityRepository implements ActivityInterface {
-  public async _select(id: string | null, parent = false): Promise<Activity[]> {
+  public async _select(id: string | null, parent = false, ignore_binary: false): Promise<Activity[]> {
     //get data from  Activity via  Activity model
     const data = await ActivityModel.find(!!id ? (parent ? { _parent: id } : { _id: id }) : {})
       .sort({ timestamp: 1 })
@@ -15,6 +15,7 @@ export class ActivityRepository implements ActivityInterface {
       _id: undefined,
       _parent: undefined,
       __v: undefined,
+      settings: ignore_binary ? undefined : x._doc.settings,
       timestamp: undefined,
     }))
   }
@@ -36,10 +37,36 @@ export class ActivityRepository implements ActivityInterface {
 
   public async _update(activity_id: string, object: Activity): Promise<{}> {
     const orig: any = await ActivityModel.findById(activity_id)
+    const schedules: any = object.schedule ?? undefined
+    let newSchedules: object[] = []
+
+    if (!!schedules) {
+      //find notification id for schedules
+      for (let schedule of schedules) {
+        //if not custom, single notification id would be there
+        if (schedule.repeat_interval !== "custom") {
+          const notificationId: number = Math.floor(Math.random() * 1000000) + 1
+          schedule = { ...schedule, notification_ids: [notificationId] }
+          await newSchedules.push(schedule)
+        } else {
+          //if  custom, multiple notification ids would be there
+          if (!!schedule.custom_time) {
+            let custNotids: number[] = []
+            //find notification id for multiple custom times
+            for (const customTimes of schedule.custom_time) {
+              const notificationId: number = Math.floor(Math.random() * 1000000) + 1
+              custNotids.push(notificationId)
+            }
+            schedule = { ...schedule, notification_ids: custNotids }
+            await newSchedules.push(schedule)
+          }
+        }
+      }
+    }
     await ActivityModel.findByIdAndUpdate(activity_id, {
       name: object.name ?? orig.name,
       settings: object.settings ?? orig.settings,
-      schedule: object.schedule ?? orig.schedule,
+      schedule: (newSchedules.length !== 0 ? newSchedules : object.schedule) ?? orig.schedule,
     })
     return {}
   }

@@ -7,10 +7,10 @@ const clientLock = new Mutex()
 //Initialise PubSubAPIListenerQueue Queue
 export const PubSubAPIListenerQueue = new Bull("PubSubAPIListener", process.env.REDIS_HOST ?? "")
 
-PubSubAPIListenerQueue.process(async (job: any) => {
+PubSubAPIListenerQueue.process(async (job) => {
   let publishStatus = true
-  const repo =  new Repository();   
-  const TypeRepository = repo.getTypeRepository();
+  const repo = new Repository()
+  const TypeRepository = repo.getTypeRepository()
   const maxPayloadSize = !!process.env.NATS_PAYLOAD_SIZE ? process.env.NATS_PAYLOAD_SIZE : 1047846
   try {
     //for the participant api changes
