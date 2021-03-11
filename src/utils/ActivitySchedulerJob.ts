@@ -88,7 +88,7 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
 
           const cronStr = schedule.repeat_interval !== "none" ? await getCronScheduleString(schedule) : ""
           if (schedule.repeat_interval !== "custom") {
-            const notification_id = !!schedule.notification_ids?schedule.notification_ids:undefined            
+            const notification_id = !!schedule.notification_ids?schedule.notification_ids[0]:undefined            
             const scheduler_payload: any = {
               title: activity.name,
               message: `You have a mindLAMP activity waiting for you: ${activity.name}.`,
@@ -144,7 +144,7 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
               }
             }
           } else {
-            const notification_id = !!schedule.notification_ids?schedule.notification_ids:undefined  
+            const notification_id = !!schedule.notification_ids?schedule.notification_ids[0]:undefined  
             //As the custom time might appear as multiple, process it seperately
             const activity_details: {} = { name: activity.name, activity_id: activity.id, cronStr: cronStr, 
                                             notificationIds:notification_id  }
