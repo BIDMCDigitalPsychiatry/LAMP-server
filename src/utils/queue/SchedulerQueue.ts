@@ -54,7 +54,7 @@ export function sendNotification(device_token: string, device_type: string, payl
   // Send this specific page URL to the device to show the actual activity.
   // eslint-disable-next-line prettier/prettier
   const url = payload.url
-  const notificationId =!!payload.notificationId?payload.notificationId: Math.floor(Math.random() * 10000) + 1 + new Date().getTime()
+  const notificationId =!!payload.notificationId?payload.notificationId: Math.floor(Math.random() * 1000000) +1
   const gatewayURL: any = !!process.env.APP_GATEWAY ? `https://${process.env.APP_GATEWAY}/push`
     : `${process.env.PUSH_GATEWAY}`
   const gatewayApiKey: any = !!process.env.PUSH_API_KEY ? `${process.env.PUSH_API_KEY}`

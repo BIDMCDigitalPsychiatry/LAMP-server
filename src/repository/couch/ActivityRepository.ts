@@ -42,7 +42,7 @@ export class ActivityRepository implements ActivityInterface {
       for (let schedule of schedules) {
         //if not custom, single notification id would be there
         if (schedule.repeat_interval !== "custom") {
-          const notificationId: number = Math.floor(Math.random() * 10000) + 1 + new Date().getTime()
+          const notificationId: number = Math.floor(Math.random() * 1000000) +1
           schedule = { ...schedule, notification_ids: [notificationId] }
           await newSchedules.push(schedule)
         } else {
@@ -51,7 +51,7 @@ export class ActivityRepository implements ActivityInterface {
             let custNotids: number[] = []
             //find notification id for multiple custom times
             for (const customTimes of schedule.custom_time) {
-              const notificationId: number = Math.floor(Math.random() * 10000) + 1 + new Date().getTime()
+              const notificationId: number = Math.floor(Math.random() * 1000000) +1
               custNotids.push(notificationId)
             }
             schedule = { ...schedule, notification_ids: custNotids }
