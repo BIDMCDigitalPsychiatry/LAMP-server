@@ -8,9 +8,9 @@ export class CredentialRepository implements CredentialInterface {
   public async _adminCredential(admin_secret_key: string): Promise<boolean> {
     let _all: string[] = []
     try {
-      ;(await CredentialModel.find({ origin: null, access_key: "admin" }).limit(2_147_483_647)).filter((x: any) =>
-        _all.push(x.secret_key)
-      )
+      ;(
+        await CredentialModel.find({ _deleted: false, origin: null, access_key: "admin" }).limit(2_147_483_647)
+      ).filter((x: any) => _all.push(x.secret_key))
       if (0 === _all.length) {
         console.dir(
           `Because no master configuration could be located, an initial administrator password was generated and saved for this installation.`
@@ -34,20 +34,21 @@ export class CredentialRepository implements CredentialInterface {
   }
   // if used with secret_key, will throw error if mismatch, else, will return confirmation of existence
   public async _find(access_key: string, secret_key?: string): Promise<string> {
-    const res = (await CredentialModel.find({ access_key: access_key }).limit(2_147_483_647)).filter((x: any) =>
-      !!secret_key ? Decrypt(x.secret_key, "AES256") === secret_key : true
-    )
+    const res = (
+      await CredentialModel.find({ _deleted: false, access_key: access_key }).limit(2_147_483_647)
+    ).filter((x: any) => (!!secret_key ? Decrypt(x.secret_key, "AES256") === secret_key : true))
 
     if (res.length !== 0) return (res[0] as any).origin
     throw new Error("403.no-such-credentials")
   }
   public async _select(type_id: string): Promise<any[]> {
-    const res = await CredentialModel.find({ origin: type_id }).limit(2_147_483_647)
+    const res = await CredentialModel.find({ _deleted: false, origin: type_id }).limit(2_147_483_647)
     return res.map((x: any) => ({
       ...x._doc,
       secret_key: null,
       _id: undefined,
       __v: undefined,
+      _deleted: undefined,
     }))
   }
   public async _insert(type_id: string, credential: any): Promise<{}> {
@@ -58,7 +59,7 @@ export class CredentialRepository implements CredentialInterface {
     // Verify this is "our" credential correctly
     if (credential.origin !== type_id || !credential.access_key || !credential.secret_key)
       throw new Error("400.malformed-credential-object")
-    const res = await CredentialModel.findOne({ access_key: credential.access_key })
+    const res = await CredentialModel.findOne({ _deleted: false, access_key: credential.access_key })
 
     if (res !== null) throw new Error("403.access-key-already-in-use")
     //save Credential via Credential model

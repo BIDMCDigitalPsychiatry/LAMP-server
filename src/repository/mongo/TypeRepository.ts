@@ -22,23 +22,23 @@ export class TypeRepository implements TypeInterface {
 
   public async _self_type(type_id: string): Promise<string> {
     try {
-      const data: any = await (ParticipantModel.findOne({ _id: type_id }) as any)
+      const data: any = await (ParticipantModel.findOne({ _deleted: false, _id: type_id }) as any)
       if (null !== data) return "Participant"
     } catch (e) {}
     try {
-      const data: any = await (ResearcherModel.findOne({ _id: type_id }) as any)
+      const data: any = await (ResearcherModel.findOne({ _deleted: false, _id: type_id }) as any)
       if (null !== data) return "Researcher"
     } catch (e) {}
     try {
-      const data: any = await (StudyModel.findOne({ _id: type_id }) as any)
+      const data: any = await (StudyModel.findOne({ _deleted: false, _id: type_id }) as any)
       if (null !== data) return "Study"
     } catch (e) {}
     try {
-      const data: any = await (ActivityModel.findOne({ _id: type_id }) as any)
+      const data: any = await (ActivityModel.findOne({ _deleted: false, _id: type_id }) as any)
       if (null !== data) return "Activity"
     } catch (e) {}
     try {
-      const data: any = await (SensorModel.findOne({ _id: type_id }) as any)
+      const data: any = await (SensorModel.findOne({ _deleted: false, _id: type_id }) as any)
       if (null !== data) return "Sensor"
     } catch (e) {}
     return "__broken_id__"
@@ -46,20 +46,20 @@ export class TypeRepository implements TypeInterface {
 
   public async _owner(type_id: string): Promise<string | null> {
     try {
-      return ((await ParticipantModel.findOne({ _id: type_id })) as any)._parent
+      return ((await ParticipantModel.findOne({ _deleted: false, _id: type_id })) as any)._parent
     } catch (e) {}
     try {
-      const data: any = await (ResearcherModel.findOne({ _id: type_id }) as any)
+      const data: any = await (ResearcherModel.findOne({ _deleted: false, _id: type_id }) as any)
       if (null !== data) return null
     } catch (e) {}
     try {
-      return ((await StudyModel.findOne({ _id: type_id })) as any)._parent
+      return ((await StudyModel.findOne({ _deleted: false, _id: type_id })) as any)._parent
     } catch (e) {}
     try {
-      return ((await ActivityModel.findOne({ _id: type_id })) as any)._parent
+      return ((await ActivityModel.findOne({ _deleted: false, _id: type_id })) as any)._parent
     } catch (e) {}
     try {
-      return ((await SensorModel.findOne({ _id: type_id })) as any)._parent
+      return ((await SensorModel.findOne({ _deleted: false, _id: type_id })) as any)._parent
     } catch (e) {}
     return null
   }
@@ -93,9 +93,7 @@ export class TypeRepository implements TypeInterface {
   public async _set(mode: any, type: string, type_id: string, key: string, value?: any): Promise<{}> {
     const deletion = value === undefined || value === null
     let existing: any = ""
-
-    existing = await TagsModel.findOne({ _parent: type_id, type, key })
-
+    existing = await TagsModel.findOne({ _deleted: false, _parent: type_id, type: type, key: key })
     if (existing === null && !deletion) {
       try {
         await new TagsModel({
@@ -118,7 +116,7 @@ export class TypeRepository implements TypeInterface {
     } else {
       // DELETE
       try {
-        await TagsModel.deleteOne({ _id: existing._id })
+        await TagsModel.updateOne({ _id: existing._id }, { _deleted: true })
       } catch (e) {
         console.error(e)
         throw new Error("400.deletion-failed")
@@ -137,13 +135,13 @@ export class TypeRepository implements TypeInterface {
     // All possible conditions to retreive Tags, ordered greatest-to-least priority.
     const conditions = [
       // Explicit parent-ownership. (Ordered greatest-to-least ancestor.)
-      ...parents.map((pid) => ({ _parent: pid, type: type_id, key: attachment_key })),
+      ...parents.map((pid) => ({ _deleted: false, _parent: pid, type: type_id, key: attachment_key })),
       // Implicit parent-ownership. (Ordered greatest-to-least ancestor.)
-      ...parents.map((pid) => ({ _parent: pid, type: self_type, key: attachment_key })),
+      ...parents.map((pid) => ({ _deleted: false, _parent: pid, type: self_type, key: attachment_key })),
       // Explicit self-ownership.
-      { _parent: type_id, type: type_id, key: attachment_key },
+      { _deleted: false, _parent: type_id, type: type_id, key: attachment_key },
       // Implicit self-ownership.
-      { _parent: type_id, type: "me", key: attachment_key },
+      { _deleted: false, _parent: type_id, type: "me", key: attachment_key },
     ]
 
     // Following greatest-to-least priority, see if the Tag exists. We do this because:
@@ -173,13 +171,13 @@ export class TypeRepository implements TypeInterface {
     conditions = [
       // Explicit parent-ownership. (Ordered greatest-to-least ancestor.)
 
-      ...parents.map((pid) => ({ _parent: pid, type: type_id, key: { $ne: null } })),
+      ...parents.map((pid) => ({ _deleted: false, _parent: pid, type: type_id, key: { $ne: null } })),
       // Implicit parent-ownership. (Ordered greatest-to-least ancestor.)
-      ...parents.map((pid) => ({ _parent: pid, type: self_type, key: { $ne: null } })),
+      ...parents.map((pid) => ({ _deleted: false, _parent: pid, type: self_type, key: { $ne: null } })),
       // Explicit self-ownership.
-      { _parent: type_id, type: type_id, key: { $ne: null } },
+      { _deleted: false, _parent: type_id, type: type_id, key: { $ne: null } },
       // Implicit self-ownership.
-      { _parent: type_id, type: "me", key: { $ne: null } },
+      { _deleted: false, _parent: type_id, type: "me", key: { $ne: null } },
     ]
 
     // Following greatest-to-least priority, see if the Tag exists. We do this because:
@@ -364,7 +362,7 @@ async function Researcher_parent_id(id: string, type: string): Promise<string | 
 async function Study_parent_id(id: string, type: string): Promise<string | undefined> {
   switch (type) {
     case "Researcher":
-      const obj: any = await StudyModel.findOne({ _id: id })
+      const obj: any = await StudyModel.findOne({ _deleted: false, _id: id })
       return obj._parent
 
     default:
@@ -375,12 +373,12 @@ async function Participant_parent_id(id: string, type: string): Promise<string |
   let obj: any
   switch (type) {
     case "Study":
-      obj = await ParticipantModel.findOne({ _id: id })
+      obj = await ParticipantModel.findOne({ _deleted: false, _id: id })
       return obj._parent
 
     case "Researcher":
-      obj = await ParticipantModel.findOne({ _id: id })
-      obj = await StudyModel.findOne({ _id: obj._parent })
+      obj = await ParticipantModel.findOne({ _deleted: false, _id: id })
+      obj = await StudyModel.findOne({ _deleted: false, _id: obj._parent })
       return obj._parent
 
     default:
@@ -391,12 +389,12 @@ async function Activity_parent_id(id: string, type: string): Promise<string | un
   let obj: any
   switch (type) {
     case "Study":
-      obj = await ActivityModel.findOne({ _id: id })
+      obj = await ActivityModel.findOne({ _deleted: false, _id: id })
       return obj._parent
 
     case "Researcher":
-      obj = await ActivityModel.findOne({ _id: id })
-      obj = await StudyModel.findOne({ _id: obj._parent })
+      obj = await ActivityModel.findOne({ _deleted: false, _id: id })
+      obj = await StudyModel.findOne({ _deleted: false, _id: obj._parent })
       return obj._parent
 
     default:
@@ -407,12 +405,12 @@ async function Sensor_parent_id(id: string, type: string): Promise<string | unde
   let obj: any
   switch (type) {
     case "Study":
-      obj = await SensorModel.findOne({ _id: id })
+      obj = await SensorModel.findOne({ _deleted: false, _id: id })
       return obj._parent
 
     case "Researcher":
-      obj = await SensorModel.findOne({ _id: id })
-      obj = await StudyModel.findOne({ _id: obj._parent })
+      obj = await SensorModel.findOne({ _deleted: false, _id: id })
+      obj = await StudyModel.findOne({ _deleted: false, _id: obj._parent })
       return obj._parent
 
     default:

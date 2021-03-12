@@ -4,9 +4,11 @@ import { ActivityModel } from "../../model/Activity"
 import { ActivityInterface } from "../interface/RepositoryInterface"
 
 export class ActivityRepository implements ActivityInterface {
-  public async _select(id: string | null, parent = false, ignore_binary: false): Promise<Activity[]> {
+  public async _select(id: string | null, parent = false): Promise<Activity[]> {
     //get data from  Activity via  Activity model
-    const data = await ActivityModel.find(!!id ? (parent ? { _parent: id } : { _id: id }) : {})
+    const data = await ActivityModel.find(
+      !!id ? (parent ? { _parent: id, _deleted: false } : { _id: id, _deleted: false }) : { _deleted: false }
+    )
       .sort({ timestamp: 1 })
       .limit(2_147_483_647)
     return (data as any).map((x: any) => ({
@@ -15,7 +17,7 @@ export class ActivityRepository implements ActivityInterface {
       _id: undefined,
       _parent: undefined,
       __v: undefined,
-      settings: ignore_binary ? undefined : x._doc.settings,
+      _deleted: undefined,
       timestamp: undefined,
     }))
   }
@@ -73,7 +75,7 @@ export class ActivityRepository implements ActivityInterface {
 
   public async _delete(activity_id: string): Promise<{}> {
     try {
-      await ActivityModel.deleteOne({ _id: activity_id })
+      await ActivityModel.updateOne({ _id: activity_id }, { _deleted: true })
     } catch (e) {
       console.error(e)
       throw new Error("500.deletion-failed")

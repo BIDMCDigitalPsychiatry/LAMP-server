@@ -19,12 +19,17 @@ export class DynamicAttachment {
   public output_schema?: string
 }
 
-
 //Mongo Db Model for tags collection
 export const TagsModel = mongoose.model(
   "tags",
   new Schema(
-    {}, {collection: "tags",strict:false }).index([{ _parent: 1 , type: 1 ,  key: 1 }])
+    {
+      _parent: { type: String, required: true },
+      key: { type: String, required: true },
+      value: { type: Schema.Types.Mixed, required: true },
+      type: { type: String, required: true },
+      _deleted: { type: Boolean, default: false }
+    },
+    { collection: "tags" }
+  ).index([{ _parent: 1, type: 1, key: 1 }])
 )
-
-

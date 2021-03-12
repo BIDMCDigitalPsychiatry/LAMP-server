@@ -14,6 +14,7 @@ export const SensorModel = mongoose.model<mongoose.Document>(
       spec: { type: String, required: true },
       settings: { type: Object },
       timestamp: { type: Number, required: true },
+      _deleted: { type: Boolean, default: false },
     },
     { collection: "sensor", autoCreate: true }
   ).index([
@@ -23,4 +24,3 @@ export const SensorModel = mongoose.model<mongoose.Document>(
     { timestamp: 1, _id: 1, _parent: 1 },
   ])
 )
- 
