@@ -419,6 +419,7 @@ export async function updateDeviceDetails(activityIDs: any, device_details: any)
           message: SchedulerJob?.data.message,
           activity_id: SchedulerJob?.data.activity_id,
           participants: await removeDuplicateParticipants(newParticipants),
+          notificationIds: SchedulerJob?.data.notificationIds??undefined
         }
 
         //update scheduler with new participant
