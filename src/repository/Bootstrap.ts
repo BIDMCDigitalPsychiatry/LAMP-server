@@ -44,7 +44,7 @@ import {
 } from "./interface/RepositoryInterface"
 import { adminCredential } from "../model/Credential"
 import  ioredis  from "ioredis"
-export const RedisClient = new ioredis()
+export const RedisClient = new ioredis(<number|undefined>process.env.REDIS_PORT, `${process.env.REDIS_HOST}` ?? "");
 //initialize driver for db
 let DB_DRIVER:string = ''
 //Identifying the Database driver -- IF the DB in env starts with mongodb://, create mongodb connection
@@ -53,7 +53,7 @@ if (process.env.DB?.startsWith("mongodb://")) {
   DB_DRIVER = "mongodb"
   //MongoDB connection
   mongoose
-    .connect(`${process.env.DB}`, { useUnifiedTopology: true, useNewUrlParser: true, dbName:"LampV2" } ?? "")
+    .connect(`${process.env.DB}`, { useUnifiedTopology: true, useNewUrlParser: true } ?? "")
     .then(() => {
       console.log(`MONGODB adapter in use`)
       adminCredential()
