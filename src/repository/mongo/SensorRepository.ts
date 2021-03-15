@@ -54,6 +54,7 @@ export class SensorRepository implements SensorInterface {
     }
     return {}
   }
+
   /** There would be a need for pagination of the data without settings. So, its seperately written
    *
    * @param  string id
@@ -61,7 +62,8 @@ export class SensorRepository implements SensorInterface {
    * @returns Array Sensor[]
    */
   public async _lookup(id: string | null, parent = false): Promise<Sensor[]> {
-    const data = await SensorModel.find({ _parent: id, _deleted: false }).sort({ timestamp: 1 }).limit(2_147_483_647)
+    const data = await SensorModel.find({ _parent: id, _deleted:false }).sort({ timestamp: 1 }).limit(2_147_483_647)
+
     return (data as any).map((x: any) => ({
       id: x._doc._id,
       ...x._doc,

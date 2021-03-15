@@ -85,10 +85,12 @@ export class ActivityRepository implements ActivityInterface {
     }
     return {}
   }
+
+  
   /** get activities.There would be a need for pagination of the data without settings. So, its seperately written
-   *
-   * @param id
-   * @param parent
+   * 
+   * @param id 
+   * @param parent 
    * @returns Array Activity[]
    */
   public async _lookup(id: string | null, parent = false): Promise<Activity[]> {

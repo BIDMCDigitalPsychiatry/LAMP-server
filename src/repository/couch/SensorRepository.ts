@@ -57,14 +57,14 @@ export class SensorRepository implements SensorInterface {
     }
     return {}
   }
-  
+
   /** There would be a need for pagination of the data without settings. So, its seperately written
    *
    * @param  string id
    * @param boolean parent
    * @returns Array Sensor[]
    */
-   public async _lookup(id: string | null, parent = false): Promise<Sensor[]> {
+  public async _lookup(id: string | null, parent = false): Promise<Sensor[]> {
     return (
       await Database.use("sensor").find({
         selector: { "#parent": id },
