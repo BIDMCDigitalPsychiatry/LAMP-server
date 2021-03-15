@@ -4,8 +4,10 @@ import { SensorModel } from "../../model/Sensor"
 import { SensorInterface } from "../interface/RepositoryInterface"
 
 export class SensorRepository implements SensorInterface {
-  public async _select(id: string | null, parent = false): Promise<Sensor[]> {
-    const data = await SensorModel.find(!!id ? (parent ? { _parent: id } : { _id: id }) : {})
+  public async _select(id: string | null, parent = false, ignore_binary = false): Promise<Sensor[]> {
+    const data = await SensorModel.find(
+      !!id ? (parent ? { _parent: id, _deleted: false } : { _id: id, _deleted: false }) : { _deleted: false }
+    )
       .sort({ timestamp: 1 })
       .limit(2_147_483_647)
     return (data as any).map((x: any) => ({
@@ -14,7 +16,8 @@ export class SensorRepository implements SensorInterface {
       _id: undefined,
       _parent: undefined,
       __v: undefined,
-      timestamp: undefined,
+      _deleted: undefined,
+      settings: ignore_binary ? undefined : x._doc.settings,
     }))
   }
   public async _insert(study_id: string, object: any /*Sensor*/): Promise<string> {
@@ -44,7 +47,7 @@ export class SensorRepository implements SensorInterface {
 
   public async _delete(sensor_id: string): Promise<{}> {
     try {
-      await SensorModel.deleteOne({ _id: sensor_id })
+      await SensorModel.updateOne({ _id: sensor_id }, { _deleted: true })
     } catch (e) {
       console.error(e)
       throw new Error("500.deletion-failed")

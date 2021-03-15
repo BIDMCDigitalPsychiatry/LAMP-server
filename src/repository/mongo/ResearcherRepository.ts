@@ -6,13 +6,16 @@ import { ResearcherInterface } from "../interface/RepositoryInterface"
 
 export class ResearcherRepository implements ResearcherInterface {
   public async _select(id?: string): Promise<[]> {
-    const data = !!id ? await ResearcherModel.find({ _id: id }) : await ResearcherModel.find({}).sort({ timestamp: 1 })
+    const data = !!id
+      ? await ResearcherModel.find({ _deleted: false, _id: id })
+      : await ResearcherModel.find({ _deleted: false }).sort({ timestamp: 1 })
 
     return (data as any).map((x: any) => ({
       id: x._doc._id,
       ...x._doc,
       _id: undefined,
       _parent: undefined,
+      _deleted: undefined,
       __v: undefined,
       timestamp: undefined,
     }))
@@ -50,8 +53,8 @@ export class ResearcherRepository implements ResearcherInterface {
   public async _delete(researcher_id: string): Promise<{}> {
     const session = await ResearcherModel.startSession()
     session.startTransaction()
-    await StudyModel.deleteMany({ _parent: researcher_id })
-    await ResearcherModel.deleteOne({ _id: researcher_id })
+    await StudyModel.updateMany({ _parent: researcher_id }, { _deleted: true })
+    await ResearcherModel.updateOne({ _id: researcher_id }, { _deleted: true })
     await session.commitTransaction()
     session.endSession()
 

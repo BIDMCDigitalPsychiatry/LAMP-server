@@ -6,7 +6,9 @@ import { ActivityInterface } from "../interface/RepositoryInterface"
 export class ActivityRepository implements ActivityInterface {
   public async _select(id: string | null, parent = false): Promise<Activity[]> {
     //get data from  Activity via  Activity model
-    const data = await ActivityModel.find(!!id ? (parent ? { _parent: id } : { _id: id }) : {})
+    const data = await ActivityModel.find(
+      !!id ? (parent ? { _parent: id, _deleted: false } : { _id: id, _deleted: false }) : { _deleted: false }
+    )
       .sort({ timestamp: 1 })
       .limit(2_147_483_647)
     return (data as any).map((x: any) => ({
@@ -15,6 +17,7 @@ export class ActivityRepository implements ActivityInterface {
       _id: undefined,
       _parent: undefined,
       __v: undefined,
+      _deleted: undefined,
       timestamp: undefined,
     }))
   }
@@ -36,17 +39,43 @@ export class ActivityRepository implements ActivityInterface {
 
   public async _update(activity_id: string, object: Activity): Promise<{}> {
     const orig: any = await ActivityModel.findById(activity_id)
+    const schedules: any = object.schedule ?? undefined
+    let newSchedules: object[] = []
+
+    if (!!schedules) {
+      //find notification id for schedules
+      for (let schedule of schedules) {
+        //if not custom, single notification id would be there
+        if (schedule.repeat_interval !== "custom") {
+          const notificationId: number = Math.floor(Math.random() * 1000000) + 1
+          schedule = { ...schedule, notification_ids: [notificationId] }
+          await newSchedules.push(schedule)
+        } else {
+          //if  custom, multiple notification ids would be there
+          if (!!schedule.custom_time) {
+            let custNotids: number[] = []
+            //find notification id for multiple custom times
+            for (const customTimes of schedule.custom_time) {
+              const notificationId: number = Math.floor(Math.random() * 1000000) + 1
+              custNotids.push(notificationId)
+            }
+            schedule = { ...schedule, notification_ids: custNotids }
+            await newSchedules.push(schedule)
+          }
+        }
+      }
+    }
     await ActivityModel.findByIdAndUpdate(activity_id, {
       name: object.name ?? orig.name,
       settings: object.settings ?? orig.settings,
-      schedule: object.schedule ?? orig.schedule,
+      schedule: (newSchedules.length !== 0 ? newSchedules : object.schedule) ?? orig.schedule,
     })
     return {}
   }
 
   public async _delete(activity_id: string): Promise<{}> {
     try {
-      await ActivityModel.deleteOne({ _id: activity_id })
+      await ActivityModel.updateOne({ _id: activity_id }, { _deleted: true })
     } catch (e) {
       console.error(e)
       throw new Error("500.deletion-failed")

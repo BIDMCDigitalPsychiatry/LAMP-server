@@ -6,7 +6,9 @@ import { StudyInterface } from "../interface/RepositoryInterface"
 export class StudyRepository implements StudyInterface {
   public async _select(id: string | null, parent = false): Promise<Study[]> {
     //get data from study via study model
-    const data = await StudyModel.find(!!id ? (parent ? { _parent: id } : { _id: id }) : {})
+    const data = await StudyModel.find(
+      !!id ? (parent ? { _deleted: false, _parent: id } : { _deleted: false, _id: id }) : { _deleted: false }
+    )
       .sort({ timestamp: 1 })
       .limit(2_147_483_647)
     return (data as any).map((x: any) => ({
@@ -15,6 +17,7 @@ export class StudyRepository implements StudyInterface {
       _id: undefined,
       _parent: undefined,
       __v: undefined,
+      _deleted: undefined,
       timestamp: undefined,
     }))
   }
@@ -36,7 +39,7 @@ export class StudyRepository implements StudyInterface {
     return {}
   }
   public async _delete(study_id: string): Promise<{}> {
-    await StudyModel.deleteOne({ _id: study_id })
+    await StudyModel.updateOne({ _id: study_id }, { _deleted: true })
     return {}
   }
 }
