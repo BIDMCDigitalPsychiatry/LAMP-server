@@ -47,4 +47,23 @@ export class ParticipantRepository implements ParticipantInterface {
     }
     return {}
   }
+
+  /**  get Participants. There would be a need for pagination of the data. So, its seperately written
+   *
+   * @param id
+   * @param parent
+   * @returns Array Participant[]
+   */
+  public async _lookup(id: string | null, parent = false): Promise<Participant[]> {
+    return (
+      await Database.use("participant").find({
+        selector: id === null ? {} : { [parent ? "#parent" : "_id"]: id },
+        sort: [{ timestamp: "asc" }],
+        limit: 2_147_483_647 /* 32-bit INT_MAX */,
+      })
+    ).docs.map((doc: any) => ({
+      id: doc._id,
+      study_id: doc["#parent"],
+    }))
+  }
 }

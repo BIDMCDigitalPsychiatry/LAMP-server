@@ -56,4 +56,29 @@ export class SensorRepository implements SensorInterface {
     }
     return {}
   }
+
+  /** There would be a need for pagination of the data without settings. So, its seperately written
+   *
+   * @param  string id
+   * @param boolean parent
+   * @returns Array Sensor[]
+   */
+  public async _lookup(id: string | null, parent = false): Promise<Sensor[]> {
+    return (
+      await Database.use("sensor").find({
+        selector: { "#parent": id },
+        sort: [{ timestamp: "asc" }],
+        limit: 2_147_483_647 /* 32-bit INT_MAX */,
+      })
+    ).docs.map((x: any) => ({
+      id: x._id,
+      ...x,
+      _id: undefined,
+      _rev: undefined,
+      settings: undefined,
+      "#parent": undefined,
+      study_id: x["#parent"],
+      timestamp: undefined,
+    }))
+  }
 }
