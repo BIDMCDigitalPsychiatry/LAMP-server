@@ -29,7 +29,7 @@ export interface ParticipantInterface {
   _select(id: string | null, parent?: boolean): Promise<Participant[]>
   _insert(study_id: string, object: {}): Promise<any>
   _update(participant_id: string, object: {}): Promise<{}>
-  _delete(participant_id: string): Promise<{}>  
+  _delete(participant_id: string): Promise<{}> 
   _lookup(id: string | null, parent?: boolean): Promise<Participant[]>
 }
 

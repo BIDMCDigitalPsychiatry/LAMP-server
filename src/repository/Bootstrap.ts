@@ -43,7 +43,8 @@ import {
   TypeInterface,
 } from "./interface/RepositoryInterface"
 import { adminCredential } from "../model/Credential"
-
+import  ioredis  from "ioredis"
+export const RedisClient = new ioredis()
 //initialize driver for db
 let DB_DRIVER:string = ''
 //Identifying the Database driver -- IF the DB in env starts with mongodb://, create mongodb connection
@@ -52,7 +53,7 @@ if (process.env.DB?.startsWith("mongodb://")) {
   DB_DRIVER = "mongodb"
   //MongoDB connection
   mongoose
-    .connect(`${process.env.DB}`, { useUnifiedTopology: true, useNewUrlParser: true } ?? "")
+    .connect(`${process.env.DB}`, { useUnifiedTopology: true, useNewUrlParser: true, dbName:"LampV2" } ?? "")
     .then(() => {
       console.log(`MONGODB adapter in use`)
       adminCredential()
@@ -80,6 +81,8 @@ export const Database: any =
 
 export const uuid = customAlphabet("1234567890abcdefghjkmnpqrstvwxyz", 20)
 export const numeric_uuid = (): string => `U${Math.random().toFixed(10).slice(2, 12)}`
+//Initialize redis client for cacheing purpose
+
 
 /**
  * If the data could not be encrypted or is invalid, returns `undefined`.

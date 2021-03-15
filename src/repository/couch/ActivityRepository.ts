@@ -85,7 +85,6 @@ export class ActivityRepository implements ActivityInterface {
     }
     return {}
   }
-
   
   /** get activities.There would be a need for pagination of the data without settings. So, its seperately written
    * 
@@ -106,7 +105,7 @@ export class ActivityRepository implements ActivityInterface {
       _id: undefined,
       _rev: undefined,
       "#parent": undefined,
-      settings: undefined,
+       settings: undefined,
       study_id: x["#parent"],
       timestamp: undefined,
     }))
