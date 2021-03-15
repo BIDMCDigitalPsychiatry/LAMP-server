@@ -53,4 +53,26 @@ export class ActivityRepository implements ActivityInterface {
     }
     return {}
   }
+
+  /** get activities. There would be a need for pagination of the data without settings. So, its seperately written
+   *
+   * @param id
+   * @param parent
+   * @returns Array Activity[]
+   */
+  public async _lookup(id: string | null, parent = false): Promise<Activity[]> {
+    //get data from  Activity via  Activity model
+    const data = await ActivityModel.find({ _parent: id, _deleted:false }).sort({ timestamp: 1 }).limit(2_147_483_647)
+    return (data as any).map((x: any) => ({
+      id: x._doc._id,
+      ...x._doc,
+      _id: undefined,
+      _parent: undefined,
+      settings: undefined,
+      _deleted: undefined,
+      study_id: x._doc._parent,
+      __v: undefined,
+      timestamp: undefined,
+    }))
+  }
 }
