@@ -29,7 +29,8 @@ export interface ParticipantInterface {
   _select(id: string | null, parent?: boolean): Promise<Participant[]>
   _insert(study_id: string, object: {}): Promise<any>
   _update(participant_id: string, object: {}): Promise<{}>
-  _delete(participant_id: string): Promise<{}>
+  _delete(participant_id: string): Promise<{}>  
+  _lookup(id: string | null, parent?: boolean): Promise<Participant[]>
 }
 
 //Interface for Activity Repository
@@ -38,6 +39,7 @@ export interface ActivityInterface {
   _insert(study_id: string, object: {}): Promise<string>
   _update(activity_id: string, object: {}): Promise<{}>
   _delete(activity_id: string): Promise<{}>
+  _lookup(id: string | null, parent?: boolean): Promise<Activity[]>
 }
 
 //Interface for Sensor Repository
@@ -46,6 +48,7 @@ export interface SensorInterface {
   _insert(study_id: string, object: any): Promise<string>
   _update(sensor_id: string, object: any): Promise<{}>
   _delete(sensor_id: string): Promise<{}>
+  _lookup(id: string | null, parent?: boolean): Promise<Sensor[]>
 }
 
 //Interface for ActivityEvent Repository
