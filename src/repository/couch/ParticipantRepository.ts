@@ -54,7 +54,7 @@ export class ParticipantRepository implements ParticipantInterface {
    * @param parent
    * @returns Array Participant[]
    */
-  public async _lookup(id: string | null, parent = false): Promise<Participant[]> {
+   public async _lookup(id: string | null, parent = false, study_name:string): Promise<Participant[]> {
     return (
       await Database.use("participant").find({
         selector: id === null ? {} : { [parent ? "#parent" : "_id"]: id },
@@ -64,6 +64,7 @@ export class ParticipantRepository implements ParticipantInterface {
     ).docs.map((doc: any) => ({
       id: doc._id,
       study_id: doc["#parent"],
+      study_name: study_name
     }))
   }
 }

@@ -92,7 +92,7 @@ export class ActivityRepository implements ActivityInterface {
    * @param parent 
    * @returns Array Activity[]
    */
-  public async _lookup(id: string | null, parent = false): Promise<Activity[]> {
+   public async _lookup(id: string | null, parent = false, study_name:string): Promise<Activity[]> {
     return (
       await Database.use("activity").find({
         selector: id === null ? {} : { [parent ? "#parent" : "_id"]: id },
@@ -107,6 +107,7 @@ export class ActivityRepository implements ActivityInterface {
       "#parent": undefined,
        settings: undefined,
       study_id: x["#parent"],
+      study_name: study_name,
       timestamp: undefined,
     }))
   }
