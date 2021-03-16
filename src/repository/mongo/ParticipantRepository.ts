@@ -52,7 +52,7 @@ export class ParticipantRepository implements ParticipantInterface {
    * @param parent
    * @returns Array Participant[]
    */
-  public async _lookup(id: string | null, parent = false, study_name:string): Promise<Participant[]> {
+  public async _lookup(id: string | null, parent = false): Promise<Participant[]> {
     //get data from  Participant via  Participant model
     const data = await ParticipantModel.find(!!id ? (parent ? { _parent: id, _deleted:false } : { _id: id, _deleted:false }) : {_deleted:false})
       .sort({ timestamp: 1 })
@@ -60,8 +60,7 @@ export class ParticipantRepository implements ParticipantInterface {
     return (data as any).map((x: any) => ({
       id: x._doc._id,
       study_id: x._doc._parent,
-      _deleted: undefined,
-      study_name:study_name  
+      _deleted: undefined       
     }))
   }
 }
