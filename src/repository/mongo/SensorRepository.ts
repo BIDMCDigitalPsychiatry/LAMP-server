@@ -61,7 +61,7 @@ export class SensorRepository implements SensorInterface {
    * @param boolean parent
    * @returns Array Sensor[]
    */
-  public async _lookup(id: string | null, parent = false): Promise<Sensor[]> {
+   public async _lookup(id: string | null, parent = false,study_name:string): Promise<Sensor[]> {
     const data = await SensorModel.find({ _parent: id, _deleted:false }).sort({ timestamp: 1 }).limit(2_147_483_647)
     return (data as any).map((x: any) => ({
       id: x._doc._id,
@@ -71,6 +71,8 @@ export class SensorRepository implements SensorInterface {
       study_id: x._doc._parent,
       settings: undefined,
       __v: undefined,
+      study_name:study_name,
+      _deleted: undefined,
       timestamp: undefined,
     }))
   }

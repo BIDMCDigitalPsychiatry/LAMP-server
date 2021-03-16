@@ -106,18 +106,17 @@ ResearcherService.get("/researcher", async (req: Request, res: Response) => {
  * Data cacheing for 5 minutes available( IF studyID is given as query param, take data based on that studyID from db itself (i.e cache is ignored))
  * @param STRING researcher_id
  * @param STRING lookup
- * @return ARRAY 
+ * @return ARRAY
  */
 ResearcherService.get("/researcher/:researcher_id/_lookup/:lookup", async (req: Request, res: Response) => {
-  try {    
+  try {
     const _lookup: string = req.params.lookup
     const studyID: string = (!!req.query.study_id ? req.query.study_id : undefined) as any
     let researcher_id: string = req.params.researcher_id
     const _ = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
-    //PREPARE DATA FROM DATABASE    
+    //PREPARE DATA FROM DATABASE
     let activities: object[] = []
     let sensors: object[] = []
-    let participants: object[] = []
     let study_details: object[] = []
     const repo = new Repository()
     const ActivityRepository = repo.getActivityRepository()
@@ -130,84 +129,92 @@ ResearcherService.get("/researcher/:researcher_id/_lookup/:lookup", async (req: 
       ? ((await StudyRepository._select(studyID, false)) as any)
       : ((await StudyRepository._select(researcher_id, true)) as any)
     if (_lookup === "participant") {
-      const cacheData = await RedisClient.get(`${researcher_id}_lookup:participants`)
+      let cacheData: any = {}
+      try {
+        cacheData = await RedisClient.get(`${researcher_id}_lookup:participants`)
+      } catch (error) {}
       if (null === cacheData || undefined !== studyID) {
-        let tags: boolean = false
+        let tags = false
         try {
           //fetch participants based on study and researcher tags  from database
           tags = await TypeRepository._get("a", <string>researcher_id, "to.unityhealth.psychiatry.enabled")
         } catch (error) {}
         for (const study of studies) {
           //Taking Participants count
-          const Participants = await ParticipantRepository._lookup(study.id, true)
+          const Participants = await ParticipantRepository._lookup(study.id, true, study.name)
           study.participants_count = Participants.length
-          for (const participant of Participants) {
-            await participants.push({ ...participant, study_name: study.name })
-          }
           await study_details.push({
             participant_count: Participants.length,
             id: study.id,
             name: study.name,
-            participants: participants,
+            participants: Participants,
           })
         }
-        if (undefined === studyID) {   
-          //add the list of participants and researcher tags to cache for next 5 mts
-          CacheDataQueue.add({
-            key: `${researcher_id}_lookup:participants`,
-            payload: { studies: study_details, unityhealth_settings: tags },
-          })        
+        if (undefined === studyID) {
+          try {
+            //add the list of participants and researcher tags to cache for next 5 mts
+            CacheDataQueue.add({
+              key: `${researcher_id}_lookup:participants`,
+              payload: { studies: study_details, unityhealth_settings: tags },
+            })
+          } catch (error) {}
         }
         res.json({ studies: study_details, unityhealth_settings: tags })
-      } else {        
+      } else {
         const result = JSON.parse(cacheData)
         res.json({ studies: result.studies, unityhealth_settings: result.unityhealth_settings })
       }
     } else if (_lookup === "activity") {
-      //Check in redis cache for activities
-      const cacheData = await RedisClient.get(`${researcher_id}_lookup:activities`)
+      let cacheData: any = {}
+      try {
+        //Check in redis cache for activities
+        cacheData = await RedisClient.get(`${researcher_id}_lookup:activities`)
+      } catch (error) {}
+
       if (null === cacheData || undefined !== studyID) {
         //fetch activities based on study from database
         for (const study of studies) {
-          const Activities = await ActivityRepository._lookup(study.id, true)
-          for (const activity of Activities) {
-            await activities.push({ ...activity, study_name: study.name })
-          }
-          await study_details.push({ activity_count: Activities.length, study_id: study.id, study_name: study.name })
+          await activities.push(await ActivityRepository._lookup(study.id, true, study.name))
+          await study_details.push({ activity_count: activities.length, study_id: study.id, study_name: study.name })
         }
         if (undefined === studyID) {
-          //add the list of activities  to cache for next 5 mts
-          CacheDataQueue.add({
-            key: `${researcher_id}_lookup:activities`,
-            payload: { studies: study_details, activities: activities },
-          })
+          try {
+            //add the list of activities  to cache for next 5 mts
+            CacheDataQueue.add({
+              key: `${researcher_id}_lookup:activities`,
+              payload: { studies: study_details, activities: !!activities ? activities[0] : [] },
+            })
+          } catch (error) {}
         }
-        res.json({ studies: study_details, activities: activities })
+        res.json({ studies: study_details, activities: !!activities ? activities[0] : [] })
       } else {
         const result = JSON.parse(cacheData)
         res.json({ studies: result.studies, activities: result.activities })
       }
     } else if (_lookup === "sensor") {
-      //Check in redis cache for Sensors
-      const cacheData = await RedisClient.get(`${researcher_id}_lookup:sensors`)
+      let cacheData: any = {}
+      try {
+        //Check in redis cache for Sensors
+        cacheData = await RedisClient.get(`${researcher_id}_lookup:sensors`)
+      } catch (error) {}
+
       if (null === cacheData || undefined !== studyID) {
         //fetch sensors based on study from database
         for (const study of studies) {
-          const Sensors = await SensorRepository._lookup(study.id, true)
-          for (const sensor of Sensors) {
-            await sensors.push({ ...sensor, study_name: study.name })
-          }
-          await study_details.push({ sensor_count: Sensors.length, study_id: study.id, study_name: study.name })
+          await sensors.push(await SensorRepository._lookup(study.id, true, study.name))
+          await study_details.push({ sensor_count: sensors.length, study_id: study.id, study_name: study.name })
         }
         if (undefined === studyID) {
-          //add the list of sensors to cache for next 5 mts
-          CacheDataQueue.add({
-            key: `${researcher_id}_lookup:sensors`,
-            payload: { studies: study_details, sensors: sensors },
-          })
+          try {
+            //add the list of sensors to cache for next 5 mts
+            CacheDataQueue.add({
+              key: `${researcher_id}_lookup:sensors`,
+              payload: { studies: study_details, sensors: !!sensors ? sensors[0] : [] },
+            })
+          } catch (error) {}
         }
 
-        res.json({ studies: study_details, sensors: sensors })
+        res.json({ studies: study_details, sensors: !!sensors ? sensors[0] : [] })
       } else {
         const result = JSON.parse(cacheData)
         res.json({ studies: result.studies, sensors: result.sensors })
@@ -222,9 +229,9 @@ ResearcherService.get("/researcher/:researcher_id/_lookup/:lookup", async (req: 
 /** Study lookup -Take study based participant's tags,activity_events,sensor_events
  * lookup can be  participant only
  * Data cacheing for 5 minutes
- *  @param study_id STRING 
- *  @param lookup STRING 
- *  @param mode STRING 
+ *  @param study_id STRING
+ *  @param lookup STRING
+ *  @param mode STRING
  *  @return JSON
  *  mode 3- return  lamp.name and to.unityhealth.psychiatry.settings,4-return  lamp.name only
  *  mode 1 - return only gps,accelerometer,analytics, mode 2- return only activity_event data
@@ -249,11 +256,11 @@ ResearcherService.get("/study/:study_id/_lookup/:lookup/mode/:mode", async (req:
           if (mode === 3 || mode === 4) {
             //fetch data from redis if any
             const cacheData = await RedisClient.get(`${ParticipantIDs[index].id}:name`)
-            if (null !== cacheData) {              
+            if (null !== cacheData) {
               const result = JSON.parse(cacheData)
               ParticipantIDs[index].name = result.name
-            } else {             
-              let tags_participant_name:string = ""
+            } else {
+              let tags_participant_name = ""
               try {
                 tags_participant_name = await TypeRepository._get("a", ParticipantIDs[index].id, "lamp.name")
                 ParticipantIDs[index].name = tags_participant_name
@@ -269,12 +276,12 @@ ResearcherService.get("/study/:study_id/_lookup/:lookup/mode/:mode", async (req:
           //Fetch participant's unity settings i.e mode=3
           if (mode === 3) {
             //fetch data from redis if any
-            const cacheData = await RedisClient.get(`${ParticipantIDs[index].id}:unity_settings`)            
-            if (null !== cacheData) {             
+            const cacheData = await RedisClient.get(`${ParticipantIDs[index].id}:unity_settings`)
+            if (null !== cacheData) {
               const result = JSON.parse(cacheData)
               ParticipantIDs[index].unity_settings = result.unity_settings
-            } else {              
-              let tags_participant_unity_setting: {}={}
+            } else {
+              let tags_participant_unity_setting: {} = {}
               try {
                 tags_participant_unity_setting = await TypeRepository._get(
                   "a",

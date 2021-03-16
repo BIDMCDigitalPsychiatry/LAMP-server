@@ -4,6 +4,7 @@ import { DynamicAttachment } from "../model/Type"
 import { SecurityContext, ActionContext, _verify } from "./Security"
 import jsonata from "jsonata"
 import { Repository } from "../repository/Bootstrap"
+import { RedisClient } from "../repository/Bootstrap"
 
 // In migrating from the legacy fixed /type/:id/... paths to the modern /:type/:id/ paths,
 // we need to compute all the paths up here once and use them later as arrays.
@@ -36,6 +37,13 @@ TypeService.get(_parent_routes, async (req: Request, res: Response) => {
     type_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], type_id)
     let output = { data: await TypeRepository._parent(type_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
+    try {
+      //add the list of keys to get deleted
+      await RedisClient.del(`${type_id}_lookup:participants`)
+      await RedisClient.del(`${type_id}_lookup:activities`)
+      await RedisClient.del(`${type_id}_lookup:sensors`)
+    } catch (error) {}
+
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
