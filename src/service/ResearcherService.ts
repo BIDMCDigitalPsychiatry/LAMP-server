@@ -134,20 +134,25 @@ ResearcherService.get("/researcher/:researcher_id/_lookup/:lookup", async (req: 
         cacheData = await RedisClient.get(`${researcher_id}_lookup:participants`)
       } catch (error) {}
       if (null === cacheData || undefined !== studyID) {
+        console.log("cache data absent for activities")
         let tags = false
         try {
           //fetch participants based on study and researcher tags  from database
           tags = await TypeRepository._get("a", <string>researcher_id, "to.unityhealth.psychiatry.enabled")
         } catch (error) {}
         for (const study of studies) {
+          let participants: object[] = []
           //Taking Participants count
-          const Participants = await ParticipantRepository._lookup(study.id, true, study.name)
+          const Participants: any = await ParticipantRepository._lookup(study.id, true)
           study.participants_count = Participants.length
+          for (const participant of Participants) {
+            await participants.push({ ...participant, study_name: study.name })
+          }
           await study_details.push({
             participant_count: Participants.length,
             id: study.id,
             name: study.name,
-            participants: Participants,
+            participants: participants,
           })
         }
         if (undefined === studyID) {
@@ -161,6 +166,7 @@ ResearcherService.get("/researcher/:researcher_id/_lookup/:lookup", async (req: 
         }
         res.json({ studies: study_details, unityhealth_settings: tags })
       } else {
+        console.log("cache data present for activities")
         const result = JSON.parse(cacheData)
         res.json({ studies: result.studies, unityhealth_settings: result.unityhealth_settings })
       }
@@ -172,22 +178,27 @@ ResearcherService.get("/researcher/:researcher_id/_lookup/:lookup", async (req: 
       } catch (error) {}
 
       if (null === cacheData || undefined !== studyID) {
+        console.log("cache data absent for activities")
         //fetch activities based on study from database
         for (const study of studies) {
-          await activities.push(await ActivityRepository._lookup(study.id, true, study.name))
-          await study_details.push({ activity_count: activities.length, study_id: study.id, study_name: study.name })
+          const Activities = await ActivityRepository._lookup(study.id, true)
+          for (const activity of Activities) {
+            await activities.push({ ...activity, study_name: study.name })
+          }
+          await study_details.push({ activity_count: Activities.length, study_id: study.id, study_name: study.name })
         }
         if (undefined === studyID) {
           try {
             //add the list of activities  to cache for next 5 mts
             CacheDataQueue.add({
               key: `${researcher_id}_lookup:activities`,
-              payload: { studies: study_details, activities: !!activities ? activities[0] : [] },
+              payload: { studies: study_details, activities: activities },
             })
           } catch (error) {}
         }
-        res.json({ studies: study_details, activities: !!activities ? activities[0] : [] })
+        res.json({ studies: study_details, activities: activities })
       } else {
+        console.log("cache data present for activities")
         const result = JSON.parse(cacheData)
         res.json({ studies: result.studies, activities: result.activities })
       }
@@ -199,23 +210,27 @@ ResearcherService.get("/researcher/:researcher_id/_lookup/:lookup", async (req: 
       } catch (error) {}
 
       if (null === cacheData || undefined !== studyID) {
+        console.log("cache data absent for sensors")
         //fetch sensors based on study from database
         for (const study of studies) {
-          await sensors.push(await SensorRepository._lookup(study.id, true, study.name))
-          await study_details.push({ sensor_count: sensors.length, study_id: study.id, study_name: study.name })
+          const Sensors = await SensorRepository._lookup(study.id, true)
+          for (const sensor of Sensors) {
+            await sensors.push({ ...sensor, study_name: study.name })
+          }
+          await study_details.push({ sensor_count: Sensors.length, study_id: study.id, study_name: study.name })
         }
         if (undefined === studyID) {
           try {
             //add the list of sensors to cache for next 5 mts
             CacheDataQueue.add({
               key: `${researcher_id}_lookup:sensors`,
-              payload: { studies: study_details, sensors: !!sensors ? sensors[0] : [] },
+              payload: { studies: study_details, sensors: sensors },
             })
           } catch (error) {}
         }
-
-        res.json({ studies: study_details, sensors: !!sensors ? sensors[0] : [] })
+        res.json({ studies: study_details, sensors: sensors })
       } else {
+        console.log("cache data present for sensors")
         const result = JSON.parse(cacheData)
         res.json({ studies: result.studies, sensors: result.sensors })
       }
