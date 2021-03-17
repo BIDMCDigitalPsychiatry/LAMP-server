@@ -93,7 +93,7 @@ StudyService.delete("/study/:study_id", async (req: Request, res: Response) => {
       payload: { action: "delete", study_id: study_id, researcher_id: parent["Researcher"] },
     })
 
-    res.json()
+    res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
