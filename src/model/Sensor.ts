@@ -1,7 +1,13 @@
+import { Identifier, Timestamp } from "./Type"
 import mongoose from "mongoose"
 const { Schema } = mongoose
 
-export class Sensor {}
+export class Sensor {
+  public id?: Identifier
+  public spec?: Identifier
+  public name?: string
+  public settings?: any
+}
 
 //Mongo Db Model for sensor collection
 export const SensorModel = mongoose.model<mongoose.Document>(
