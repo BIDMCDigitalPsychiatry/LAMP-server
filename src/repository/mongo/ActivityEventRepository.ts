@@ -25,6 +25,9 @@ export class ActivityEventRepository implements ActivityEventInterface {
     if (!!to_date) {
       filteredQuery.timestamp = { $lte: to_date }
     }
+    if (!!from_date && !!to_date) {
+      filteredQuery.timestamp = { $gte: from_date, $lte: to_date }
+    }
     const all_res = await ActivityEventModel.find(filteredQuery)
       .sort({ timestamp: !!limit && limit < 0 ? 1 : -1 })
       .limit(limit ?? 1)
