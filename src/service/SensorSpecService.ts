@@ -1,7 +1,7 @@
 import { Request, Response, Router } from "express"
 import { SensorSpec } from "../model/SensorSpec"
 import { SecurityContext, ActionContext, _verify } from "./Security"
-import jsonata from "jsonata"
+const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository } from "../repository/Bootstrap"
 
 export const SensorSpecService = Router()

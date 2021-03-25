@@ -1,7 +1,7 @@
 import { Request, Response, Router } from "express"
 import { Activity } from "../model/Activity"
 import { SecurityContext, ActionContext, _verify } from "./Security"
-import jsonata from "jsonata"
+const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { UpdateToSchedulerQueue } from "../utils/queue/UpdateToSchedulerQueue"
 import { DeleteFromSchedulerQueue } from "../utils/queue/DeleteFromSchedulerQueue"
 import { PubSubAPIListenerQueue } from "../utils/queue/PubSubAPIListenerQueue"

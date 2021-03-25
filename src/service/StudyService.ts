@@ -2,7 +2,7 @@ import { Request, Response, Router } from "express"
 import { Study } from "../model/Study"
 
 import { SecurityContext, ActionContext, _verify } from "./Security"
-import jsonata from "jsonata"
+const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { PubSubAPIListenerQueue } from "../utils/queue/PubSubAPIListenerQueue"
 import { UpdateToSchedulerQueue } from "../utils/queue/UpdateToSchedulerQueue"
 import { Repository } from "../repository/Bootstrap"

@@ -1,7 +1,7 @@
 import { Request, Response, Router } from "express"
 import { Sensor } from "../model/Sensor"
 import { SecurityContext, ActionContext, _verify } from "./Security"
-import jsonata from "jsonata"
+const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { PubSubAPIListenerQueue } from "../utils/queue/PubSubAPIListenerQueue"
 import { Repository } from "../repository/Bootstrap"
 

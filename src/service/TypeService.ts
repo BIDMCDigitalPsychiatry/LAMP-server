@@ -2,7 +2,7 @@ import { Request, Response, Router } from "express"
 import { DynamicAttachment } from "../model/Type"
 
 import { SecurityContext, ActionContext, _verify } from "./Security"
-import jsonata from "jsonata"
+const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository } from "../repository/Bootstrap"
 import { RedisClient } from "../repository/Bootstrap"
 
