@@ -80,4 +80,48 @@ ActivityEventService.get("/participant/:participant_id/activity_event", async (r
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
+/** Get activity events  for the last 7 days (or the max_duration given in the input). 7 is the highest duration that can be applied
+ * @param STRING study_id
+ * @param STRING activity_id 
+ * @queryparam STRING max_duration  
+ * @queryparam STRING study_id 
+ * @queryparam STRING to 
+ * @return ARRAY ActivityEvent
+ */
+ ActivityEventService.get("/participant/:participant_id/activity/:activity_id/activity_event", async (req: Request, res: Response) => {
+  try {
+    const fromTime: number | undefined = Number.parse((req.query as any).to)
+    const date= new Date(<number>fromTime)    
+    let maxDuration: number | undefined =  Number.parse((req.query as any).max_duration) ?? 7 
+    if (maxDuration>7) maxDuration=7    
+    const from: number | undefined =date.setDate(date.getDate() - maxDuration)
+    const to: number | undefined = Number.parse((req.query as any).to)     
+    const study_id:string = req.query.study_id as string
+    let participant_id = req.params.participant_id
+    const activity_id = req.params.activity_id    
+    if(fromTime === undefined || study_id === undefined)  
+     throw new Error("500.fetch-failed")
+    participant_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], participant_id)  
+    const repo = new Repository()    
+    const StudyRepository = repo.getStudyRepository()
+    const ActivityEventRepository = repo.getActivityEventRepository()    
+    const Studies= await StudyRepository._select(study_id, false)    
+    let data:object[] = []   
+    //Need  to include study_name, so the return type should be tweaked as any. Limit set as 500 with the -
+    //assumption that not more than 500 events comes for a participant within past 7 days
+    let activity_events:any =  await ActivityEventRepository._select(participant_id,activity_id, from, to, 500)       
+    for (const event of activity_events) {
+      event.activity_name = event.name    
+      event.participant_id = participant_id      
+      event.study_name =Studies[0].name
+      event.study_id =study_id
+      await data.push(event)
+    } 
+     res.json({data:data})
+  } catch (e) {
+    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
+    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
+  }
+})
 // TODO: activity/* and sensor/* entry
+

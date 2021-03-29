@@ -136,15 +136,17 @@ ActivityService.get("/participant/:participant_id/activity", async (req: Request
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
+//tweaked the service to take input param ignore_binary to handle binary data
 ActivityService.get("/study/:study_id/activity", async (req: Request, res: Response) => {
   try {
     const repo = new Repository()
     const ActivityRepository = repo.getActivityRepository()
-    let study_id = req.params.study_id
-    study_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], study_id)
-    let output = { data: await ActivityRepository._select(study_id, true) }
+    let study_id = req.params.study_id    
+    study_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], study_id) 
+    let ignore_binary: boolean = !!req.query.ignore_binary ? (req.query.ignore_binary == "true" ? true : false) : false       
+    let output = { data: await ActivityRepository._select(study_id, true, ignore_binary) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
-    res.json(output)
+    res.json(output)    
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
