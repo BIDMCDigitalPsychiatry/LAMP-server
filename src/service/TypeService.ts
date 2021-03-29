@@ -39,9 +39,9 @@ TypeService.get(_parent_routes, async (req: Request, res: Response) => {
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     try {
       //add the list of keys to get deleted
-      await RedisClient.del(`${type_id}_lookup:participants`)
-      await RedisClient.del(`${type_id}_lookup:activities`)
-      await RedisClient.del(`${type_id}_lookup:sensors`)
+      await RedisClient?.del(`${type_id}_lookup:participants`)
+      await RedisClient?.del(`${type_id}_lookup:activities`)
+      await RedisClient?.del(`${type_id}_lookup:sensors`)
     } catch (error) {}
 
     res.json(output)

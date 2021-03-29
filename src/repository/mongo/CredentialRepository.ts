@@ -4,34 +4,6 @@ import { CredentialModel } from "../../model/Credential"
 import { CredentialInterface } from "../interface/RepositoryInterface"
 
 export class CredentialRepository implements CredentialInterface {
-  // Lazy evaluation of root password if we haven't already loaded it.
-  public async _adminCredential(admin_secret_key: string): Promise<boolean> {
-    let _all: string[] = []
-    try {
-      ;(
-        await CredentialModel.find({ _deleted: false, origin: null, access_key: "admin" }).limit(2_147_483_647)
-      ).filter((x: any) => _all.push(x.secret_key))
-      if (0 === _all.length) {
-        console.dir(
-          `Because no master configuration could be located, an initial administrator password was generated and saved for this installation.`
-        )
-        const p = crypto.randomBytes(32).toString("hex")
-        console.table({ "Administrator Password": p })
-        _all = [Encrypt(p, "AES256") as string]
-        await new CredentialModel({
-          origin: null,
-          access_key: "admin",
-          secret_key: _all[0],
-          description: "System Administrator Credential",
-        } as any).save()
-      }
-    } catch (e) {
-      console.dir(e)
-      return false
-    }
-
-    return _all.filter((key) => Decrypt(key, "AES256") === admin_secret_key).length > 0
-  }
   // if used with secret_key, will throw error if mismatch, else, will return confirmation of existence
   public async _find(access_key: string, secret_key?: string): Promise<string> {
     const res = (
@@ -90,13 +62,5 @@ export class CredentialRepository implements CredentialInterface {
     await CredentialModel.deleteOne({ _id: oldCred })
 
     return {}
-  }
-  public async _packCosignerData(from: string, to: string): Promise<string> {
-    throw new Error("503.unimplemented")
-  }
-  public _unpackCosignerData(authStr: string): [string, any] {
-    const cosignData = authStr.startsWith("LAMP") ? JSON.parse(Decrypt(authStr.slice(4), "AES256") || "") : undefined
-    if (cosignData !== undefined) return [Object.values(cosignData.cosigner).join(":"), cosignData]
-    else return [authStr, undefined]
   }
 }

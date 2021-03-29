@@ -131,7 +131,7 @@ ResearcherService.get("/researcher/:researcher_id/_lookup/:lookup", async (req: 
     if (_lookup === "participant") {
       let cacheData: any = {}
       try {
-        cacheData = await RedisClient.get(`${researcher_id}_lookup:participants`)
+        cacheData = await RedisClient?.get(`${researcher_id}_lookup:participants`)
       } catch (error) {}
       if (null === cacheData || undefined !== studyID) {
         console.log("cache data absent for activities")
@@ -174,7 +174,7 @@ ResearcherService.get("/researcher/:researcher_id/_lookup/:lookup", async (req: 
       let cacheData: any = {}
       try {
         //Check in redis cache for activities
-        cacheData = await RedisClient.get(`${researcher_id}_lookup:activities`)
+        cacheData = await RedisClient?.get(`${researcher_id}_lookup:activities`)
       } catch (error) {}
 
       if (null === cacheData || undefined !== studyID) {
@@ -206,7 +206,7 @@ ResearcherService.get("/researcher/:researcher_id/_lookup/:lookup", async (req: 
       let cacheData: any = {}
       try {
         //Check in redis cache for Sensors
-        cacheData = await RedisClient.get(`${researcher_id}_lookup:sensors`)
+        cacheData = await RedisClient?.get(`${researcher_id}_lookup:sensors`)
       } catch (error) {}
 
       if (null === cacheData || undefined !== studyID) {
@@ -270,7 +270,7 @@ ResearcherService.get("/study/:study_id/_lookup/:lookup/mode/:mode", async (req:
           //Fetch participant's name i.e mode=3 OR 4
           if (mode === 3 || mode === 4) {
             //fetch data from redis if any
-            const cacheData = await RedisClient.get(`${ParticipantIDs[index].id}:name`)
+            const cacheData = await RedisClient?.get(`${ParticipantIDs[index].id}:name`) || null
             if (null !== cacheData) {
               const result = JSON.parse(cacheData)
               ParticipantIDs[index].name = result.name
@@ -291,7 +291,7 @@ ResearcherService.get("/study/:study_id/_lookup/:lookup/mode/:mode", async (req:
           //Fetch participant's unity settings i.e mode=3
           if (mode === 3) {
             //fetch data from redis if any
-            const cacheData = await RedisClient.get(`${ParticipantIDs[index].id}:unity_settings`)
+            const cacheData = await RedisClient?.get(`${ParticipantIDs[index].id}:unity_settings`) || null
             if (null !== cacheData) {
               const result = JSON.parse(cacheData)
               ParticipantIDs[index].unity_settings = result.unity_settings
@@ -316,7 +316,7 @@ ResearcherService.get("/study/:study_id/_lookup/:lookup/mode/:mode", async (req:
           //Fetch participant's gps data i.e mode=1
           if (mode === 1) {
             //fetch data from redis if any
-            const cacheData = await RedisClient.get(`${ParticipantIDs[index].id}:gps`)
+            const cacheData = await RedisClient?.get(`${ParticipantIDs[index].id}:gps`) || null
             if (null !== cacheData) {
               const result = JSON.parse(cacheData)
               ParticipantIDs[index].gps = result.gps
@@ -337,7 +337,7 @@ ResearcherService.get("/study/:study_id/_lookup/:lookup/mode/:mode", async (req:
           //Fetch participant's accelerometer data i.e mode=1
           if (mode === 1) {
             //fetch data from redis if any
-            const cacheData = await RedisClient.get(`${ParticipantIDs[index].id}:accelerometer`)
+            const cacheData = await RedisClient?.get(`${ParticipantIDs[index].id}:accelerometer`) || null
             if (null !== cacheData) {
               const result = JSON.parse(cacheData)
               ParticipantIDs[index].accelerometer = result.accelerometer
@@ -370,7 +370,7 @@ ResearcherService.get("/study/:study_id/_lookup/:lookup/mode/:mode", async (req:
           //Fetch participant's analytics data i.e mode=1
           if (mode === 1) {
             //fetch data from redis if any
-            const cacheData = await RedisClient.get(`${ParticipantIDs[index].id}:analytics`)
+            const cacheData = await RedisClient?.get(`${ParticipantIDs[index].id}:analytics`) || null
             if (null !== cacheData) {
               const result = JSON.parse(cacheData)
               ParticipantIDs[index].analytics = result.analytics
@@ -395,7 +395,7 @@ ResearcherService.get("/study/:study_id/_lookup/:lookup/mode/:mode", async (req:
           //Fetch participant's active data i.e mode=2
           if (mode === 2) {
             //fetch data from redis if any
-            const cacheData = await RedisClient.get(`${ParticipantIDs[index].id}:active`)
+            const cacheData = await RedisClient?.get(`${ParticipantIDs[index].id}:active`) || null
             if (null !== cacheData) {
               const result = JSON.parse(cacheData)
               ParticipantIDs[index].active = result.active

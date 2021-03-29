@@ -106,12 +106,9 @@ export interface TypeInterface {
 
 //Interface for Credential Repository
 export interface CredentialInterface {
-  _adminCredential(admin_secret_key: string): Promise<boolean>
   _select(type_id: string): Promise<any[]>
   _find(access_key: string, secret_key?: string): Promise<string>
   _insert(type_id: string, credential: any): Promise<{}>
   _update(type_id: string, access_key: string, credential: any): Promise<{}>
   _delete(type_id: string, access_key: string): Promise<{}>
-  _packCosignerData(from: string, to: string): Promise<string>
-  _unpackCosignerData(authStr: string): [string, any]
 }
