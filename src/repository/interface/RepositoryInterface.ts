@@ -101,7 +101,6 @@ export interface TypeInterface {
   _set(mode: any, type: string, type_id: string, key: string, value?: any): Promise<{}>
   _get(mode: any, type_id: string, attachment_key: string): Promise<any | undefined>
   _list(mode: any, type_id: string): Promise<string[]>
-  _invoke(attachment: {}, context: any): Promise<any | undefined>
 }
 
 //Interface for Credential Repository
