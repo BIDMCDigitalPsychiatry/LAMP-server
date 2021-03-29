@@ -13,7 +13,7 @@ export class CredentialRepository implements CredentialInterface {
     if (res.length !== 0) return (res[0] as any).origin
     throw new Error("403.no-such-credentials")
   }
-  public async _select(type_id: string): Promise<any[]> {
+  public async _select(type_id: string | null): Promise<any[]> {
     const res = await CredentialModel.find({ _deleted: false, origin: type_id }).limit(2_147_483_647)
     return res.map((x: any) => ({
       ...x._doc,
@@ -23,7 +23,7 @@ export class CredentialRepository implements CredentialInterface {
       _deleted: undefined,
     }))
   }
-  public async _insert(type_id: string, credential: any): Promise<{}> {
+  public async _insert(type_id: string | null, credential: any): Promise<{}> {
     if (credential.origin === "me") {
       // FIXME: context substitution doesn't actually work within the object here, so do it manually.
       credential.origin = type_id
@@ -43,7 +43,7 @@ export class CredentialRepository implements CredentialInterface {
     } as any).save()
     return {}
   }
-  public async _update(type_id: string, access_key: string, credential: any): Promise<{}> {
+  public async _update(type_id: string | null, access_key: string, credential: any): Promise<{}> {
     const res: any = await CredentialModel.findOne({ origin: type_id, access_key: access_key })
     if (res === null) throw new Error("404.no-such-credentials")
     const oldCred = res._id as any
@@ -54,7 +54,7 @@ export class CredentialRepository implements CredentialInterface {
 
     return {}
   }
-  public async _delete(type_id: string, access_key: string): Promise<{}> {
+  public async _delete(type_id: string | null, access_key: string): Promise<{}> {
     const res = await CredentialModel.findOne({ origin: type_id, access_key: access_key })
     if (res === null) throw new Error("404.no-such-credentials")
     const oldCred = res._id as any

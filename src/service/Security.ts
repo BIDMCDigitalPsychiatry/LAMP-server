@@ -28,13 +28,13 @@ export async function _createAuthSubject(authHeader: string | undefined): Promis
 // Simple Role-Based-Access-Control (RBAC) to answer: Can (subject) (verb) (object)?
 // The (subject) is indicated as the Authorization header of the HTTP call and passed in here.
 // The (verb) is indicated in the function that calls _verify (ie. Activity.create).
-// The (object) is provided in thhe URL (usually) and passed in here.
+// The (object) is provided in thhe URL (usually) and passed in here (either string ID or null for "root").
 // - Additionally, the "type" array allows restricting hierarchical ownership of subject -> object.
 //   Use [] (empty array) to indicate that ONLY root credentials are allowed to (verb).
 export async function _verify(
   authSubject: AuthSubject | string | undefined,
   authType: Array<"self" | "sibling" | "parent"> /* 'root' = [] */,
-  authObject?: string
+  authObject?: string | null
 ): Promise<string> {
   const TypeRepository = new Repository().getTypeRepository()
 
