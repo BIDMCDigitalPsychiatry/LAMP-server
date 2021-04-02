@@ -3,10 +3,10 @@ import https from "https"
 import express, { Application } from "express"
 import cors from "cors"
 import morgan from "morgan"
-import { ListenerAPI, PushNotificationAPI, OpenAPISchema, HTTPS_CERT } from "./utils"
-import { ActivityScheduler, cleanAllQueues } from "./utils/ActivitySchedulerJob"
+import { HTTPS_CERT } from "./utils"
 import API from "./service"
 import { Bootstrap } from "./repository/Bootstrap"
+import { ActivityScheduler, cleanAllQueues } from "./utils/ActivitySchedulerJob"
 
 // Configure the base Express app and middleware.
 export const app: Application = express()
@@ -20,15 +20,10 @@ app.use(express.urlencoded({ extended: true }))
 // Initialize and configure the application.
 async function main(): Promise<void> {
   console.group("Initializing LAMP API server...")
-
-  // Initialize the database or confirm that it is online.
   await Bootstrap()
 
   // Establish the API router, as well as a few individual utility routes.
   app.use("/", API)
-  app.use("/subscribe", ListenerAPI)
-  app.use("/send", PushNotificationAPI)
-  app.get("/", async (req, res) => res.json(OpenAPISchema))
   app.get(["/favicon.ico", "/service-worker.js"], (req, res) => res.status(204))
   app.all("*", (req, res) => res.status(404).json({ message: "404.api-endpoint-unimplemented" }))
   console.log("Server routing initialized.")
