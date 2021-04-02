@@ -1,6 +1,6 @@
 import Bull from "bull"
 import fetch from "node-fetch"
-import { ActivityScheduler, removeDuplicateParticipants } from "../../utils/ActivitySchedulerJob"
+import { ActivityScheduler, removeDuplicateParticipants } from "./ActivitySchedulerJob"
 import { Mutex } from "async-mutex"
 const clientLock = new Mutex()
 //Initialise Scheduler Queue

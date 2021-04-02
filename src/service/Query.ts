@@ -8,6 +8,10 @@ import { Repository } from "../repository/Bootstrap"
 const LIMIT_NAN = 1000
 const LIMIT_MAX = 2_147_483_647
 
+// TODO: ActivityEvent_create, SensorEvent_create, Activity_create, Activity_update, Activity_delete,
+//       Sensor_create, Sensor_update, Sensor_delete, Study_create, Study_update, Study_delete,
+//       Researcher_create, Researcher_update, Researcher_delete
+
 export const QueryAPI = Router()
 export async function Query(query: string, auth: any): Promise<any> {
   return await jsonata(query).evaluate(
@@ -68,14 +72,23 @@ export async function Query(query: string, auth: any): Promise<any> {
           console.log(` -- Particpant_view: ${((Date.now() - _start)).toFixed(2)} ms`)
           return x 
         },
-        // Researcher_all: async () => {
-        //   await _verify(auth, [])
-        //   return await ResearcherRepository._select()
-        // },
-        // Researcher_view: async (researcher_id: string) => {
-        //   researcher_id = await _verify(auth, ["self", "sibling", "parent"], researcher_id)
-        //   return await ResearcherRepository._select(researcher_id)
-        // },
+        Researcher_all: async () => {
+          const ResearcherRepository = new Repository().getResearcherRepository()
+          await _verify(auth, [])
+          let _start = Date.now()
+          let x = await ResearcherRepository._select()  
+          console.log(` -- Researcher_all: ${((Date.now() - _start)).toFixed(2)} ms`)
+          return x
+        },
+        Researcher_view: async (researcher_id: string) => {
+          const ResearcherRepository = new Repository().getResearcherRepository()
+          researcher_id = await _verify(auth, ["self", "parent"], researcher_id)
+          let _start = Date.now()
+          let x = await ResearcherRepository._select(researcher_id)
+          console.log(` -- Researcher_all: ${((Date.now() - _start)).toFixed(2)} ms`)
+          return x 
+        },
+        //Researcher_create: async () => {},
         SensorEvent_all: async (participant_id: string, origin: string, from: number, to: number, limit: number) => {
           const SensorEventRepository = new Repository().getSensorEventRepository()
           participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
@@ -146,13 +159,24 @@ export async function Query(query: string, auth: any): Promise<any> {
           const TypeRepository = new Repository().getTypeRepository()
           type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
           let _start = Date.now()
-          let x = null
+          let x = null // error
           try {
             x = await TypeRepository._get("a", <string>type_id, attachment_key)
           } catch (e) {}
           console.log(` -- Tags_view: ${((Date.now() - _start)).toFixed(2)} ms`)
           return x 
         },
+        Tags_create: async (type_id: string, attachment_key: string, target: string, attachment_value: string) => {
+          const TypeRepository = new Repository().getTypeRepository()
+          type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
+          let _start = Date.now()
+          let x = null // error
+          try {
+            x = await TypeRepository._set("a", target, <string>type_id, attachment_key, attachment_value)
+          } catch (e) {}
+          console.log(` -- Tags_create: ${((Date.now() - _start)).toFixed(2)} ms`)
+          return x 
+        }
       }
     )
 }
@@ -160,10 +184,9 @@ export async function Query(query: string, auth: any): Promise<any> {
 QueryAPI.post("/", async (req, res) => {
   try {
     let _start = Date.now()
-
     // Make sure to cache the AuthSubject so we don't keep calling into CredentialRepository._find().
-    const data = await Query(req.body ?? "", await _createAuthSubject(req.get("Authorization")))
-
+    const cachedAuth = await _createAuthSubject(req.get("Authorization"))
+    const data = await Query(req.body ?? "", cachedAuth)
     // Log the query itself like an HTTP request with how long it took.
     console.log(`Query: ${((Date.now() - _start)).toFixed(2)} ms`)
     res.status(200).json(data)
