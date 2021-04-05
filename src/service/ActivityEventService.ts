@@ -1,6 +1,6 @@
 import { Request, Response, Router } from "express"
 import { ActivityEvent } from "../model/ActivityEvent"
-import { SecurityContext, ActionContext, _verify } from "./Security"
+import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { PubSubAPIListenerQueue } from "../utils/queue/PubSubAPIListenerQueue"
 import { Repository } from "../repository/Bootstrap"
@@ -9,55 +9,66 @@ import { Repository } from "../repository/Bootstrap"
 const LIMIT_NAN = 1000
 const LIMIT_MAX = 2_147_483_647
 
-export const ActivityEventService = Router()
-ActivityEventService.post("/participant/:participant_id/activity_event", async (req: Request, res: Response) => {
-  try {
-    const repo = new Repository()
-    const ActivityEventRepository = repo.getActivityEventRepository()
-    let timestamp = new Date().getTime()
-    let participant_id = req.params.participant_id
-    const activity_event = req.body
-    participant_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], participant_id)
-    const output = {
-      data: await ActivityEventRepository._insert(
-        participant_id,
-        Array.isArray(activity_event) ? activity_event : [activity_event]
-      ),
-    }
+export class _ActivityEventService {
+
+  public static async list(auth: any, participant_id: string, origin: string | undefined, from: number | undefined, to: number | undefined, limit: number | undefined) {
+    const ActivityEventRepository = new Repository().getActivityEventRepository()
+    limit = Math.min(Math.max(limit ?? LIMIT_NAN, -LIMIT_MAX), LIMIT_MAX)
+    participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
+    return await ActivityEventRepository._select(participant_id, origin, from, to, limit)
+  }
+
+  public static async create(auth: any, participant_id: string, activity_events: any[]) {
+    const ActivityEventRepository = new Repository().getActivityEventRepository()
+    participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
+    let data = await ActivityEventRepository._insert(participant_id, activity_events)
 
     //publishing data for activity_event add api((Token will be created in PubSubAPIListenerQueue consumer, as request is assumed as array and token should be created individually)
     PubSubAPIListenerQueue.add({
       topic: `activity_event`,
       action: "create",
-      timestamp: timestamp,
+      timestamp: Date.now(),
       participant_id: participant_id,
-      payload: Array.isArray(activity_event) ? activity_event : [activity_event],
+      payload: activity_events,
     })
 
     PubSubAPIListenerQueue.add({
       topic: `participant.*.activity_event`,
       action: "create",
-      timestamp: timestamp,
+      timestamp: Date.now(),
       participant_id: participant_id,
-      payload: Array.isArray(activity_event) ? activity_event : [activity_event],
+      payload: activity_events,
     })
 
     PubSubAPIListenerQueue.add({
       topic: `activity.*.activity_event`,
       action: "create",
-      timestamp: timestamp,
+      timestamp: Date.now(),
       participant_id: participant_id,
-      payload: Array.isArray(activity_event) ? activity_event : [activity_event],
+      payload: activity_events,
     })
 
     PubSubAPIListenerQueue.add({
       topic: `participant.*.activity.*.activity_event`,
       action: "create",
-      timestamp: timestamp,
+      timestamp: Date.now(),
       participant_id: participant_id,
-      payload: Array.isArray(activity_event) ? activity_event : [activity_event],
+      payload: activity_events,
     })
-    res.json(output)
+    return data
+  }
+}
+
+export const ActivityEventService = Router()
+ActivityEventService.post("/participant/:participant_id/activity_event", async (req: Request, res: Response) => {
+  try {
+    res.json({
+      data: await _ActivityEventService.create(
+        req.get("Authorization"),
+        req.params.participant_id,
+        Array.isArray(req.body) ? req.body : [req.body]
+      ),
+    })
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
@@ -65,15 +76,16 @@ ActivityEventService.post("/participant/:participant_id/activity_event", async (
 })
 ActivityEventService.get("/participant/:participant_id/activity_event", async (req: Request, res: Response) => {
   try {
-    const repo = new Repository()
-    const ActivityEventRepository = repo.getActivityEventRepository()
-    let participant_id = req.params.participant_id
-    const origin: string = req.query.origin as string
-    const from: number | undefined = Number.parse((req.query as any).from)
-    const to: number | undefined = Number.parse((req.query as any).to)
-    const limit = Math.min(Math.max(Number.parse((req.query as any).limit) ?? LIMIT_NAN, -LIMIT_MAX), LIMIT_MAX)
-    participant_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], participant_id)
-    let output = { data: await ActivityEventRepository._select(participant_id, origin, from, to, limit) }
+    let output = {
+      data: await _ActivityEventService.list(
+        req.get("Authorization"),
+        req.params.participant_id,
+        req.query.origin as string,
+        Number.parse((req.query as any).from),
+        Number.parse((req.query as any).to),
+        Number.parse((req.query as any).limit)
+      )
+    }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {

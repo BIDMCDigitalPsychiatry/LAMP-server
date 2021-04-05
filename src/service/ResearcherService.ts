@@ -1,27 +1,73 @@
 import { Request, Response, Router } from "express"
 import { Researcher } from "../model/Researcher"
-import { SecurityContext, ActionContext, _verify } from "./Security"
+import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { PubSubAPIListenerQueue } from "../utils/queue/PubSubAPIListenerQueue"
 import { Repository } from "../repository/Bootstrap"
 import { CacheDataQueue } from "../utils/queue/CacheDataQueue"
 import { RedisClient } from "../repository/Bootstrap"
 
+export class _ResearcherService {
+
+  public static async list(auth: any, parent_id: null) {
+    const ResearcherRepository = new Repository().getResearcherRepository()
+    const _ = await _verify(auth, [])
+    return await ResearcherRepository._select()
+  }
+
+  public static async create(auth: any, parent_id: null, researcher: any) {
+    const ResearcherRepository = new Repository().getResearcherRepository()
+    const _ = await _verify(auth, [])
+    const data = await ResearcherRepository._insert(researcher)
+
+    //publishing data for researcher add api with token = researcher.{_id}
+    researcher.action = "create"
+    researcher.researcher_id = data
+    PubSubAPIListenerQueue.add({ topic: `researcher`, token: `researcher.${data}`, payload: researcher })
+    return data
+  }
+
+  public static async get(auth: any, researcher_id: string) {
+    const ResearcherRepository = new Repository().getResearcherRepository()
+    researcher_id = await _verify(auth, ["self", "parent"], researcher_id)
+    return await ResearcherRepository._select(researcher_id)
+  }
+
+  public static async set(auth: any, researcher_id: string, researcher: any | null) {
+    const ResearcherRepository = new Repository().getResearcherRepository()
+    researcher_id = await _verify(auth, ["self", "parent"], researcher_id)
+    if (researcher === null) {
+      const data = await ResearcherRepository._delete(researcher_id)
+
+      //publishing data for researcher delete api with token = researcher.{researcher_id}
+      PubSubAPIListenerQueue.add({
+        topic: `researcher.*`,
+        token: `researcher.${researcher_id}`,
+        payload: { action: "delete", researcher_id: researcher_id },
+      })
+      PubSubAPIListenerQueue.add({
+        topic: `researcher`,
+        token: `researcher.${researcher_id}`,
+        payload: { action: "delete", researcher_id: researcher_id },
+      })
+      return data
+    } else {
+      const data = await ResearcherRepository._update(researcher_id, researcher)
+
+      //publishing data for researcher update api with token = researcher.{researcher_id}
+      researcher.action = "update"
+      researcher.researcher_id = researcher_id
+      PubSubAPIListenerQueue.add({ topic: `researcher.*`, token: `researcher.${researcher_id}`, payload: researcher })
+      PubSubAPIListenerQueue.add({ topic: `researcher`, token: `researcher.${researcher_id}`, payload: researcher })
+      return data
+    }
+  }
+}
+
 export const ResearcherService = Router()
 ResearcherService.post("/researcher", async (req: Request, res: Response) => {
   try {
-    const repo = new Repository()
-    const ResearcherRepository = repo.getResearcherRepository()
-    const researcher = req.body
-
-    const _ = await _verify(req.get("Authorization"), [])
-    const output = { data: await ResearcherRepository._insert(researcher) }
-    researcher.action = "create"
-    researcher.researcher_id = output["data"]
-
-    //publishing data for researcher add api with token = researcher.{_id}
-    PubSubAPIListenerQueue.add({ topic: `researcher`, token: `researcher.${output["data"]}`, payload: researcher })
-    res.json(output)
+    res.json({ data: await _ResearcherService.create(req.get("Authorization"), null, req.body) })
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
@@ -30,19 +76,7 @@ ResearcherService.post("/researcher", async (req: Request, res: Response) => {
 
 ResearcherService.put("/researcher/:researcher_id", async (req: Request, res: Response) => {
   try {
-    const repo = new Repository()
-    const ResearcherRepository = repo.getResearcherRepository()
-    let researcher_id = req.params.researcher_id
-    const researcher = req.body
-    researcher_id = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
-    const output = { data: await ResearcherRepository._update(researcher_id, researcher) }
-    researcher.action = "update"
-    researcher.researcher_id = researcher_id
-
-    //publishing data for researcher update api with token = researcher.{researcher_id}
-    PubSubAPIListenerQueue.add({ topic: `researcher.*`, token: `researcher.${researcher_id}`, payload: researcher })
-    PubSubAPIListenerQueue.add({ topic: `researcher`, token: `researcher.${researcher_id}`, payload: researcher })
-    res.json(output)
+    res.json({ data: await _ResearcherService.set(req.get("Authorization"), req.params.researcher_id, req.body) })
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
@@ -50,24 +84,7 @@ ResearcherService.put("/researcher/:researcher_id", async (req: Request, res: Re
 })
 ResearcherService.delete("/researcher/:researcher_id", async (req: Request, res: Response) => {
   try {
-    const repo = new Repository()
-    const ResearcherRepository = repo.getResearcherRepository()
-    let researcher_id = req.params.researcher_id
-    researcher_id = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
-    const output = { data: await ResearcherRepository._delete(researcher_id) }
-
-    //publishing data for researcher delete api with token = researcher.{researcher_id}
-    PubSubAPIListenerQueue.add({
-      topic: `researcher.*`,
-      token: `researcher.${researcher_id}`,
-      payload: { action: "delete", researcher_id: researcher_id },
-    })
-    PubSubAPIListenerQueue.add({
-      topic: `researcher`,
-      token: `researcher.${researcher_id}`,
-      payload: { action: "delete", researcher_id: researcher_id },
-    })
-    res.json(output)
+    res.json({ data: await _ResearcherService.set(req.get("Authorization"), req.params.researcher_id, null) })
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
@@ -75,11 +92,7 @@ ResearcherService.delete("/researcher/:researcher_id", async (req: Request, res:
 })
 ResearcherService.get("/researcher/:researcher_id", async (req: Request, res: Response) => {
   try {
-    const repo = new Repository()
-    const ResearcherRepository = repo.getResearcherRepository()
-    let researcher_id = req.params.researcher_id
-    researcher_id = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
-    let output = { data: await ResearcherRepository._select(researcher_id) }
+    let output = { data: await _ResearcherService.get(req.get("Authorization"), req.params.researcher_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {
@@ -89,10 +102,7 @@ ResearcherService.get("/researcher/:researcher_id", async (req: Request, res: Re
 })
 ResearcherService.get("/researcher", async (req: Request, res: Response) => {
   try {
-    const repo = new Repository()
-    const ResearcherRepository = repo.getResearcherRepository()
-    const _ = await _verify(req.get("Authorization"), [])
-    let output = { data: await ResearcherRepository._select() }
+    let output = { data: await _ResearcherService.list(req.get("Authorization"), null) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {

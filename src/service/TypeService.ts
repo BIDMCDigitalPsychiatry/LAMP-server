@@ -1,10 +1,55 @@
 import { Request, Response, Router } from "express"
 import { DynamicAttachment } from "../model/Type"
-
-import { SecurityContext, ActionContext, _verify } from "./Security"
+import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository } from "../repository/Bootstrap"
 import { RedisClient } from "../repository/Bootstrap"
+
+export class _TypeService {
+
+  public static async parent(auth: any, type_id: string) {
+    const TypeRepository = new Repository().getTypeRepository()
+    type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
+    const data = await TypeRepository._parent(type_id)
+
+    // FIXME: THIS WILL TRIGGER A DELETE EVERY TIME A RESOURCE'S PARENT IS REQUESTED!
+    /*
+    //add the list of keys to get deleted
+    try {
+      await RedisClient?.del(`${type_id}_lookup:participants`)
+      await RedisClient?.del(`${type_id}_lookup:activities`)
+      await RedisClient?.del(`${type_id}_lookup:sensors`)
+    } catch (error) { }
+    */
+    return data
+  }
+
+  public static async get(auth: any, type_id: string, attachment_key: string, index?: string) {
+    const TypeRepository = new Repository().getTypeRepository()
+    type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
+    if (attachment_key !== undefined) {
+      let obj = await TypeRepository._get("a", <string>type_id, attachment_key)
+      // TODO: if obj undefined here, return null instead of throwing 404 error
+      const sequenceObj = Array.isArray(obj) || typeof obj === "string"
+      const shouldIndex =
+        index !== undefined &&
+        (typeof obj === "object" || (sequenceObj && (Number.parse(index) !== undefined || index === "length")))
+      const realIndex = sequenceObj && (Number.parse(index) ?? 0) < 0 ? obj.length + Number.parse(index) : index
+      if (index !== undefined && !shouldIndex) throw new Error("404.specified-index-not-found")
+      else if (shouldIndex) obj = obj[realIndex]
+      // TODO: parse & b64decode data-uri strings if Accept header matches
+      return obj !== undefined ? obj : null
+    } else {
+      return await TypeRepository._list("a", <string>type_id)
+    }
+  }
+
+  public static async set(auth: any, type_id: string, attachment_key: string, target: string, attachment_value: any) {
+    const TypeRepository = new Repository().getTypeRepository()
+    type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
+    return await TypeRepository._set("a", target, <string>type_id, attachment_key, attachment_value)
+  }
+}
 
 // In migrating from the legacy fixed /type/:id/... paths to the modern /:type/:id/ paths,
 // we need to compute all the paths up here once and use them later as arrays.
@@ -27,23 +72,11 @@ const _put_routes = (<string[]>[]).concat(
     (type) => `/${type}/:type_id/tag/:attachment_key/:target`
   )
 )
-
 export const TypeService = Router()
 TypeService.get(_parent_routes, async (req: Request, res: Response) => {
   try {
-    const repo = new Repository()
-    const TypeRepository = repo.getTypeRepository()
-    let type_id = req.params.type_id
-    type_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], type_id)
-    let output = { data: await TypeRepository._parent(type_id) }
+    let output = { data: await _TypeService.parent(req.get("Authorization"), req.params.type_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
-    try {
-      //add the list of keys to get deleted
-      await RedisClient?.del(`${type_id}_lookup:participants`)
-      await RedisClient?.del(`${type_id}_lookup:activities`)
-      await RedisClient?.del(`${type_id}_lookup:sensors`)
-    } catch (error) {}
-
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -52,33 +85,7 @@ TypeService.get(_parent_routes, async (req: Request, res: Response) => {
 })
 TypeService.get(_get_routes, async (req: Request, res: Response) => {
   try {
-    const repo = new Repository()
-    const TypeRepository = repo.getTypeRepository()
-    let type_id = req.params.type_id
-    const attachment_key = req.params.attachment_key
-    const index = req.params.index
-    type_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], type_id)
-    if (attachment_key !== undefined) {
-      let obj = await TypeRepository._get("a", <string>type_id, attachment_key)
-
-      // TODO: if obj undefined here, return null instead of throwing 404 error
-
-      const sequenceObj = Array.isArray(obj) || typeof obj === "string"
-      const shouldIndex =
-        index !== undefined &&
-        (typeof obj === "object" || (sequenceObj && (Number.parse(index) !== undefined || index === "length")))
-      const realIndex = sequenceObj && (Number.parse(index) ?? 0) < 0 ? obj.length + Number.parse(index) : index
-      if (index !== undefined && !shouldIndex) throw new Error("404.specified-index-not-found")
-      else if (shouldIndex) obj = obj[realIndex]
-
-      // TODO: parse & b64decode data-uri strings if Accept header matches
-
-      const output = { data: obj !== undefined ? obj : null }
-      res.json(output)
-    } else {
-      const output = { data: await TypeRepository._list("a", <string>type_id) }
-      res.json(output)
-    }
+    res.json({ data: await _TypeService.get(req.get("Authorization"), req.params.type_id, req.params.attachment_key, req.params.index) })
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
@@ -86,83 +93,13 @@ TypeService.get(_get_routes, async (req: Request, res: Response) => {
 })
 TypeService.put(_put_routes, async (req: Request, res: Response) => {
   try {
-    const repo = new Repository()
-    const TypeRepository = repo.getTypeRepository()
-    let type_id = req.params.type_id
-    const attachment_key = req.params.attachment_key
-    const target = req.params.target
-    const attachment_value = req.body
-    type_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], type_id)
-    const output = {
-      data: (await TypeRepository._set("a", target, <string>type_id, attachment_key, attachment_value))
+    res.json({
+      data: (await _TypeService.set(req.get("Authorization"), req.params.type_id, req.params.attachment_key, req.params.target, req.body))
         ? {}
         : null /* error */,
-    }
-    res.json(output)
+    })
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-/*
-TypeService.get(["researcher", "study", "participant", "activity", "sensor", "type"].map(type => `/${type}/:type_id/attachment/dynamic/:attachment_key`), async (req: Request, res: Response) => {
-  try {
-    let type_id = req.params.type_id
-    const attachment_key = req.params.attachment_key
-    const invoke_always = req.query.invoke_always
-    const ignore_output = req.query.ignore_output
-    const include_logs = req.query.include_logs
-    type_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], type_id)
-
-    let result: any = {}
-    if (!!invoke_always) {
-      // If needed, invoke the attachment now.
-      const attachment: DynamicAttachment = await TypeRepository._get("b", <string>type_id, attachment_key)
-      result = await TypeRepository._invoke(attachment, {})
-      await TypeRepository._set("a", attachment.to!, <string>attachment.from, attachment.key + "/output", result)
-    } else {
-      // Otherwise, return any cached result available.
-      result = await TypeRepository._get("a", <string>type_id, attachment_key + "/output")
-    }
-    const output = {
-      data:
-        !!include_logs && !ignore_output
-          ? result
-          : {
-              data: !ignore_output ? result.output : undefined,
-              logs: !!include_logs ? result.logs : undefined,
-            },
-    }
-    res.json(output)
-  } catch (e) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
-    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
-  }
-})
-TypeService.put(["researcher", "study", "participant", "activity", "sensor", "type"].map(type => `/${type}/:type_id/attachment/dynamic/:attachment_key/:target`), async (req: Request, res: Response) => {
-  try {
-    let type_id = req.params.type_id
-    const attachment_key = req.params.attachment_key
-    const target = req.params.target
-    const attachment_value = req.body
-    const invoke_once = req.query.invoke_once
-    type_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], type_id)
-
-    let result: any = null // error 
-    if (TypeRepository._set("b", target, <string>type_id, attachment_key, attachment_value)) {
-      // If needed, invoke the attachment now.
-      if (!!invoke_once) {
-        TypeRepository._invoke(attachment_value, {}).then((y) => {
-          TypeRepository._set("a", target, <string>type_id, attachment_key + "/output", y)
-        })
-      }
-      result = {}
-    }
-    const output = { data: result }
-    res.json(output)
-  } catch (e) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
-    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
-  }
-})
-*/

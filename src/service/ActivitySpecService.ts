@@ -1,6 +1,6 @@
 import { Request, Response, Router } from "express"
 import { ActivitySpec } from "../model/ActivitySpec"
-import { SecurityContext, ActionContext, _verify } from "./Security"
+import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository } from "../repository/Bootstrap"
 

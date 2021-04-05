@@ -128,12 +128,20 @@ export async function Query(query: string, auth: any): Promise<any> {
           console.log(` -- Sensor_all: ${((Date.now() - _start)).toFixed(2)} ms`)
           return x 
         },
-        Sensor_view: async (sensor_id: string) => {
+        Sensor_get: async (sensor_id: string) => {
           const SensorRepository = new Repository().getSensorRepository()
           sensor_id = await _verify(auth, ["self", "sibling", "parent"], sensor_id)
           let _start = Date.now()
           let x = await SensorRepository._select(sensor_id)
-          console.log(` -- Sensor_view: ${((Date.now() - _start)).toFixed(2)} ms`)
+          console.log(` -- Sensor_get: ${((Date.now() - _start)).toFixed(2)} ms`)
+          return x 
+        },
+        Sensor_set: async (sensor_id: string | null, sensor: any | null) => {
+          const SensorRepository = new Repository().getSensorRepository()
+          sensor_id = await _verify(auth, ["self", "sibling", "parent"], sensor_id)
+          let _start = Date.now()
+          let x = await SensorRepository._select(sensor_id)
+          console.log(` -- Sensor_set: ${((Date.now() - _start)).toFixed(2)} ms`)
           return x 
         },
         Type_parent: async (type_id: string) => {
@@ -144,7 +152,7 @@ export async function Query(query: string, auth: any): Promise<any> {
           console.log(` -- Type_parent: ${((Date.now() - _start)).toFixed(2)} ms`)
           return x 
         },
-        Tags_list: async (type_id: string) => {
+        Tag_list: async (type_id: string) => {
           const TypeRepository = new Repository().getTypeRepository()
           type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
           let _start = Date.now()
@@ -152,10 +160,10 @@ export async function Query(query: string, auth: any): Promise<any> {
             await TypeRepository._list("a", <string>type_id),
             (await TypeRepository._list("b", <string>type_id)).map((x: any) => "dynamic/" + x)
           )
-          console.log(` -- Tags_list: ${((Date.now() - _start)).toFixed(2)} ms`)
+          console.log(` -- Tag_list: ${((Date.now() - _start)).toFixed(2)} ms`)
           return x 
         },
-        Tags_view: async (type_id: string, attachment_key: string) => {
+        Tag_get: async (type_id: string, attachment_key: string) => {
           const TypeRepository = new Repository().getTypeRepository()
           type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
           let _start = Date.now()
@@ -163,10 +171,10 @@ export async function Query(query: string, auth: any): Promise<any> {
           try {
             x = await TypeRepository._get("a", <string>type_id, attachment_key)
           } catch (e) {}
-          console.log(` -- Tags_view: ${((Date.now() - _start)).toFixed(2)} ms`)
+          console.log(` -- Tag_get: ${((Date.now() - _start)).toFixed(2)} ms`)
           return x 
         },
-        Tags_create: async (type_id: string, attachment_key: string, target: string, attachment_value: string) => {
+        Tag_set: async (type_id: string, attachment_key: string, target: string, attachment_value: string) => {
           const TypeRepository = new Repository().getTypeRepository()
           type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
           let _start = Date.now()
@@ -174,7 +182,7 @@ export async function Query(query: string, auth: any): Promise<any> {
           try {
             x = await TypeRepository._set("a", target, <string>type_id, attachment_key, attachment_value)
           } catch (e) {}
-          console.log(` -- Tags_create: ${((Date.now() - _start)).toFixed(2)} ms`)
+          console.log(` -- Tag_set: ${((Date.now() - _start)).toFixed(2)} ms`)
           return x 
         }
       }

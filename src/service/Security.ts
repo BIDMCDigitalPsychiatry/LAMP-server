@@ -1,11 +1,6 @@
 import { Repository } from "../repository/Bootstrap"
-export function SecurityContext(): Promise<{ type: string; id: string }> {
-  return Promise.resolve({ type: "", id: "" })
-}
-export function ActionContext(): Promise<{ type: string; id: string }> {
-  return Promise.resolve({ type: "", id: "" })
-}
 
+// The AuthSubject type represents an already-validated authorization that can be reused. 
 type AuthSubject = { origin: string; access_key: string; secret_key: string; }
 
 // Converts an Authorization header (`Authorization: Basic btoa('user:pass')` to an object.
