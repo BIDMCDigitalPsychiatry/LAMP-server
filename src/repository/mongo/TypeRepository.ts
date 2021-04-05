@@ -1,5 +1,5 @@
 import { DynamicAttachment } from "../../model"
-import { ScriptRunner } from "../../utils"
+//import { ScriptRunner } from "../../utils"
 import { ParticipantModel } from "../../model/Participant"
 import { StudyModel } from "../../model/Study"
 import { ActivityModel } from "../../model/Activity"
@@ -202,7 +202,7 @@ export class TypeRepository implements TypeInterface {
     else throw new Error("404.object-not-found")
   }
 
-  public async _invoke(attachment: DynamicAttachment, context: any): Promise<any | undefined> {
+  /*public async _invoke(attachment: DynamicAttachment, context: any): Promise<any | undefined> {
     if ((attachment.contents || "").trim().length === 0) return undefined
     // Select script runner for the right language...
     let runner: ScriptRunner
@@ -224,7 +224,7 @@ export class TypeRepository implements TypeInterface {
     }
     // Execute script.
     return await runner.execute(attachment.contents!, attachment.requirements!.join(","), context)
-  }
+  }*/
 
   /*public async _process_triggers(): Promise<void> {
     // FIXME: THIS FUNCTION IS DEPRECATED/OUT OF DATE/DISABLED (!!!)

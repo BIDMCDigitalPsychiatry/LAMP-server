@@ -1,85 +1,99 @@
 import { Request, Response, Router } from "express"
 import { Researcher } from "../model/Researcher"
-import { SecurityContext, ActionContext, _verify } from "./Security"
-import jsonata from "jsonata"
+import { _verify } from "./Security"
+const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { PubSubAPIListenerQueue } from "../utils/queue/PubSubAPIListenerQueue"
 import { Repository } from "../repository/Bootstrap"
 import { CacheDataQueue } from "../utils/queue/CacheDataQueue"
 import { RedisClient } from "../repository/Bootstrap"
 
-export const ResearcherService = Router()
-ResearcherService.post("/researcher", async (req: Request, res: Response) => {
-  try {
-    const repo = new Repository()
-    const ResearcherRepository = repo.getResearcherRepository()
-    const researcher = req.body
+export class ResearcherService {
+  public static _name = "Researcher"
+  public static Router = Router()
 
-    const _ = await _verify(req.get("Authorization"), [])
-    const output = { data: await ResearcherRepository._insert(researcher) }
-    researcher.action = "create"
-    researcher.researcher_id = output["data"]
+  public static async list(auth: any, parent_id: null) {
+    const ResearcherRepository = new Repository().getResearcherRepository()
+    const _ = await _verify(auth, [])
+    return await ResearcherRepository._select()
+  }
+
+  public static async create(auth: any, parent_id: null, researcher: any) {
+    const ResearcherRepository = new Repository().getResearcherRepository()
+    const _ = await _verify(auth, [])
+    const data = await ResearcherRepository._insert(researcher)
 
     //publishing data for researcher add api with token = researcher.{_id}
-    PubSubAPIListenerQueue.add({ topic: `researcher`, token: `researcher.${output["data"]}`, payload: researcher })
-    res.json(output)
+    researcher.action = "create"
+    researcher.researcher_id = data
+    PubSubAPIListenerQueue.add({ topic: `researcher`, token: `researcher.${data}`, payload: researcher })
+    return data
+  }
+
+  public static async get(auth: any, researcher_id: string) {
+    const ResearcherRepository = new Repository().getResearcherRepository()
+    researcher_id = await _verify(auth, ["self", "parent"], researcher_id)
+    return await ResearcherRepository._select(researcher_id)
+  }
+
+  public static async set(auth: any, researcher_id: string, researcher: any | null) {
+    const ResearcherRepository = new Repository().getResearcherRepository()
+    researcher_id = await _verify(auth, ["self", "parent"], researcher_id)
+    if (researcher === null) {
+      const data = await ResearcherRepository._delete(researcher_id)
+
+      //publishing data for researcher delete api with token = researcher.{researcher_id}
+      PubSubAPIListenerQueue.add({
+        topic: `researcher.*`,
+        token: `researcher.${researcher_id}`,
+        payload: { action: "delete", researcher_id: researcher_id },
+      })
+      PubSubAPIListenerQueue.add({
+        topic: `researcher`,
+        token: `researcher.${researcher_id}`,
+        payload: { action: "delete", researcher_id: researcher_id },
+      })
+      return data
+    } else {
+      const data = await ResearcherRepository._update(researcher_id, researcher)
+
+      //publishing data for researcher update api with token = researcher.{researcher_id}
+      researcher.action = "update"
+      researcher.researcher_id = researcher_id
+      PubSubAPIListenerQueue.add({ topic: `researcher.*`, token: `researcher.${researcher_id}`, payload: researcher })
+      PubSubAPIListenerQueue.add({ topic: `researcher`, token: `researcher.${researcher_id}`, payload: researcher })
+      return data
+    }
+  }
+}
+
+ResearcherService.Router.post("/researcher", async (req: Request, res: Response) => {
+  try {
+    res.json({ data: await ResearcherService.create(req.get("Authorization"), null, req.body) })
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
 
-ResearcherService.put("/researcher/:researcher_id", async (req: Request, res: Response) => {
+ResearcherService.Router.put("/researcher/:researcher_id", async (req: Request, res: Response) => {
   try {
-    const repo = new Repository()
-    const ResearcherRepository = repo.getResearcherRepository()
-    let researcher_id = req.params.researcher_id
-    const researcher = req.body
-    researcher_id = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
-    const output = { data: await ResearcherRepository._update(researcher_id, researcher) }
-    researcher.action = "update"
-    researcher.researcher_id = researcher_id
-
-    //publishing data for researcher update api with token = researcher.{researcher_id}
-    PubSubAPIListenerQueue.add({ topic: `researcher.*`, token: `researcher.${researcher_id}`, payload: researcher })
-    PubSubAPIListenerQueue.add({ topic: `researcher`, token: `researcher.${researcher_id}`, payload: researcher })
-    res.json(output)
+    res.json({ data: await ResearcherService.set(req.get("Authorization"), req.params.researcher_id, req.body) })
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ResearcherService.delete("/researcher/:researcher_id", async (req: Request, res: Response) => {
+ResearcherService.Router.delete("/researcher/:researcher_id", async (req: Request, res: Response) => {
   try {
-    const repo = new Repository()
-    const ResearcherRepository = repo.getResearcherRepository()
-    let researcher_id = req.params.researcher_id
-    researcher_id = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
-    const output = { data: await ResearcherRepository._delete(researcher_id) }
-
-    //publishing data for researcher delete api with token = researcher.{researcher_id}
-    PubSubAPIListenerQueue.add({
-      topic: `researcher.*`,
-      token: `researcher.${researcher_id}`,
-      payload: { action: "delete", researcher_id: researcher_id },
-    })
-    PubSubAPIListenerQueue.add({
-      topic: `researcher`,
-      token: `researcher.${researcher_id}`,
-      payload: { action: "delete", researcher_id: researcher_id },
-    })
-    res.json(output)
+    res.json({ data: await ResearcherService.set(req.get("Authorization"), req.params.researcher_id, null) })
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ResearcherService.get("/researcher/:researcher_id", async (req: Request, res: Response) => {
+ResearcherService.Router.get("/researcher/:researcher_id", async (req: Request, res: Response) => {
   try {
-    const repo = new Repository()
-    const ResearcherRepository = repo.getResearcherRepository()
-    let researcher_id = req.params.researcher_id
-    researcher_id = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
-    let output = { data: await ResearcherRepository._select(researcher_id) }
+    let output = { data: await ResearcherService.get(req.get("Authorization"), req.params.researcher_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {
@@ -87,12 +101,9 @@ ResearcherService.get("/researcher/:researcher_id", async (req: Request, res: Re
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ResearcherService.get("/researcher", async (req: Request, res: Response) => {
+ResearcherService.Router.get("/researcher", async (req: Request, res: Response) => {
   try {
-    const repo = new Repository()
-    const ResearcherRepository = repo.getResearcherRepository()
-    const _ = await _verify(req.get("Authorization"), [])
-    let output = { data: await ResearcherRepository._select() }
+    let output = { data: await ResearcherService.list(req.get("Authorization"), null) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {
@@ -108,7 +119,7 @@ ResearcherService.get("/researcher", async (req: Request, res: Response) => {
  * @param STRING lookup
  * @return ARRAY
  */
-ResearcherService.get("/researcher/:researcher_id/_lookup/:lookup", async (req: Request, res: Response) => {
+ResearcherService.Router.get("/researcher/:researcher_id/_lookup/:lookup", async (req: Request, res: Response) => {
   try {
     const _lookup: string = req.params.lookup
     const studyID: string = (!!req.query.study_id ? req.query.study_id : undefined) as any
@@ -131,7 +142,7 @@ ResearcherService.get("/researcher/:researcher_id/_lookup/:lookup", async (req: 
     if (_lookup === "participant") {
       let cacheData: any = {}
       try {
-        cacheData = await RedisClient.get(`${researcher_id}_lookup:participants`)
+        cacheData = await RedisClient?.get(`${researcher_id}_lookup:participants`)
       } catch (error) {}
       if (null === cacheData || undefined !== studyID) {
         console.log("cache data absent for activities")
@@ -174,7 +185,7 @@ ResearcherService.get("/researcher/:researcher_id/_lookup/:lookup", async (req: 
       let cacheData: any = {}
       try {
         //Check in redis cache for activities
-        cacheData = await RedisClient.get(`${researcher_id}_lookup:activities`)
+        cacheData = await RedisClient?.get(`${researcher_id}_lookup:activities`)
       } catch (error) {}
 
       if (null === cacheData || undefined !== studyID) {
@@ -206,7 +217,7 @@ ResearcherService.get("/researcher/:researcher_id/_lookup/:lookup", async (req: 
       let cacheData: any = {}
       try {
         //Check in redis cache for Sensors
-        cacheData = await RedisClient.get(`${researcher_id}_lookup:sensors`)
+        cacheData = await RedisClient?.get(`${researcher_id}_lookup:sensors`)
       } catch (error) {}
 
       if (null === cacheData || undefined !== studyID) {
@@ -251,7 +262,7 @@ ResearcherService.get("/researcher/:researcher_id/_lookup/:lookup", async (req: 
  *  mode 3- return  lamp.name and to.unityhealth.psychiatry.settings,4-return  lamp.name only
  *  mode 1 - return only gps,accelerometer,analytics, mode 2- return only activity_event data
  */
-ResearcherService.get("/study/:study_id/_lookup/:lookup/mode/:mode", async (req: Request, res: Response) => {
+ResearcherService.Router.get("/study/:study_id/_lookup/:lookup/mode/:mode", async (req: Request, res: Response) => {
   try {
     const repo = new Repository()
     const ParticipantRepository = repo.getParticipantRepository()
@@ -270,7 +281,7 @@ ResearcherService.get("/study/:study_id/_lookup/:lookup/mode/:mode", async (req:
           //Fetch participant's name i.e mode=3 OR 4
           if (mode === 3 || mode === 4) {
             //fetch data from redis if any
-            const cacheData = await RedisClient.get(`${ParticipantIDs[index].id}:name`)
+            const cacheData = await RedisClient?.get(`${ParticipantIDs[index].id}:name`) || null
             if (null !== cacheData) {
               const result = JSON.parse(cacheData)
               ParticipantIDs[index].name = result.name
@@ -291,7 +302,7 @@ ResearcherService.get("/study/:study_id/_lookup/:lookup/mode/:mode", async (req:
           //Fetch participant's unity settings i.e mode=3
           if (mode === 3) {
             //fetch data from redis if any
-            const cacheData = await RedisClient.get(`${ParticipantIDs[index].id}:unity_settings`)
+            const cacheData = await RedisClient?.get(`${ParticipantIDs[index].id}:unity_settings`) || null
             if (null !== cacheData) {
               const result = JSON.parse(cacheData)
               ParticipantIDs[index].unity_settings = result.unity_settings
@@ -316,7 +327,7 @@ ResearcherService.get("/study/:study_id/_lookup/:lookup/mode/:mode", async (req:
           //Fetch participant's gps data i.e mode=1
           if (mode === 1) {
             //fetch data from redis if any
-            const cacheData = await RedisClient.get(`${ParticipantIDs[index].id}:gps`)
+            const cacheData = await RedisClient?.get(`${ParticipantIDs[index].id}:gps`) || null
             if (null !== cacheData) {
               const result = JSON.parse(cacheData)
               ParticipantIDs[index].gps = result.gps
@@ -337,7 +348,7 @@ ResearcherService.get("/study/:study_id/_lookup/:lookup/mode/:mode", async (req:
           //Fetch participant's accelerometer data i.e mode=1
           if (mode === 1) {
             //fetch data from redis if any
-            const cacheData = await RedisClient.get(`${ParticipantIDs[index].id}:accelerometer`)
+            const cacheData = await RedisClient?.get(`${ParticipantIDs[index].id}:accelerometer`) || null
             if (null !== cacheData) {
               const result = JSON.parse(cacheData)
               ParticipantIDs[index].accelerometer = result.accelerometer
@@ -370,7 +381,7 @@ ResearcherService.get("/study/:study_id/_lookup/:lookup/mode/:mode", async (req:
           //Fetch participant's analytics data i.e mode=1
           if (mode === 1) {
             //fetch data from redis if any
-            const cacheData = await RedisClient.get(`${ParticipantIDs[index].id}:analytics`)
+            const cacheData = await RedisClient?.get(`${ParticipantIDs[index].id}:analytics`) || null
             if (null !== cacheData) {
               const result = JSON.parse(cacheData)
               ParticipantIDs[index].analytics = result.analytics
@@ -395,7 +406,7 @@ ResearcherService.get("/study/:study_id/_lookup/:lookup/mode/:mode", async (req:
           //Fetch participant's active data i.e mode=2
           if (mode === 2) {
             //fetch data from redis if any
-            const cacheData = await RedisClient.get(`${ParticipantIDs[index].id}:active`)
+            const cacheData = await RedisClient?.get(`${ParticipantIDs[index].id}:active`) || null
             if (null !== cacheData) {
               const result = JSON.parse(cacheData)
               ParticipantIDs[index].active = result.active

@@ -1,6 +1,6 @@
-import { SchedulerQueue } from "../utils/queue/SchedulerQueue"
-import { SchedulerReferenceQueue } from "../utils/queue/SchedulerReferenceQueue"
-import { Repository } from "../repository/Bootstrap"
+import { SchedulerQueue } from "./SchedulerQueue"
+import { SchedulerReferenceQueue } from "./SchedulerReferenceQueue"
+import { Repository } from "../../repository/Bootstrap"
 import { Mutex } from "async-mutex"
 const clientLock = new Mutex()
 /// List activities for a given ID; if a Participant ID is not provided, undefined = list ALL.

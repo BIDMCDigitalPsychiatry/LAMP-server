@@ -44,7 +44,14 @@ import {
 } from "./interface/RepositoryInterface"
 import { adminCredential } from "../model/Credential"
 import  ioredis  from "ioredis"
-export const RedisClient = new ioredis(<number|undefined>process.env.REDIS_PORT, `${process.env.REDIS_HOST}` ?? "");
+
+export let RedisClient: ioredis.Redis | undefined 
+if (typeof process.env.REDIS_HOST === "string")
+  RedisClient = new ioredis(
+    Number.parse(process.env.REDIS_HOST.match(/:([0-9]+)/g)?.[0]),
+    process.env.REDIS_HOST.match(/\/\/([0-9a-zA-Z._]+)/g)?.[0]
+  )
+
 //initialize driver for db
 let DB_DRIVER:string = ''
 //Identifying the Database driver -- IF the DB in env starts with mongodb://, create mongodb connection

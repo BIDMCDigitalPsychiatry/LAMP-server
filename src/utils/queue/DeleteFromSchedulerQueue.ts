@@ -1,5 +1,5 @@
 import Bull from "bull"
-import { removeActivityJobs } from "../../utils/ActivitySchedulerJob"
+import { removeActivityJobs } from "./ActivitySchedulerJob"
 import { Mutex } from "async-mutex"
 //Initialise UpdateToSchedulerQueue Queue
 export const DeleteFromSchedulerQueue = new Bull("DeleteFromScheduler", process.env.REDIS_HOST ?? "")

@@ -1,6 +1,6 @@
 import Bull from "bull"
 import { Repository } from "../../repository/Bootstrap"
-import { updateDeviceDetails } from "../../utils/ActivitySchedulerJob"
+import { updateDeviceDetails } from "./ActivitySchedulerJob"
 import { Mutex } from "async-mutex"
 const clientLock = new Mutex()
 //Initialise UpdateToSchedulerQueue Queue

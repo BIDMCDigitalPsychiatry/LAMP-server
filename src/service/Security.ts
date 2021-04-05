@@ -1,71 +1,78 @@
 import { Repository } from "../repository/Bootstrap"
-export function SecurityContext(): Promise<{ type: string; id: string }> {
-  return Promise.resolve({ type: "", id: "" })
-}
 
-export function ActionContext(): Promise<{ type: string; id: string }> {
-  return Promise.resolve({ type: "", id: "" })
-}
+// The AuthSubject type represents an already-validated authorization that can be reused. 
+type AuthSubject = { origin: string; access_key: string; secret_key: string; }
 
-export async function _verify(
-  authHeader: string | undefined,
-  type: Array<"self" | "sibling" | "parent"> /* 'root' = [] */,
-  auth_value?: string
-): Promise<string> {
-  const repo = new Repository()
-  const CredentialRepository = repo.getCredentialRepository()
-  const TypeRepository = repo.getTypeRepository()
-  // Get the authorization components from the header and tokenize them.
-  // TODO: ignoring the other authorization location stuff for now...
-  const [authStr, cosignData] = CredentialRepository._unpackCosignerData((authHeader ?? "").replace("Basic", "").trim())
+// Converts an Authorization header (`Authorization: Basic btoa('user:pass')` to an object.
+// If components are missing, throw a missing credentials error (HTTP 401).
+// Otherwise, locate the Credential or throw an error if not found/invalid.
+export async function _createAuthSubject(authHeader: string | undefined): Promise<AuthSubject> {
+  const CredentialRepository = new Repository().getCredentialRepository()
+  if (authHeader === undefined) throw new Error("401.missing-credentials")
+  const authStr = authHeader.replace("Basic", "").trim()
   const auth = (authStr.indexOf(":") >= 0 ? authStr : Buffer.from(authStr, "base64").toString()).split(":", 2)
-  // If no authorization is provided, ask for something.
   if (auth.length !== 2 || !auth[1]) throw new Error("401.missing-credentials")
+  let origin = await CredentialRepository._find(auth[0], auth[1] || "*" /* FIXME: this forces password match */)
+  return {
+    origin: origin,
+    access_key: auth[0],
+    secret_key: auth[1]
+  }
+}
 
-  // Handle basic no credentials and root auth required cases.
-  let sub_auth_value = undefined
-  if (auth_value === undefined && !["root", "admin"].includes(auth[0]) && type.length === 0) {
-    throw new Error("403.security-context-out-of-scope")
-  } else if (["root", "admin"].includes(auth[0]) && !(await CredentialRepository._adminCredential(auth[1]))) {
-    throw new Error("403.invalid-credentials")
-  } else if (!(["root", "admin"].includes(auth[0]) && (await CredentialRepository._adminCredential(auth[1])))) {
-    let from, to
-    if (!!cosignData) {
-      from = cosignData.identity.from
-      to = auth_value
-      // Patch in the special-cased "me" to the actual authenticated credential.
-      if (auth_value /* to */ === "me") sub_auth_value = to = cosignData.identity.to
+// Simple Role-Based-Access-Control (RBAC) to answer: Can (subject) (verb) (object)?
+// The (subject) is indicated as the Authorization header of the HTTP call and passed in here.
+// The (verb) is indicated in the function that calls _verify (ie. Activity.create).
+// The (object) is provided in thhe URL (usually) and passed in here (either string ID or null for "root").
+// - Additionally, the "type" array allows restricting hierarchical ownership of subject -> object.
+//   Use [] (empty array) to indicate that ONLY root credentials are allowed to (verb).
+export async function _verify(
+  authSubject: AuthSubject | string | undefined,
+  authType: Array<"self" | "sibling" | "parent"> /* 'root' = [] */,
+  authObject?: string | null
+): Promise<string> {
+  const TypeRepository = new Repository().getTypeRepository()
+
+  // If an actual AuthSubject was not provided, create one first.
+  if (authSubject === undefined || typeof authSubject === "string")
+    authSubject = await _createAuthSubject(authSubject)
+  const isRoot = authSubject.origin === null
+
+  // Patch in the special-cased "me" to the actual authenticated credential.
+  // Root credentials (origin is null) are not allowed to substitute the "me" value.
+  if (authObject === "me" && !isRoot) {
+    authObject = authSubject.origin
+  } else if (authObject === "me" && isRoot) {
+    throw new Error("400.context-substitution-failed")
+  }
+  
+  // Check if `authSubject` is root for a root-only authType.
+  if (isRoot)
+    return authObject as any
+  
+  // Check if `authObject` and `authSubject` are the same.
+  if (!isRoot && authType.includes("self") && (authSubject.origin === authObject))
+    return authObject as any
+  
+  // Optimization.
+  if (!isRoot && (authType.includes("parent") || authType.includes("sibling"))) {
+    let _owner = await TypeRepository._owner(authObject ?? "")
+
+    // Check if the immediate parent type of `authObject` is found in `authSubject`'s inheritance tree.
+    if (authType.includes("sibling") && (_owner === (await TypeRepository._owner(authSubject.origin)))) {
+      return authObject as any
     } else {
-      from = auth[0]
-      to = auth_value
-      auth[0] = from = await CredentialRepository._find(auth[0], auth[1] || "*" /* FIXME: this forces password match */)
-      // Patch in the special-cased "me" to the actual authenticated credential.
-      if (to === "me") sub_auth_value = to = auth[0]
-    } // FIXME: R vs P?
 
-    // eslint-disable-next-line
-    /*console.dir({ type, from, to, match: [ from === to,
-      (await TypeRepository._owner(from ?? "")) === (await TypeRepository._owner(to ?? "")),
-      Object.values(await TypeRepository._parent(to ?? "")).includes(from ?? ""),
-    ]})//*/
-
-    // Handle whether we require the parameter to be [[[self], a sibling], or a parent].
-    if (
-      /* Check if `to` and `from` are the same object. */
-      !(type.includes("self") ? from === to : false) &&
-      /* FIXME: Check if the immediate parent type of `to` is found in `from`'s inheritance tree. */
-      !(type.includes("sibling")
-        ? (await TypeRepository._owner(from ?? "")) === (await TypeRepository._owner(to || ""))
-        : false) &&
-      /* Check if `from` is actually the parent ID of `to` matching the same type as `from`. */
-      !(type.includes("parent") ? Object.values(await TypeRepository._parent(to ?? "")).includes(from ?? "") : false)
-    ) {
-      /* We've given the authorization enough chances... */
-      throw new Error("403.security-context-out-of-scope")
+      // Check if `authSubject` is actually the parent ID of `authObject` matching the same type as `authSubject`.
+      // Do the "parent" check before the "sibling" check since it's more likely to be the case, so short circuit here.
+      while(_owner !== null) {
+        if (_owner === authSubject.origin)
+          return authObject as any
+        _owner = await TypeRepository._owner(_owner)
+      }
     }
   }
-  // There shouldn't be any "me" anymore -- unless we're root.
-  if (cosignData === undefined && sub_auth_value === undefined && auth_value /* to */ === "me")
-    throw new Error("400.context-substitution-failed")
-  return sub_auth_value || auth_value
+
+  // We've given the authorization enough chances... fail now.
+  throw new Error("403.security-context-out-of-scope")
 }

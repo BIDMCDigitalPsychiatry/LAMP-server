@@ -1,6 +1,6 @@
 import Bull from "bull"
 import { Mutex } from "async-mutex"
-import { ActivityScheduler } from "../../utils/ActivitySchedulerJob"
+import { ActivityScheduler } from "./ActivitySchedulerJob"
 const clientLock = new Mutex()
 
 //Initialise UpdateToSchedulerQueue Queue
