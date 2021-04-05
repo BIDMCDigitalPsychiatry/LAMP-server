@@ -16,10 +16,6 @@ import {
   TypeService
 } from "."
 
-// TODO: ActivityEvent_create, SensorEvent_create, Activity_create, Activity_update, Activity_delete,
-//       Sensor_create, Sensor_update, Sensor_delete, Study_create, Study_update, Study_delete,
-//       Researcher_create, Researcher_update, Researcher_delete
-
 export const QueryAPI = Router()
 export async function Query(query: string, auth: any): Promise<any> {
   return await jsonata(query).evaluate(
@@ -37,9 +33,9 @@ export async function Query(query: string, auth: any): Promise<any> {
           console.log(` -- ActivityEvent_create: ${((Date.now() - _start)).toFixed(2)} ms`)
           return x 
         },
-        Activity_list: async (study_id: string, ignore_binary: boolean = true) => {
+        Activity_list: async (study_id: string, ignore_binary: boolean = true, sibling: boolean = false) => {
           const _start = Date.now()
-          const x = await ActivityService.list(auth, study_id, ignore_binary)
+          const x = await ActivityService.list(auth, study_id, ignore_binary, sibling)
           console.log(` -- Activity_list: ${((Date.now() - _start)).toFixed(2)} ms`)
           return x 
         },
@@ -109,9 +105,9 @@ export async function Query(query: string, auth: any): Promise<any> {
           console.log(` -- Credential_set: ${((Date.now() - _start)).toFixed(2)} ms`)
           return x 
         },
-        Participant_list: async (study_id: string) => {
+        Participant_list: async (study_id: string, sibling: boolean = false) => {
           const _start = Date.now()
-          const x = await ParticipantService.list(auth, study_id)
+          const x = await ParticipantService.list(auth, study_id, sibling)
           console.log(` -- Participant_list: ${((Date.now() - _start)).toFixed(2)} ms`)
           return x 
         },
@@ -169,9 +165,9 @@ export async function Query(query: string, auth: any): Promise<any> {
           console.log(` -- SensorEvent_create: ${((Date.now() - _start)).toFixed(2)} ms`)
           return x 
         },
-        Sensor_list: async (study_id: string, ignore_binary: boolean = true) => {
+        Sensor_list: async (study_id: string, ignore_binary: boolean = true, sibling: boolean = false) => {
           const _start = Date.now()
-          const x = await SensorService.list(auth, study_id, ignore_binary)
+          const x = await SensorService.list(auth, study_id, ignore_binary, sibling)
           console.log(` -- Sensor_list: ${((Date.now() - _start)).toFixed(2)} ms`)
           return x 
         },
@@ -220,25 +216,25 @@ export async function Query(query: string, auth: any): Promise<any> {
         Study_list: async (researcher_id: string) => {
           const _start = Date.now()
           const x = await StudyService.list(auth, researcher_id)
-          console.log(` -- Study_all: ${((Date.now() - _start)).toFixed(2)} ms`)
+          console.log(` -- Study_list: ${((Date.now() - _start)).toFixed(2)} ms`)
           return x 
         },
         Study_create: async (researcher_id: string, study: any) => {
           const _start = Date.now()
           const x = await StudyService.create(auth, researcher_id, study)
-          console.log(` -- Study_view: ${((Date.now() - _start)).toFixed(2)} ms`)
+          console.log(` -- Study_create: ${((Date.now() - _start)).toFixed(2)} ms`)
           return x 
         },
         Study_get: async (study_id: string) => {
           const _start = Date.now()
           const x = await StudyService.get(auth, study_id)
-          console.log(` -- Study_all: ${((Date.now() - _start)).toFixed(2)} ms`)
+          console.log(` -- Study_get: ${((Date.now() - _start)).toFixed(2)} ms`)
           return x 
         },
         Study_set: async (study_id: string, study: any | null) => {
           const _start = Date.now()
           const x = await StudyService.set(auth, study_id, study)
-          console.log(` -- Study_view: ${((Date.now() - _start)).toFixed(2)} ms`)
+          console.log(` -- Study_set: ${((Date.now() - _start)).toFixed(2)} ms`)
           return x 
         },
         Type_parent: async (type_id: string) => {
