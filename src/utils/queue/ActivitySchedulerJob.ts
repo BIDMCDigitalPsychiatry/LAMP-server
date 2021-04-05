@@ -5,13 +5,15 @@ import { Mutex } from "async-mutex"
 const clientLock = new Mutex()
 /// List activities for a given ID; if a Participant ID is not provided, undefined = list ALL.
 export const ActivityScheduler = async (id?: string): Promise<void> => {
+  console.log("Preparing to fetch activities")
   const repo = new Repository()
   const ActivityRepository = repo.getActivityRepository()
   const TypeRepository = repo.getTypeRepository()
   const ParticipantRepository = repo.getParticipantRepository()
   const SensorEventRepository = repo.getSensorEventRepository()
+  console.log("Fetching activities and their schedules")
   const activities: any[] =
-    id === undefined ? await ActivityRepository._select(null) : await ActivityRepository._select(id)
+    id === undefined ? await ActivityRepository._select(null,false,true) : await ActivityRepository._select(id,false,true)
   console.log("activity_id given", id)
   console.log("Saving to redis")
   console.log(`Processing ${activities.length} activities for push notifications.`)
