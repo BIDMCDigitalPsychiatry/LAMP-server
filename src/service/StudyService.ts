@@ -7,7 +7,9 @@ import { PubSubAPIListenerQueue } from "../utils/queue/PubSubAPIListenerQueue"
 import { UpdateToSchedulerQueue } from "../utils/queue/UpdateToSchedulerQueue"
 import { Repository } from "../repository/Bootstrap"
 
-export class _StudyService {
+export class StudyService {
+  public static _name = "Study"
+  public static Router = Router()
 
   public static async list(auth: any, researcher_id: string) {
     const StudyRepository = new Repository().getStudyRepository()
@@ -82,34 +84,33 @@ export class _StudyService {
   }
 }
 
-export const StudyService = Router()
-StudyService.post("/researcher/:researcher_id/study", async (req: Request, res: Response) => {
+StudyService.Router.post("/researcher/:researcher_id/study", async (req: Request, res: Response) => {
   try {
-    res.json({ data: _StudyService.create(req.get("Authorization"), req.params.researcher_id, req.body) })
+    res.json({ data: StudyService.create(req.get("Authorization"), req.params.researcher_id, req.body) })
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-StudyService.put("/study/:study_id", async (req: Request, res: Response) => {
+StudyService.Router.put("/study/:study_id", async (req: Request, res: Response) => {
   try {
-    res.json({ data: await _StudyService.set(req.get("Authorization"), req.params.study_id, req.body) })
+    res.json({ data: await StudyService.set(req.get("Authorization"), req.params.study_id, req.body) })
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-StudyService.delete("/study/:study_id", async (req: Request, res: Response) => {
+StudyService.Router.delete("/study/:study_id", async (req: Request, res: Response) => {
   try {
-    res.json({ data: await _StudyService.set(req.get("Authorization"), req.params.study_id, null) })
+    res.json({ data: await StudyService.set(req.get("Authorization"), req.params.study_id, null) })
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-StudyService.get("/study/:study_id", async (req: Request, res: Response) => {
+StudyService.Router.get("/study/:study_id", async (req: Request, res: Response) => {
   try {
-    let output = { data: await _StudyService.get(req.get("Authorization"), req.params.study_id) }
+    let output = { data: await StudyService.get(req.get("Authorization"), req.params.study_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {
@@ -117,9 +118,9 @@ StudyService.get("/study/:study_id", async (req: Request, res: Response) => {
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-StudyService.get("/researcher/:researcher_id/study", async (req: Request, res: Response) => {
+StudyService.Router.get("/researcher/:researcher_id/study", async (req: Request, res: Response) => {
   try {
-    let output = { data: await _StudyService.list(req.get("Authorization"), req.params.researcher_id) }
+    let output = { data: await StudyService.list(req.get("Authorization"), req.params.researcher_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {
@@ -129,7 +130,7 @@ StudyService.get("/researcher/:researcher_id/study", async (req: Request, res: R
 })
 
 // Clone study id to another-import activities,sensors to new studyid given
-StudyService.post("/researcher/:researcher_id/study/clone", async (req: Request, res: Response) => {
+StudyService.Router.post("/researcher/:researcher_id/study/clone", async (req: Request, res: Response) => {
   try {
     const StudyRepository = new Repository().getStudyRepository()
     const ActivityRepository = new Repository().getActivityRepository()

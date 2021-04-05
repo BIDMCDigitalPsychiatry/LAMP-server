@@ -7,7 +7,9 @@ import { Repository } from "../repository/Bootstrap"
 import { CacheDataQueue } from "../utils/queue/CacheDataQueue"
 import { RedisClient } from "../repository/Bootstrap"
 
-export class _ResearcherService {
+export class ResearcherService {
+  public static _name = "Researcher"
+  public static Router = Router()
 
   public static async list(auth: any, parent_id: null) {
     const ResearcherRepository = new Repository().getResearcherRepository()
@@ -64,35 +66,34 @@ export class _ResearcherService {
   }
 }
 
-export const ResearcherService = Router()
-ResearcherService.post("/researcher", async (req: Request, res: Response) => {
+ResearcherService.Router.post("/researcher", async (req: Request, res: Response) => {
   try {
-    res.json({ data: await _ResearcherService.create(req.get("Authorization"), null, req.body) })
+    res.json({ data: await ResearcherService.create(req.get("Authorization"), null, req.body) })
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
 
-ResearcherService.put("/researcher/:researcher_id", async (req: Request, res: Response) => {
+ResearcherService.Router.put("/researcher/:researcher_id", async (req: Request, res: Response) => {
   try {
-    res.json({ data: await _ResearcherService.set(req.get("Authorization"), req.params.researcher_id, req.body) })
+    res.json({ data: await ResearcherService.set(req.get("Authorization"), req.params.researcher_id, req.body) })
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ResearcherService.delete("/researcher/:researcher_id", async (req: Request, res: Response) => {
+ResearcherService.Router.delete("/researcher/:researcher_id", async (req: Request, res: Response) => {
   try {
-    res.json({ data: await _ResearcherService.set(req.get("Authorization"), req.params.researcher_id, null) })
+    res.json({ data: await ResearcherService.set(req.get("Authorization"), req.params.researcher_id, null) })
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ResearcherService.get("/researcher/:researcher_id", async (req: Request, res: Response) => {
+ResearcherService.Router.get("/researcher/:researcher_id", async (req: Request, res: Response) => {
   try {
-    let output = { data: await _ResearcherService.get(req.get("Authorization"), req.params.researcher_id) }
+    let output = { data: await ResearcherService.get(req.get("Authorization"), req.params.researcher_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {
@@ -100,9 +101,9 @@ ResearcherService.get("/researcher/:researcher_id", async (req: Request, res: Re
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ResearcherService.get("/researcher", async (req: Request, res: Response) => {
+ResearcherService.Router.get("/researcher", async (req: Request, res: Response) => {
   try {
-    let output = { data: await _ResearcherService.list(req.get("Authorization"), null) }
+    let output = { data: await ResearcherService.list(req.get("Authorization"), null) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {
@@ -118,7 +119,7 @@ ResearcherService.get("/researcher", async (req: Request, res: Response) => {
  * @param STRING lookup
  * @return ARRAY
  */
-ResearcherService.get("/researcher/:researcher_id/_lookup/:lookup", async (req: Request, res: Response) => {
+ResearcherService.Router.get("/researcher/:researcher_id/_lookup/:lookup", async (req: Request, res: Response) => {
   try {
     const _lookup: string = req.params.lookup
     const studyID: string = (!!req.query.study_id ? req.query.study_id : undefined) as any
@@ -261,7 +262,7 @@ ResearcherService.get("/researcher/:researcher_id/_lookup/:lookup", async (req: 
  *  mode 3- return  lamp.name and to.unityhealth.psychiatry.settings,4-return  lamp.name only
  *  mode 1 - return only gps,accelerometer,analytics, mode 2- return only activity_event data
  */
-ResearcherService.get("/study/:study_id/_lookup/:lookup/mode/:mode", async (req: Request, res: Response) => {
+ResearcherService.Router.get("/study/:study_id/_lookup/:lookup/mode/:mode", async (req: Request, res: Response) => {
   try {
     const repo = new Repository()
     const ParticipantRepository = repo.getParticipantRepository()

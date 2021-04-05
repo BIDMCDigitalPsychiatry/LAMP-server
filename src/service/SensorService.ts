@@ -5,7 +5,9 @@ const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN TH
 import { PubSubAPIListenerQueue } from "../utils/queue/PubSubAPIListenerQueue"
 import { Repository } from "../repository/Bootstrap"
 
-export class _SensorService {
+export class SensorService {
+  public static _name = "Sensor"
+  public static Router = Router()
   
   public static async list(auth: any, study_id: string, ignore_binary: boolean, sibling: boolean = false) {
     const SensorRepository = new Repository().getSensorRepository()
@@ -89,34 +91,33 @@ export class _SensorService {
   }
 }
 
-export const SensorService = Router()
-SensorService.post("/study/:study_id/sensor", async (req: Request, res: Response) => {
+SensorService.Router.post("/study/:study_id/sensor", async (req: Request, res: Response) => {
   try {
-    res.json({ data: await _SensorService.create(req.get("Authorization"), req.params.study_id, req.body) })
+    res.json({ data: await SensorService.create(req.get("Authorization"), req.params.study_id, req.body) })
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-SensorService.put("/sensor/:sensor_id", async (req: Request, res: Response) => {
+SensorService.Router.put("/sensor/:sensor_id", async (req: Request, res: Response) => {
   try {
-    res.json({ data: await _SensorService.create(req.get("Authorization"), req.params.sensor_id, req.body) })
+    res.json({ data: await SensorService.create(req.get("Authorization"), req.params.sensor_id, req.body) })
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-SensorService.delete("/sensor/:sensor_id", async (req: Request, res: Response) => {
+SensorService.Router.delete("/sensor/:sensor_id", async (req: Request, res: Response) => {
   try {
-    res.json({ data: await _SensorService.create(req.get("Authorization"), req.params.sensor_id, null) })
+    res.json({ data: await SensorService.create(req.get("Authorization"), req.params.sensor_id, null) })
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-SensorService.get("/sensor/:sensor_id", async (req: Request, res: Response) => {
+SensorService.Router.get("/sensor/:sensor_id", async (req: Request, res: Response) => {
   try {
-    let output = { data: await _SensorService.get(req.get("Authorization"), req.params.sensor_id) }
+    let output = { data: await SensorService.get(req.get("Authorization"), req.params.sensor_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {
@@ -124,9 +125,9 @@ SensorService.get("/sensor/:sensor_id", async (req: Request, res: Response) => {
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-SensorService.get("/participant/:participant_id/sensor", async (req: Request, res: Response) => {
+SensorService.Router.get("/participant/:participant_id/sensor", async (req: Request, res: Response) => {
   try {
-    let output = { data: await _SensorService.list(req.get("Authorization"), req.params.participant_id, req.query.ignore_binary === "true", true) }
+    let output = { data: await SensorService.list(req.get("Authorization"), req.params.participant_id, req.query.ignore_binary === "true", true) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {
@@ -134,9 +135,9 @@ SensorService.get("/participant/:participant_id/sensor", async (req: Request, re
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-SensorService.get("/study/:study_id/sensor", async (req: Request, res: Response) => {
+SensorService.Router.get("/study/:study_id/sensor", async (req: Request, res: Response) => {
   try {
-    let output = { data: await _SensorService.list(req.get("Authorization"), req.params.study_id, req.query.ignore_binary === "true") }
+    let output = { data: await SensorService.list(req.get("Authorization"), req.params.study_id, req.query.ignore_binary === "true") }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {

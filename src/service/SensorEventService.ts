@@ -4,11 +4,14 @@ import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { SchedulerDeviceUpdateQueue } from "../utils/queue/SchedulerDeviceUpdateQueue"
 import { Repository } from "../repository/Bootstrap"
+
 // default to LIMIT_NAN, clamped to [-LIMIT_MAX, +LIMIT_MAX]
 const LIMIT_NAN = 1000
 const LIMIT_MAX = 2_147_483_647
 
-export class _SensorEventService {
+export class SensorEventService {
+  public static _name = "SensorEvent"
+  public static Router = Router()
 
   public static async list(auth: any, participant_id: string, origin: string | undefined, from: number | undefined, to: number | undefined, limit: number | undefined) {
     const SensorEventRepository = new Repository().getSensorEventRepository()
@@ -44,11 +47,10 @@ export class _SensorEventService {
   }
 }
 
-export const SensorEventService = Router()
-SensorEventService.post("/participant/:participant_id/sensor_event", async (req: Request, res: Response) => {
+SensorEventService.Router.post("/participant/:participant_id/sensor_event", async (req: Request, res: Response) => {
   try {
     res.json({
-      data: await _SensorEventService.create(
+      data: await SensorEventService.create(
         req.get("Authorization"),
         req.params.participant_id,
         Array.isArray(req.body) ? req.body : [req.body]
@@ -58,10 +60,10 @@ SensorEventService.post("/participant/:participant_id/sensor_event", async (req:
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-SensorEventService.get("/participant/:participant_id/sensor_event", async (req: Request, res: Response) => {
+SensorEventService.Router.get("/participant/:participant_id/sensor_event", async (req: Request, res: Response) => {
   try {
     let output = {
-      data: await _SensorEventService.list(
+      data: await SensorEventService.list(
         req.get("Authorization"),
         req.params.participant_id,
         req.query.origin as string,

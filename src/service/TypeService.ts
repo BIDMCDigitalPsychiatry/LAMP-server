@@ -5,7 +5,9 @@ const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN TH
 import { Repository } from "../repository/Bootstrap"
 import { RedisClient } from "../repository/Bootstrap"
 
-export class _TypeService {
+export class TypeService {
+  public static _name = "Type"
+  public static Router = Router()
 
   public static async parent(auth: any, type_id: string) {
     const TypeRepository = new Repository().getTypeRepository()
@@ -24,24 +26,26 @@ export class _TypeService {
     return data
   }
 
+  public static async list(auth: any, type_id: string) {
+    const TypeRepository = new Repository().getTypeRepository()
+    type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
+    return await TypeRepository._list("a", <string>type_id)
+  }
+
   public static async get(auth: any, type_id: string, attachment_key: string, index?: string) {
     const TypeRepository = new Repository().getTypeRepository()
     type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
-    if (attachment_key !== undefined) {
-      let obj = await TypeRepository._get("a", <string>type_id, attachment_key)
-      // TODO: if obj undefined here, return null instead of throwing 404 error
-      const sequenceObj = Array.isArray(obj) || typeof obj === "string"
-      const shouldIndex =
-        index !== undefined &&
-        (typeof obj === "object" || (sequenceObj && (Number.parse(index) !== undefined || index === "length")))
-      const realIndex = sequenceObj && (Number.parse(index) ?? 0) < 0 ? obj.length + Number.parse(index) : index
-      if (index !== undefined && !shouldIndex) throw new Error("404.specified-index-not-found")
-      else if (shouldIndex) obj = obj[realIndex]
-      // TODO: parse & b64decode data-uri strings if Accept header matches
-      return obj !== undefined ? obj : null
-    } else {
-      return await TypeRepository._list("a", <string>type_id)
-    }
+    let obj = await TypeRepository._get("a", <string>type_id, attachment_key)
+    // TODO: if obj undefined here, return null instead of throwing 404 error
+    const sequenceObj = Array.isArray(obj) || typeof obj === "string"
+    const shouldIndex =
+      index !== undefined &&
+      (typeof obj === "object" || (sequenceObj && (Number.parse(index) !== undefined || index === "length")))
+    const realIndex = sequenceObj && (Number.parse(index) ?? 0) < 0 ? obj.length + Number.parse(index) : index
+    if (index !== undefined && !shouldIndex) throw new Error("404.specified-index-not-found")
+    else if (shouldIndex) obj = obj[realIndex]
+    // TODO: parse & b64decode data-uri strings if Accept header matches
+    return obj !== undefined ? obj : null
   }
 
   public static async set(auth: any, type_id: string, attachment_key: string, target: string, attachment_value: any) {
@@ -72,10 +76,9 @@ const _put_routes = (<string[]>[]).concat(
     (type) => `/${type}/:type_id/tag/:attachment_key/:target`
   )
 )
-export const TypeService = Router()
-TypeService.get(_parent_routes, async (req: Request, res: Response) => {
+TypeService.Router.get(_parent_routes, async (req: Request, res: Response) => {
   try {
-    let output = { data: await _TypeService.parent(req.get("Authorization"), req.params.type_id) }
+    let output = { data: await TypeService.parent(req.get("Authorization"), req.params.type_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {
@@ -83,18 +86,22 @@ TypeService.get(_parent_routes, async (req: Request, res: Response) => {
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-TypeService.get(_get_routes, async (req: Request, res: Response) => {
+TypeService.Router.get(_get_routes, async (req: Request, res: Response) => {
   try {
-    res.json({ data: await _TypeService.get(req.get("Authorization"), req.params.type_id, req.params.attachment_key, req.params.index) })
+    if (req.params.attachment_key === undefined) {
+      res.json({ data: await TypeService.list(req.get("Authorization"), req.params.type_id) })
+    } else {
+      res.json({ data: await TypeService.get(req.get("Authorization"), req.params.type_id, req.params.attachment_key, req.params.index) })
+    }
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-TypeService.put(_put_routes, async (req: Request, res: Response) => {
+TypeService.Router.put(_put_routes, async (req: Request, res: Response) => {
   try {
     res.json({
-      data: (await _TypeService.set(req.get("Authorization"), req.params.type_id, req.params.attachment_key, req.params.target, req.body))
+      data: (await TypeService.set(req.get("Authorization"), req.params.type_id, req.params.attachment_key, req.params.target, req.body))
         ? {}
         : null /* error */,
     })

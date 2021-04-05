@@ -7,7 +7,9 @@ const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN TH
 import { PubSubAPIListenerQueue } from "../utils/queue/PubSubAPIListenerQueue"
 import { Repository } from "../repository/Bootstrap"
 
-export class _ParticipantService {
+export class ParticipantService {
+  public static _name = "Participant"
+  public static Router = Router()
 
   public static async list(auth: any, study_id: string, sibling: boolean = false) {
     const ParticipantRepository = new Repository().getParticipantRepository()
@@ -93,34 +95,33 @@ export class _ParticipantService {
   }
 }
 
-export const ParticipantService = Router()
-ParticipantService.post("/study/:study_id/participant", async (req: Request, res: Response) => {
+ParticipantService.Router.post("/study/:study_id/participant", async (req: Request, res: Response) => {
   try {
-    res.json({ data: await _ParticipantService.create(req.get("Authorization"), req.params.study_id, req.body) })
+    res.json({ data: await ParticipantService.create(req.get("Authorization"), req.params.study_id, req.body) })
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ParticipantService.put("/participant/:participant_id", async (req: Request, res: Response) => {
+ParticipantService.Router.put("/participant/:participant_id", async (req: Request, res: Response) => {
   try {
-    res.json({ data: await _ParticipantService.set(req.get("Authorization"), req.params.participant_id, req.body) })
+    res.json({ data: await ParticipantService.set(req.get("Authorization"), req.params.participant_id, req.body) })
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ParticipantService.delete("/participant/:participant_id", async (req: Request, res: Response) => {
+ParticipantService.Router.delete("/participant/:participant_id", async (req: Request, res: Response) => {
   try {
-    res.json({ data: await _ParticipantService.set(req.get("Authorization"), req.params.participant_id, null)})
+    res.json({ data: await ParticipantService.set(req.get("Authorization"), req.params.participant_id, null)})
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ParticipantService.get("/participant/:participant_id", async (req: Request, res: Response) => {
+ParticipantService.Router.get("/participant/:participant_id", async (req: Request, res: Response) => {
   try {
-    let output = { data: _ParticipantService.get(req.get("Authorization"), req.params.participant_id) }
+    let output = { data: ParticipantService.get(req.get("Authorization"), req.params.participant_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {
@@ -128,9 +129,9 @@ ParticipantService.get("/participant/:participant_id", async (req: Request, res:
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ParticipantService.get("/activity/:activity_id/participant", async (req: Request, res: Response) => {
+ParticipantService.Router.get("/activity/:activity_id/participant", async (req: Request, res: Response) => {
   try {
-    let output = { data: await _ParticipantService.list(req.get("Authorization"), req.params.activity_id, true) }
+    let output = { data: await ParticipantService.list(req.get("Authorization"), req.params.activity_id, true) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {
@@ -138,9 +139,9 @@ ParticipantService.get("/activity/:activity_id/participant", async (req: Request
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ParticipantService.get("/sensor/:sensor_id/participant", async (req: Request, res: Response) => {
+ParticipantService.Router.get("/sensor/:sensor_id/participant", async (req: Request, res: Response) => {
   try {
-    let output = { data: await _ParticipantService.list(req.get("Authorization"), req.params.sensor_id, true) }
+    let output = { data: await ParticipantService.list(req.get("Authorization"), req.params.sensor_id, true) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {
@@ -148,9 +149,9 @@ ParticipantService.get("/sensor/:sensor_id/participant", async (req: Request, re
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ParticipantService.get("/study/:study_id/participant", async (req: Request, res: Response) => {
+ParticipantService.Router.get("/study/:study_id/participant", async (req: Request, res: Response) => {
   try {
-    let output = { data: await _ParticipantService.list(req.get("Authorization"), req.params.study_id) }
+    let output = { data: await ParticipantService.list(req.get("Authorization"), req.params.study_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {

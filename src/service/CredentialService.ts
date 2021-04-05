@@ -4,7 +4,9 @@ import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository } from "../repository/Bootstrap"
 
-export class _CredentialService {
+export class CredentialService {
+  public static _name = "Credential"
+  public static Router = Router()
 
   public static async list(auth: any, type_id: string | null) {
     const CredentialRepository = new Repository().getCredentialRepository()
@@ -36,12 +38,11 @@ export class _CredentialService {
   }
 }
 
-export const CredentialService = Router()
-CredentialService.get(
+CredentialService.Router.get(
   ["researcher", "study", "participant", "activity", "sensor", "type"].map((type) => `/${type}/:type_id/credential`),
   async (req: Request, res: Response) => {
     try {
-      let output = { data: await _CredentialService.list(req.get("Authorization"), req.params.type_id === "null" ? null : req.params.type_id) }
+      let output = { data: await CredentialService.list(req.get("Authorization"), req.params.type_id === "null" ? null : req.params.type_id) }
       output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
       res.json(output)
     } catch (e) {
@@ -50,37 +51,37 @@ CredentialService.get(
     }
   }
 )
-CredentialService.post(
+CredentialService.Router.post(
   ["researcher", "study", "participant", "activity", "sensor", "type"].map((type) => `/${type}/:type_id/credential/`),
   async (req: Request, res: Response) => {
     try {
-      res.json({ data: await _CredentialService.create(req.get("Authorization"), req.params.type_id === "null" ? null : req.params.type_id, req.body) })
+      res.json({ data: await CredentialService.create(req.get("Authorization"), req.params.type_id === "null" ? null : req.params.type_id, req.body) })
     } catch (e) {
       if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
       res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
     }
   }
 )
-CredentialService.put(
+CredentialService.Router.put(
   ["researcher", "study", "participant", "activity", "sensor", "type"].map(
     (type) => `/${type}/:type_id/credential/:access_key`
   ),
   async (req: Request, res: Response) => {
     try {
-      res.json({ data: await _CredentialService.set(req.get("Authorization"), req.params.type_id === "null" ? null : req.params.type_id, req.params.access_key, req.body) })
+      res.json({ data: await CredentialService.set(req.get("Authorization"), req.params.type_id === "null" ? null : req.params.type_id, req.params.access_key, req.body) })
     } catch (e) {
       if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
       res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
     }
   }
 )
-CredentialService.delete(
+CredentialService.Router.delete(
   ["researcher", "study", "participant", "activity", "sensor", "type"].map(
     (type) => `/${type}/:type_id/credential/:access_key`
   ),
   async (req: Request, res: Response) => {
     try {
-      res.json({ data: await _CredentialService.set(req.get("Authorization"), req.params.type_id === "null" ? null : req.params.type_id, req.params.access_key, null) })
+      res.json({ data: await CredentialService.set(req.get("Authorization"), req.params.type_id === "null" ? null : req.params.type_id, req.params.access_key, null) })
     } catch (e) {
       if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
       res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })

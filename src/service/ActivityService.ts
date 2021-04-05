@@ -7,7 +7,9 @@ import { DeleteFromSchedulerQueue } from "../utils/queue/DeleteFromSchedulerQueu
 import { PubSubAPIListenerQueue } from "../utils/queue/PubSubAPIListenerQueue"
 import { Repository } from "../repository/Bootstrap"
 
-export class _ActivityService {
+export class ActivityService {
+  public static _name = "Activity"
+  public static Router = Router()
 
   public static async list(auth: any, study_id: string, ignore_binary: boolean, sibling: boolean = false) {
     const ActivityRepository = new Repository().getActivityRepository()
@@ -94,34 +96,33 @@ export class _ActivityService {
   }
 }
 
-export const ActivityService = Router()
-ActivityService.post("/study/:study_id/activity", async (req: Request, res: Response) => {
+ActivityService.Router.post("/study/:study_id/activity", async (req: Request, res: Response) => {
   try {
-    res.json({ data: await _ActivityService.create(req.get("Authorization"), req.params.study_id, req.body) })
+    res.json({ data: await ActivityService.create(req.get("Authorization"), req.params.study_id, req.body) })
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ActivityService.put("/activity/:activity_id", async (req: Request, res: Response) => {
+ActivityService.Router.put("/activity/:activity_id", async (req: Request, res: Response) => {
   try {
-    res.json({ data: await _ActivityService.set(req.get("Authorization"), req.params.activity_id, req.body) })
+    res.json({ data: await ActivityService.set(req.get("Authorization"), req.params.activity_id, req.body) })
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ActivityService.delete("/activity/:activity_id", async (req: Request, res: Response) => {
+ActivityService.Router.delete("/activity/:activity_id", async (req: Request, res: Response) => {
   try {
-    res.json({ data: await _ActivityService.set(req.get("Authorization"), req.params.activity_id, null) })
+    res.json({ data: await ActivityService.set(req.get("Authorization"), req.params.activity_id, null) })
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ActivityService.get("/activity/:activity_id", async (req: Request, res: Response) => {
+ActivityService.Router.get("/activity/:activity_id", async (req: Request, res: Response) => {
   try {
-    let output = { data: await _ActivityService.get(req.get("Authorization"), req.params.activity_id) }
+    let output = { data: await ActivityService.get(req.get("Authorization"), req.params.activity_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {
@@ -129,9 +130,9 @@ ActivityService.get("/activity/:activity_id", async (req: Request, res: Response
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ActivityService.get("/participant/:participant_id/activity", async (req: Request, res: Response) => {
+ActivityService.Router.get("/participant/:participant_id/activity", async (req: Request, res: Response) => {
   try {
-    let output = { data: await _ActivityService.list(req.get("Authorization"), req.params.participant_id, req.query.ignore_binary === "true", true) }
+    let output = { data: await ActivityService.list(req.get("Authorization"), req.params.participant_id, req.query.ignore_binary === "true", true) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {
@@ -139,9 +140,9 @@ ActivityService.get("/participant/:participant_id/activity", async (req: Request
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ActivityService.get("/study/:study_id/activity", async (req: Request, res: Response) => {
+ActivityService.Router.get("/study/:study_id/activity", async (req: Request, res: Response) => {
   try {
-    let output = { data: await _ActivityService.list(req.get("Authorization"), req.params.study_id, req.query.ignore_binary === "true") }
+    let output = { data: await ActivityService.list(req.get("Authorization"), req.params.study_id, req.query.ignore_binary === "true") }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {
