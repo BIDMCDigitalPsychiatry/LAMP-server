@@ -29,6 +29,11 @@ SensorService.post("/study/:study_id/sensor", async (req: Request, res: Response
       token: `study.${study_id}.sensor.${output["data"]}`,
       payload: sensor,
     })
+    PubSubAPIListenerQueue.add({
+      topic: `LAMP_CONSUMER`,
+      token: `study.${study_id}.sensor.${output["data"]}`,
+      payload: sensor,
+    })
 
     res.json(output)
   } catch (e) {
@@ -51,6 +56,7 @@ SensorService.put("/sensor/:sensor_id", async (req: Request, res: Response) => {
     PubSubAPIListenerQueue.add({ topic: `sensor.*`, payload: sensor })
     PubSubAPIListenerQueue.add({ topic: `sensor`, payload: sensor })
     PubSubAPIListenerQueue.add({ topic: `study.*.sensor`, payload: sensor })
+    PubSubAPIListenerQueue.add({ topic: `LAMP_CONSUMER`, payload: sensor })
 
     res.json(output)
   } catch (e) {
@@ -91,6 +97,11 @@ SensorService.delete("/sensor/:sensor_id", async (req: Request, res: Response) =
 
       PubSubAPIListenerQueue.add({
         topic: `sensor`,
+        token: `study.${parent["Study"]}.sensor.${sensor_id}`,
+        payload: { action: "delete", sensor_id: sensor_id, study_id: parent["Study"] },
+      })
+      PubSubAPIListenerQueue.add({
+        topic: `LAMP_CONSUMER`,
         token: `study.${parent["Study"]}.sensor.${sensor_id}`,
         payload: { action: "delete", sensor_id: sensor_id, study_id: parent["Study"] },
       })

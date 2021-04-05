@@ -30,6 +30,11 @@ ParticipantService.post("/study/:study_id/participant", async (req: Request, res
       token: `study.${study_id}.participant.${output["data"].id}`,
       payload: participant,
     })
+    PubSubAPIListenerQueue.add({
+      topic: `LAMP_CONSUMER`,
+      token: `study.${study_id}.participant.${output["data"].id}`,
+      payload: participant,
+    })
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -51,6 +56,7 @@ ParticipantService.put("/participant/:participant_id", async (req: Request, res:
     PubSubAPIListenerQueue.add({ topic: `participant.*`, payload: participant })
     PubSubAPIListenerQueue.add({ topic: `participant`, payload: participant })
     PubSubAPIListenerQueue.add({ topic: `study.*.participant`, payload: participant })
+    PubSubAPIListenerQueue.add({ topic: `LAMP_CONSUMER`, payload: participant })
 
     res.json(output)
   } catch (e) {
@@ -88,6 +94,11 @@ ParticipantService.delete("/participant/:participant_id", async (req: Request, r
       })
       PubSubAPIListenerQueue.add({
         topic: `participant`,
+        token: `study.${parent["Study"]}.participant.${participant_id}`,
+        payload: { action: "delete", participant_id: participant_id, study_id: parent["Study"] },
+      })
+      PubSubAPIListenerQueue.add({
+        topic: `LAMP_CONSUMER`,
         token: `study.${parent["Study"]}.participant.${participant_id}`,
         payload: { action: "delete", participant_id: participant_id, study_id: parent["Study"] },
       })

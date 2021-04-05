@@ -31,6 +31,11 @@ StudyService.post("/researcher/:researcher_id/study", async (req: Request, res: 
       token: `researcher.${researcher_id}.study.${output["data"]}`,
       payload: study,
     })
+    PubSubAPIListenerQueue.add({
+      topic: `LAMP_CONSUMER`,
+      token: `researcher.${researcher_id}.study.${output["data"]}`,
+      payload: study,
+    })
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -53,6 +58,7 @@ StudyService.put("/study/:study_id", async (req: Request, res: Response) => {
     PubSubAPIListenerQueue.add({ topic: `study.*`, payload: study })
     PubSubAPIListenerQueue.add({ topic: `study`, payload: study })
     PubSubAPIListenerQueue.add({ topic: `researcher.*.study`, payload: study })
+    PubSubAPIListenerQueue.add({ topic: `LAMP_CONSUMER`, payload: study })
 
     res.json(output)
   } catch (e) {
@@ -89,6 +95,11 @@ StudyService.delete("/study/:study_id", async (req: Request, res: Response) => {
     })
     PubSubAPIListenerQueue.add({
       topic: `researcher.*.study`,
+      token: `researcher.${parent["Researcher"]}.study.${study_id}`,
+      payload: { action: "delete", study_id: study_id, researcher_id: parent["Researcher"] },
+    })
+    PubSubAPIListenerQueue.add({
+      topic: `LAMP_CONSUMER`,
       token: `researcher.${parent["Researcher"]}.study.${study_id}`,
       payload: { action: "delete", study_id: study_id, researcher_id: parent["Researcher"] },
     })
@@ -154,7 +165,7 @@ StudyService.post("/researcher/:researcher_id/study/clone", async (req: Request,
           settings: activity.settings,
           schedule: activity.schedule,
         }
-        const res = await ActivityRepository._insert(output["data"], object)        
+        const res = await ActivityRepository._insert(output["data"], object)
         //add the schedules of new activity
         UpdateToSchedulerQueue.add({ activity_id: res })
       } catch (error) {}

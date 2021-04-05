@@ -31,6 +31,11 @@ ActivityService.post("/study/:study_id/activity", async (req: Request, res: Resp
       token: `study.${study_id}.activity.${output["data"]}`,
       payload: activity,
     })
+    PubSubAPIListenerQueue.add({
+      topic: `LAMP_CONSUMER`,
+      token: `study.${study_id}.activity.${output["data"]}`,
+      payload: activity,
+    })
 
     res.json(output)
   } catch (e) {
@@ -54,6 +59,7 @@ ActivityService.put("/activity/:activity_id", async (req: Request, res: Response
     PubSubAPIListenerQueue.add({ topic: `activity.*`, payload: activity })
     PubSubAPIListenerQueue.add({ topic: `activity`, payload: activity })
     PubSubAPIListenerQueue.add({ topic: `study.*.activity`, payload: activity })
+    PubSubAPIListenerQueue.add({ topic: `LAMP_CONSUMER`, payload: activity })
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -94,6 +100,11 @@ ActivityService.delete("/activity/:activity_id", async (req: Request, res: Respo
 
       PubSubAPIListenerQueue.add({
         topic: `activity`,
+        token: `study.${parent["Study"]}.activity.${activity_id}`,
+        payload: { action: "delete", activity_id: activity_id, study_id: parent["Study"] },
+      })
+      PubSubAPIListenerQueue.add({
+        topic: `LAMP_CONSUMER`,
         token: `study.${parent["Study"]}.activity.${activity_id}`,
         payload: { action: "delete", activity_id: activity_id, study_id: parent["Study"] },
       })
@@ -141,15 +152,14 @@ ActivityService.get("/study/:study_id/activity", async (req: Request, res: Respo
   try {
     const repo = new Repository()
     const ActivityRepository = repo.getActivityRepository()
-    let study_id = req.params.study_id    
-    study_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], study_id) 
-    let ignore_binary: boolean = !!req.query.ignore_binary ? (req.query.ignore_binary == "true" ? true : false) : false       
+    let study_id = req.params.study_id
+    study_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], study_id)
+    let ignore_binary: boolean = !!req.query.ignore_binary ? (req.query.ignore_binary == "true" ? true : false) : false
     let output = { data: await ActivityRepository._select(study_id, true, ignore_binary) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
-    res.json(output)    
+    res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-

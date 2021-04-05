@@ -50,7 +50,7 @@ SensorEventService.get("/participant/:participant_id/sensor_event", async (req: 
     const repo = new Repository()
     const SensorEventRepository = repo.getSensorEventRepository()
     let participant_id: string = req.params.participant_id
-    const origin: string = req.query.origin as string 
+    const origin: string = req.query.origin as string
     const from: number | undefined = Number.parse((req.query as any).from)
     const to: number | undefined = Number.parse((req.query as any).to)
     const limit = Math.min(Math.max(Number.parse((req.query as any).limit) ?? LIMIT_NAN, -LIMIT_MAX), LIMIT_MAX)

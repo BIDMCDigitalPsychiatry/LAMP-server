@@ -84,9 +84,11 @@ PubSubAPIListenerQueue.process(async (job) => {
       job.data.topic === "activity_event" ||
       job.data.topic === "participant.*.activity_event" ||
       job.data.topic === "activity.*.activity_event" ||
-      job.data.topic === "participant.*.activity.*.activity_event"
+      job.data.topic === "participant.*.activity.*.activity_event"||
+      job.data.topic === "LAMP_CONSUMER:ACTIVITY_EVENT"
+      
     ) {
-      for (const payload of job.data.payload) {
+      for (const payload of job.data.payload) {        
         const release = await clientLock.acquire()
         try {
           const Data: any = {}
@@ -106,12 +108,19 @@ PubSubAPIListenerQueue.process(async (job) => {
               timestamp: job.data.timestamp,
             })
 
-            // throw new Error("Nats maximum payload error")
-            await publishIDs(job.data.topic, dataNew)
-          } else {
+            if(job.data.topic!==`LAMP_CONSUMER:ACTIVITY_EVENT`)
+             await publishIDs(job.data.topic, dataNew)
+            else
+             await publishIDs(`LAMP_CONSUMER`, dataNew)
+            
+          } else {            
             //publish activity_event data seperately
-            await publishActivityEvent(payload.topic, Data)
-          }
+            if(job.data.topic!==`LAMP_CONSUMER:ACTIVITY_EVENT`)
+             await publishActivityEvent(payload.topic, Data)
+            else
+             await publishActivityEvent(`LAMP_CONSUMER`, Data)
+            
+          }          
           release()
         } catch (error) {
           release()
@@ -121,7 +130,7 @@ PubSubAPIListenerQueue.process(async (job) => {
           console.log(error)
         }
       }
-      publishStatus = false
+      publishStatus = false      
     }
 
     //for the sensor_event api changes (Do not use now, as we have issue in publishing bulk data to nats server)
@@ -129,7 +138,8 @@ PubSubAPIListenerQueue.process(async (job) => {
       job.data.topic === "sensor_event" ||
       job.data.topic === "participant.*.sensor_event" ||
       job.data.topic === "sensor.*.sensor_event" ||
-      job.data.topic === "participant.*.sensor.*.sensor_event"
+      job.data.topic === "participant.*.sensor.*.sensor_event"  ||
+      job.data.topic === "LAMP_CONSUMER:SENSOR_EVENT"    
     ) {
       for (const payload of job.data.payload) {
         const release = await clientLock.acquire()
@@ -155,11 +165,18 @@ PubSubAPIListenerQueue.process(async (job) => {
               sensor: payload.sensor,
               timestamp: job.data.timestamp,
             })
-            await publishIDs(job.data.topic, dataNew)
+            if(job.data.topic!==`LAMP_CONSUMER:SENSOR_EVENT`)
+               await publishIDs(job.data.topic, dataNew)
+            else   
+              await publishIDs('LAMP_CONSUMER', dataNew)
+            
           } else {
             //publish sensor_event data seperately
-            await publishSensorEvent(payload.topic, Data)
-          }
+            if(job.data.topic!==`LAMP_CONSUMER:SENSOR_EVENT`)
+              await publishSensorEvent(payload.topic, Data)
+            else   
+              await publishSensorEvent('LAMP_CONSUMER', Data)            
+          }          
           release()
         } catch (error) {
           release()
@@ -168,9 +185,10 @@ PubSubAPIListenerQueue.process(async (job) => {
           console.log("sensor_event_payload", payload)
           console.log(error)
         }
-      }
-      publishStatus = false
+      }   
+      publishStatus = false   
     }
+   
     //if no error, publish the data to nats
     if (publishStatus) {
       const release = await clientLock.acquire()

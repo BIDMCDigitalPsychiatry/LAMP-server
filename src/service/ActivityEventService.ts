@@ -56,6 +56,13 @@ ActivityEventService.post("/participant/:participant_id/activity_event", async (
       participant_id: participant_id,
       payload: Array.isArray(activity_event) ? activity_event : [activity_event],
     })
+    PubSubAPIListenerQueue.add({
+      topic: `LAMP_CONSUMER:ACTIVITY_EVENT`,
+      action: "create",
+      timestamp: timestamp,
+      participant_id: participant_id,
+      payload: Array.isArray(activity_event) ? activity_event : [activity_event],
+    })
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
