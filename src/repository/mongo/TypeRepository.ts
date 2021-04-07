@@ -96,12 +96,11 @@ export class TypeRepository implements TypeInterface {
     existing = await TagsModel.findOne({ _deleted: false, _parent: type_id, type: type, key: key })
     if (existing === null && !deletion) {
       try {
-        await new TagsModel({
-          _parent: type_id,
-          type,
-          key,
-          value,
-        } as any).save()
+        await TagsModel.create([{
+         _parent: type_id,
+         type,
+         key,
+         value}],{checkKeys:false})
       } catch (e) {
         console.error(e)
         throw new Error("500.creation-or-update-failed")
