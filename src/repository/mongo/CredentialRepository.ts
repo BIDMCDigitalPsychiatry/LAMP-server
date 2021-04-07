@@ -58,8 +58,8 @@ export class CredentialRepository implements CredentialInterface {
     const res = await CredentialModel.findOne({ origin: type_id, access_key: access_key })
     if (res === null) throw new Error("404.no-such-credentials")
     const oldCred = res._id as any
-    // await CredentialModel.findByIdAndUpdate(oldCred,{_deleted: true})
-    await CredentialModel.deleteOne({ _id: oldCred })
+    await CredentialModel.findByIdAndUpdate(oldCred,{_deleted: true})
+    // await CredentialModel.deleteOne({ _id: oldCred })
 
     return {}
   }

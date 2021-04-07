@@ -121,7 +121,7 @@ ParticipantService.Router.delete("/participant/:participant_id", async (req: Req
 })
 ParticipantService.Router.get("/participant/:participant_id", async (req: Request, res: Response) => {
   try {
-    let output = { data: ParticipantService.get(req.get("Authorization"), req.params.participant_id) }
+    let output = { data:await ParticipantService.get(req.get("Authorization"), req.params.participant_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {
