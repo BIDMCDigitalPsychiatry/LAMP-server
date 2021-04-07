@@ -34,6 +34,7 @@ export class ActivityService {
     activity.activity_id = data
     activity.settings = undefined
     activity.schedule = undefined
+    activity.photo = undefined
 
     PubSubAPIListenerQueue.add({
       topic: `activity`,
@@ -93,6 +94,7 @@ export class ActivityService {
       activity.action = "update"
       activity.settings = undefined
       activity.schedule = undefined
+      activity.photo = undefined
       PubSubAPIListenerQueue.add({ topic: `activity.*`, payload: activity })
       PubSubAPIListenerQueue.add({ topic: `activity`, payload: activity })
       PubSubAPIListenerQueue.add({ topic: `study.*.activity`, payload: activity })
