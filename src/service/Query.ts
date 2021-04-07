@@ -19,9 +19,10 @@ import {
 const METHOD_LIST = (auth: any) => ({
   LAMP: {
     ActivityEvent: {
-      list: async (participant_id: string, origin: string, from: number, to: number, limit: number) => {
+      list: async (participant_id: string, origin: string | null, from: number | null, to: number | null, limit: number | null) => {
         const _start = Date.now()
-        const x = await ActivityEventService.list(auth, participant_id, origin, from, to, limit)
+        // Use ?? operator to convert null values to undefined as the service and repository layers require that.
+        const x = await ActivityEventService.list(auth, participant_id, origin ?? undefined, from ?? undefined, to ?? undefined, limit ?? undefined)
         console.log(` -- LAMP.ActivityEvent.list: ${((Date.now() - _start)).toFixed(2)} ms`)
         return x 
       },
@@ -163,9 +164,10 @@ const METHOD_LIST = (auth: any) => ({
       },
     },
     SensorEvent: {
-      list: async (participant_id: string, origin: string, from: number, to: number, limit: number) => {
+      list: async (participant_id: string, origin: string | null, from: number | null, to: number | null, limit: number | null) => {
         const _start = Date.now()
-        const x = await SensorEventService.list(auth, participant_id, origin, from, to, limit)
+        // Use ?? operator to convert null values to undefined as the service and repository layers require that.
+        const x = await SensorEventService.list(auth, participant_id, origin ?? undefined, from ?? undefined, to ?? undefined, limit ?? undefined)
         console.log(` -- LAMP.SensorEvent.list: ${((Date.now() - _start)).toFixed(2)} ms`)
         return x 
       },
