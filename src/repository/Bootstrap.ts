@@ -47,8 +47,8 @@ import  ioredis  from "ioredis"
 
 export let RedisClient: ioredis.Redis | undefined 
 if (typeof process.env.REDIS_HOST === "string")
-  RedisClient = new ioredis(
-    Number.parse(process.env.REDIS_HOST.match(/:([0-9]+)/g)?.[0]),
+  RedisClient = new ioredis(    
+    parseInt(`${(process.env.REDIS_HOST as any).match(/([0-9]+)/g)?.[0]}`),
     process.env.REDIS_HOST.match(/\/\/([0-9a-zA-Z._]+)/g)?.[0]
   )
 
