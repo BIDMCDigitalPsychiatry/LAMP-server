@@ -30,10 +30,10 @@ export class CredentialService {
   public static async set(auth: any, type_id: string | null, access_key: string, credential: any | null) {
     const CredentialRepository = new Repository().getCredentialRepository()
     type_id = await _verify(auth, ["self", "parent"], type_id)
-    if (credential !== null) {
-      return await CredentialRepository._update(type_id, access_key, credential)
+    if (credential === null) {
+      return await CredentialRepository._delete(type_id, access_key)      
     } else {
-      return await CredentialRepository._delete(type_id, access_key)
+      return await CredentialRepository._update(type_id, access_key, credential)      
     }
   }
 }
