@@ -11,9 +11,9 @@ export class ActivityService {
   public static _name = "Activity"
   public static Router = Router()
 
-  public static async list(auth: any, study_id: string, ignore_binary: boolean, sibling: boolean = false) {
+  public static async list(auth: any, study_id: string, ignore_binary: boolean, sibling = false) {
     const ActivityRepository = new Repository().getActivityRepository()
-    const TypeRepository =  new Repository().getTypeRepository()
+    const TypeRepository = new Repository().getTypeRepository()
     study_id = await _verify(auth, ["self", "sibling", "parent"], study_id)
     if (sibling) {
       const parent_id = await TypeRepository._owner(study_id)
@@ -32,6 +32,9 @@ export class ActivityService {
     activity.study_id = study_id
     activity.action = "create"
     activity.activity_id = data
+    activity.settings = undefined
+    activity.schedule = undefined
+
     PubSubAPIListenerQueue.add({
       topic: `activity`,
       token: `study.${study_id}.activity.${data}`,
@@ -53,10 +56,10 @@ export class ActivityService {
 
   public static async set(auth: any, activity_id: string, activity: any | null) {
     const ActivityRepository = new Repository().getActivityRepository()
-    const TypeRepository =  new Repository().getTypeRepository()
+    const TypeRepository = new Repository().getTypeRepository()
     activity_id = await _verify(auth, ["self", "sibling", "parent"], activity_id)
     if (activity === null) {
-      const parent = await TypeRepository._parent(activity_id) as any
+      const parent = (await TypeRepository._parent(activity_id)) as any
       const data = await ActivityRepository._delete(activity_id)
 
       //publishing data for participant delete api for the Token study.{study_id}.activity.{activity_id}
@@ -88,6 +91,8 @@ export class ActivityService {
       UpdateToSchedulerQueue.add({ activity_id: activity_id })
       activity.activity_id = activity_id
       activity.action = "update"
+      activity.settings = undefined
+      activity.schedule = undefined
       PubSubAPIListenerQueue.add({ topic: `activity.*`, payload: activity })
       PubSubAPIListenerQueue.add({ topic: `activity`, payload: activity })
       PubSubAPIListenerQueue.add({ topic: `study.*.activity`, payload: activity })
@@ -132,7 +137,14 @@ ActivityService.Router.get("/activity/:activity_id", async (req: Request, res: R
 })
 ActivityService.Router.get("/participant/:participant_id/activity", async (req: Request, res: Response) => {
   try {
-    let output = { data: await ActivityService.list(req.get("Authorization"), req.params.participant_id, req.query.ignore_binary === "true", true) }
+    let output = {
+      data: await ActivityService.list(
+        req.get("Authorization"),
+        req.params.participant_id,
+        req.query.ignore_binary === "true",
+        true
+      ),
+    }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {
@@ -142,12 +154,17 @@ ActivityService.Router.get("/participant/:participant_id/activity", async (req: 
 })
 ActivityService.Router.get("/study/:study_id/activity", async (req: Request, res: Response) => {
   try {
-    let output = { data: await ActivityService.list(req.get("Authorization"), req.params.study_id, req.query.ignore_binary === "true") }
+    let output = {
+      data: await ActivityService.list(
+        req.get("Authorization"),
+        req.params.study_id,
+        req.query.ignore_binary === "true"
+      ),
+    }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
-    res.json(output)    
+    res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-
