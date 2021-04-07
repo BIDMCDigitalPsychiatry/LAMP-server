@@ -11,7 +11,7 @@ export class ActivityService {
   public static _name = "Activity"
   public static Router = Router()
 
-  public static async list(auth: any, study_id: string, ignore_binary: boolean, sibling = false) {
+  public static async list(auth: any, study_id: string, ignore_binary: boolean, sibling: boolean = false) {
     const ActivityRepository = new Repository().getActivityRepository()
     const TypeRepository = new Repository().getTypeRepository()
     study_id = await _verify(auth, ["self", "sibling", "parent"], study_id)
