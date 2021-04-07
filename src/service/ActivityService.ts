@@ -11,7 +11,7 @@ export class ActivityService {
   public static _name = "Activity"
   public static Router = Router()
 
-  public static async list(auth: any, study_id: string, ignore_binary: boolean, sibling = false) {
+  public static async list(auth: any, study_id: string, ignore_binary: boolean, sibling: boolean = false) {
     const ActivityRepository = new Repository().getActivityRepository()
     const TypeRepository = new Repository().getTypeRepository()
     study_id = await _verify(auth, ["self", "sibling", "parent"], study_id)
@@ -34,6 +34,7 @@ export class ActivityService {
     activity.activity_id = data
     activity.settings = undefined
     activity.schedule = undefined
+    activity.photo = undefined
 
     PubSubAPIListenerQueue.add({
       topic: `activity`,
@@ -93,6 +94,7 @@ export class ActivityService {
       activity.action = "update"
       activity.settings = undefined
       activity.schedule = undefined
+      activity.photo = undefined
       PubSubAPIListenerQueue.add({ topic: `activity.*`, payload: activity })
       PubSubAPIListenerQueue.add({ topic: `activity`, payload: activity })
       PubSubAPIListenerQueue.add({ topic: `study.*.activity`, payload: activity })

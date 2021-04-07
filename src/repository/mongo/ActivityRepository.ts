@@ -4,7 +4,7 @@ import { ActivityModel } from "../../model/Activity"
 import { ActivityInterface } from "../interface/RepositoryInterface"
 
 export class ActivityRepository implements ActivityInterface {
-  public async _select(id: string | null, parent = false): Promise<Activity[]> {
+  public async _select(id: string | null, parent = false, ignore_binary = false): Promise<Activity[]> {
     //get data from  Activity via  Activity model
     const data = await ActivityModel.find(
       !!id ? (parent ? { _parent: id, _deleted: false } : { _id: id, _deleted: false }) : { _deleted: false }
@@ -18,6 +18,7 @@ export class ActivityRepository implements ActivityInterface {
       _parent: undefined,
       __v: undefined,
       _deleted: undefined,
+      settings: ignore_binary ? undefined : x._doc.settings,
       timestamp: undefined,
     }))
   }
@@ -89,19 +90,19 @@ export class ActivityRepository implements ActivityInterface {
    * @param parent
    * @returns Array Activity[]
    */
-    public async _lookup(id: string | null, parent = false): Promise<Activity[]> {
-      //get data from  Activity via  Activity model
-      const data = await ActivityModel.find({ _parent: id, _deleted:false }).sort({ timestamp: 1 }).limit(2_147_483_647)
-      return (data as any).map((x: any) => ({
-        id: x._doc._id,
-        ...x._doc,
-        _id: undefined,
-        _parent: undefined,
-        settings: undefined,
-        _deleted: undefined,
-        study_id: x._doc._parent,        
-        __v: undefined,
-        timestamp: undefined,
-      }))
-    }
+  public async _lookup(id: string | null, parent = false): Promise<Activity[]> {
+    //get data from  Activity via  Activity model
+    const data = await ActivityModel.find({ _parent: id, _deleted: false }).sort({ timestamp: 1 }).limit(2_147_483_647)
+    return (data as any).map((x: any) => ({
+      id: x._doc._id,
+      ...x._doc,
+      _id: undefined,
+      _parent: undefined,
+      settings: undefined,
+      _deleted: undefined,
+      study_id: x._doc._parent,
+      __v: undefined,
+      timestamp: undefined,
+    }))
+  }
 }
