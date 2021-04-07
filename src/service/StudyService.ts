@@ -50,7 +50,7 @@ export class StudyService {
     const TypeRepository = new Repository().getTypeRepository()
     study_id = await _verify(auth, ["self", "parent"], study_id)
     if (study === null) {
-      let parent = await TypeRepository._parent(study_id) as any
+      let parent = (await TypeRepository._parent(study_id)) as any
       const data = await StudyRepository._delete(study_id)
 
       //publishing data for study delete api with Token researcher.{researcher_id}.study.{study_id}
@@ -86,7 +86,7 @@ export class StudyService {
 
 StudyService.Router.post("/researcher/:researcher_id/study", async (req: Request, res: Response) => {
   try {
-    res.json({ data: StudyService.create(req.get("Authorization"), req.params.researcher_id, req.body) })
+    res.json({ data: await StudyService.create(req.get("Authorization"), req.params.researcher_id, req.body) })
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
@@ -153,7 +153,7 @@ StudyService.Router.post("/researcher/:researcher_id/study/clone", async (req: R
           settings: activity.settings,
           schedule: activity.schedule,
         }
-        const res = await ActivityRepository._insert(output["data"], object)        
+        const res = await ActivityRepository._insert(output["data"], object)
         //add the schedules of new activity
         UpdateToSchedulerQueue.add({ activity_id: res })
       } catch (error) {}
