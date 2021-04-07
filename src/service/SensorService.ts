@@ -109,7 +109,7 @@ SensorService.Router.put("/sensor/:sensor_id", async (req: Request, res: Respons
 })
 SensorService.Router.delete("/sensor/:sensor_id", async (req: Request, res: Response) => {
   try {
-    res.json({ data: await SensorService.create(req.get("Authorization"), req.params.sensor_id, null) })
+    res.json({ data: await SensorService.set(req.get("Authorization"), req.params.sensor_id, null) })
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
