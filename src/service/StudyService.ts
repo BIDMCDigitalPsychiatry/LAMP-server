@@ -141,27 +141,29 @@ StudyService.Router.post("/researcher/:researcher_id/study/clone", async (req: R
     researcher_id = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
     const output = { data: await StudyRepository._insert(researcher_id, study) }
     let should_add_participant: boolean = req.body.should_add_participant ?? false
-    let StudyID: string = req.body.study_id
-    let activities = await ActivityRepository._select(StudyID, true)
-    let sensors = await SensorRepository._select(StudyID, true)
-    //clone activities  to new studyid
-    for (const activity of activities) {
-      try {
-        let object = {
-          name: activity.name,
-          spec: activity.spec,
-          settings: activity.settings,
-          schedule: activity.schedule,
-        }
-        const res = await ActivityRepository._insert(output["data"], object)
-        //add the schedules of new activity
-        UpdateToSchedulerQueue.add({ activity_id: res })
-      } catch (error) {}
-    }
-    //clone sensors  to new studyid
-    for (const sensor of sensors) {
-      let object = { name: sensor.name, spec: sensor.spec, settings: sensor.settings }
-      await SensorRepository._insert(output["data"], object)
+    let StudyID: string = req.body.study_id ?? undefined
+    if (!!StudyID) {
+      let activities = await ActivityRepository._select(StudyID, true)
+      let sensors = await SensorRepository._select(StudyID, true)
+      //clone activities  to new studyid
+      for (const activity of activities) {
+        try {
+          let object = {
+            name: activity.name,
+            spec: activity.spec,
+            settings: activity.settings,
+            schedule: activity.schedule,
+          }
+          const res = await ActivityRepository._insert(output["data"], object)
+          //add the schedules of new activity
+          UpdateToSchedulerQueue.add({ activity_id: res })
+        } catch (error) {}
+      }
+      //clone sensors  to new studyid
+      for (const sensor of sensors) {
+        let object = { name: sensor.name, spec: sensor.spec, settings: sensor.settings }
+        await SensorRepository._insert(output["data"], object)
+      }
     }
     //add participants if participants add flag is true
     if (should_add_participant) {
