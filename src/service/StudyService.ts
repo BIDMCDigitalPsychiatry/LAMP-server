@@ -141,7 +141,7 @@ StudyService.Router.post("/researcher/:researcher_id/study/clone", async (req: R
     researcher_id = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
     const output = { data: await StudyRepository._insert(researcher_id, study) }
     let should_add_participant: boolean = req.body.should_add_participant ?? false
-    let StudyID: string = req.body.study_id ?? undefined
+    let StudyID: string|undefined = (req.body.study_id===""||req.body.study_id==="null") ? undefined:req.body.study_id
     if (!!StudyID) {
       let activities = await ActivityRepository._select(StudyID, true)
       let sensors = await SensorRepository._select(StudyID, true)
