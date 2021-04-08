@@ -7,6 +7,6 @@ export const CacheDataQueue = new Bull("CacheData", process.env.REDIS_HOST ?? ""
 
 //Consume job from Scheduler
 CacheDataQueue.process(async (job) => {
-//Cacheing data in redis for 5 minutes
-await  RedisClient?.setex(job.data.key, 300, JSON.stringify(job.data.payload))   
+//Cacheing data in redis for 2 minutes
+await  RedisClient?.setex(job.data.key, 120, JSON.stringify(job.data.payload))   
 })
