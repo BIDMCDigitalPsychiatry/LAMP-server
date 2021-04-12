@@ -100,14 +100,14 @@ export class TypeRepository implements TypeInterface {
          _parent: type_id,
          type,
          key,
-         value}],{checkKeys:false})
+         value: JSON.stringify(value)}],{checkKeys:false})
       } catch (e) {
         console.error(e)
         throw new Error("500.creation-or-update-failed")
       }
     } else if (existing !== null && !deletion) {
       try {
-        const data: any = await TagsModel.findByIdAndUpdate(existing._id, { ...existing.value, value })
+        const data: any = await TagsModel.findByIdAndUpdate(existing._id, JSON.stringify({ ...JSON.parse(existing.value), value }))
       } catch (e) {
         console.error(e)
         throw new Error("400.update-failed")
@@ -150,8 +150,8 @@ export class TypeRepository implements TypeInterface {
     //     multiple keys per-subquery; the difference is almost ~7sec vs. ~150ms.
     for (const condition of conditions) {
       try {
-        const value = await TagsModel.find(condition).limit(1)
-        if (value.length > 0) return value.map((x: any) => x._doc.value)[0]
+        const value = JSON.parse(await TagsModel.find(condition).limit(1))
+        if (value.length > 0) return value.map((x: any) => x.value)[0]
       } catch (error) {
         console.error(error, `Failed to search Tag index for ${condition._parent}:${condition.type}.`)
       }
@@ -188,7 +188,7 @@ export class TypeRepository implements TypeInterface {
     for (const condition of conditions) {
       try {
         const value = await TagsModel.find(condition).limit(2_147_483_647)
-        all_keys = [...all_keys, ...value.map((x: any) => x._doc.key as any)]
+        all_keys = [...all_keys, ...value.map((x: any) => x.key as any)]
       } catch (error) {
         console.error(error, `Failed to search Tag index for ${condition._parent}:${condition.type}.`)
       }
