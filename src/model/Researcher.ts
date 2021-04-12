@@ -21,6 +21,6 @@ export const ResearcherModel = mongoose.model<mongoose.Document>(
       timestamp: { type: Number, required: true },
       _deleted: { type: Boolean, default: false },
     },
-    { collection: "researcher", autoCreate: true }
+    { collection: "researcher", autoCreate: true, versionKey: false }
   ).index([{ timestamp: 1 }, { timestamp: 1, _id: 1 }])
 )

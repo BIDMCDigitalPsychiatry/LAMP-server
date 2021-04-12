@@ -21,6 +21,6 @@ export const ActivitySpecModel = mongoose.model(
     {
       _id: { type: String, required: true },
     },
-    { collection: "activity_spec", autoCreate: true }
+    { collection: "activity_spec", autoCreate: true, versionKey: false }
   )
 )

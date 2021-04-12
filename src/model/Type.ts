@@ -30,6 +30,6 @@ export const TagsModel = mongoose.model(
       type: { type: String, required: true },
       _deleted: { type: Boolean, default: false }
     },
-    { collection: "tags" }
+    { collection: "tags", versionKey: false }
   ).index([{ _parent: 1, type: 1, key: 1 }])
 )

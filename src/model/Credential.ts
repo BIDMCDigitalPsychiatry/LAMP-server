@@ -23,7 +23,7 @@ export const CredentialModel = mongoose.model<mongoose.Document>(
       description: { type: String, required: true },
       _deleted: { type: Boolean, default: false },
     },
-    { collection: "credential", autoCreate: true }
+    { collection: "credential", autoCreate: true, versionKey: false }
   ).index([{ access_key: 1 }, { origin: 1 }, { origin: 1, access_key: 1 }])
 )
 

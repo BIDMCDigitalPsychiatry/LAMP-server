@@ -59,7 +59,7 @@ export const SensorEventModel = mongoose.model<mongoose.Document>(
       sensor: { type: String, required: true },
       data: { type: Object },
     },
-    { collection: "sensor_event", minimize: false, autoCreate: true }
+    { collection: "sensor_event", minimize: false, autoCreate: true, versionKey: false }
   ).index([
     { _parent: -1, sensor: -1, timestamp: -1 },
     { _parent: -1, timestamp: -1 },

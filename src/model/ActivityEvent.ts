@@ -35,7 +35,7 @@ export const ActivityEventModel = mongoose.model<mongoose.Document>(
       static_data: { type: Object },
       temporal_slices: { type: Array },
     },
-    { collection: "activity_event", minimize: false, autoCreate: true }
+    { collection: "activity_event", minimize: false, autoCreate: true, versionKey: false }
   ).index([
     { _parent: -1, activity: -1, timestamp: -1 },
     { _parent: -1, timestamp: -1 },

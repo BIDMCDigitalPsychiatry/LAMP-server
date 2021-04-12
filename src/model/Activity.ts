@@ -27,7 +27,7 @@ export const ActivityModel = mongoose.model<mongoose.Document>(
       timestamp: { type: Number, required: true },
       _deleted: { type: Boolean, default: false },
     },
-    { collection: "activity", autoCreate: true }
+    { collection: "activity", autoCreate: true, versionKey: false }
   ).index([
     { timestamp: 1 },
     { timestamp: 1, _parent: 1 },
