@@ -26,7 +26,7 @@ export const TagsModel = mongoose.model(
     {
       _parent: { type: String, required: true },
       key: { type: String, required: true },
-      value: { type: Schema.Types.Mixed, required: true },
+      value: { type: String, required: true },
       type: { type: String, required: true },
       _deleted: { type: Boolean, default: false }
     },
