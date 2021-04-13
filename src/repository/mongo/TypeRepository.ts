@@ -107,7 +107,7 @@ export class TypeRepository implements TypeInterface {
       }
     } else if (existing !== null && !deletion) {
       try {
-        const data: any = await TagsModel.findByIdAndUpdate(existing._id, { ...existing, value: JSON.stringify(value) })
+        const data: any = await TagsModel.findByIdAndUpdate(existing._id, { value: JSON.stringify(value) })
       } catch (e) {
         console.error(e)
         throw new Error("400.update-failed")
@@ -118,7 +118,8 @@ export class TypeRepository implements TypeInterface {
         await TagsModel.updateOne({ _id: existing._id }, { _deleted: true })
       } catch (e) {
         console.error(e)
-        throw new Error("400.deletion-failed")
+        // If we try to delete a non-existing Tag it should still succeed.
+        //throw new Error("400.deletion-failed")
       }
     }
 
