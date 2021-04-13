@@ -23,6 +23,6 @@ export const ParticipantModel = mongoose.model<mongoose.Document>(
       timestamp: { type: Number, required: true },
       _deleted: { type: Boolean, default: false },
     },
-    { collection: "participant", autoCreate: true }
+    { collection: "participant", autoCreate: true, versionKey: false }
   ).index([{ timestamp: 1 }, { _parent: 1, timestamp: 1 }, { _id: 1, _parent: 1, timestamp: 1 }])
 )

@@ -100,14 +100,14 @@ export class TypeRepository implements TypeInterface {
          _parent: type_id,
          type,
          key,
-         value}],{checkKeys:false})
+         value: JSON.stringify(value)}],{checkKeys:false})
       } catch (e) {
         console.error(e)
         throw new Error("500.creation-or-update-failed")
       }
     } else if (existing !== null && !deletion) {
       try {
-        const data: any = await TagsModel.findByIdAndUpdate(existing._id, { ...existing.value, value })
+        const data: any = await TagsModel.findByIdAndUpdate(existing._id, { ...existing, value: JSON.stringify(value) })
       } catch (e) {
         console.error(e)
         throw new Error("400.update-failed")

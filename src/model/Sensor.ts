@@ -22,7 +22,7 @@ export const SensorModel = mongoose.model<mongoose.Document>(
       timestamp: { type: Number, required: true },
       _deleted: { type: Boolean, default: false },
     },
-    { collection: "sensor", autoCreate: true }
+    { collection: "sensor", autoCreate: true, versionKey: false }
   ).index([
     { timestamp: 1 },
     { timestamp: 1, _parent: 1 },

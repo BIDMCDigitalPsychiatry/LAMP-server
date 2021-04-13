@@ -17,6 +17,6 @@ export const SensorSpecModel = mongoose.model<mongoose.Document>(
     {
       _id: { type: String, required: true },
     },
-    { collection: "sensor_spec", autoCreate: true }
+    { collection: "sensor_spec", autoCreate: true, versionKey: false }
   )
 )
