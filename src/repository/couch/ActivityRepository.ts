@@ -97,6 +97,7 @@ export class ActivityRepository implements ActivityInterface {
       await Database.use("activity").find({
         selector: id === null ? {} : { [parent ? "#parent" : "_id"]: id },
         sort: [{ timestamp: "asc" }],
+        fields:["_id","name","spec","schedule","#parent"],
         limit: 2_147_483_647 /* 32-bit INT_MAX */,
       })
     ).docs.map((x: any) => ({
@@ -107,7 +108,7 @@ export class ActivityRepository implements ActivityInterface {
       "#parent": undefined,
        settings: undefined,
       study_id: x["#parent"],
-      timestamp: undefined,
+      timestamp: undefined      
     }))
   }
 }

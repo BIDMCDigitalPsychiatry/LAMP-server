@@ -10,7 +10,7 @@ export class ActivityRepository implements ActivityInterface {
       !!id ? (parent ? { _parent: id, _deleted: false } : { _id: id, _deleted: false }) : { _deleted: false }
     )
       .sort({ timestamp: 1 })
-      .limit(2_147_483_647)
+      .limit(2_147_483_647).maxTimeMS(120000)
     return (data as any).map((x: any) => ({
       id: x._doc._id,
       ...x._doc,
@@ -92,7 +92,12 @@ export class ActivityRepository implements ActivityInterface {
    */
   public async _lookup(id: string | null, parent = false): Promise<Activity[]> {
     //get data from  Activity via  Activity model
-    const data = await ActivityModel.find({ _parent: id, _deleted: false }).sort({ timestamp: 1 }).limit(2_147_483_647)
+    const data = await ActivityModel.find({ _parent: id, _deleted:false })
+    .sort({ timestamp: 1 })
+    .limit(2_147_483_647)
+    .maxTimeMS(120000)
+    .select(["_id","name","spec","schedule","_parent"])
+
     return (data as any).map((x: any) => ({
       id: x._doc._id,
       ...x._doc,
@@ -100,7 +105,7 @@ export class ActivityRepository implements ActivityInterface {
       _parent: undefined,
       settings: undefined,
       _deleted: undefined,
-      study_id: x._doc._parent,
+      study_id: x._doc._parent,        
       __v: undefined,
       timestamp: undefined,
     }))

@@ -8,7 +8,7 @@ export class ResearcherRepository implements ResearcherInterface {
   public async _select(id?: string): Promise<[]> {
     const data = !!id
       ? await ResearcherModel.find({ _deleted: false, _id: id })
-      : await ResearcherModel.find({ _deleted: false }).sort({ timestamp: 1 })
+      : await ResearcherModel.find({ _deleted: false }).sort({ timestamp: 1 }).maxTimeMS(60000)
 
     return (data as any).map((x: any) => ({
       id: x._doc._id,

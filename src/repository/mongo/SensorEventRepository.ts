@@ -29,12 +29,13 @@ export class SensorEventRepository implements SensorEventInterface {
     }
     const all_res = await SensorEventModel.find(filteredQuery)
       .sort({ timestamp: !!limit && limit < 0 ? 1 : -1 })
-      .limit(limit ?? 1)
+      .limit(limit ?? 1).maxTimeMS(60000)
     return (all_res as any).map((x: any) => ({
       ...x._doc,
       _id: undefined,
       __v: undefined,
       _parent: undefined,
+      _deleted: undefined
     }))
   }
   public async _insert(participant_id: string, objects: SensorEvent[]): Promise<{}> {
