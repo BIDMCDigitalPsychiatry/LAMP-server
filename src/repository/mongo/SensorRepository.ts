@@ -9,7 +9,7 @@ export class SensorRepository implements SensorInterface {
       !!id ? (parent ? { _parent: id, _deleted: false } : { _id: id, _deleted: false }) : { _deleted: false }
     )
       .sort({ timestamp: 1 })
-      .limit(2_147_483_647)
+      .limit(2_147_483_647).maxTimeMS(60000)
     return (data as any).map((x: any) => ({
       id: x._doc._id,
       ...x._doc,
@@ -62,7 +62,7 @@ export class SensorRepository implements SensorInterface {
    * @returns Array Sensor[]
    */
    public async _lookup(id: string | null, parent = false): Promise<Sensor[]> {
-    const data = await SensorModel.find({ _parent: id, _deleted:false }).sort({ timestamp: 1 }).limit(2_147_483_647)
+    const data = await SensorModel.find({ _parent: id, _deleted:false }).sort({ timestamp: 1 }).limit(2_147_483_647).maxTimeMS(60000)
     return (data as any).map((x: any) => ({
       id: x._doc._id,
       ...x._doc,

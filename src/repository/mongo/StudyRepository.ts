@@ -10,7 +10,7 @@ export class StudyRepository implements StudyInterface {
       !!id ? (parent ? { _deleted: false, _parent: id } : { _deleted: false, _id: id }) : { _deleted: false }
     )
       .sort({ timestamp: 1 })
-      .limit(2_147_483_647)
+      .limit(2_147_483_647).maxTimeMS(60000)
     return (data as any).map((x: any) => ({
       id: x._doc._id,
       ...x._doc,
