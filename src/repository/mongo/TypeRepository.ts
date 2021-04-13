@@ -112,7 +112,7 @@ export class TypeRepository implements TypeInterface {
         console.error(e)
         throw new Error("400.update-failed")
       }
-    } else {
+    } else if (existing !== null) { // an existing document MUST exist to delete it.
       // DELETE
       try {
         await TagsModel.updateOne({ _id: existing._id }, { _deleted: true })
