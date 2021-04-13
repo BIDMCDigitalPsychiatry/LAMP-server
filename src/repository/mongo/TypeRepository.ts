@@ -152,7 +152,7 @@ export class TypeRepository implements TypeInterface {
     for (const condition of conditions) {
       try {
         const value = await TagsModel.find(condition).limit(1).maxTimeMS(60000)
-        if (value.length > 0) return value.map((x: any) => x._doc.value)[0]
+        if (value.length > 0) return value.map((x: any) => JSON.parse(x.value))[0]
       } catch (error) {
         console.error(error, `Failed to search Tag index for ${condition._parent}:${condition.type}.`)
       }
@@ -189,7 +189,7 @@ export class TypeRepository implements TypeInterface {
     for (const condition of conditions) {
       try {
         const value = await TagsModel.find(condition).limit(2_147_483_647).maxTimeMS(60000)
-        all_keys = [...all_keys, ...value.map((x: any) => x._doc.key as any)]
+        all_keys = [...all_keys, ...value.map((x: any) => x.key as any)]
       } catch (error) {
         console.error(error, `Failed to search Tag index for ${condition._parent}:${condition.type}.`)
       }
