@@ -4,6 +4,7 @@ import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { SchedulerDeviceUpdateQueue } from "../utils/queue/SchedulerDeviceUpdateQueue"
 import { Repository } from "../repository/Bootstrap"
+import { BulkDataWrite } from "../utils/queue/BulkDataWrite"
 
 // default to LIMIT_NAN, clamped to [-LIMIT_MAX, +LIMIT_MAX]
 const LIMIT_NAN = 1000
@@ -22,8 +23,10 @@ export class SensorEventService {
 
   public static async create(auth: any, participant_id: string, sensor_events: any[]) {
     const SensorEventRepository = new Repository().getSensorEventRepository()
-    participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
-    const data = await SensorEventRepository._insert(participant_id, sensor_events)
+    participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)    
+    const data = {}
+    //write to db in bulk numbers
+    BulkDataWrite('sensor_event',participant_id,sensor_events)
     for (let event of sensor_events) {
       if (event.sensor === "lamp.analytics" && undefined !== event.data.device_token) {
         SchedulerDeviceUpdateQueue.add(
