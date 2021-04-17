@@ -14,7 +14,7 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
   switch (key) {
     case "sensor_event":
       const release = await clientLock.acquire()
-      const Store_Size = await RedisClient.llen("sensor_event") as number
+      const Store_Size = await RedisClient?.llen("sensor_event") as number
       if (Store_Size > Max_Store_Size) {
         //Insert data to redis store
         for (const event of data) {
@@ -22,13 +22,13 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
           try {
             //Push to redis store
             console.log("Inserting data to redis store")
-            await RedisClient.rpush("sensor_event", [JSON.stringify(event)])
+            await RedisClient?.rpush("sensor_event", [JSON.stringify(event)])
           } catch (error) {
             console.log(error)
           }
         }
-        const New_Store_Size: number = await RedisClient.llen("sensor_event")
-        const Store_Data: any = await RedisClient.lrange("sensor_event", 0, New_Store_Size)
+        const New_Store_Size: number = await RedisClient?.llen("sensor_event")
+        const Store_Data: any = await RedisClient?.lrange("sensor_event", 0, New_Store_Size)
         console.log("Writing to db of data length", New_Store_Size)
         //add to database write queue
         BulkDataWriteQueue.add({
@@ -40,7 +40,7 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
         console.log("Removing data from redis store")
         try {
           //Remove data from redis store
-          await RedisClient.ltrim("sensor_event", 1, -New_Store_Size)
+          await RedisClient?.ltrim("sensor_event", 1, -New_Store_Size)
         } catch (error) {
           console.log(error)
         }
@@ -58,7 +58,7 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
             } else {
               event.participant_id = participant_id
               //Push to redis store
-              await RedisClient.rpush("sensor_event", [JSON.stringify(event)])
+              await RedisClient?.rpush("sensor_event", [JSON.stringify(event)])
             }
           } catch (error) {
             console.log(error)
