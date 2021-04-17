@@ -14,7 +14,7 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
   switch (key) {
     case "sensor_event":
       const release = await clientLock.acquire()
-      const Store_Size = await RedisClient?.llen("sensor_event") 
+      const Store_Size = await RedisClient?.llen("sensor_event") as number
       if (Store_Size > Max_Store_Size) {
         //Insert data to redis store
         for (const event of data) {
@@ -27,7 +27,7 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
             console.log(error)
           }
         }
-        const New_Store_Size = await RedisClient?.llen("sensor_event")
+        const New_Store_Size = await RedisClient?.llen("sensor_event") as number
         const Store_Data = await RedisClient?.lrange("sensor_event", 0, New_Store_Size)
         console.log("Writing to db of data length", New_Store_Size)
         //add to database write queue
@@ -40,7 +40,7 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
         console.log("Removing data from redis store")
         try {
           //Remove data from redis store
-          await RedisClient?.ltrim("sensor_event", 1, -New_Store_Size) as any
+          await RedisClient?.ltrim("sensor_event", 1, -New_Store_Size)
         } catch (error) {
           console.log(error)
         }
