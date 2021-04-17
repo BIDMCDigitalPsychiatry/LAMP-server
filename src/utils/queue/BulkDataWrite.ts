@@ -28,7 +28,7 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
           }
         }
         const New_Store_Size = await RedisClient?.llen("sensor_event")
-        const Store_Data = await RedisClient?.lrange("sensor_event", 0, New_Store_Size) as any
+        const Store_Data = await RedisClient?.lrange("sensor_event", 0, New_Store_Size)
         console.log("Writing to db of data length", New_Store_Size)
         //add to database write queue
         BulkDataWriteQueue.add({
