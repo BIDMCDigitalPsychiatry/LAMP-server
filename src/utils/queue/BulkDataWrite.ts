@@ -14,7 +14,7 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
   switch (key) {
     case "sensor_event":
       const release = await clientLock.acquire()
-      const Store_Size: number = await RedisClient.llen("sensor_event")
+      const Store_Size = await RedisClient.llen("sensor_event") as number
       if (Store_Size > Max_Store_Size) {
         //Insert data to redis store
         for (const event of data) {
