@@ -22,7 +22,7 @@ export class SensorEventRepository implements SensorEventInterface {
       filteredQuery.timestamp = { $gte: from_date }
     }
     if (!!to_date) {
-      filteredQuery.timestamp = { $lte: to_date }
+      filteredQuery.timestamp = { $lt: from_date === to_date ? to_date! + 1 : to_date }
     }
     if (!!from_date && !!to_date) {
       filteredQuery.timestamp = { $gte: from_date, $lt: from_date === to_date ? to_date! + 1 : to_date }
