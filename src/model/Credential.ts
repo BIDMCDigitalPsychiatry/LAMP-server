@@ -17,6 +17,7 @@ export const CredentialModel = mongoose.model<mongoose.Document>(
   "credential",
   new Schema(
     {
+      _id: { type: String, required: true },
       origin: { type: String, default: null },
       access_key: { type: String, required: true },
       secret_key: { type: String, required: true },
