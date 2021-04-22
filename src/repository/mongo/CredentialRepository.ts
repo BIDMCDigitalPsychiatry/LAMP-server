@@ -2,6 +2,7 @@ import crypto from "crypto"
 import { Encrypt, Decrypt } from "../Bootstrap"
 import { CredentialModel } from "../../model/Credential"
 import { CredentialInterface } from "../interface/RepositoryInterface"
+import mongoose from "mongoose"
 
 export class CredentialRepository implements CredentialInterface {
   // if used with secret_key, will throw error if mismatch, else, will return confirmation of existence
@@ -36,6 +37,7 @@ export class CredentialRepository implements CredentialInterface {
     if (res !== null) throw new Error("403.access-key-already-in-use")
     //save Credential via Credential model
     await new CredentialModel({
+      _id: mongoose.Types.ObjectId(),
       origin: credential.origin,
       access_key: credential.access_key,
       secret_key: Encrypt(credential.secret_key, "AES256"),
