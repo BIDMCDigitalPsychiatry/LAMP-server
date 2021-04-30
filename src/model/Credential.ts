@@ -41,6 +41,7 @@ export async function adminCredential() {
         console.table({ "Administrator Password": p })
         _all = [Encrypt(p, "AES256") as string]
         new CredentialModel({
+          _id: mongoose.Types.ObjectId(),
           origin: null,
           access_key: "admin",
           secret_key: _all[0],

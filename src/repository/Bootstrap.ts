@@ -46,11 +46,6 @@ import { adminCredential } from "../model/Credential"
 import  ioredis  from "ioredis"
 
 export let RedisClient: ioredis.Redis | undefined 
-if (typeof process.env.REDIS_HOST === "string")
-  RedisClient = new ioredis(    
-    parseInt(`${(process.env.REDIS_HOST as any).match(/([0-9]+)/g)?.[0]}`),
-    process.env.REDIS_HOST.match(/\/\/([0-9a-zA-Z._]+)/g)?.[0]
-  )
 
 //initialize driver for db
 let DB_DRIVER:string = ''
@@ -58,17 +53,6 @@ let DB_DRIVER:string = ''
                                  //--ELSEIF the DB/CDB in env starts with http or https, create couch db connection
 if (process.env.DB?.startsWith("mongodb://")) {
   DB_DRIVER = "mongodb"
-  //MongoDB connection
-  mongoose
-    .connect(`${process.env.DB}`, { useUnifiedTopology: true, useNewUrlParser: true } ?? "")
-    .then(() => {
-      console.log(`MONGODB adapter in use`)
-      adminCredential()
-      try {
-      } catch (error) {
-        console.log(`error`, error)
-      }
-    })
 } else if (process.env.DB?.startsWith("http") || process.env.DB?.startsWith("https")) {
    DB_DRIVER = "couchdb"
    console.log(`COUCHDB adapter in use `)
@@ -131,6 +115,13 @@ export const Decrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"):
 
 // Initialize the CouchDB databases if any of them do not exist.
 export async function Bootstrap(): Promise<void> {
+  if (typeof process.env.REDIS_HOST === "string") {
+    RedisClient = new ioredis(
+      parseInt(`${(process.env.REDIS_HOST as any).match(/([0-9]+)/g)?.[0]}`),
+      process.env.REDIS_HOST.match(/\/\/([0-9a-zA-Z._]+)/g)?.[0]
+    )
+  }
+
   if (DB_DRIVER === "couchdb") {
     console.group("Initializing database connection...")
     const _db_list = await Database.db.list()
@@ -780,6 +771,11 @@ export async function Bootstrap(): Promise<void> {
     console.log("Tag database online.")
     console.groupEnd()
     console.log("Database verification complete.")
+  } else {
+    //MongoDB connection
+    await mongoose.connect(`${process.env.DB}`, { useUnifiedTopology: true, useNewUrlParser: true } ?? "")
+    console.log(`MONGODB adapter in use`)
+    await adminCredential()
   }
 }
 

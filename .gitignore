@@ -5,8 +5,8 @@ src/secrets.ts
 
 # !!
 node_modules/
-bin/*
-build/*
+build/
+coverage/
 
 # !
 .DS_Store
