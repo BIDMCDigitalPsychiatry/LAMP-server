@@ -1,5 +1,10 @@
 version: '3'
 services:
+  dashboard:
+    image: bidmcdigitalpsychiatry/lamp-dashboard:latest
+    restart: always
+    ports:
+      - 8080:80
   mongo:
     image: mongo
     restart: always
