@@ -1,7 +1,6 @@
 
 # !!!
-src/secrets.ts
-.env
+.env*
 
 # !!
 node_modules/

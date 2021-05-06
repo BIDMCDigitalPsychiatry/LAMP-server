@@ -774,6 +774,7 @@ export async function Bootstrap(): Promise<void> {
     console.groupEnd()
     console.log("Database verification complete.")
   } else {
+      
     //Connect to mongoDB
     const client = new MongoClient(`${process.env.DB}`, {
       useNewUrlParser: true,
@@ -781,7 +782,9 @@ export async function Bootstrap(): Promise<void> {
     })
     try {
       await client.connect()
-    } catch (error) {}
+    } catch (error) {
+      console.dir(error)
+    }
     // return new Promise((resolve, reject) => {
     try {
       console.group("Initializing database connection...")

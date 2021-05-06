@@ -1,3 +1,3 @@
 module.exports = async () => {
-  require('dotenv').config()
+  //require('dotenv').config()
 }
