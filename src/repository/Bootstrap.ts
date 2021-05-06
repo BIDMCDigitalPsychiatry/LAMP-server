@@ -807,21 +807,21 @@ export async function Bootstrap(): Promise<void> {
       }
         
       // Preparing Mongo Collections
-      if (dbs.indexOf("activity_spec") === -1) {
+      if (!dbs.includes("activity_spec")) {
         console.log("Initializing ActivitySpec database...")
         await MongoClientDB.createCollection("activity_spec")
         const database = await MongoClientDB.collection("activity_spec")
         await database.createIndex({ timestamp: 1 })
       }
       console.log("ActivitySpec database online.")
-      if (dbs.indexOf("sensor_spec") === -1) {
+      if (!dbs.includes("sensor_spec")) {
         console.log("Initializing SensorSpec database...")
         await MongoClientDB.createCollection("sensor_spec")
         const database = await MongoClientDB.collection("sensor_spec")
         await database.createIndex({ timestamp: 1 })
       }
       console.log("SensorSpec database online.")
-      if (dbs.indexOf("researcher") === -1) {
+      if (!dbs.includes("researcher")) {
         console.log("Initializing Researcher database...")
         await MongoClientDB.createCollection("researcher")
         const database = MongoClientDB.collection("researcher")
@@ -830,7 +830,7 @@ export async function Bootstrap(): Promise<void> {
         await database.createIndex({ timestamp: 1 })
       }
       console.log("Researcher database online.")
-      if (dbs.indexOf("study") === -1) {
+      if (!dbs.includes("study")) {
         console.log("Initializing Study database...")
         await MongoClientDB.createCollection("study")
         const database = MongoClientDB.collection("study")
@@ -840,7 +840,7 @@ export async function Bootstrap(): Promise<void> {
       }
 
       console.log("Study database online.")
-      if (dbs.indexOf("participant") === -1) {
+      if (!dbs.includes("participant")) {
         console.log("Initializing Participant database...")
         await MongoClientDB.createCollection("participant")
         const database = MongoClientDB.collection("participant")
@@ -849,7 +849,7 @@ export async function Bootstrap(): Promise<void> {
         await database.createIndex({ timestamp: 1 })
       }
       console.log("Participant database online.")
-      if (dbs.indexOf("activity") === -1) {
+      if (!dbs.includes("activity")) {
         console.log("Initializing Activity database...")
         await MongoClientDB.createCollection("activity")
         const database = await MongoClientDB.collection("activity")
@@ -859,7 +859,7 @@ export async function Bootstrap(): Promise<void> {
         await database.createIndex({ _id: 1, timestamp: 1 })
       }
       console.log("Activity database online.")
-      if (dbs.indexOf("sensor") === -1) {
+      if (!dbs.includes("sensor")) {
         console.log("Initializing Sensor database...")
         await MongoClientDB.createCollection("sensor")
         const database = MongoClientDB.collection("sensor")
@@ -868,7 +868,7 @@ export async function Bootstrap(): Promise<void> {
         await database.createIndex({ timestamp: 1 })
       }
       console.log("Sensor database online.")
-      if (dbs.indexOf("activity_event") === -1) {
+      if (!dbs.includes("activity_event")) {
         console.log("Initializing ActivityEvent database...")
         await MongoClientDB.createCollection("activity_event")
         const database = MongoClientDB.collection("activity_event")
@@ -876,7 +876,7 @@ export async function Bootstrap(): Promise<void> {
         await database.createIndex({ _parent: -1, timestamp: -1 })
       }
       console.log("ActivityEvent database online.")
-      if (dbs.indexOf("sensor_event") === -1) {
+      if (!dbs.includes("sensor_event")) {
         console.log("Initializing SensorEvent database...")
         await MongoClientDB.createCollection("sensor_event")
         const database = MongoClientDB.collection("sensor_event")
@@ -884,14 +884,14 @@ export async function Bootstrap(): Promise<void> {
         await database.createIndex({ _parent: -1, timestamp: -1 })
       }
       console.log("SensorEvent database online.")
-      if (dbs.indexOf("tag") === -1) {
+      if (!dbs.includes("tag")) {
         console.log("Initializing Tag database...")
         await MongoClientDB.createCollection("tag")
         const database = MongoClientDB.collection("tag")
         await database.createIndex({ _parent: 1, type: 1, key: 1 })
       }
       console.log("Tag database online.")
-      if (dbs.indexOf("credential") === -1) {
+      if (!dbs.includes("credential")) {
         console.log("Initializing Credential database...")
         await MongoClientDB.createCollection("credential")
         const database = MongoClientDB.collection("credential")
