@@ -1,4 +1,4 @@
 import Bull from "bull"
 
 //Initialise SchedulerReferenceQueue Queue
-export const SchedulerReferenceQueue = new Bull("SchedulerReference", process.env.REDIS_HOST ?? "")
+// export const SchedulerReferenceQueue_ = new Bull("SchedulerReference__", process.env.REDIS_HOST ?? "")

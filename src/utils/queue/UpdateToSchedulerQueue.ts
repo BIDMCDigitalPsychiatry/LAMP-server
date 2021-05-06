@@ -3,10 +3,12 @@ import { Mutex } from "async-mutex"
 import { ActivityScheduler } from "./ActivitySchedulerJob"
 const clientLock = new Mutex()
 
-//Initialise UpdateToSchedulerQueue Queue
-export const UpdateToSchedulerQueue = new Bull("UpdateToScheduler", process.env.REDIS_HOST ?? "")
-
-UpdateToSchedulerQueue.process(async (job, done) => {
+/**
+ *
+ * @param job
+ * @param done
+ */
+export async function UpdateToSchedulerQueueProcess(job: Bull.Job<any>, done: Bull.DoneCallback): Promise<void> {
   //locking the thread
   const release = await clientLock.acquire()
   console.log(`locked job on ${job.data.activity_id}`)
@@ -23,4 +25,4 @@ UpdateToSchedulerQueue.process(async (job, done) => {
   }
   done()
   console.log(`completed job on ${job.data.activity_id}`)
-})
+}

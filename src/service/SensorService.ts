@@ -1,8 +1,7 @@
 import { Request, Response, Router } from "express"
-import { Sensor } from "../model/Sensor"
 import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
-import { PubSubAPIListenerQueue } from "../utils/queue/PubSubAPIListenerQueue"
+import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
 import { Repository } from "../repository/Bootstrap"
 
 export class SensorService {
@@ -30,12 +29,12 @@ export class SensorService {
     sensor.study_id = study_id
     sensor.action = "create"
     sensor.sensor_id = data
-    PubSubAPIListenerQueue.add({
+    PubSubAPIListenerQueue?.add({
       topic: `sensor`,
       token: `study.${study_id}.sensor.${data}`,
       payload: sensor,
     })
-    PubSubAPIListenerQueue.add({
+    PubSubAPIListenerQueue?.add({
       topic: `study.*.sensor`,
       token: `study.${study_id}.sensor.${data}`,
       payload: sensor,
@@ -60,17 +59,17 @@ export class SensorService {
 
       //publishing data for participant delete api for the Token study.{study_id}.sensor.{sensor_id}
       if (parent !== undefined && parent !== "") {
-        PubSubAPIListenerQueue.add({
+        PubSubAPIListenerQueue?.add({
           topic: `study.*.sensor`,
           token: `study.${parent["Study"]}.sensor.${sensor_id}`,
           payload: { action: "delete", sensor_id: sensor_id, study_id: parent["Study"] },
         })
-        PubSubAPIListenerQueue.add({
+        PubSubAPIListenerQueue?.add({
           topic: `sensor.*`,
           token: `study.${parent["Study"]}.sensor.${sensor_id}`,
           payload: { action: "delete", sensor_id: sensor_id, study_id: parent["Study"] },
         })
-        PubSubAPIListenerQueue.add({
+        PubSubAPIListenerQueue?.add({
           topic: `sensor`,
           token: `study.${parent["Study"]}.sensor.${sensor_id}`,
           payload: { action: "delete", sensor_id: sensor_id, study_id: parent["Study"] },
@@ -80,12 +79,12 @@ export class SensorService {
     } else {
       const data = await SensorRepository._update(sensor_id, sensor)
 
-      //publishing data for sensor update api (Token will be created in PubSubAPIListenerQueue consumer, as study for this sensor need to fetched to create token)
+      //publishing data for sensor update api (Token will be created in PubSubAPIListenerQueue? consumer, as study for this sensor need to fetched to create token)
       sensor.sensor_id = sensor_id
       sensor.action = "update"
-      PubSubAPIListenerQueue.add({ topic: `sensor.*`, payload: sensor })
-      PubSubAPIListenerQueue.add({ topic: `sensor`, payload: sensor })
-      PubSubAPIListenerQueue.add({ topic: `study.*.sensor`, payload: sensor })
+      PubSubAPIListenerQueue?.add({ topic: `sensor.*`, payload: sensor })
+      PubSubAPIListenerQueue?.add({ topic: `sensor`, payload: sensor })
+      PubSubAPIListenerQueue?.add({ topic: `study.*.sensor`, payload: sensor })
       return data
     }
   }

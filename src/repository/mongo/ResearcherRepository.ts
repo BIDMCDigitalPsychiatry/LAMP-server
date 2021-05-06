@@ -1,63 +1,60 @@
 import { uuid } from "../Bootstrap"
 import { Researcher } from "../../model/Researcher"
-import { ResearcherModel } from "../../model/Researcher"
-import { StudyModel } from "../../model/Study"
 import { ResearcherInterface } from "../interface/RepositoryInterface"
+import { MongoClientDB } from "../Bootstrap"
 
 export class ResearcherRepository implements ResearcherInterface {
   public async _select(id?: string): Promise<[]> {
     const data = !!id
-      ? await ResearcherModel.find({ _deleted: false, _id: id })
-      : await ResearcherModel.find({ _deleted: false }).sort({ timestamp: 1 }).maxTimeMS(60000)
-
+      ? await MongoClientDB.collection("researcher").find({ _deleted: false, _id: id }).maxTimeMS(60000).toArray()
+      : await MongoClientDB.collection("researcher")
+          .find({ _deleted: false })
+          .sort({ timestamp: 1 })
+          .maxTimeMS(60000)
+          .toArray()
     return (data as any).map((x: any) => ({
-      id: x._doc._id,
-      ...x._doc,
+      id: x._id,
+      ...x,
       _id: undefined,
       _parent: undefined,
       _deleted: undefined,
-      __v: undefined,
       timestamp: undefined,
     }))
   }
   public async _insert(object: Researcher): Promise<string> {
     const _id = uuid()
-    const session = await ResearcherModel.startSession()
-    session.startTransaction()
     //save data in Mongo
-    await new ResearcherModel({
+    await MongoClientDB.collection("researcher").insertOne({
       _id: _id,
-      timestamp: new Date().getTime(),
       name: object.name ?? "",
-    } as any).save()
+      timestamp: new Date().getTime(),
+      _deleted: false,
+    })
 
     // TODO: to match legacy behavior we create a default study as well
     const _id2 = uuid()
-    await new StudyModel({
+    await MongoClientDB.collection("study").insertOne({
       _id: _id2,
       _parent: _id,
       timestamp: new Date().getTime(),
       name: object.name ?? "",
-    } as any).save()
-    await session.commitTransaction()
-    session.endSession()
+      _deleted: false,
+    })
 
     return _id
   }
   public async _update(researcher_id: string, object: Researcher): Promise<{}> {
-    const orig: any = await ResearcherModel.findById(researcher_id)
-    await ResearcherModel.findByIdAndUpdate(researcher_id, { name: object.name ?? orig.name })
+    const orig: any = await MongoClientDB.collection("researcher").findOne({ _id: researcher_id })
+    await MongoClientDB.collection("researcher").findOneAndUpdate(
+      { _id: orig._id },
+      { $set: { name: object.name ?? orig.name } }
+    )
 
     return {}
   }
   public async _delete(researcher_id: string): Promise<{}> {
-    const session = await ResearcherModel.startSession()
-    session.startTransaction()
-    await StudyModel.updateMany({ _parent: researcher_id }, { _deleted: true })
-    await ResearcherModel.updateOne({ _id: researcher_id }, { _deleted: true })
-    await session.commitTransaction()
-    session.endSession()
-
+    await MongoClientDB.collection("study").updateMany({ _parent: researcher_id }, { $set: { _deleted: true } })
+    await MongoClientDB.collection("researcher").updateOne({ _id: researcher_id }, { $set: { _deleted: true } })
     return {}
   }
 }

@@ -1,8 +1,7 @@
 import { Request, Response, Router } from "express"
-import { ActivityEvent } from "../model/ActivityEvent"
 import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
-import { PubSubAPIListenerQueue } from "../utils/queue/PubSubAPIListenerQueue"
+import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
 import { Repository } from "../repository/Bootstrap"
 
 // default to LIMIT_NAN, clamped to [-LIMIT_MAX, +LIMIT_MAX]
@@ -13,7 +12,14 @@ export class ActivityEventService {
   public static _name = "ActivityEvent"
   public static Router = Router()
 
-  public static async list(auth: any, participant_id: string, origin: string | undefined, from: number | undefined, to: number | undefined, limit: number | undefined) {
+  public static async list(
+    auth: any,
+    participant_id: string,
+    origin: string | undefined,
+    from: number | undefined,
+    to: number | undefined,
+    limit: number | undefined
+  ) {
     const ActivityEventRepository = new Repository().getActivityEventRepository()
     limit = Math.min(Math.max(limit ?? LIMIT_NAN, -LIMIT_MAX), LIMIT_MAX)
     participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
@@ -26,7 +32,7 @@ export class ActivityEventService {
     let data = await ActivityEventRepository._insert(participant_id, activity_events)
 
     //publishing data for activity_event add api((Token will be created in PubSubAPIListenerQueue consumer, as request is assumed as array and token should be created individually)
-    PubSubAPIListenerQueue.add({
+    PubSubAPIListenerQueue?.add({
       topic: `activity_event`,
       action: "create",
       timestamp: Date.now(),
@@ -34,7 +40,7 @@ export class ActivityEventService {
       payload: activity_events,
     })
 
-    PubSubAPIListenerQueue.add({
+    PubSubAPIListenerQueue?.add({
       topic: `participant.*.activity_event`,
       action: "create",
       timestamp: Date.now(),
@@ -42,7 +48,7 @@ export class ActivityEventService {
       payload: activity_events,
     })
 
-    PubSubAPIListenerQueue.add({
+    PubSubAPIListenerQueue?.add({
       topic: `activity.*.activity_event`,
       action: "create",
       timestamp: Date.now(),
@@ -50,7 +56,7 @@ export class ActivityEventService {
       payload: activity_events,
     })
 
-    PubSubAPIListenerQueue.add({
+    PubSubAPIListenerQueue?.add({
       topic: `participant.*.activity.*.activity_event`,
       action: "create",
       timestamp: Date.now(),
@@ -85,7 +91,7 @@ ActivityEventService.Router.get("/participant/:participant_id/activity_event", a
         Number.parse((req.query as any).from),
         Number.parse((req.query as any).to),
         Number.parse((req.query as any).limit)
-      )
+      ),
     }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)

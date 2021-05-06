@@ -1,10 +1,7 @@
 import { Request, Response, Router } from "express"
-import { Study } from "../model/Study"
-
 import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
-import { PubSubAPIListenerQueue } from "../utils/queue/PubSubAPIListenerQueue"
-import { UpdateToSchedulerQueue } from "../utils/queue/UpdateToSchedulerQueue"
+import { PubSubAPIListenerQueue, UpdateToSchedulerQueue } from "../utils/queue/Queue"
 import { Repository } from "../repository/Bootstrap"
 
 export class StudyService {
@@ -26,12 +23,12 @@ export class StudyService {
     study.researcher_id = researcher_id
     study.study_id = data
     study.action = "create"
-    PubSubAPIListenerQueue.add({
+    PubSubAPIListenerQueue?.add({
       topic: `study`,
       token: `researcher.${researcher_id}.study.${data}`,
       payload: study,
     })
-    PubSubAPIListenerQueue.add({
+    PubSubAPIListenerQueue?.add({
       topic: `researcher.*.study`,
       token: `researcher.${researcher_id}.study.${data}`,
       payload: study,
@@ -54,17 +51,17 @@ export class StudyService {
       const data = await StudyRepository._delete(study_id)
 
       //publishing data for study delete api with Token researcher.{researcher_id}.study.{study_id}
-      PubSubAPIListenerQueue.add({
+      PubSubAPIListenerQueue?.add({
         topic: `study.*`,
         token: `researcher.${parent["Researcher"]}.study.${study_id}`,
         payload: { action: "delete", study_id: study_id, researcher_id: parent["Researcher"] },
       })
-      PubSubAPIListenerQueue.add({
+      PubSubAPIListenerQueue?.add({
         topic: `study`,
         token: `researcher.${parent["Researcher"]}.study.${study_id}`,
         payload: { action: "delete", study_id: study_id, researcher_id: parent["Researcher"] },
       })
-      PubSubAPIListenerQueue.add({
+      PubSubAPIListenerQueue?.add({
         topic: `researcher.*.study`,
         token: `researcher.${parent["Researcher"]}.study.${study_id}`,
         payload: { action: "delete", study_id: study_id, researcher_id: parent["Researcher"] },
@@ -76,9 +73,9 @@ export class StudyService {
       //publishing data for study update api(Token will be created in PubSubAPIListenerQueue consumer, as researcher for this study need to fetched to create token)
       study.study_id = study_id
       study.action = "update"
-      PubSubAPIListenerQueue.add({ topic: `study.*`, payload: study })
-      PubSubAPIListenerQueue.add({ topic: `study`, payload: study })
-      PubSubAPIListenerQueue.add({ topic: `researcher.*.study`, payload: study })
+      PubSubAPIListenerQueue?.add({ topic: `study.*`, payload: study })
+      PubSubAPIListenerQueue?.add({ topic: `study`, payload: study })
+      PubSubAPIListenerQueue?.add({ topic: `researcher.*.study`, payload: study })
       return data
     }
   }
@@ -156,7 +153,7 @@ StudyService.Router.post("/researcher/:researcher_id/study/clone", async (req: R
           }
           const res = await ActivityRepository._insert(output["data"], object)
           //add the schedules of new activity
-          UpdateToSchedulerQueue.add({ activity_id: res })
+          UpdateToSchedulerQueue?.add({ activity_id: res })
         } catch (error) {}
       }
       //clone sensors  to new studyid
@@ -173,12 +170,12 @@ StudyService.Router.post("/researcher/:researcher_id/study/clone", async (req: R
     study.study_id = output["data"]
     study.action = "create"
     //publishing data for study add api with token = researcher.{researcher_id}.study.{_id}
-    PubSubAPIListenerQueue.add({
+    PubSubAPIListenerQueue?.add({
       topic: `study`,
       token: `researcher.${researcher_id}.study.${output["data"]}`,
       payload: study,
     })
-    PubSubAPIListenerQueue.add({
+    PubSubAPIListenerQueue?.add({
       topic: `researcher.*.study`,
       token: `researcher.${researcher_id}.study.${output["data"]}`,
       payload: study,

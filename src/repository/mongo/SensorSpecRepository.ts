@@ -1,14 +1,16 @@
 import { SensorSpec } from "../../model/SensorSpec"
-import { SensorSpecModel } from "../../model/SensorSpec"
 import { SensorSpecInterface } from "../interface/RepositoryInterface"
+import { MongoClientDB } from "../Bootstrap"
 
 export class SensorSpecRepository implements SensorSpecInterface {
   public async _select(id?: string): Promise<SensorSpec[]> {
-    const data = !!id ? await SensorSpecModel.find({ _id: id }) : await SensorSpecModel.find({}).maxTimeMS(60000)
+    const data = !!id
+      ? await MongoClientDB.collection("sensor_spec").find({ _id: id }).maxTimeMS(60000).toArray()
+      : await MongoClientDB.collection("sensor_spec").find({}).maxTimeMS(60000).toArray()
     return (data as any).map((x: any) => ({
-      id: x._doc._id,
-      name: x._doc._id,
-      ...x._doc,
+      id: x._id,
+      name: x._id,
+      ...x,
       _id: undefined,
       __v: undefined,
     }))

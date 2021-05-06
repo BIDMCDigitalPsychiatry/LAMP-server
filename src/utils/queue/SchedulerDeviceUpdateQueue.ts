@@ -3,11 +3,13 @@ import { Repository } from "../../repository/Bootstrap"
 import { updateDeviceDetails } from "./ActivitySchedulerJob"
 import { Mutex } from "async-mutex"
 const clientLock = new Mutex()
-//Initialise UpdateToSchedulerQueue Queue
-export const SchedulerDeviceUpdateQueue = new Bull("SchedulerDeviceUpdate", process.env.REDIS_HOST ?? "")
 
-//Consume jobs from SchedulerDeviceUpdateQueue
-SchedulerDeviceUpdateQueue.process(async (job, done) => {
+/**
+ *
+ * @param job
+ * @param done
+ */
+export async function SchedulerDeviceUpdateQueueProcess(job: Bull.Job<any>, done: Bull.DoneCallback): Promise<void> {
   const release = await clientLock.acquire()
   console.log(`locked job on ${job.data.participant_id}`)
   const repo = new Repository()
@@ -37,4 +39,4 @@ SchedulerDeviceUpdateQueue.process(async (job, done) => {
   }
   done()
   console.log(`Job completed -  ${job.data.participant_id}`)
-})
+}

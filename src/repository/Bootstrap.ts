@@ -2,7 +2,7 @@ import nano from "nano"
 import crypto from "crypto"
 import { customAlphabet } from "nanoid"
 import { connect, NatsConnectionOptions, Payload } from "ts-nats"
-import mongoose from "mongoose"
+import { MongoClient, ObjectID } from "mongodb"
 import {
   ResearcherRepository,
   StudyRepository,
@@ -42,22 +42,21 @@ import {
   CredentialInterface,
   TypeInterface,
 } from "./interface/RepositoryInterface"
-import { adminCredential } from "../model/Credential"
-import  ioredis  from "ioredis"
-
-export let RedisClient: ioredis.Redis | undefined 
-
+import ioredis from "ioredis"
+import { initializeQueues } from "../utils/queue/Queue"
+export let RedisClient: ioredis.Redis | undefined
+export let MongoClientDB: any
 //initialize driver for db
-let DB_DRIVER:string = ''
+let DB_DRIVER = ""
 //Identifying the Database driver -- IF the DB in env starts with mongodb://, create mongodb connection
-                                 //--ELSEIF the DB/CDB in env starts with http or https, create couch db connection
+//--ELSEIF the DB/CDB in env starts with http or https, create couch db connection
 if (process.env.DB?.startsWith("mongodb://")) {
   DB_DRIVER = "mongodb"
 } else if (process.env.DB?.startsWith("http") || process.env.DB?.startsWith("https")) {
-   DB_DRIVER = "couchdb"
-   console.log(`COUCHDB adapter in use `)
+  DB_DRIVER = "couchdb"
+  console.log(`COUCHDB adapter in use `)
 } else {
-  if (process.env.CDB?.startsWith("http") || process.env.CDB?.startsWith("https")) {   
+  if (process.env.CDB?.startsWith("http") || process.env.CDB?.startsWith("https")) {
     DB_DRIVER = "couchdb"
     console.log(`COUCHDB adapter in use `)
   } else {
@@ -67,13 +66,15 @@ if (process.env.DB?.startsWith("mongodb://")) {
 
 //IF the DB/CDB in env starts with http or https, create and export couch db connection
 export const Database: any =
-  (process.env.DB?.startsWith("http") || process.env.DB?.startsWith("https")) ? nano(process.env.DB ?? "") : 
-  (process.env.CDB?.startsWith("http") || process.env.CDB?.startsWith("https")) ? nano(process.env.CDB ?? ""):""
+  process.env.DB?.startsWith("http") || process.env.DB?.startsWith("https")
+    ? nano(process.env.DB ?? "")
+    : process.env.CDB?.startsWith("http") || process.env.CDB?.startsWith("https")
+    ? nano(process.env.CDB ?? "")
+    : ""
 
 export const uuid = customAlphabet("1234567890abcdefghjkmnpqrstvwxyz", 20)
 export const numeric_uuid = (): string => `U${Math.random().toFixed(10).slice(2, 12)}`
 //Initialize redis client for cacheing purpose
-
 
 /**
  * If the data could not be encrypted or is invalid, returns `undefined`.
@@ -116,7 +117,8 @@ export const Decrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"):
 // Initialize the CouchDB databases if any of them do not exist.
 export async function Bootstrap(): Promise<void> {
   if (typeof process.env.REDIS_HOST === "string") {
-    RedisClient = new ioredis(
+    initializeQueues()
+    RedisClient = new ioredis(      
       parseInt(`${(process.env.REDIS_HOST as any).match(/([0-9]+)/g)?.[0]}`),
       process.env.REDIS_HOST.match(/\/\/([0-9a-zA-Z._]+)/g)?.[0]
     )
@@ -772,10 +774,504 @@ export async function Bootstrap(): Promise<void> {
     console.groupEnd()
     console.log("Database verification complete.")
   } else {
-    //MongoDB connection
-    await mongoose.connect(`${process.env.DB}`, { useUnifiedTopology: true, useNewUrlParser: true } ?? "")
-    console.log(`MONGODB adapter in use`)
-    await adminCredential()
+    //Connect to mongoDB
+    const client = new MongoClient(`${process.env.DB}`, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    })
+    try {
+      await client.connect()
+    } catch (error) {}
+    // return new Promise((resolve, reject) => {
+    try {
+      console.group("Initializing database connection...")
+      if (client.isConnected()) {
+        const db = process.env.DB?.split("/").reverse()[0]?.split("?")[0]
+        MongoClientDB = await client?.db(db)
+      } else {
+        console.log("Database connection failed.")
+      }
+    } catch (error) {
+      console.log("Database connection failed.")
+    }
+    //  })
+    if (!!MongoClientDB) {
+      console.group(`MONGODB adapter in use`)
+      const DBs = await MongoClientDB.listCollections().toArray()
+      const dbs: string[] = []
+      for (const db of DBs) {
+        await dbs.push(db.name)
+      }
+      //Preparing Mongo Collections
+      if (dbs.indexOf("activity_spec") === -1) {
+        console.log("Initializing activity_spec database...")
+        await MongoClientDB.createCollection("activity_spec", {
+          validator: {
+            $jsonSchema: {
+              properties: { _id: { bsonType: "objectId" } },
+            },
+          },
+        })
+        const database = await MongoClientDB.collection("activity_spec")
+        await database.createIndex({ timestamp: 1 })
+      } else {
+        await MongoClientDB.command({
+          collMod: "activity_spec",
+          validator: {
+            $jsonSchema: {
+              properties: {
+                _id: { bsonType: "objectId" },
+              },
+            },
+          },
+          validationLevel: "moderate",
+        })
+      }
+      console.log("ActivitySpec database online.")
+      if (dbs.indexOf("sensor_spec") === -1) {
+        console.log("Initializing sensor_spec database...")
+        await MongoClientDB.createCollection("sensor_spec", {
+          validator: {
+            $jsonSchema: {
+              properties: { _id: { bsonType: "objectId" } },
+            },
+          },
+        })
+        const database = await MongoClientDB.collection("sensor_spec")
+        await database.createIndex({ timestamp: 1 })
+      } else {
+        await MongoClientDB.command({
+          collMod: "sensor_spec",
+          validator: {
+            $jsonSchema: {
+              properties: {
+                _id: { bsonType: "objectId" },
+              },
+            },
+          },
+          validationLevel: "moderate",
+        })
+      }
+      console.log("Sensor_spec database online.")
+      if (dbs.indexOf("researcher") === -1) {
+        console.log("Initializing Researcher database...")
+        await MongoClientDB.createCollection("researcher", {
+          validator: {
+            $jsonSchema: {
+              required: ["_id", "name", "timestamp"],
+              properties: {
+                _id: { bsonType: "string" },
+                name: { bsonType: "string" },
+                timestamp: { bsonType: "number" },
+                _deleted: { bsonType: "bool" },
+              },
+            },
+          },
+        })
+        const database = MongoClientDB.collection("researcher")
+        await database.createIndex({ _id: 1, _parent: 1, timestamp: 1 })
+        await database.createIndex({ _parent: 1, timestamp: 1 })
+        await database.createIndex({ timestamp: 1 })
+      } else {
+        await MongoClientDB.command({
+          collMod: "researcher",
+          validator: {
+            $jsonSchema: {
+              required: ["_id", "name", "timestamp"],
+              properties: {
+                _id: { bsonType: "string" },
+                name: { bsonType: "string" },
+                timestamp: { bsonType: "number" },
+                _deleted: { bsonType: "bool" },
+              },
+            },
+          },
+          validationLevel: "moderate",
+        })
+      }
+      console.log("Researcher database online.")
+      if (dbs.indexOf("study") === -1) {
+        console.log("Initializing Study database...")
+        await MongoClientDB.createCollection("study", {
+          validator: {
+            $jsonSchema: {
+              required: ["_id", "name", "timestamp", "_parent"],
+              properties: {
+                _id: { bsonType: "string" },
+                name: { bsonType: "string" },
+                timestamp: { bsonType: "number" },
+                _parent: { bsonType: "string" },
+                _deleted: { bsonType: "bool" },
+              },
+            },
+          },
+        })
+        const database = MongoClientDB.collection("study")
+        await database.createIndex({ _id: 1, _parent: 1, timestamp: 1 })
+        await database.createIndex({ _parent: 1, timestamp: 1 })
+        await database.createIndex({ timestamp: 1 })
+      } else {
+        await MongoClientDB.command({
+          collMod: "study",
+          validator: {
+            $jsonSchema: {
+              required: ["_id", "name", "timestamp", "_parent"],
+              properties: {
+                _id: { bsonType: "string" },
+                name: { bsonType: "string" },
+                timestamp: { bsonType: "number" },
+                _parent: { bsonType: "string" },
+                _deleted: { bsonType: "bool" },
+              },
+            },
+          },
+          validationLevel: "moderate",
+        })
+      }
+
+      console.log("Study database online.")
+      if (dbs.indexOf("participant") === -1) {
+        console.log("Initializing Participant database...")
+        await MongoClientDB.createCollection("participant", {
+          validator: {
+            $jsonSchema: {
+              required: ["_id", "timestamp", "_parent"],
+              properties: {
+                _id: { type: "string" },
+                timestamp: { bsonType: "number" },
+                _parent: { bsonType: "string" },
+                _deleted: { bsonType: "bool" },
+              },
+            },
+          },
+        })
+        const database = MongoClientDB.collection("participant")
+        await database.createIndex({ _id: 1, _parent: 1, timestamp: 1 })
+        await database.createIndex({ _parent: 1, timestamp: 1 })
+        await database.createIndex({ timestamp: 1 })
+      } else {
+        await MongoClientDB.command({
+          collMod: "participant",
+          validator: {
+            $jsonSchema: {
+              required: ["_id", "timestamp", "_parent"],
+              properties: {
+                _id: { bsonType: "string" },
+                timestamp: { bsonType: "number" },
+                _parent: { bsonType: "string" },
+                _deleted: { bsonType: "bool" },
+              },
+            },
+          },
+          validationLevel: "moderate",
+        })
+      }
+      console.log("Participant database online.")
+      if (dbs.indexOf("activity") === -1) {
+        console.log("Initializing Activity database...")
+        await MongoClientDB.createCollection("activity", {
+          validator: {
+            $jsonSchema: {
+              required: ["_id", "name", "spec", "timestamp", "_parent"],
+              properties: {
+                _id: { bsonType: "string" },
+                name: { bsonType: "string" },
+                timestamp: { bsonType: "number" },
+                spec: { bsonType: "string" },
+                _parent: { bsonType: "string" },
+                settings: { bsonType: ["array", "object"] },
+                schedule: { bsonType: "array" },
+                _deleted: { bsonType: "bool" },
+              },
+            },
+          },
+        })
+        const database = await MongoClientDB.collection("activity")
+        await database.createIndex({ _id: 1, _parent: 1, timestamp: 1 })
+        await database.createIndex({ _parent: 1, timestamp: 1 })
+        await database.createIndex({ timestamp: 1 })
+        await database.createIndex({ _id: 1, timestamp: 1 })
+      } else {
+        await MongoClientDB.command({
+          collMod: "activity",
+          validator: {
+            $jsonSchema: {
+              required: ["_id", "name", "spec", "timestamp", "_parent"],
+              properties: {
+                _id: { bsonType: "string" },
+                name: { bsonType: "string" },
+                timestamp: { bsonType: "number" },
+                spec: { bsonType: "string" },
+                _parent: { bsonType: "string" },
+                settings: { bsonType: ["array", "object"] },
+                schedule: { bsonType: "array" },
+                _deleted: { bsonType: "bool" },
+              },
+            },
+          },
+          validationLevel: "moderate",
+        })
+      }
+      console.log("Activity database online.")
+      if (dbs.indexOf("sensor") === -1) {
+        console.log("Initializing Sensor database...")
+        await MongoClientDB.createCollection("sensor", {
+          validator: {
+            $jsonSchema: {
+              required: ["_id", "name", "spec", "timestamp", "_parent"],
+              properties: {
+                _id: { bsonType: "string" },
+                name: { bsonType: "string" },
+                timestamp: { bsonType: "number" },
+                spec: { bsonType: "string" },
+                _parent: { bsonType: "string" },
+                settings: { bsonType: ["array", "object"] },
+                schedule: { bsonType: "array" },
+                _deleted: { bsonType: "bool" },
+              },
+            },
+          },
+        })
+        const database = MongoClientDB.collection("sensor")
+        await database.createIndex({ _id: 1, _parent: 1, timestamp: 1 })
+        await database.createIndex({ _parent: 1, timestamp: 1 })
+        await database.createIndex({ timestamp: 1 })
+      } else {
+        await MongoClientDB.command({
+          collMod: "sensor",
+          validator: {
+            $jsonSchema: {
+              required: ["_id", "name", "spec", "timestamp", "_parent"],
+              properties: {
+                _id: { bsonType: "string" },
+                name: { bsonType: "string" },
+                timestamp: { bsonType: "number" },
+                spec: { bsonType: "string" },
+                _parent: { bsonType: "string" },
+                settings: { bsonType: ["array", "object"] },
+                _deleted: { bsonType: "bool" },
+              },
+            },
+          },
+          validationLevel: "moderate",
+        })
+      }
+      console.log("Sensor database online.")
+      if (dbs.indexOf("activity_event") === -1) {
+        console.log("Initializing Activity_event database...")
+        await MongoClientDB.createCollection("activity_event", {
+          validator: {
+            $jsonSchema: {
+              required: ["activity", "timestamp", "_parent"],
+              properties: {
+                _id: { bsonType: "objectId" },
+                timestamp: { bsonType: "number" },
+                activity: { bsonType: "string" },
+                duration: { bsonType: "number" },
+                _parent: { bsonType: "string" },
+                static_data: { bsonType: "object" },
+                temporal_slices: { bsonType: "array" },
+              },
+            },
+          },
+        })
+        const database = MongoClientDB.collection("activity_event")
+        await database.createIndex({ _parent: -1, activity: -1, timestamp: -1 })
+        await database.createIndex({ _parent: -1, timestamp: -1 })
+      } else {
+        await MongoClientDB.command({
+          collMod: "activity_event",
+          validator: {
+            $jsonSchema: {
+              required: ["activity", "timestamp", "_parent"],
+              properties: {
+                _id: { bsonType: "objectId" },
+                timestamp: { bsonType: "number" },
+                activity: { bsonType: "string" },
+                duration: { bsonType: "number" },
+                _parent: { bsonType: "string" },
+                static_data: { bsonType: "object" },
+                temporal_slices: { bsonType: "array" },
+              },
+            },
+          },
+          validationLevel: "moderate",
+        })
+      }
+      console.log("Activity_event database online.")
+      if (dbs.indexOf("sensor_event") === -1) {
+        console.log("Initializing Sensor_event database...")
+        await MongoClientDB.createCollection("sensor_event", {
+          validator: {
+            $jsonSchema: {
+              required: ["timestamp", "_parent", "sensor"],
+              properties: {
+                _id: { bsonType: "objectId" },
+                timestamp: { bsonType: "number" },
+                duration: { bsonType: "number" },
+                sensor: { bsonType: "string" },
+                _parent: { bsonType: "string" },
+                data: { bsonType: "object" },
+              },
+            },
+          },
+        })
+        const database = MongoClientDB.collection("sensor_event")
+        await database.createIndex({ _parent: -1, sensor: -1, timestamp: -1 })
+        await database.createIndex({ _parent: -1, timestamp: -1 })
+      } else {
+        await MongoClientDB.command({
+          collMod: "sensor_event",
+          validator: {
+            $jsonSchema: {
+              required: ["timestamp", "_parent", "sensor"],
+              properties: {
+                _id: { bsonType: "objectId" },
+                timestamp: { bsonType: "number" },
+                duration: { bsonType: "number" },
+                sensor: { bsonType: "string" },
+                _parent: { bsonType: "string" },
+                data: { bsonType: "object" },
+              },
+            },
+          },
+          validationLevel: "moderate",
+        })
+      }
+      console.log("Sensor_event database online.")
+      if (dbs.indexOf("scriptpaths") === -1) {
+        console.log("Initializing Scriptpaths database...")
+        await MongoClientDB.createCollection("scriptpaths", {
+          validator: {
+            $jsonSchema: {
+              // required: ["_id", "paths"],
+              properties: {
+                _id: { bsonType: "string" },
+                paths: { bsonType: "array" },
+              },
+            },
+          },
+        })
+      } else {
+        await MongoClientDB.command({
+          collMod: "scriptpaths",
+          validator: {
+            $jsonSchema: {
+              properties: {
+                _id: { bsonType: "string" },
+                paths: { bsonType: "array" },
+              },
+            },
+          },
+          validationLevel: "moderate",
+        })
+      }
+      console.log("Scriptpaths database online.")
+      if (dbs.indexOf("tag") === -1) {
+        console.log("Initializing Tag database...")
+        await MongoClientDB.createCollection("tag", {
+          validator: {
+            $jsonSchema: {
+              required: ["type", "_parent", "key", "value"],
+              properties: {
+                _id: { bsonType: "objectId" },
+                type: { bsonType: "string" },
+                key: { bsonType: "string" },
+                value: { bsonType: ["string", "object","null"] },
+                _parent: { bsonType: "string" },
+                deleted: { bsonType: "bool" },
+              },
+            },
+          },
+        })
+        const database = MongoClientDB.collection("tag")
+        await database.createIndex({ _parent: 1, type: 1, key: 1 })
+      } else {
+        await MongoClientDB.command({
+          collMod: "tag",
+          validator: {
+            $jsonSchema: {
+              required: ["type", "_parent", "key", "value"],
+              properties: {
+                _id: { bsonType: "objectId" },
+                type: { bsonType: "string" },
+                key: { bsonType: "string" },
+                value: { bsonType: ["string", "object","null"] },
+                _parent: { bsonType: "string" },
+                deleted: { bsonType: "bool" },
+              },
+            },
+          },
+          validationLevel: "moderate",
+        })
+      }
+      console.log("Tag database online.")
+      if (dbs.indexOf("credential") === -1) {
+        console.log("Initializing credential database...")
+        await MongoClientDB.createCollection("credential", {
+          validator: {
+            $jsonSchema: {
+              required: ["access_key", "secret_key", "description"],
+              properties: {
+                _id: { bsonType: "objectId" },
+                origin: { bsonType: ["string", "null"] },
+                access_key: { bsonType: "string" },
+                secret_key: { bsonType: "string" },
+                description: { bsonType: "string" },
+                _deleted: { bsonType: "bool" },
+              },
+            },
+          },
+          validationLevel: "moderate",
+        })
+        const database = MongoClientDB.collection("credential")
+        await database.createIndex({ access_key: 1 })
+        await database.createIndex({ origin: 1 })
+        await database.createIndex({ origin: 1, access_key: 1 })
+        console.dir(`An initial administrator password was generated and saved for this installation.`)
+        try {
+          // Create a new password and emit it to the console while saving it (to share it with the sysadmin).
+          const p = crypto.randomBytes(32).toString("hex")
+          console.table({ "Administrator Password": p })
+          await database.insertOne({
+            _id: new ObjectID(),
+            origin: null,
+            access_key: "admin",
+            secret_key: Encrypt(p, "AES256"),
+            description: "System Administrator Credential",
+            _deleted: false,
+          } as any)
+        } catch (error) {
+          console.log(error)
+        }
+      } else {
+        await MongoClientDB.command({
+          collMod: "credential",
+          validator: {
+            $jsonSchema: {
+              required: ["access_key", "secret_key", "description"],
+              properties: {
+                _id: { bsonType: "objectId" },
+                origin: { bsonType: ["string", "null"] },
+                access_key: { bsonType: "string" },
+                secret_key: { bsonType: "string" },
+                description: { bsonType: "string" },
+                _deleted: { bsonType: "bool" },
+              },
+            },
+          },
+          validationLevel: "moderate",
+        })
+      }
+
+      console.log("credential database online.")
+      console.groupEnd()
+      console.groupEnd()
+      console.log("Database verification complete.")
+    } else {
+      console.groupEnd()
+      console.log("Database verification failed.")
+    }
   }
 }
 
