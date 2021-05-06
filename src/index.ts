@@ -5,6 +5,9 @@ import { Bootstrap } from "./repository/Bootstrap"
 import { NotificationScheduling, cleanAllQueues } from "./utils/queue/ActivitySchedulerJob"
 import app from './app'
 
+// NodeJS v15+ do not log unhandled promise rejections anymore.
+process.on('unhandledRejection', error => { console.dir(error) })
+
 // Initialize and configure the application.
 async function main(): Promise<void> {
   console.group("Initializing LAMP API server...")
