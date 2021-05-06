@@ -1,6 +1,6 @@
 import { SensorEvent } from "../../model/SensorEvent"
-import { SensorEventModel } from "../../model/SensorEvent"
 import { SensorEventInterface } from "../interface/RepositoryInterface"
+import { MongoClientDB } from "../Bootstrap"
 // FIXME: does not support filtering by Sensor yet.
 
 export class SensorEventRepository implements SensorEventInterface {
@@ -27,15 +27,18 @@ export class SensorEventRepository implements SensorEventInterface {
     if (!!from_date && !!to_date) {
       filteredQuery.timestamp = { $gte: from_date, $lt: from_date === to_date ? to_date! + 1 : to_date }
     }
-    const all_res = await SensorEventModel.find(filteredQuery)
+    const all_res = await MongoClientDB.collection("sensor_event")
+      .find(filteredQuery)
       .sort({ timestamp: !!limit && limit < 0 ? 1 : -1 })
-      .limit(limit ?? 1).maxTimeMS(60000)
+      .limit(limit ?? 1)
+      .maxTimeMS(60000)
+      .toArray()
     return (all_res as any).map((x: any) => ({
-      ...x._doc,
+      ...x,
       _id: undefined,
       __v: undefined,
       _parent: undefined,
-      _deleted: undefined
+      _deleted: undefined,
     }))
   }
   public async _insert(participant_id: string, objects: SensorEvent[]): Promise<{}> {
@@ -51,7 +54,7 @@ export class SensorEventRepository implements SensorEventInterface {
       })
     }
     try {
-      await SensorEventModel.insertMany(data)
+       await MongoClientDB.collection("sensor_event").insertMany(data)
     } catch (error) {
       console.error(error)
     }

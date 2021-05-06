@@ -1,7 +1,7 @@
 import { ActivityEvent } from "../../model/ActivityEvent"
-import { ActivityEventModel } from "../../model/ActivityEvent"
 // FIXME: does not support filtering by ActivitySpec yet.
 import { ActivityEventInterface } from "../interface/RepositoryInterface"
+import { MongoClientDB } from "../Bootstrap"
 
 export class ActivityEventRepository implements ActivityEventInterface {
   public async _select(
@@ -23,20 +23,23 @@ export class ActivityEventRepository implements ActivityEventInterface {
       filteredQuery.timestamp = { $gte: from_date }
     }
     if (!!to_date) {
-      filteredQuery.timestamp = { $lt: from_date === to_date ? to_date! + 1 : to_date  }
+      filteredQuery.timestamp = { $lt: from_date === to_date ? to_date! + 1 : to_date }
     }
     if (!!from_date && !!to_date) {
       filteredQuery.timestamp = { $gte: from_date, $lt: from_date === to_date ? to_date! + 1 : to_date }
     }
-    const all_res = await ActivityEventModel.find(filteredQuery)
+    const all_res = await MongoClientDB.collection("activity_event")
+      .find(filteredQuery)
       .sort({ timestamp: !!limit && limit < 0 ? 1 : -1 })
-      .limit(limit ?? 1).maxTimeMS(60000)
+      .limit(limit ?? 1)
+      .maxTimeMS(60000)
+      .toArray()
     return (all_res as any).map((x: any) => ({
-      ...x._doc,
+      ...x,
       _id: undefined,
       __v: undefined,
       _parent: undefined,
-      _deleted: undefined
+      _deleted: undefined,
     }))
   }
   public async _insert(participant_id: string, objects: ActivityEvent[]): Promise<{}> {
@@ -54,7 +57,7 @@ export class ActivityEventRepository implements ActivityEventInterface {
       })
     }
     try {
-      await ActivityEventModel.insertMany(data)
+      await await MongoClientDB.collection("activity_event").insertMany(data)
     } catch (error) {
       console.error(error)
     }

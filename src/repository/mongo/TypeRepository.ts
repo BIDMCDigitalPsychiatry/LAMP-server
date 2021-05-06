@@ -1,13 +1,9 @@
 import { DynamicAttachment } from "../../model"
 //import { ScriptRunner } from "../../utils"
-import { ParticipantModel } from "../../model/Participant"
-import { StudyModel } from "../../model/Study"
-import { ActivityModel } from "../../model/Activity"
-import { SensorModel } from "../../model/Sensor"
-import { ResearcherModel } from "../../model/Researcher"
 import { Repository } from "../../repository/Bootstrap"
 import { TypeInterface } from "../interface/RepositoryInterface"
-import mongoose from "mongoose"
+import { MongoClientDB } from "../Bootstrap"
+
 // FIXME: Support application/json;indent=:spaces format mime type!
 
 export class TypeRepository implements TypeInterface {
@@ -22,23 +18,26 @@ export class TypeRepository implements TypeInterface {
 
   public async _self_type(type_id: string): Promise<string> {
     try {
-      const data: any = await (ParticipantModel.findOne({ _deleted: false, _id: type_id }).maxTimeMS(60000) as any)
+      const data: any = await (MongoClientDB.collection("participant").findOne({
+        _deleted: false,
+        _id: type_id,
+      }) as any)
       if (null !== data) return "Participant"
     } catch (e) {}
     try {
-      const data: any = await (ResearcherModel.findOne({ _deleted: false, _id: type_id }).maxTimeMS(60000) as any)
+      const data: any = await (MongoClientDB.collection("researcher").findOne({ _deleted: false, _id: type_id }) as any)
       if (null !== data) return "Researcher"
     } catch (e) {}
     try {
-      const data: any = await (StudyModel.findOne({ _deleted: false, _id: type_id }).maxTimeMS(60000) as any)
+      const data: any = await (MongoClientDB.collection("study").findOne({ _deleted: false, _id: type_id }) as any)
       if (null !== data) return "Study"
     } catch (e) {}
     try {
-      const data: any = await (ActivityModel.findOne({ _deleted: false, _id: type_id }).maxTimeMS(60000) as any)
+      const data: any = await (MongoClientDB.collection("activity").findOne({ _deleted: false, _id: type_id }) as any)
       if (null !== data) return "Activity"
     } catch (e) {}
     try {
-      const data: any = await (SensorModel.findOne({ _deleted: false, _id: type_id }).maxTimeMS(60000) as any)
+      const data: any = await (MongoClientDB.collection("sensor").findOne({ _deleted: false, _id: type_id }) as any)
       if (null !== data) return "Sensor"
     } catch (e) {}
     return "__broken_id__"
@@ -46,20 +45,20 @@ export class TypeRepository implements TypeInterface {
 
   public async _owner(type_id: string): Promise<string | null> {
     try {
-      return ((await ParticipantModel.findOne({ _deleted: false, _id: type_id }).maxTimeMS(60000)) as any)._parent
+      return ((await MongoClientDB.collection("participant").findOne({ _deleted: false, _id: type_id })) as any)._parent
     } catch (e) {}
     try {
-      const data: any = await (ResearcherModel.findOne({ _deleted: false, _id: type_id }).maxTimeMS(60000) as any)
+      const data: any = await (MongoClientDB.collection("researcher").findOne({ _deleted: false, _id: type_id }) as any)
       if (null !== data) return null
     } catch (e) {}
     try {
-      return ((await StudyModel.findOne({ _deleted: false, _id: type_id }).maxTimeMS(60000)) as any)._parent
+      return ((await MongoClientDB.collection("study").findOne({ _deleted: false, _id: type_id })) as any)._parent
     } catch (e) {}
     try {
-      return ((await ActivityModel.findOne({ _deleted: false, _id: type_id }).maxTimeMS(60000)) as any)._parent
+      return ((await MongoClientDB.collection("activity").findOne({ _deleted: false, _id: type_id })) as any)._parent
     } catch (e) {}
     try {
-      return ((await SensorModel.findOne({ _deleted: false, _id: type_id }).maxTimeMS(60000)) as any)._parent
+      return ((await MongoClientDB.collection("sensor").findOne({ _deleted: false, _id: type_id })) as any)._parent
     } catch (e) {}
     return null
   }
@@ -92,18 +91,20 @@ export class TypeRepository implements TypeInterface {
 
   public async _set(mode: any, type: string, type_id: string, key: string, value?: any): Promise<{}> {
     const deletion = value === undefined || value === null
-    const output = await mongoose.connection.collection("tag").findOneAndUpdate(
-        { _parent: type_id, type: type, key: key }, 
-        { 
-            $set: { 
-                _deleted: deletion,
-                value: deletion ? null : JSON.stringify(value)
-            }, 
-            $setOnInsert: {
-                _parent: type_id, type: type, key: key
-            }
+    const output = await MongoClientDB.collection("tag").findOneAndUpdate(
+      { _parent: type_id, type: type, key: key },
+      {
+        $set: {
+          _deleted: deletion,
+          value: deletion ? null : JSON.stringify(value),
         },
-        { upsert: true, maxTimeMS: 60000 }
+        $setOnInsert: {
+          _parent: type_id,
+          type: type,
+          key: key,
+        },
+      },
+      { upsert: true, maxTimeMS: 60000 }
     )
     return {}
   }
@@ -133,7 +134,8 @@ export class TypeRepository implements TypeInterface {
     //     multiple keys per-subquery; the difference is almost ~7sec vs. ~150ms.
     for (const condition of conditions) {
       try {
-        const value = await mongoose.connection.collection("tag").find(condition).limit(1).maxTimeMS(60000).toArray()
+        const value = await MongoClientDB.collection("tag").find(condition).limit(1).maxTimeMS(60000).toArray()
+        console.log("value", value)
         if (value.length > 0) return value.map((x: any) => JSON.parse(x.value))[0]
       } catch (error) {
         console.error(error, `Failed to search Tag index for ${condition._parent}:${condition.type}.`)
@@ -170,7 +172,11 @@ export class TypeRepository implements TypeInterface {
     let all_keys: string[] = []
     for (const condition of conditions) {
       try {
-        const value = await mongoose.connection.collection("tag").find(condition).limit(2_147_483_647).maxTimeMS(60000).toArray()
+        const value = await MongoClientDB.collection("tag")
+          .find(condition)
+          .limit(2_147_483_647)
+          .maxTimeMS(60000)
+          .toArray()
         all_keys = [...all_keys, ...value.map((x: any) => x.key as any)]
       } catch (error) {
         console.error(error, `Failed to search Tag index for ${condition._parent}:${condition.type}.`)
@@ -195,7 +201,7 @@ async function Researcher_parent_id(id: string, type: string): Promise<string | 
 async function Study_parent_id(id: string, type: string): Promise<string | undefined> {
   switch (type) {
     case "Researcher":
-      const obj: any = await StudyModel.findOne({ _deleted: false, _id: id }).maxTimeMS(60000)
+      const obj: any = await MongoClientDB.collection("study").findOne({ _deleted: false, _id: id })
       return obj._parent
 
     default:
@@ -206,12 +212,12 @@ async function Participant_parent_id(id: string, type: string): Promise<string |
   let obj: any
   switch (type) {
     case "Study":
-      obj = await ParticipantModel.findOne({ _deleted: false, _id: id }).maxTimeMS(60000)
+      obj = await MongoClientDB.collection("participant").findOne({ _deleted: false, _id: id })
       return obj._parent
 
     case "Researcher":
-      obj = await ParticipantModel.findOne({ _deleted: false, _id: id }).maxTimeMS(60000)
-      obj = await StudyModel.findOne({ _deleted: false, _id: obj._parent }).maxTimeMS(60000)
+      obj = await MongoClientDB.collection("participant").findOne({ _deleted: false, _id: id })
+      obj = await MongoClientDB.collection("study").findOne({ _deleted: false, _id: obj._parent })
       return obj._parent
 
     default:
@@ -222,12 +228,12 @@ async function Activity_parent_id(id: string, type: string): Promise<string | un
   let obj: any
   switch (type) {
     case "Study":
-      obj = await ActivityModel.findOne({ _deleted: false, _id: id }).maxTimeMS(60000)
+      obj = await MongoClientDB.collection("activity").findOne({ _deleted: false, _id: id })
       return obj._parent
 
     case "Researcher":
-      obj = await ActivityModel.findOne({ _deleted: false, _id: id }).maxTimeMS(60000)
-      obj = await StudyModel.findOne({ _deleted: false, _id: obj._parent }).maxTimeMS(60000)
+      obj = await MongoClientDB.collection("activity").findOne({ _deleted: false, _id: id })
+      obj = await MongoClientDB.collection("study").findOne({ _deleted: false, _id: obj._parent })
       return obj._parent
 
     default:
@@ -238,12 +244,12 @@ async function Sensor_parent_id(id: string, type: string): Promise<string | unde
   let obj: any
   switch (type) {
     case "Study":
-      obj = await SensorModel.findOne({ _deleted: false, _id: id }).maxTimeMS(60000)
+      obj = await MongoClientDB.collection("sensor").findOne({ _deleted: false, _id: id })
       return obj._parent
 
     case "Researcher":
-      obj = await SensorModel.findOne({ _deleted: false, _id: id }).maxTimeMS(60000)
-      obj = await StudyModel.findOne({ _deleted: false, _id: obj._parent }).maxTimeMS(60000)
+      obj = await MongoClientDB.collection("sensor").findOne({ _deleted: false, _id: id })
+      obj = await MongoClientDB.collection("study").findOne({ _deleted: false, _id: obj._parent })
       return obj._parent
 
     default:

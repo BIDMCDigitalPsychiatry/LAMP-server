@@ -1,10 +1,8 @@
 import { Request, Response, Router } from "express"
-import { Researcher } from "../model/Researcher"
 import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
-import { PubSubAPIListenerQueue } from "../utils/queue/PubSubAPIListenerQueue"
+import { PubSubAPIListenerQueue, CacheDataQueue } from "../utils/queue/Queue"
 import { Repository } from "../repository/Bootstrap"
-import { CacheDataQueue } from "../utils/queue/CacheDataQueue"
 import { RedisClient } from "../repository/Bootstrap"
 
 export class ResearcherService {
@@ -25,7 +23,7 @@ export class ResearcherService {
     //publishing data for researcher add api with token = researcher.{_id}
     researcher.action = "create"
     researcher.researcher_id = data
-    PubSubAPIListenerQueue.add({ topic: `researcher`, token: `researcher.${data}`, payload: researcher })
+    PubSubAPIListenerQueue?.add({ topic: `researcher`, token: `researcher.${data}`, payload: researcher })
     return data
   }
 
@@ -42,12 +40,12 @@ export class ResearcherService {
       const data = await ResearcherRepository._delete(researcher_id)
 
       //publishing data for researcher delete api with token = researcher.{researcher_id}
-      PubSubAPIListenerQueue.add({
+      PubSubAPIListenerQueue?.add({
         topic: `researcher.*`,
         token: `researcher.${researcher_id}`,
         payload: { action: "delete", researcher_id: researcher_id },
       })
-      PubSubAPIListenerQueue.add({
+      PubSubAPIListenerQueue?.add({
         topic: `researcher`,
         token: `researcher.${researcher_id}`,
         payload: { action: "delete", researcher_id: researcher_id },
@@ -59,8 +57,8 @@ export class ResearcherService {
       //publishing data for researcher update api with token = researcher.{researcher_id}
       researcher.action = "update"
       researcher.researcher_id = researcher_id
-      PubSubAPIListenerQueue.add({ topic: `researcher.*`, token: `researcher.${researcher_id}`, payload: researcher })
-      PubSubAPIListenerQueue.add({ topic: `researcher`, token: `researcher.${researcher_id}`, payload: researcher })
+      PubSubAPIListenerQueue?.add({ topic: `researcher.*`, token: `researcher.${researcher_id}`, payload: researcher })
+      PubSubAPIListenerQueue?.add({ topic: `researcher`, token: `researcher.${researcher_id}`, payload: researcher })
       return data
     }
   }
@@ -144,7 +142,7 @@ ResearcherService.Router.get("/researcher/:researcher_id/_lookup/:lookup", async
       try {
         cacheData = await RedisClient?.get(`${researcher_id}_lookup:participants`)
       } catch (error) {}
-      if (null === cacheData || undefined !== studyID) {
+      if (null === cacheData || undefined !== studyID || undefined=== cacheData) {
         console.log("cache data absent for activities")
         let tags = false
         try {
@@ -169,7 +167,7 @@ ResearcherService.Router.get("/researcher/:researcher_id/_lookup/:lookup", async
         if (undefined === studyID) {
           try {
             //add the list of participants and researcher tags to cache for next 5 mts
-            CacheDataQueue.add({
+            CacheDataQueue?.add({
               key: `${researcher_id}_lookup:participants`,
               payload: { studies: study_details, unityhealth_settings: tags },
             })
@@ -188,7 +186,7 @@ ResearcherService.Router.get("/researcher/:researcher_id/_lookup/:lookup", async
         cacheData = await RedisClient?.get(`${researcher_id}_lookup:activities`)
       } catch (error) {}
 
-      if (null === cacheData || undefined !== studyID) {
+      if (null === cacheData || undefined !== studyID || undefined=== cacheData) {
         console.log("cache data absent for activities")
         //fetch activities based on study from database
         for (const study of studies) {
@@ -201,7 +199,7 @@ ResearcherService.Router.get("/researcher/:researcher_id/_lookup/:lookup", async
         if (undefined === studyID) {
           try {
             //add the list of activities  to cache for next 5 mts
-            CacheDataQueue.add({
+            CacheDataQueue?.add({
               key: `${researcher_id}_lookup:activities`,
               payload: { studies: study_details, activities: activities },
             })
@@ -220,7 +218,7 @@ ResearcherService.Router.get("/researcher/:researcher_id/_lookup/:lookup", async
         cacheData = await RedisClient?.get(`${researcher_id}_lookup:sensors`)
       } catch (error) {}
 
-      if (null === cacheData || undefined !== studyID) {
+      if (null === cacheData || undefined !== studyID || undefined=== cacheData) {
         console.log("cache data absent for sensors")
         //fetch sensors based on study from database
         for (const study of studies) {
@@ -233,7 +231,7 @@ ResearcherService.Router.get("/researcher/:researcher_id/_lookup/:lookup", async
         if (undefined === studyID) {
           try {
             //add the list of sensors to cache for next 5 mts
-            CacheDataQueue.add({
+            CacheDataQueue?.add({
               key: `${researcher_id}_lookup:sensors`,
               payload: { studies: study_details, sensors: sensors },
             })
@@ -281,7 +279,7 @@ ResearcherService.Router.get("/study/:study_id/_lookup/:lookup/mode/:mode", asyn
           //Fetch participant's name i.e mode=3 OR 4
           if (mode === 3 || mode === 4) {
             //fetch data from redis if any
-            const cacheData = await RedisClient?.get(`${ParticipantIDs[index].id}:name`) || null
+            const cacheData = (await RedisClient?.get(`${ParticipantIDs[index].id}:name`)) || null
             if (null !== cacheData) {
               const result = JSON.parse(cacheData)
               ParticipantIDs[index].name = result.name
@@ -290,7 +288,7 @@ ResearcherService.Router.get("/study/:study_id/_lookup/:lookup/mode/:mode", asyn
               try {
                 tags_participant_name = await TypeRepository._get("a", ParticipantIDs[index].id, "lamp.name")
                 ParticipantIDs[index].name = tags_participant_name
-                CacheDataQueue.add({
+                CacheDataQueue?.add({
                   key: `${ParticipantIDs[index].id}:name`,
                   payload: { name: tags_participant_name },
                 })
@@ -302,7 +300,7 @@ ResearcherService.Router.get("/study/:study_id/_lookup/:lookup/mode/:mode", asyn
           //Fetch participant's unity settings i.e mode=3
           if (mode === 3) {
             //fetch data from redis if any
-            const cacheData = await RedisClient?.get(`${ParticipantIDs[index].id}:unity_settings`) || null
+            const cacheData = (await RedisClient?.get(`${ParticipantIDs[index].id}:unity_settings`)) || null
             if (null !== cacheData) {
               const result = JSON.parse(cacheData)
               ParticipantIDs[index].unity_settings = result.unity_settings
@@ -315,7 +313,7 @@ ResearcherService.Router.get("/study/:study_id/_lookup/:lookup/mode/:mode", asyn
                   "to.unityhealth.psychiatry.settings"
                 )
                 ParticipantIDs[index].unity_settings = tags_participant_unity_setting
-                CacheDataQueue.add({
+                CacheDataQueue?.add({
                   key: `${ParticipantIDs[index].id}:unity_settings`,
                   payload: { unity_settings: tags_participant_unity_setting },
                 })
@@ -327,7 +325,7 @@ ResearcherService.Router.get("/study/:study_id/_lookup/:lookup/mode/:mode", asyn
           //Fetch participant's gps data i.e mode=1
           if (mode === 1) {
             //fetch data from redis if any
-            const cacheData = await RedisClient?.get(`${ParticipantIDs[index].id}:gps`) || null
+            const cacheData = (await RedisClient?.get(`${ParticipantIDs[index].id}:gps`)) || null
             if (null !== cacheData) {
               const result = JSON.parse(cacheData)
               ParticipantIDs[index].gps = result.gps
@@ -337,7 +335,7 @@ ResearcherService.Router.get("/study/:study_id/_lookup/:lookup/mode/:mode", asyn
                 (await SensorEventRepository._select(ParticipantIDs[index].id, "beiwe.gps", undefined, undefined, 5))
 
               ParticipantIDs[index].gps = gps
-              CacheDataQueue.add({
+              CacheDataQueue?.add({
                 key: `${ParticipantIDs[index].id}:gps`,
                 payload: { gps: gps },
               })
@@ -348,7 +346,7 @@ ResearcherService.Router.get("/study/:study_id/_lookup/:lookup/mode/:mode", asyn
           //Fetch participant's accelerometer data i.e mode=1
           if (mode === 1) {
             //fetch data from redis if any
-            const cacheData = await RedisClient?.get(`${ParticipantIDs[index].id}:accelerometer`) || null
+            const cacheData = (await RedisClient?.get(`${ParticipantIDs[index].id}:accelerometer`)) || null
             if (null !== cacheData) {
               const result = JSON.parse(cacheData)
               ParticipantIDs[index].accelerometer = result.accelerometer
@@ -370,7 +368,7 @@ ResearcherService.Router.get("/study/:study_id/_lookup/:lookup/mode/:mode", asyn
                 ))
 
               ParticipantIDs[index].accelerometer = accelerometer
-              CacheDataQueue.add({
+              CacheDataQueue?.add({
                 key: `${ParticipantIDs[index].id}:accelerometer`,
                 payload: { accelerometer: accelerometer },
               })
@@ -381,7 +379,7 @@ ResearcherService.Router.get("/study/:study_id/_lookup/:lookup/mode/:mode", asyn
           //Fetch participant's analytics data i.e mode=1
           if (mode === 1) {
             //fetch data from redis if any
-            const cacheData = await RedisClient?.get(`${ParticipantIDs[index].id}:analytics`) || null
+            const cacheData = (await RedisClient?.get(`${ParticipantIDs[index].id}:analytics`)) || null
             if (null !== cacheData) {
               const result = JSON.parse(cacheData)
               ParticipantIDs[index].analytics = result.analytics
@@ -395,7 +393,7 @@ ResearcherService.Router.get("/study/:study_id/_lookup/:lookup/mode/:mode", asyn
                 1
               )
               ParticipantIDs[index].analytics = analytics
-              CacheDataQueue.add({
+              CacheDataQueue?.add({
                 key: `${ParticipantIDs[index].id}:analytics`,
                 payload: { analytics: analytics },
               })
@@ -406,7 +404,7 @@ ResearcherService.Router.get("/study/:study_id/_lookup/:lookup/mode/:mode", asyn
           //Fetch participant's active data i.e mode=2
           if (mode === 2) {
             //fetch data from redis if any
-            const cacheData = await RedisClient?.get(`${ParticipantIDs[index].id}:active`) || null
+            const cacheData = (await RedisClient?.get(`${ParticipantIDs[index].id}:active`)) || null
             if (null !== cacheData) {
               const result = JSON.parse(cacheData)
               ParticipantIDs[index].active = result.active
@@ -419,7 +417,7 @@ ResearcherService.Router.get("/study/:study_id/_lookup/:lookup/mode/:mode", asyn
                 1
               )
               ParticipantIDs[index].active = active
-              CacheDataQueue.add({
+              CacheDataQueue?.add({
                 key: `${ParticipantIDs[index].id}:active`,
                 payload: { active: active },
               })

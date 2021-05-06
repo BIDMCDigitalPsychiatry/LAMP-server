@@ -1,17 +1,14 @@
 import { Request, Response, Router } from "express"
-import { Participant } from "../model/Participant"
-
 import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
-
-import { PubSubAPIListenerQueue } from "../utils/queue/PubSubAPIListenerQueue"
+import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
 import { Repository } from "../repository/Bootstrap"
 
 export class ParticipantService {
   public static _name = "Participant"
   public static Router = Router()
 
-  public static async list(auth: any, study_id: string, sibling: boolean = false) {
+  public static async list(auth: any, study_id: string, sibling = false) {
     const ParticipantRepository = new Repository().getParticipantRepository()
     const TypeRepository = new Repository().getTypeRepository()
     study_id = await _verify(auth, ["self", "sibling", "parent"], study_id)
@@ -33,12 +30,12 @@ export class ParticipantService {
     participant.study_id = study_id
     participant.participant_id = data.id
     participant.action = "create"
-    PubSubAPIListenerQueue.add({
+    PubSubAPIListenerQueue?.add({
       topic: `participant`,
       token: `study.${study_id}.participant.${data.id}`,
       payload: participant,
     })
-    PubSubAPIListenerQueue.add({
+    PubSubAPIListenerQueue?.add({
       topic: `study.*.participant`,
       token: `study.${study_id}.participant.${data.id}`,
       payload: participant,
@@ -59,22 +56,22 @@ export class ParticipantService {
     if (participant === null) {
       participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
       //find the study id before delete, as it cannot be fetched after delete
-      const parent = await TypeRepository._parent(participant_id) as any
+      const parent = (await TypeRepository._parent(participant_id)) as any
       const data = await ParticipantRepository._delete(participant_id)
 
       //publishing data for participant delete api for the Token study.{study_id}.participant.{participant_id}
       if (parent !== undefined && parent !== "") {
-        PubSubAPIListenerQueue.add({
+        PubSubAPIListenerQueue?.add({
           topic: `study.*.participant`,
           token: `study.${parent["Study"]}.participant.${participant_id}`,
           payload: { action: "delete", participant_id: participant_id, study_id: parent["Study"] },
         })
-        PubSubAPIListenerQueue.add({
+        PubSubAPIListenerQueue?.add({
           topic: `participant.*`,
           token: `study.${parent["Study"]}.participant.${participant_id}`,
           payload: { action: "delete", participant_id: participant_id, study_id: parent["Study"] },
         })
-        PubSubAPIListenerQueue.add({
+        PubSubAPIListenerQueue?.add({
           topic: `participant`,
           token: `study.${parent["Study"]}.participant.${participant_id}`,
           payload: { action: "delete", participant_id: participant_id, study_id: parent["Study"] },
@@ -87,9 +84,9 @@ export class ParticipantService {
       //publishing data for participant update api (Token will be created in PubSubAPIListenerQueue consumer, as study for this participant need to fetched to create token)
       participant.participant_id = participant_id
       participant.action = "update"
-      PubSubAPIListenerQueue.add({ topic: `participant.*`, payload: participant })
-      PubSubAPIListenerQueue.add({ topic: `participant`, payload: participant })
-      PubSubAPIListenerQueue.add({ topic: `study.*.participant`, payload: participant })
+      PubSubAPIListenerQueue?.add({ topic: `participant.*`, payload: participant })
+      PubSubAPIListenerQueue?.add({ topic: `participant`, payload: participant })
+      PubSubAPIListenerQueue?.add({ topic: `study.*.participant`, payload: participant })
       return data
     }
   }
@@ -113,7 +110,7 @@ ParticipantService.Router.put("/participant/:participant_id", async (req: Reques
 })
 ParticipantService.Router.delete("/participant/:participant_id", async (req: Request, res: Response) => {
   try {
-    res.json({ data: await ParticipantService.set(req.get("Authorization"), req.params.participant_id, null)})
+    res.json({ data: await ParticipantService.set(req.get("Authorization"), req.params.participant_id, null) })
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
@@ -121,7 +118,7 @@ ParticipantService.Router.delete("/participant/:participant_id", async (req: Req
 })
 ParticipantService.Router.get("/participant/:participant_id", async (req: Request, res: Response) => {
   try {
-    let output = { data:await ParticipantService.get(req.get("Authorization"), req.params.participant_id) }
+    let output = { data: await ParticipantService.get(req.get("Authorization"), req.params.participant_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {

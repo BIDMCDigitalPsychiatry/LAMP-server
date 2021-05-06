@@ -4,10 +4,11 @@ import { nc, Repository } from "../../repository/Bootstrap"
 import { Mutex } from "async-mutex"
 const clientLock = new Mutex()
 
-//Initialise PubSubAPIListenerQueue Queue
-export const PubSubAPIListenerQueue = new Bull("PubSubAPIListener", process.env.REDIS_HOST ?? "")
-
-PubSubAPIListenerQueue.process(async (job) => {
+/** Queue Process
+ *
+ * @param job
+ */
+export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>): Promise<void> {
   let publishStatus = true
   const repo = new Repository()
   const TypeRepository = repo.getTypeRepository()
@@ -283,7 +284,7 @@ PubSubAPIListenerQueue.process(async (job) => {
   } catch (error) {
     console.log("Nats server is disconnected")
   }
-})
+}
 
 /** publishing sensor event
  *

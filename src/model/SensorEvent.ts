@@ -1,9 +1,5 @@
 import { Identifier, Timestamp } from "./Type"
-import { Participant } from "./Participant"
-import { Study } from "./Study"
-import { Researcher } from "./Researcher"
-import mongoose from "mongoose"
-const { Schema } = mongoose
+
 export enum SensorName {
   Analytics = "lamp.analytics",
   Accelerometer = "lamp.accelerometer",
@@ -47,21 +43,3 @@ export class SensorEvent {
   public sensor?: SensorName
   public data?: any
 }
-
-//Mongo Db Model for sensor_event collection
-export const SensorEventModel = mongoose.model<mongoose.Document>(
-  "sensor_event",
-  new Schema(
-    {
-      _parent: { type: String, required: true },
-      timestamp: { type: Number, required: true },
-      duration: { type: Number },
-      sensor: { type: String, required: true },
-      data: { type: Object },
-    },
-    { collection: "sensor_event", minimize: false, autoCreate: true, versionKey: false }
-  ).index([
-    { _parent: -1, sensor: -1, timestamp: -1 },
-    { _parent: -1, timestamp: -1 },
-  ])
-)

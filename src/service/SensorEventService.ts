@@ -1,8 +1,7 @@
 import { Request, Response, Router } from "express"
-import { SensorEvent } from "../model/SensorEvent"
 import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
-import { SchedulerDeviceUpdateQueue } from "../utils/queue/SchedulerDeviceUpdateQueue"
+import { SchedulerDeviceUpdateQueue } from "../utils/queue/Queue"
 import { Repository } from "../repository/Bootstrap"
 import { BulkDataWrite } from "../utils/queue/BulkDataWrite"
 
@@ -41,7 +40,7 @@ export class SensorEventService {
 
     for (let event of sensor_events) {
       if (event.sensor === "lamp.analytics" && undefined !== event.data.device_token) {
-        SchedulerDeviceUpdateQueue.add(
+        SchedulerDeviceUpdateQueue?.add(
           {
             device_type: event.data.device_type,
             device_token: event.data.device_token,
@@ -52,7 +51,7 @@ export class SensorEventService {
         )
       }
       if (event.sensor === "lamp.analytics" && event.data.action === "logout") {
-        SchedulerDeviceUpdateQueue.add(
+        SchedulerDeviceUpdateQueue?.add(
           { device_type: undefined, device_token: undefined, participant_id: participant_id, mode: 2 },
           { attempts: 3, backoff: 10, removeOnComplete: true, removeOnFail: true }
         )

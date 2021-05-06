@@ -3,7 +3,6 @@ import { DynamicAttachment } from "../model/Type"
 import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository } from "../repository/Bootstrap"
-import { RedisClient } from "../repository/Bootstrap"
 
 export class TypeService {
   public static _name = "Type"

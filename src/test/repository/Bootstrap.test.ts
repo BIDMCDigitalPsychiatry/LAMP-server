@@ -1,10 +1,10 @@
-import { CredentialModel } from '../../model/Credential'
 import { Bootstrap } from '../../repository/Bootstrap'
+import { MongoClientDB } from "../../repository/Bootstrap"
 
 describe('Bootstrap', () => {
   it('creates an admin credential if one does not exist', async () => {
     await Bootstrap()
-    const data = await CredentialModel.find({ origin: null, access_key: "admin" })
+    const data = await MongoClientDB.collection('credential').find({ _deleted: false,origin:null, access_key: 'admin' }).maxTimeMS(60000).toArray()
     expect(data).toHaveLength(1)
   })
 })

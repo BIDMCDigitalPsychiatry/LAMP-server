@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { Request, Response, Router } from "express"
-import { PushNotificationQueue } from "../utils/queue/PushNotificationQueue"
+import { PushNotificationQueue } from "../utils/queue/Queue"
 import { Repository } from "../repository/Bootstrap"
 
 export const PushNotificationAPI = Router()
@@ -202,13 +202,13 @@ async function sendToParticipants(Participants: any, schedule: any): Promise<voi
                   jobId = `${participant.participant_id}|${new Date(schedule).getTime()}`
                 }
                 //get job for given job id
-                const PushNotificationQueueJob = await PushNotificationQueue.getJob(jobId)
+                const PushNotificationQueueJob = await PushNotificationQueue?.getJob(jobId)
                 //Remove the job, if one with same job id exists
                 if (null !== PushNotificationQueueJob) {
                   await PushNotificationQueueJob?.remove()
                 }
                 //add to PushNotificationQueue with schedule
-                PushNotificationQueue.add(
+                PushNotificationQueue?.add(
                   {
                     device_type: device.device_type.toLowerCase(),
                     device_token: device.device_token,
@@ -230,7 +230,7 @@ async function sendToParticipants(Participants: any, schedule: any): Promise<voi
               }
             } else {
               //add to PushNotificationQueue without schedule(immediate push would happen)
-              PushNotificationQueue.add(
+              PushNotificationQueue?.add(
                 {
                   device_type: device.device_type.toLowerCase(),
                   device_token: device.device_token,

@@ -3,11 +3,13 @@ import fetch from "node-fetch"
 import { ActivityScheduler, removeDuplicateParticipants } from "./ActivitySchedulerJob"
 import { Mutex } from "async-mutex"
 const clientLock = new Mutex()
-//Initialise Scheduler Queue
-export const SchedulerQueue = new Bull("Scheduler", process.env.REDIS_HOST ?? "")
 
-//Consume job from Scheduler
-SchedulerQueue.process(async (job, done) => {
+/**
+ *
+ * @param job
+ * @param done
+ */
+export async function SchedulerQueueProcess(job: Bull.Job<any>, done: Bull.DoneCallback): Promise<void> {
   const data: any = job.data
   try {
     //removing duplicate device token (if any)
@@ -29,9 +31,9 @@ SchedulerQueue.process(async (job, done) => {
     }
   } catch (error) {}
   done()
-})
+}
 //listen to the competed event of Scheduler Queue
-SchedulerQueue.on("completed", async (job) => {
+export async function SchedulerQueueOnCompleted(job: Bull.Job<any>): Promise<void> {
   console.log(`Completed  job state on ${job.data.activity_id}`)
   const release = await clientLock.acquire()
   try {
@@ -46,7 +48,7 @@ SchedulerQueue.on("completed", async (job) => {
     release()
     console.log(`release lock  on exception2  ${job.data.activity_id}`)
   }
-})
+}
 
 /// Send to device with payload and device token given.
 export function sendNotification(device_token: string, device_type: string, payload: any): void {

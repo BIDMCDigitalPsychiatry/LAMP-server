@@ -1,17 +1,14 @@
 import { Request, Response, Router } from "express"
-import { Activity } from "../model/Activity"
 import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
-import { UpdateToSchedulerQueue } from "../utils/queue/UpdateToSchedulerQueue"
-import { DeleteFromSchedulerQueue } from "../utils/queue/DeleteFromSchedulerQueue"
-import { PubSubAPIListenerQueue } from "../utils/queue/PubSubAPIListenerQueue"
+import { UpdateToSchedulerQueue, DeleteFromSchedulerQueue, PubSubAPIListenerQueue } from "../utils/queue/Queue"
 import { Repository } from "../repository/Bootstrap"
 
 export class ActivityService {
   public static _name = "Activity"
   public static Router = Router()
 
-  public static async list(auth: any, study_id: string, ignore_binary: boolean, sibling: boolean = false) {
+  public static async list(auth: any, study_id: string, ignore_binary: boolean, sibling = false) {
     const ActivityRepository = new Repository().getActivityRepository()
     const TypeRepository = new Repository().getTypeRepository()
     study_id = await _verify(auth, ["self", "sibling", "parent"], study_id)
@@ -36,12 +33,12 @@ export class ActivityService {
     activity.schedule = undefined
     activity.photo = undefined
 
-    PubSubAPIListenerQueue.add({
+    PubSubAPIListenerQueue?.add({
       topic: `activity`,
       token: `study.${study_id}.activity.${data}`,
       payload: activity,
     })
-    PubSubAPIListenerQueue.add({
+    PubSubAPIListenerQueue?.add({
       topic: `study.*.activity`,
       token: `study.${study_id}.activity.${data}`,
       payload: activity,
@@ -64,21 +61,21 @@ export class ActivityService {
       const data = await ActivityRepository._delete(activity_id)
 
       //publishing data for participant delete api for the Token study.{study_id}.activity.{activity_id}
-      DeleteFromSchedulerQueue.add({ activity_id: activity_id })
+      DeleteFromSchedulerQueue?.add({ activity_id: activity_id })
       if (parent !== undefined && parent !== "") {
-        PubSubAPIListenerQueue.add({
+        PubSubAPIListenerQueue?.add({
           topic: `study.*.activity`,
           token: `study.${parent["Study"]}.activity.${activity_id}`,
           payload: { action: "delete", activity_id: activity_id, study_id: parent["Study"] },
         })
 
-        PubSubAPIListenerQueue.add({
+        PubSubAPIListenerQueue?.add({
           topic: `activity.*`,
           token: `study.${parent["Study"]}.activity.${activity_id}`,
           payload: { action: "delete", activity_id: activity_id, study_id: parent["Study"] },
         })
 
-        PubSubAPIListenerQueue.add({
+        PubSubAPIListenerQueue?.add({
           topic: `activity`,
           token: `study.${parent["Study"]}.activity.${activity_id}`,
           payload: { action: "delete", activity_id: activity_id, study_id: parent["Study"] },
@@ -89,15 +86,15 @@ export class ActivityService {
       const data = await ActivityRepository._update(activity_id, activity)
 
       //publishing data for activity update api (Token will be created in PubSubAPIListenerQueue consumer, as study for this activity need to fetched to create token)
-      UpdateToSchedulerQueue.add({ activity_id: activity_id })
+      UpdateToSchedulerQueue?.add({ activity_id: activity_id })
       activity.activity_id = activity_id
       activity.action = "update"
       activity.settings = undefined
       activity.schedule = undefined
       activity.photo = undefined
-      PubSubAPIListenerQueue.add({ topic: `activity.*`, payload: activity })
-      PubSubAPIListenerQueue.add({ topic: `activity`, payload: activity })
-      PubSubAPIListenerQueue.add({ topic: `study.*.activity`, payload: activity })
+      PubSubAPIListenerQueue?.add({ topic: `activity.*`, payload: activity })
+      PubSubAPIListenerQueue?.add({ topic: `activity`, payload: activity })
+      PubSubAPIListenerQueue?.add({ topic: `study.*.activity`, payload: activity })
       return data
     }
   }
