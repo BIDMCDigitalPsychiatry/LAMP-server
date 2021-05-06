@@ -1,4 +1,4 @@
-require("dotenv").config()
+//require("dotenv").config()
 import https from "https"
 import { HTTPS_CERT } from "./utils"
 import { Bootstrap } from "./repository/Bootstrap"

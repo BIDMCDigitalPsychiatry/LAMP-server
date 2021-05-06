@@ -4,7 +4,10 @@
     "module": "commonjs",
     "allowJs": true,
     "checkJs": true,
-    "rootDir": "./src",
+    "rootDirs": [
+        "./src",
+        "./test"
+    ],
     "outDir": "./build",
     "esModuleInterop": true,
     "strict": true,
