@@ -1397,6 +1397,92 @@
         ]
       }
     },
+    "/researcher/{researcher_id}/_lookup/{lookup}": {   
+      "get": {
+        "operationId": "Researcher.lookup.get",
+        "summary": "View participants/activities/sensors for a researcher.",
+        "description": "lookup in the path can be participant/activity/sensor. study_id in query param is optional",
+        "tags": [
+          "Participant",
+          "Activity",
+          "Sensor"
+        ],
+        "parameters": [
+          {
+            "name": "researcher_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lookup",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+              "name": "study_id",
+              "in": "query",
+              "schema": {
+                "type": "string"
+              }
+            }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",                   
+                      "maxLength": 1
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "x-code-samples": [
+          {
+            "lang": "js",
+            "label": "JavaScript",
+            "source": "import LAMP from 'lamp-core'\nawait LAMP.connect({ serverAddress: \"api.lamp.digital\", accessKey: \"email@address.com\", secretKey: \"password\" })\n// function-specific sample code here\n"
+          },
+          {
+            "lang": "python",
+            "label": "Python",
+            "source": "import LAMP\nLAMP.connect(\"api.lamp.digital\", \"email@address.com\", \"password\")\n# function-specific sample code here\n"
+          },
+          {
+            "lang": "go",
+            "label": "R Script",
+            "source": "library(LAMP)\nLAMP.connect(\"api.lamp.digital\", \"email@address.com\", \"password\")\n# function-specific sample code here\n"
+          }
+        ]
+      }
+    },
     "/study/{id}": {
       "put": {
         "operationId": "Study.update",
@@ -2156,6 +2242,73 @@
           }
         ]
       }
+    },
+    "/study/{study_id}/_lookup/{lookup}/mode/{mode}": {  
+      "get": {
+          "operationId": "Study.lookup.get",
+          "summary": "View information of participants under a study id",
+          "description": "lookup in the path can be participant only. Mode can be 1, 2, 3, 4. mode 1 - return only gps,accelerometer,analytics, mode 2- return only activity_event data,mode 3- return  lamp.name and to.unityhealth.psychiatry.settings,4-return  lamp.name only",
+          "tags": [
+            "Participant"
+          ],
+          "parameters": [
+          {
+              "name": "study_id",
+              "in": "path",
+              "schema": {
+                "type": "string"
+              }
+            },
+           {
+              "name": "lookup",
+              "in": "path",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+                "name": "mode",
+                "in": "path",
+                "schema": {
+                  "type": "number"
+                }
+              }
+          ],
+          "responses": {
+            "200": {
+              "description": "Success",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "data": {
+                        "type": "array",                   
+                        "maxLength": 1
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "default": {
+              "description": "Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "Authorization": []
+            }
+          ],
+          "x-code-samples": []
+        }
     },
     "/activity/{id}": {
       "put": {
