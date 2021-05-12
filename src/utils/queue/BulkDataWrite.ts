@@ -28,6 +28,7 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
           }
         }
         const New_Store_Size = (await RedisClient?.llen("sensor_event")) as number
+        console.log("Writing to db of data length",New_Store_Size)
         for (let i = 0; i < New_Store_Size; i = i + 501) {
           const start = i === 0 ? i : i + 1
           const end = i + 501
