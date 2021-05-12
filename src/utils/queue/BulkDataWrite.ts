@@ -28,7 +28,7 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
           }
         }
         const New_Store_Size = (await RedisClient?.llen("sensor_event")) as number
-        console.log("Writing to db of data length",New_Store_Size)
+        console.log("Preparing for db write of data length",New_Store_Size)
         for (let i = 0; i < New_Store_Size; i = i + 501) {
           const start = i === 0 ? i : i + 1
           const end = i + 501
@@ -39,7 +39,7 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
             key: "sensor_event",
             participant_id: participant_id,
             payload: Store_Data,
-          })
+          }, { delay: 15000 })
         }
         console.log("Removing data from redis store")
         try {
@@ -58,8 +58,8 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
               BulkDataWriteQueue?.add({
                 key: "sensor_event",
                 participant_id: participant_id,
-                payload: [JSON.stringify(event)],
-              },{ delay: 15000 })
+                payload: [JSON.stringify(event)]
+              })
             } else {
               event.participant_id = participant_id
               //Push to redis store

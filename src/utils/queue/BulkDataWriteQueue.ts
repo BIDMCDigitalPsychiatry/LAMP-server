@@ -15,6 +15,7 @@ export async function BulkDataWriteQueueProcess(job: Bull.Job<any>): Promise<voi
         const sensor_event = JSON.parse(data)
         delete sensor_event.participant_id
         try {
+          console.log("writing to sensor_event db")
           SensorEventRepository._insert(participant_id, Array.isArray(sensor_event) ? sensor_event : [sensor_event])
         } catch (error) {
           console.log(error)
