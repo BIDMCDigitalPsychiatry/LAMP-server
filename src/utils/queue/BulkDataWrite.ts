@@ -58,7 +58,7 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
                 key: "sensor_event",
                 participant_id: participant_id,
                 payload: [JSON.stringify(event)],
-              },{ delay: 20000 })
+              },{ delay: 5000 })
             } else {
               event.participant_id = participant_id
               //Push to redis store
