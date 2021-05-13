@@ -39,7 +39,7 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
             key: "sensor_event",
             participant_id: participant_id,
             payload: Store_Data,
-          }, { delay: 15000 })
+          })
         }
         console.log("Removing data from redis store")
         try {
