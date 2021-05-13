@@ -20,6 +20,8 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
         //Insert data to redis store
         for (const event of data) {
           event.participant_id = participant_id
+          event.timestamp = Number.parse(event.timestamp)
+          event.sensor = String(event.sensor)
           try {
             //Push to redis store
             await RedisClient?.rpush("sensor_event", [JSON.stringify(event)])
@@ -28,7 +30,7 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
           }
         }
         const New_Store_Size = (await RedisClient?.llen("sensor_event")) as number
-        console.log("Preparing for db write of data length",New_Store_Size)
+        console.log("Preparing for db write of data length", New_Store_Size)
         for (let i = 0; i < New_Store_Size; i = i + 501) {
           const start = i === 0 ? i : i + 1
           const end = i + 501
@@ -54,14 +56,18 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
           try {
             if (event.sensor === "lamp.analytics") {
               event.participant_id = participant_id
+              event.timestamp = Number.parse(event.timestamp)
+              event.sensor = String(event.sensor)
               //add to database write queue
               BulkDataWriteQueue?.add({
                 key: "sensor_event",
                 participant_id: participant_id,
-                payload: [JSON.stringify(event)]
+                payload: [JSON.stringify(event)],
               })
             } else {
               event.participant_id = participant_id
+              event.timestamp = Number.parse(event.timestamp)
+              event.sensor = String(event.sensor)
               //Push to redis store
               await RedisClient?.rpush("sensor_event", [JSON.stringify(event)])
             }

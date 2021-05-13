@@ -52,4 +52,20 @@ export class SensorEventRepository implements SensorEventInterface {
     if (output.length > 0) console.error(output)
     return {}
   }
+
+  /** write to db in bulk (argument does not contain participant_id, as participant_id will be present in the array objects given as argument)
+   *
+   * @param objects
+   * @returns
+   */
+  public async _bulkWrite(objects: SensorEvent[]): Promise<{}> {
+    try {
+      await Database.use("sensor_event").bulk({
+        docs: objects,
+      })
+    } catch (error) {
+      console.log(error)
+    }
+    return {}
+  }
 }
