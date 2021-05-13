@@ -73,6 +73,7 @@ export interface SensorEventInterface {
     limit?: number
   ): Promise<SensorEvent[]>
   _insert(participant_id: string, objects: SensorEvent[]): Promise<{}>
+  _bulkWrite(objects: SensorEvent[]): Promise<{}>
 }
 
 //Interface for ActivitySpec Repository

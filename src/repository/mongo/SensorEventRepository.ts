@@ -41,26 +41,39 @@ export class SensorEventRepository implements SensorEventInterface {
       _deleted: undefined,
     }))
   }
+
   public async _insert(participant_id: string, objects: SensorEvent[]): Promise<{}> {
     const data: any[] = []
     //save activity event
     for (const object of objects) {
       try {
-        await MongoClientDB.collection("sensor_event").insertMany([{
-          ...object,
-          _parent: participant_id,
-          timestamp: Number.parse(object.timestamp),
-          sensor: String(object.sensor),
-          data: object.data ?? {}
-        }])
-        
+        await MongoClientDB.collection("sensor_event").insertMany([
+          {
+            ...object,
+            _parent: participant_id,
+            timestamp: Number.parse(object.timestamp),
+            sensor: String(object.sensor),
+            data: object.data ?? {},
+          },
+        ])
       } catch (error) {
         console.log(error)
-      }    
-      
+      }
     }
-   
-   
+    return {}
+  }
+
+  /** write to db in bulk (argument does not contain participant_id, as participant_id will be present in the array objects given as argument)
+   *
+   * @param objects
+   * @returns
+   */
+  public async _bulkWrite(objects: SensorEvent[]): Promise<{}> {
+    try {
+      await MongoClientDB.collection("sensor_event").insertMany(objects)
+    } catch (error) {
+      console.log(error)
+    }
     return {}
   }
 }
