@@ -16,7 +16,7 @@ export class ActivityRepository implements ActivityInterface {
           : { $project: { name: 1, spec: 1, schedule: 1, _parent: 1, settings: 1 } },
         { $sort: { timestamp: 1 } },
         { $limit: 2_147_483_647 },
-      ])
+      ], { allowDiskUse: true })
       .maxTimeMS(120000)
       .toArray()
 
