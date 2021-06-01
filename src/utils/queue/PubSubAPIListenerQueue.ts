@@ -12,7 +12,7 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>): Promise
   let publishStatus = true
   const repo = new Repository()
   const TypeRepository = repo.getTypeRepository()
-  const maxPayloadSize = !!process.env.NATS_PAYLOAD_SIZE ? process.env.NATS_PAYLOAD_SIZE : 1047846
+  const maxPayloadSize = 10000000 //1047846
   try {
     //for the participant api changes
     if (

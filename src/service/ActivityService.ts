@@ -1,7 +1,7 @@
 import { Request, Response, Router } from "express"
 import { _verify } from "./Security"
+import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
-import { UpdateToSchedulerQueue, DeleteFromSchedulerQueue, PubSubAPIListenerQueue } from "../utils/queue/Queue"
 import { Repository } from "../repository/Bootstrap"
 
 export class ActivityService {
@@ -61,7 +61,6 @@ export class ActivityService {
       const data = await ActivityRepository._delete(activity_id)
 
       //publishing data for participant delete api for the Token study.{study_id}.activity.{activity_id}
-      DeleteFromSchedulerQueue?.add({ activity_id: activity_id })
       if (parent !== undefined && parent !== "") {
         PubSubAPIListenerQueue?.add({
           topic: `study.*.activity`,
@@ -82,11 +81,9 @@ export class ActivityService {
         })
       }
       return data
-    } else {
-      const data = await ActivityRepository._update(activity_id, activity)
-
+    } else {      
+      const data = await ActivityRepository._update(activity_id, activity)     
       //publishing data for activity update api (Token will be created in PubSubAPIListenerQueue consumer, as study for this activity need to fetched to create token)
-      UpdateToSchedulerQueue?.add({ activity_id: activity_id })
       activity.activity_id = activity_id
       activity.action = "update"
       activity.settings = undefined

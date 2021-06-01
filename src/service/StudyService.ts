@@ -1,7 +1,7 @@
 import { Request, Response, Router } from "express"
 import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
-import { PubSubAPIListenerQueue, UpdateToSchedulerQueue } from "../utils/queue/Queue"
+import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
 import { Repository } from "../repository/Bootstrap"
 
 export class StudyService {
@@ -138,7 +138,8 @@ StudyService.Router.post("/researcher/:researcher_id/study/clone", async (req: R
     researcher_id = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
     const output = { data: await StudyRepository._insert(researcher_id, study) }
     let should_add_participant: boolean = req.body.should_add_participant ?? false
-    let StudyID: string|undefined = (req.body.study_id===""||req.body.study_id==="null") ? undefined:req.body.study_id
+    let StudyID: string | undefined =
+      req.body.study_id === "" || req.body.study_id === "null" ? undefined : req.body.study_id
     if (!!StudyID) {
       let activities = await ActivityRepository._select(StudyID, true)
       let sensors = await SensorRepository._select(StudyID, true)
@@ -153,7 +154,12 @@ StudyService.Router.post("/researcher/:researcher_id/study/clone", async (req: R
           }
           const res = await ActivityRepository._insert(output["data"], object)
           //add the schedules of new activity
-          UpdateToSchedulerQueue?.add({ activity_id: res })
+          // UpdateToSchedulerQueue?.add({ activity_id: res })
+          PubSubAPIListenerQueue?.add({
+            topic: `activity`,
+            token: `study.${output["data"]}.activity.${res}`,
+            payload: { action: "create", activity_id: res, study_id: output["data"] },
+          })
         } catch (error) {}
       }
       //clone sensors  to new studyid

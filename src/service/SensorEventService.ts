@@ -1,7 +1,7 @@
 import { Request, Response, Router } from "express"
 import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
-import { SchedulerDeviceUpdateQueue } from "../utils/queue/Queue"
+import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
 import { Repository } from "../repository/Bootstrap"
 import { BulkDataWrite } from "../utils/queue/BulkDataWrite"
 
@@ -37,26 +37,39 @@ export class SensorEventService {
     } else {
       data = await SensorEventRepository._insert(participant_id, sensor_events)
     }
+    //publishing data for activity_event add api((Token will be created in PubSubAPIListenerQueue consumer, as request is assumed as array and token should be created individually)
+    PubSubAPIListenerQueue?.add({
+      topic: `sensor_event`,
+      action: "create",
+      timestamp: Date.now(),
+      participant_id: participant_id,
+      payload: sensor_events,
+    })
 
-    for (let event of sensor_events) {
-      if (event.sensor === "lamp.analytics" && undefined !== event.data.device_token) {
-        SchedulerDeviceUpdateQueue?.add(
-          {
-            device_type: event.data.device_type,
-            device_token: event.data.device_token,
-            participant_id: participant_id,
-            mode: 1,
-          },
-          { attempts: 3, backoff: 10, removeOnComplete: true, removeOnFail: true }
-        )
-      }
-      if (event.sensor === "lamp.analytics" && event.data.action === "logout") {
-        SchedulerDeviceUpdateQueue?.add(
-          { device_type: undefined, device_token: undefined, participant_id: participant_id, mode: 2 },
-          { attempts: 3, backoff: 10, removeOnComplete: true, removeOnFail: true }
-        )
-      }
-    }
+    PubSubAPIListenerQueue?.add({
+      topic: `participant.*.sensor_event`,
+      action: "create",
+      timestamp: Date.now(),
+      participant_id: participant_id,
+      payload: sensor_events,
+    })
+
+    PubSubAPIListenerQueue?.add({
+      topic: `sensor.*.sensor_event`,
+      action: "create",
+      timestamp: Date.now(),
+      participant_id: participant_id,
+      payload: sensor_events,
+    })
+
+    PubSubAPIListenerQueue?.add({
+      topic: `participant.*.sensor.*.sensor_event`,
+      action: "create",
+      timestamp: Date.now(),
+      participant_id: participant_id,
+      payload: sensor_events,
+    })
+
     return data
   }
 }

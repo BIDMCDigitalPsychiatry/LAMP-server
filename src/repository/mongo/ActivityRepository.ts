@@ -5,6 +5,7 @@ import { MongoClientDB } from "../Bootstrap"
 
 export class ActivityRepository implements ActivityInterface {
   public async _select(id: string | null, parent = false, ignore_binary = false): Promise<Activity[]> {
+    console.log("Fetching acTivity--")
     //aggregate will give faster results (particulary when projection in query is applied, 2sec -find, 0.5 sec-aggregate)
     const data = await MongoClientDB.collection("activity")
       .aggregate([
@@ -16,7 +17,7 @@ export class ActivityRepository implements ActivityInterface {
           : { $project: { name: 1, spec: 1, schedule: 1, _parent: 1, settings: 1 } },
         { $sort: { timestamp: 1 } },
         { $limit: 2_147_483_647 },
-      ])
+      ], { allowDiskUse: true })
       .maxTimeMS(120000)
       .toArray()
 
