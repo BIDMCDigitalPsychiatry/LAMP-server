@@ -170,7 +170,15 @@ StudyService.Router.post("/researcher/:researcher_id/study/clone", async (req: R
     }
     //add participants if participants add flag is true
     if (should_add_participant) {
-      await ParticipantRepository._insert(output["data"], {})
+      const CredentialRepository = new Repository().getCredentialRepository()
+      const participant = await ParticipantRepository._insert(output["data"], {})
+      console.log("cloned partID", participant.id)
+      await CredentialRepository._insert(participant.id, {
+        origin: participant.id,
+        access_key: `${participant.id}@lamp.com`,
+        secret_key: participant.id,
+        description: "Temporary Login",
+      })
     }
     study.researcher_id = researcher_id
     study.study_id = output["data"]
