@@ -74,7 +74,7 @@ export class SensorRepository implements SensorInterface {
         parent
           ? { $match: !!id ? { _parent: { $eq: id }, _deleted: { $eq: false } } : { _deleted: { $eq: false } } }
           : { $match: !!id ? { _id: { $eq: id }, _deleted: { $eq: false } } : { _deleted: { $eq: false } } },
-        { $project: { name: 1, _parent: 1 } },
+        { $project: { name: 1, _parent: 1, spec:1 } },
         { $sort: { timestamp: 1 } },
         { $limit: 2_147_483_647 },
       ])
