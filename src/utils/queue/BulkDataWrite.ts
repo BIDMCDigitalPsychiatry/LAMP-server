@@ -15,6 +15,8 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
     case "sensor_event":
       const release = await clientLock.acquire()
       const Store_Size = (await RedisClient?.llen("sensor_event")) as number
+      console.log("Store_Size",Store_Size)
+      console.log("Max_Store_Size",Max_Store_Size)
       if (Store_Size > Max_Store_Size) {
         console.log("Inserting data to redis store")
         //Insert data to redis store
@@ -72,7 +74,7 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
               await RedisClient?.rpush("sensor_event", [JSON.stringify(event)])
             }
           } catch (error) {
-            console.log(error)
+            console.log("error while pushing to redis store",error)
           }
         }
       }
