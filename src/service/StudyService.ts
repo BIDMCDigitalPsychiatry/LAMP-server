@@ -131,6 +131,7 @@ StudyService.Router.post("/researcher/:researcher_id/study/clone", async (req: R
   try {
     const StudyRepository = new Repository().getStudyRepository()
     const ActivityRepository = new Repository().getActivityRepository()
+    const TypeRepository = new Repository().getTypeRepository()
     const SensorRepository = new Repository().getSensorRepository()
     const ParticipantRepository = new Repository().getParticipantRepository()
     let researcher_id = req.params.researcher_id
@@ -141,8 +142,8 @@ StudyService.Router.post("/researcher/:researcher_id/study/clone", async (req: R
     let StudyID: string | undefined =
       req.body.study_id === "" || req.body.study_id === "null" ? undefined : req.body.study_id
     if (!!StudyID) {
-      let activities = await ActivityRepository._select(StudyID, true)
-      let sensors = await SensorRepository._select(StudyID, true)
+      let activities = await ActivityRepository._select(StudyID)      
+      let sensors = await SensorRepository._select(StudyID)
       //clone activities  to new studyid
       for (const activity of activities) {
         try {
@@ -152,7 +153,16 @@ StudyService.Router.post("/researcher/:researcher_id/study/clone", async (req: R
             settings: activity.settings,
             schedule: activity.schedule,
           }
-          const res = await ActivityRepository._insert(output["data"], object)
+          const res = await ActivityRepository._insert(output["data"], object)             
+          try {            
+            let attachment_key = 'lamp.dashboard.survey_description'
+            if(activity.spec!=='lamp.survey') attachment_key = 'lamp.dashboard.activity_details'
+            const tags = await TypeRepository._get("a", <string>activity.id, attachment_key)            
+            await TypeRepository._get("a", <string>activity.id, attachment_key)
+            await TypeRepository._set("a", 'me', <string>res, attachment_key, tags)
+          } catch (error) {}
+          
+         
           //add the schedules of new activity
           // UpdateToSchedulerQueue?.add({ activity_id: res })
           PubSubAPIListenerQueue?.add({
