@@ -16,6 +16,7 @@ export class StudyService {
 
   public static async create(auth: any, researcher_id: string, study: any) {
     const StudyRepository = new Repository().getStudyRepository()
+    
     researcher_id = await _verify(auth, ["self", "parent"], researcher_id)
     const data = await StudyRepository._insert(researcher_id, study)
 
@@ -143,7 +144,7 @@ StudyService.Router.post("/researcher/:researcher_id/study/clone", async (req: R
       req.body.study_id === "" || req.body.study_id === "null" ? undefined : req.body.study_id
     if (!!StudyID) {
       let activities = await ActivityRepository._select(StudyID, true)      
-      let sensors = await SensorRepository._select(StudyID, true)
+      let sensors = await SensorRepository._lookup(StudyID, true)
       //clone activities  to new studyid
       for (const activity of activities) {
         try {

@@ -7,12 +7,12 @@ type AuthSubject = { origin: string; access_key: string; secret_key: string; }
 // If components are missing, throw a missing credentials error (HTTP 401).
 // Otherwise, locate the Credential or throw an error if not found/invalid.
 export async function _createAuthSubject(authHeader: string | undefined): Promise<AuthSubject> {
-  const CredentialRepository = new Repository().getCredentialRepository()
+  const CredentialRepository = new Repository().getCredentialRepository()  
   if (authHeader === undefined) throw new Error("401.missing-credentials")
   const authStr = authHeader.replace("Basic", "").trim()
   const auth = (authStr.indexOf(":") >= 0 ? authStr : Buffer.from(authStr, "base64").toString()).split(":", 2)
   if (auth.length !== 2 || !auth[1]) throw new Error("401.missing-credentials")
-  let origin = await CredentialRepository._find(auth[0], auth[1] || "*" /* FIXME: this forces password match */)
+  let origin = await CredentialRepository._find(auth[0], auth[1] || "*" /* FIXME: this forces password match */)   
   return {
     origin: origin,
     access_key: auth[0],
@@ -29,14 +29,15 @@ export async function _createAuthSubject(authHeader: string | undefined): Promis
 export async function _verify(
   authSubject: AuthSubject | string | undefined,
   authType: Array<"self" | "sibling" | "parent"> /* 'root' = [] */,
-  authObject?: string | null
+  authObject?: string | null,
+  checkUserType?: boolean | false
 ): Promise<string> {
   const TypeRepository = new Repository().getTypeRepository()
 
   // If an actual AuthSubject was not provided, create one first.
   if (authSubject === undefined || typeof authSubject === "string")
     authSubject = await _createAuthSubject(authSubject)
-  const isRoot = authSubject.origin === null
+    const isRoot = authSubject.origin === null
 
   // Patch in the special-cased "me" to the actual authenticated credential.
   // Root credentials (origin is null) are not allowed to substitute the "me" value.
@@ -49,10 +50,18 @@ export async function _verify(
   // Check if `authSubject` is root for a root-only authType.
   if (isRoot)
     return authObject as any
+  try { 
+    if(checkUserType) {               
+      let userTypes = await TypeRepository._get("a", <string>authSubject.origin, 'lamp.dashboard.user_type')      
+      if(userTypes.userType==='user_admin'|| userTypes.userType==='clinical_admin') {        
+        return authObject as any              
+      }
+    }
+  } catch (error) {}
   
   // Check if `authObject` and `authSubject` are the same.
   if (!isRoot && authType.includes("self") && (authSubject.origin === authObject))
-    return authObject as any
+    return authObject as any 
   
   // Optimization.
   if (!isRoot && (authType.includes("parent") || authType.includes("sibling"))) {
@@ -62,7 +71,6 @@ export async function _verify(
     if (authType.includes("sibling") && (_owner === (await TypeRepository._owner(authSubject.origin)))) {
       return authObject as any
     } else {
-
       // Check if `authSubject` is actually the parent ID of `authObject` matching the same type as `authSubject`.
       // Do the "parent" check before the "sibling" check since it's more likely to be the case, so short circuit here.
       while(_owner !== null) {
