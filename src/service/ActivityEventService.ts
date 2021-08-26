@@ -22,7 +22,7 @@ export class ActivityEventService {
   ) {
     const ActivityEventRepository = new Repository().getActivityEventRepository()
     limit = Math.min(Math.max(limit ?? LIMIT_NAN, -LIMIT_MAX), LIMIT_MAX)
-    participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
+    participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id, true)
     return await ActivityEventRepository._select(participant_id, origin, from, to, limit)
   }
 

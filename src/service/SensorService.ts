@@ -11,7 +11,7 @@ export class SensorService {
   public static async list(auth: any, study_id: string, ignore_binary: boolean, sibling: boolean = false) {
     const SensorRepository = new Repository().getSensorRepository()
     const TypeRepository = new Repository().getTypeRepository()
-    study_id = await _verify(auth, ["self", "sibling", "parent"], study_id)
+    study_id = await _verify(auth, ["self", "sibling", "parent"], study_id, true)
     if (sibling) {
       const parent_id = await TypeRepository._owner(study_id)
       if (parent_id === null) throw new Error("403.invalid-sibling-ownership")
@@ -22,7 +22,7 @@ export class SensorService {
 
   public static async create(auth: any, study_id: string, sensor: any) {
     const SensorRepository = new Repository().getSensorRepository()
-    study_id = await _verify(auth, ["self", "sibling", "parent"], study_id)
+    study_id = await _verify(auth, ["self", "sibling", "parent"], study_id, true)
     const data = await SensorRepository._insert(study_id, sensor)
 
     //publishing data for sensor add api with token = study.{study_id}.sensor.{_id}
@@ -44,14 +44,14 @@ export class SensorService {
 
   public static async get(auth: any, sensor_id: string) {
     const SensorRepository = new Repository().getSensorRepository()
-    sensor_id = await _verify(auth, ["self", "sibling", "parent"], sensor_id)
+    sensor_id = await _verify(auth, ["self", "sibling", "parent"], sensor_id, true)
     return await SensorRepository._select(sensor_id)
   }
 
   public static async set(auth: any, sensor_id: string, sensor: any | null) {
     const SensorRepository = new Repository().getSensorRepository()
     const TypeRepository = new Repository().getTypeRepository()
-    sensor_id = await _verify(auth, ["self", "sibling", "parent"], sensor_id)
+    sensor_id = await _verify(auth, ["self", "sibling", "parent"], sensor_id, true)
     if (sensor === null) {
       //find the study id before delete, as it cannot be fetched after delete
       const parent = await TypeRepository._parent(sensor_id) as any

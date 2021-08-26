@@ -10,13 +10,13 @@ export class ResearcherService {
 
   public static async list(auth: any, parent_id: null) {
     const ResearcherRepository = new Repository().getResearcherRepository()
-    const _ = await _verify(auth, [])
+    const _ = await _verify(auth, [], null,true)
     return await ResearcherRepository._select()
   }
 
   public static async create(auth: any, parent_id: null, researcher: any) {
     const ResearcherRepository = new Repository().getResearcherRepository()
-    const _ = await _verify(auth, [])
+    const _ = await _verify(auth, [], null,true)
     const data = await ResearcherRepository._insert(researcher)
 
     //publishing data for researcher add api with token = researcher.{_id}
@@ -28,13 +28,14 @@ export class ResearcherService {
 
   public static async get(auth: any, researcher_id: string) {
     const ResearcherRepository = new Repository().getResearcherRepository()
-    researcher_id = await _verify(auth, ["self", "parent"], researcher_id)
+    let checkUserType = researcher_id === 'me' ? false : true
+    researcher_id = await _verify(auth, ["self", "parent"], researcher_id,checkUserType )
     return await ResearcherRepository._select(researcher_id)
   }
 
   public static async set(auth: any, researcher_id: string, researcher: any | null) {
     const ResearcherRepository = new Repository().getResearcherRepository()
-    researcher_id = await _verify(auth, ["self", "parent"], researcher_id)
+    researcher_id = await _verify(auth, ["self", "parent"], researcher_id, true)
     if (researcher === null) {
       const data = await ResearcherRepository._delete(researcher_id)
 
@@ -121,7 +122,7 @@ ResearcherService.Router.get("/researcher/:researcher_id/_lookup/:lookup", async
     const _lookup: string = req.params.lookup
     const studyID: string = (!!req.query.study_id ? req.query.study_id : undefined) as any
     let researcher_id: string = req.params.researcher_id
-    const _ = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
+    const _ = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id, true)
     //PREPARE DATA FROM DATABASE
     let activities: object[] = []
     let sensors: object[] = []
@@ -203,7 +204,7 @@ ResearcherService.Router.get("/study/:study_id/_lookup/:lookup/mode/:mode", asyn
     const SensorEventRepository = repo.getSensorEventRepository()
     const ActivityEventRepository = repo.getActivityEventRepository()
     let studyID: string = req.params.study_id
-    const _ = await _verify(req.get("Authorization"), ["self", "parent"], studyID)
+    const _ = await _verify(req.get("Authorization"), ["self", "parent"], studyID, true)
     let lookup: string = req.params.lookup
     let mode: number | undefined = Number.parse(req.params.mode)
     //IF THE LOOK UP IS PARTICIPANT
