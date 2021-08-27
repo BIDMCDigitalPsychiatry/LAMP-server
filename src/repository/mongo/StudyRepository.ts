@@ -33,7 +33,7 @@ export class StudyRepository implements StudyInterface {
     return _id
   }
   public async _update(study_id: string, object: Study): Promise<{}> {
-    const orig: any = await MongoClientDB.collection("study").findOne(study_id)
+    const orig: any = await MongoClientDB.collection("study").findOne({ _id: study_id })
     await MongoClientDB.collection("study").findOneAndUpdate(
       { _id: orig._id },
       { $set: { name: object.name ?? orig.name } }
