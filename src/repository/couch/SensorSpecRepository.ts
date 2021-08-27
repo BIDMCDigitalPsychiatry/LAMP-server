@@ -16,11 +16,7 @@ export class SensorSpecRepository implements SensorSpecInterface {
     try {
       await Database.use("sensor_spec").insert({
         _id: object.name,
-        properties: object.properties ?? {},
-        type: object.type ?? null,
-        description: object.description ?? null,
-        required: object.required ?? {},
-        additionalProperties: object.additionalProperties ?? {},
+        settings_schema: object.settings_schema ?? {}
       } as any)
       return {}
     } catch (error) {
@@ -33,11 +29,7 @@ export class SensorSpecRepository implements SensorSpecInterface {
       docs: [
         {
           ...orig,
-          type: object.type ?? orig.type,
-          description: object.description ?? orig.description,
-          properties: object.properties ?? orig.properties,
-          additionalProperties: object.additionalProperties ?? orig.additionalProperties,
-          required: object.required ?? orig.required,
+          settings_schema: object.settings_schema ?? orig.settings_schema
         },
       ],
     })

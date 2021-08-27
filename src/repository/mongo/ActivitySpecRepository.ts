@@ -4,9 +4,10 @@ import { MongoClientDB } from "../Bootstrap"
 
 export class ActivitySpecRepository implements ActivitySpecInterface {
   public async _select(id?: string): Promise<ActivitySpec[]> {
+    const parents = []    
     const data = !!id
-      ? await MongoClientDB.collection("activity_spec").find({ _id: id, _deleted: false }).maxTimeMS(60000).toArray()
-      : await MongoClientDB.collection("activity_spec").find({ _deleted: false }).maxTimeMS(60000).toArray()
+      ? await MongoClientDB.collection("activity_spec").find({ _id: id },{$or: [ { _deleted: false }, { _deleted: undefined } ]}).maxTimeMS(60000).toArray()
+      : await MongoClientDB.collection("activity_spec").find({$or: [ { _deleted: false }, { _deleted: undefined } ]}).maxTimeMS(60000).toArray()
     return (data as any).map((x: any) => ({
       id: x._id,
       name: x._id,
@@ -43,8 +44,7 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
           script_contents: object.script_contents ?? orig.script_contents,
           static_data_schema: object.static_data_schema ?? orig.static_data_schema,
           temporal_slice_schema: object.temporal_slice_schema ?? orig.temporal_slice_schema,
-          settings_schema: object.settings_schema ?? orig.settings_schema,
-          _deleted: false,
+          settings_schema: object.settings_schema ?? orig.settings_schema
         },
       }
     )
