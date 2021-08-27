@@ -79,7 +79,7 @@ export interface SensorEventInterface {
 //Interface for ActivitySpec Repository
 export interface ActivitySpecInterface {
   _select(id?: string): Promise<ActivitySpec[]>
-  _insert(object: {}): Promise<string>
+  _insert(object: {}): Promise<{}>
   _update(id: string, object: {}): Promise<{}>
   _delete(id: string): Promise<{}>
 }
@@ -87,8 +87,8 @@ export interface ActivitySpecInterface {
 //Interface for SensorSpec Repository
 export interface SensorSpecInterface {
   _select(id?: string): Promise<SensorSpec[]>
-  _insert(object: SensorSpec): Promise<string>
-  _update(id: string, object: SensorSpec): Promise<string>
+  _insert(object: SensorSpec): Promise<{}>
+  _update(id: string, object: SensorSpec): Promise<{}>
   _delete(id: string): Promise<{}>
 }
 
