@@ -15,7 +15,7 @@ export class SensorSpecService {
 
   public static async create(auth: any, parent_id: null, sensor_spec: any) {
     const SensorSpecRepository = new Repository().getSensorSpecRepository()
-    const _ = await _verify(auth, ["self", "sibling", "parent"])
+    const _ = await _verify(auth, [])
     return await SensorSpecRepository._insert(sensor_spec)
   }
 
