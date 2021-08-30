@@ -15,7 +15,7 @@ export class ActivitySpecService {
 
   public static async create(auth: any, parent_id: null, activity_spec: any) {
     const ActivitySpecRepository = new Repository().getActivitySpecRepository()
-    const _ = await _verify(auth, ["self", "sibling", "parent"])
+    const _ = await _verify(auth, [])
     return await ActivitySpecRepository._insert(activity_spec)
   }
 
