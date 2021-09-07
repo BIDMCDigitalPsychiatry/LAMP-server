@@ -15,6 +15,7 @@ const Max_Store_Size = 50000
 export const BulkDataWrite = async (key: string, participant_id: string, data: any[]): Promise<void> => {
   switch (key) {
     case "sensor_event":
+      publishSensorEvent(participant_id, [data[data.length - 1]])
       const release = await clientLock.acquire()
       const Store_Size = (await RedisClient?.llen("sensor_event")) as number
       console.log("Store_Size", Store_Size)
@@ -59,6 +60,7 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
                 participant_id: participant_id,
                 payload: [JSON.stringify(event)],
               })
+              publishSensorEvent(participant_id, [event])
             } else {
               event.participant_id = participant_id
               event.timestamp = Number.parse(event.timestamp)
@@ -72,43 +74,37 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
         }
       }
       release()
-      try {
-        //publishing data for sensor_event add api((Token will be created in PubSubAPIListenerQueue consumer, as request is assumed as array and token should be created individually)
-        PubSubAPIListenerQueue?.add({
-          topic: `sensor_event`,
-          action: "create",
-          timestamp: Date.now(),
-          participant_id: participant_id,
-          payload: [data[data.length - 1]],
-        })
-
-        PubSubAPIListenerQueue?.add({
-          topic: `participant.*.sensor_event`,
-          action: "create",
-          timestamp: Date.now(),
-          participant_id: participant_id,
-          payload: [data[data.length - 1]],
-        })
-
-        PubSubAPIListenerQueue?.add({
-          topic: `sensor.*.sensor_event`,
-          action: "create",
-          timestamp: Date.now(),
-          participant_id: participant_id,
-          payload: [data[data.length - 1]],
-        })
-
-        PubSubAPIListenerQueue?.add({
-          topic: `participant.*.sensor.*.sensor_event`,
-          action: "create",
-          timestamp: Date.now(),
-          participant_id: participant_id,
-          payload: [data[data.length - 1]],
-        })
-      } catch (error) {}
       break
 
     default:
       break
   }
+}
+
+/**add data to pubsub queue for publishing sensorevents
+ *
+ * @param participant_id
+ * @param data
+ */
+function publishSensorEvent(participant_id: string, data: any[]) {
+  const topics = [
+    `sensor_event`,
+    `participant.*.sensor_event`,
+    `sensor.*.sensor_event`,
+    `participant.*.sensor.*.sensor_event`,
+  ]
+  console.log("data publishing", data)
+  try {
+    topics.map((x: string) => {
+      console.log("topics publishing", x)      
+      //publishing data for sensor_event
+      PubSubAPIListenerQueue?.add({
+        topic: x,
+        action: "create",
+        timestamp: Date.now(),
+        participant_id: participant_id,
+        payload: data,
+      })
+    })
+  } catch (error) {}
 }
