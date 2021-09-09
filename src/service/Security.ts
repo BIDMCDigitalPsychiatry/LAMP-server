@@ -29,8 +29,7 @@ export async function _createAuthSubject(authHeader: string | undefined): Promis
 export async function _verify(
   authSubject: AuthSubject | string | undefined,
   authType: Array<"self" | "sibling" | "parent"> /* 'root' = [] */,
-  authObject?: string | null,
-  checkUserType?: boolean | false
+  authObject?: string | null
 ): Promise<string> {
   const TypeRepository = new Repository().getTypeRepository()
 
@@ -45,19 +44,10 @@ export async function _verify(
     authObject = authSubject.origin
   } else if (authObject === "me" && isRoot) {
     throw new Error("400.context-substitution-failed")
-  }
-  
+  }  
   // Check if `authSubject` is root for a root-only authType.
   if (isRoot)
-    return authObject as any
-  try { 
-    if(checkUserType) {               
-      let userTypes = await TypeRepository._get("a", <string>authSubject.origin, 'lamp.dashboard.user_type')      
-      if(userTypes.userType==='user_admin'|| userTypes.userType==='clinical_admin') {        
-        return authObject as any              
-      }
-    }
-  } catch (error) {}
+    return authObject as any  
   
   // Check if `authObject` and `authSubject` are the same.
   if (!isRoot && authType.includes("self") && (authSubject.origin === authObject))

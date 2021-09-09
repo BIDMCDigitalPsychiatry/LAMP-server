@@ -21,7 +21,7 @@ export class SensorEventService {
     limit: number | undefined
   ) {
     const SensorEventRepository = new Repository().getSensorEventRepository()
-    participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id, true)
+    participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
     limit = Math.min(Math.max(limit ?? LIMIT_NAN, -LIMIT_MAX), LIMIT_MAX)
     return await SensorEventRepository._select(participant_id, origin, from, to, limit)
   }

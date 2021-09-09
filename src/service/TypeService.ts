@@ -10,7 +10,7 @@ export class TypeService {
 
   public static async parent(auth: any, type_id: string) {
     const TypeRepository = new Repository().getTypeRepository()
-    type_id = await _verify(auth, ["self", "sibling", "parent"], type_id, true)
+    type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
     const data = await TypeRepository._parent(type_id)
 
     // FIXME: THIS WILL TRIGGER A DELETE EVERY TIME A RESOURCE'S PARENT IS REQUESTED!
@@ -27,13 +27,13 @@ export class TypeService {
 
   public static async list(auth: any, type_id: string) {
     const TypeRepository = new Repository().getTypeRepository()
-    type_id = await _verify(auth, ["self", "sibling", "parent"], type_id, true)
+    type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
     return await TypeRepository._list("a", <string>type_id)
   }
 
   public static async get(auth: any, type_id: string, attachment_key: string, index?: string) {
     const TypeRepository = new Repository().getTypeRepository()
-    type_id = await _verify(auth, ["self", "sibling", "parent"], type_id, true)
+    type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
     let obj = await TypeRepository._get("a", <string>type_id, attachment_key)
     // TODO: if obj undefined here, return null instead of throwing 404 error
     const sequenceObj = Array.isArray(obj) || typeof obj === "string"
@@ -49,7 +49,7 @@ export class TypeService {
 
   public static async set(auth: any, type_id: string, attachment_key: string, target: string, attachment_value: any) {
     const TypeRepository = new Repository().getTypeRepository()
-    type_id = await _verify(auth, ["self", "sibling", "parent"], type_id, true)
+    type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
     return await TypeRepository._set("a", target, <string>type_id, attachment_key, attachment_value)
   }
 }
