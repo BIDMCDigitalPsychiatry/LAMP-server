@@ -11,7 +11,7 @@ export class ActivityService {
   public static async list(auth: any, study_id: string, ignore_binary: boolean, sibling = false) {
     const ActivityRepository = new Repository().getActivityRepository()
     const TypeRepository = new Repository().getTypeRepository()
-    study_id = await _verify(auth, ["self", "sibling", "parent"], study_id, true)
+    study_id = await _verify(auth, ["self", "sibling", "parent"], study_id)
     if (sibling) {
       const parent_id = await TypeRepository._owner(study_id)
       if (parent_id === null) throw new Error("403.invalid-sibling-ownership")
@@ -22,7 +22,7 @@ export class ActivityService {
 
   public static async create(auth: any, study_id: string, activity: any) {
     const ActivityRepository = new Repository().getActivityRepository()
-    study_id = await _verify(auth, ["self", "sibling", "parent"], study_id, true)
+    study_id = await _verify(auth, ["self", "sibling", "parent"], study_id)
     const data = await ActivityRepository._insert(study_id, activity)
 
     //publishing data for activity add api with token = study.{study_id}.activity.{_id}
@@ -48,14 +48,14 @@ export class ActivityService {
 
   public static async get(auth: any, activity_id: string) {
     const ActivityRepository = new Repository().getActivityRepository()
-    activity_id = await _verify(auth, ["self", "sibling", "parent"], activity_id, true)
+    activity_id = await _verify(auth, ["self", "sibling", "parent"], activity_id)
     return await ActivityRepository._select(activity_id)
   }
 
   public static async set(auth: any, activity_id: string, activity: any | null) {
     const ActivityRepository = new Repository().getActivityRepository()
     const TypeRepository = new Repository().getTypeRepository()
-    activity_id = await _verify(auth, ["self", "sibling", "parent"], activity_id, true)
+    activity_id = await _verify(auth, ["self", "sibling", "parent"], activity_id)
     if (activity === null) {
       const parent = (await TypeRepository._parent(activity_id)) as any
       const data = await ActivityRepository._delete(activity_id)

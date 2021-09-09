@@ -11,7 +11,7 @@ export class ParticipantService {
   public static async list(auth: any, study_id: string, sibling = false) {
     const ParticipantRepository = new Repository().getParticipantRepository()
     const TypeRepository = new Repository().getTypeRepository()
-    study_id = await _verify(auth, ["self", "sibling", "parent"], study_id, true)
+    study_id = await _verify(auth, ["self", "sibling", "parent"], study_id)
     if (sibling) {
       const parent_id = await TypeRepository._owner(study_id)
       if (parent_id === null) throw new Error("403.invalid-sibling-ownership")
@@ -23,7 +23,7 @@ export class ParticipantService {
   // TODO: activity/* and sensor/* entry
   public static async create(auth: any, study_id: string, participant: any) {
     const ParticipantRepository = new Repository().getParticipantRepository()
-    study_id = await _verify(auth, ["self", "sibling", "parent"], study_id,  true)
+    study_id = await _verify(auth, ["self", "sibling", "parent"], study_id)
     const data = await ParticipantRepository._insert(study_id, participant)
 
     //publishing data for participant add api with token = study.{study_id}.participant.{_id}
@@ -45,14 +45,14 @@ export class ParticipantService {
 
   public static async get(auth: any, participant_id: string) {
     const ParticipantRepository = new Repository().getParticipantRepository()
-    participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id,  true)
+    participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
     return await ParticipantRepository._select(participant_id)
   }
 
   public static async set(auth: any, participant_id: string, participant: any | null) {
     const ParticipantRepository = new Repository().getParticipantRepository()
     const TypeRepository = new Repository().getTypeRepository()
-    participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id, true)
+    participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
     if (participant === null) {
       //find the study id before delete, as it cannot be fetched after delete
       const parent = (await TypeRepository._parent(participant_id)) as any
