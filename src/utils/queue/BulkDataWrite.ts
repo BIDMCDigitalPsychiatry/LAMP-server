@@ -1,8 +1,6 @@
 import { RedisClient } from "../../repository/Bootstrap"
-import { BulkDataWriteQueue } from "./Queue"
+import { BulkDataWriteQueue, PubSubAPIListenerQueue  } from "./Queue"
 import { Mutex } from "async-mutex"
-import { PubSubAPIListenerQueue } from "./Queue"
-import { Repository } from "../../repository/Bootstrap"
 const clientLock = new Mutex()
 const Max_Store_Size = 50000
 
@@ -14,23 +12,32 @@ const Max_Store_Size = 50000
  */
 export const BulkDataWrite = async (key: string, participant_id: string, data: any[]): Promise<void> => {
   switch (key) {
-    case "sensor_event":      
+    case "sensor_event":
       publishSensorEvent(participant_id, [data[(data.length - 1)]])
       const release = await clientLock.acquire()
       const Store_Size = (await RedisClient?.llen("sensor_event")) as number
-      console.log("Store_Size", Store_Size)
-      console.log("Max_Store_Size", Max_Store_Size)
+      console.log("Store_Size",Store_Size)
+      console.log("Max_Store_Size",Max_Store_Size)
       if (Store_Size > Max_Store_Size) {
-        const repo = new Repository()
-        const SensorEventRepository = repo.getSensorEventRepository()
-        console.log("write data to db directly of size", data.length)
-        //write latest data to db
-        await SensorEventRepository._insert(participant_id, data)
-        console.log("Preparing for db write of data length", Store_Size)
-        for (let i = 0; i < Store_Size; i = i + 501) {
+        console.log("Inserting data to redis store")
+        //Insert data to redis store
+        for (const event of data) {
+          event.participant_id = participant_id
+          event.timestamp = Number.parse(event.timestamp)
+          event.sensor = String(event.sensor)
+          try {
+            //Push to redis store
+            await RedisClient?.rpush("sensor_event", [JSON.stringify(event)])
+          } catch (error) {
+            console.log(error)
+          }
+        }
+        const New_Store_Size = (await RedisClient?.llen("sensor_event")) as number
+        console.log("Preparing for db write of data length", New_Store_Size)
+        for (let i = 0; i < New_Store_Size; i = i + 501) {
           const start = i === 0 ? i : i + 1
           const end = i + 501
-          if (start >= Store_Size) break
+          if (start >= New_Store_Size) break
           const Store_Data = await RedisClient?.lrange("sensor_event", start, end)
           //add to database write queue
           BulkDataWriteQueue?.add({
@@ -42,7 +49,7 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
         console.log("Removing data from redis store")
         try {
           //Remove data from redis store
-          await RedisClient?.ltrim("sensor_event", 1, -Store_Size)
+          await RedisClient?.ltrim("sensor_event", 1, -New_Store_Size)
         } catch (error) {
           console.log(error)
         }
@@ -69,7 +76,7 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
               await RedisClient?.rpush("sensor_event", [JSON.stringify(event)])
             }
           } catch (error) {
-            console.log("error while pushing to redis store", error)
+            console.log("error while pushing to redis store",error)
           }
         }
       }
@@ -86,7 +93,7 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
  * @param participant_id
  * @param data
  */
-function publishSensorEvent(participant_id: string, data: any[]) {
+ function publishSensorEvent(participant_id: string, data: any[]) {
   const topics = [
     `sensor_event`,
     `participant.*.sensor_event`,
