@@ -35,11 +35,17 @@ export class ParticipantService {
       token: `study.${study_id}.participant.${data.id}`,
       payload: participant,
     })
-    PubSubAPIListenerQueue?.add({
-      topic: `study.*.participant`,
-      token: `study.${study_id}.participant.${data.id}`,
-      payload: participant,
-    })
+    PubSubAPIListenerQueue?.add(
+      {
+        topic: `study.*.participant`,
+        token: `study.${study_id}.participant.${data.id}`,
+        payload: participant,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: true,
+      }
+    )
     return data
   }
 
@@ -60,21 +66,39 @@ export class ParticipantService {
 
       //publishing data for participant delete api for the Token study.{study_id}.participant.{participant_id}
       if (parent !== undefined && parent !== "") {
-        PubSubAPIListenerQueue?.add({
-          topic: `study.*.participant`,
-          token: `study.${parent["Study"]}.participant.${participant_id}`,
-          payload: { action: "delete", participant_id: participant_id, study_id: parent["Study"] },
-        })
-        PubSubAPIListenerQueue?.add({
-          topic: `participant.*`,
-          token: `study.${parent["Study"]}.participant.${participant_id}`,
-          payload: { action: "delete", participant_id: participant_id, study_id: parent["Study"] },
-        })
-        PubSubAPIListenerQueue?.add({
-          topic: `participant`,
-          token: `study.${parent["Study"]}.participant.${participant_id}`,
-          payload: { action: "delete", participant_id: participant_id, study_id: parent["Study"] },
-        })
+        PubSubAPIListenerQueue?.add(
+          {
+            topic: `study.*.participant`,
+            token: `study.${parent["Study"]}.participant.${participant_id}`,
+            payload: { action: "delete", participant_id: participant_id, study_id: parent["Study"] },
+          },
+          {
+            removeOnComplete: true,
+            removeOnFail: true,
+          }
+        )
+        PubSubAPIListenerQueue?.add(
+          {
+            topic: `participant.*`,
+            token: `study.${parent["Study"]}.participant.${participant_id}`,
+            payload: { action: "delete", participant_id: participant_id, study_id: parent["Study"] },
+          },
+          {
+            removeOnComplete: true,
+            removeOnFail: true,
+          }
+        )
+        PubSubAPIListenerQueue?.add(
+          {
+            topic: `participant`,
+            token: `study.${parent["Study"]}.participant.${participant_id}`,
+            payload: { action: "delete", participant_id: participant_id, study_id: parent["Study"] },
+          },
+          {
+            removeOnComplete: true,
+            removeOnFail: true,
+          }
+        )
       }
       return data
     } else {

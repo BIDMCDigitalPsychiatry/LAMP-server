@@ -16,7 +16,7 @@ export class StudyService {
 
   public static async create(auth: any, researcher_id: string, study: any) {
     const StudyRepository = new Repository().getStudyRepository()
-    
+
     researcher_id = await _verify(auth, ["self", "parent"], researcher_id)
     const data = await StudyRepository._insert(researcher_id, study)
 
@@ -24,16 +24,28 @@ export class StudyService {
     study.researcher_id = researcher_id
     study.study_id = data
     study.action = "create"
-    PubSubAPIListenerQueue?.add({
-      topic: `study`,
-      token: `researcher.${researcher_id}.study.${data}`,
-      payload: study,
-    })
-    PubSubAPIListenerQueue?.add({
-      topic: `researcher.*.study`,
-      token: `researcher.${researcher_id}.study.${data}`,
-      payload: study,
-    })
+    PubSubAPIListenerQueue?.add(
+      {
+        topic: `study`,
+        token: `researcher.${researcher_id}.study.${data}`,
+        payload: study,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: true,
+      }
+    )
+    PubSubAPIListenerQueue?.add(
+      {
+        topic: `researcher.*.study`,
+        token: `researcher.${researcher_id}.study.${data}`,
+        payload: study,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: true,
+      }
+    )
     return data
   }
 
@@ -52,21 +64,39 @@ export class StudyService {
       const data = await StudyRepository._delete(study_id)
 
       //publishing data for study delete api with Token researcher.{researcher_id}.study.{study_id}
-      PubSubAPIListenerQueue?.add({
-        topic: `study.*`,
-        token: `researcher.${parent["Researcher"]}.study.${study_id}`,
-        payload: { action: "delete", study_id: study_id, researcher_id: parent["Researcher"] },
-      })
-      PubSubAPIListenerQueue?.add({
-        topic: `study`,
-        token: `researcher.${parent["Researcher"]}.study.${study_id}`,
-        payload: { action: "delete", study_id: study_id, researcher_id: parent["Researcher"] },
-      })
-      PubSubAPIListenerQueue?.add({
-        topic: `researcher.*.study`,
-        token: `researcher.${parent["Researcher"]}.study.${study_id}`,
-        payload: { action: "delete", study_id: study_id, researcher_id: parent["Researcher"] },
-      })
+      PubSubAPIListenerQueue?.add(
+        {
+          topic: `study.*`,
+          token: `researcher.${parent["Researcher"]}.study.${study_id}`,
+          payload: { action: "delete", study_id: study_id, researcher_id: parent["Researcher"] },
+        },
+        {
+          removeOnComplete: true,
+          removeOnFail: true,
+        }
+      )
+      PubSubAPIListenerQueue?.add(
+        {
+          topic: `study`,
+          token: `researcher.${parent["Researcher"]}.study.${study_id}`,
+          payload: { action: "delete", study_id: study_id, researcher_id: parent["Researcher"] },
+        },
+        {
+          removeOnComplete: true,
+          removeOnFail: true,
+        }
+      )
+      PubSubAPIListenerQueue?.add(
+        {
+          topic: `researcher.*.study`,
+          token: `researcher.${parent["Researcher"]}.study.${study_id}`,
+          payload: { action: "delete", study_id: study_id, researcher_id: parent["Researcher"] },
+        },
+        {
+          removeOnComplete: true,
+          removeOnFail: true,
+        }
+      )
       return data
     } else {
       const data = await StudyRepository._update(study_id, study)
@@ -74,9 +104,27 @@ export class StudyService {
       //publishing data for study update api(Token will be created in PubSubAPIListenerQueue consumer, as researcher for this study need to fetched to create token)
       study.study_id = study_id
       study.action = "update"
-      PubSubAPIListenerQueue?.add({ topic: `study.*`, payload: study })
-      PubSubAPIListenerQueue?.add({ topic: `study`, payload: study })
-      PubSubAPIListenerQueue?.add({ topic: `researcher.*.study`, payload: study })
+      PubSubAPIListenerQueue?.add(
+        { topic: `study.*`, payload: study },
+        {
+          removeOnComplete: true,
+          removeOnFail: true,
+        }
+      )
+      PubSubAPIListenerQueue?.add(
+        { topic: `study`, payload: study },
+        {
+          removeOnComplete: true,
+          removeOnFail: true,
+        }
+      )
+      PubSubAPIListenerQueue?.add(
+        { topic: `researcher.*.study`, payload: study },
+        {
+          removeOnComplete: true,
+          removeOnFail: true,
+        }
+      )
       return data
     }
   }
@@ -143,7 +191,7 @@ StudyService.Router.post("/researcher/:researcher_id/study/clone", async (req: R
     let StudyID: string | undefined =
       req.body.study_id === "" || req.body.study_id === "null" ? undefined : req.body.study_id
     if (!!StudyID) {
-      let activities = await ActivityRepository._select(StudyID, true)      
+      let activities = await ActivityRepository._select(StudyID, true)
       let sensors = await SensorRepository._lookup(StudyID, true)
       //clone activities  to new studyid
       for (const activity of activities) {
@@ -154,16 +202,15 @@ StudyService.Router.post("/researcher/:researcher_id/study/clone", async (req: R
             settings: activity.settings,
             schedule: activity.schedule,
           }
-          const res = await ActivityRepository._insert(output["data"], object)             
-          try {            
-            let attachment_key = 'lamp.dashboard.survey_description'
-            if(activity.spec!=='lamp.survey') attachment_key = 'lamp.dashboard.activity_details'
-            const tags = await TypeRepository._get("a", <string>activity.id, attachment_key)            
+          const res = await ActivityRepository._insert(output["data"], object)
+          try {
+            let attachment_key = "lamp.dashboard.survey_description"
+            if (activity.spec !== "lamp.survey") attachment_key = "lamp.dashboard.activity_details"
+            const tags = await TypeRepository._get("a", <string>activity.id, attachment_key)
             await TypeRepository._get("a", <string>activity.id, attachment_key)
-            await TypeRepository._set("a", 'me', <string>res, attachment_key, tags)
+            await TypeRepository._set("a", "me", <string>res, attachment_key, tags)
           } catch (error) {}
-          
-         
+
           //add the schedules of new activity
           // UpdateToSchedulerQueue?.add({ activity_id: res })
           PubSubAPIListenerQueue?.add({
@@ -195,16 +242,28 @@ StudyService.Router.post("/researcher/:researcher_id/study/clone", async (req: R
     study.study_id = output["data"]
     study.action = "create"
     //publishing data for study add api with token = researcher.{researcher_id}.study.{_id}
-    PubSubAPIListenerQueue?.add({
-      topic: `study`,
-      token: `researcher.${researcher_id}.study.${output["data"]}`,
-      payload: study,
-    })
-    PubSubAPIListenerQueue?.add({
-      topic: `researcher.*.study`,
-      token: `researcher.${researcher_id}.study.${output["data"]}`,
-      payload: study,
-    })
+    PubSubAPIListenerQueue?.add(
+      {
+        topic: `study`,
+        token: `researcher.${researcher_id}.study.${output["data"]}`,
+        payload: study,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: true,
+      }
+    )
+    PubSubAPIListenerQueue?.add(
+      {
+        topic: `researcher.*.study`,
+        token: `researcher.${researcher_id}.study.${output["data"]}`,
+        payload: study,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: true,
+      }
+    )
     res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)

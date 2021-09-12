@@ -32,37 +32,61 @@ export class ActivityEventService {
     let data = await ActivityEventRepository._insert(participant_id, activity_events)
 
     //publishing data for activity_event add api((Token will be created in PubSubAPIListenerQueue consumer, as request is assumed as array and token should be created individually)
-    PubSubAPIListenerQueue?.add({
-      topic: `activity_event`,
-      action: "create",
-      timestamp: Date.now(),
-      participant_id: participant_id,
-      payload: activity_events,
-    })
+    PubSubAPIListenerQueue?.add(
+      {
+        topic: `activity_event`,
+        action: "create",
+        timestamp: Date.now(),
+        participant_id: participant_id,
+        payload: activity_events,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: true,
+      }
+    )
 
-    PubSubAPIListenerQueue?.add({
-      topic: `participant.*.activity_event`,
-      action: "create",
-      timestamp: Date.now(),
-      participant_id: participant_id,
-      payload: activity_events,
-    })
+    PubSubAPIListenerQueue?.add(
+      {
+        topic: `participant.*.activity_event`,
+        action: "create",
+        timestamp: Date.now(),
+        participant_id: participant_id,
+        payload: activity_events,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: true,
+      }
+    )
 
-    PubSubAPIListenerQueue?.add({
-      topic: `activity.*.activity_event`,
-      action: "create",
-      timestamp: Date.now(),
-      participant_id: participant_id,
-      payload: activity_events,
-    })
+    PubSubAPIListenerQueue?.add(
+      {
+        topic: `activity.*.activity_event`,
+        action: "create",
+        timestamp: Date.now(),
+        participant_id: participant_id,
+        payload: activity_events,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: true,
+      }
+    )
 
-    PubSubAPIListenerQueue?.add({
-      topic: `participant.*.activity.*.activity_event`,
-      action: "create",
-      timestamp: Date.now(),
-      participant_id: participant_id,
-      payload: activity_events,
-    })
+    PubSubAPIListenerQueue?.add(
+      {
+        topic: `participant.*.activity.*.activity_event`,
+        action: "create",
+        timestamp: Date.now(),
+        participant_id: participant_id,
+        payload: activity_events,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: true,
+      }
+    )
     return data
   }
 }

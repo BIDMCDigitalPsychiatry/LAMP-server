@@ -33,16 +33,28 @@ export class ActivityService {
     activity.schedule = undefined
     activity.photo = undefined
 
-    PubSubAPIListenerQueue?.add({
-      topic: `activity`,
-      token: `study.${study_id}.activity.${data}`,
-      payload: activity,
-    })
-    PubSubAPIListenerQueue?.add({
-      topic: `study.*.activity`,
-      token: `study.${study_id}.activity.${data}`,
-      payload: activity,
-    })
+    PubSubAPIListenerQueue?.add(
+      {
+        topic: `activity`,
+        token: `study.${study_id}.activity.${data}`,
+        payload: activity,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: true,
+      }
+    )
+    PubSubAPIListenerQueue?.add(
+      {
+        topic: `study.*.activity`,
+        token: `study.${study_id}.activity.${data}`,
+        payload: activity,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: true,
+      }
+    )
     return data
   }
 
@@ -81,8 +93,8 @@ export class ActivityService {
         })
       }
       return data
-    } else {      
-      const data = await ActivityRepository._update(activity_id, activity)     
+    } else {
+      const data = await ActivityRepository._update(activity_id, activity)
       //publishing data for activity update api (Token will be created in PubSubAPIListenerQueue consumer, as study for this activity need to fetched to create token)
       activity.activity_id = activity_id
       activity.action = "update"
