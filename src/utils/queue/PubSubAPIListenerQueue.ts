@@ -8,7 +8,7 @@ const clientLock = new Mutex()
  *
  * @param job
  */
-export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>): Promise<void> {
+export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bull.DoneCallback): Promise<void> {
   let publishStatus = true
   const repo = new Repository()
   const TypeRepository = repo.getTypeRepository()
@@ -284,6 +284,7 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>): Promise
   } catch (error) {
     console.log("Nats server is disconnected")
   }
+  done()
 }
 
 /** publishing sensor event
