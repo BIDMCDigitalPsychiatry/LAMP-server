@@ -135,6 +135,7 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
       for (const payload of job.data.payload) {
         const release = await clientLock.acquire()
         try {
+          console.log("sensor_event_payload inside pubsub",payload)
           const Data: any = {}
           payload.topic = job.data.topic
           payload.action = job.data.action
