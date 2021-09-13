@@ -27,6 +27,7 @@ export class SensorEventService {
   }
 
   public static async create(auth: any, participant_id: string, sensor_events: any[]) {
+    console.log("sensor_events in request",sensor_events)
     const SensorEventRepository = new Repository().getSensorEventRepository()
     participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
     let data: {} = {}
