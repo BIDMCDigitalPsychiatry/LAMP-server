@@ -45,7 +45,7 @@ export class SensorRepository implements SensorInterface {
     await MongoClientDB.collection("sensor").findOneAndUpdate(
       { _id: orig._id },
       {
-        $set: { name: object.name ?? orig.name, settings: object.settings ?? orig.settings },
+        $set: { name: object.name ?? orig.name, settings: object.settings ?? orig.settings, spec: object.spec ?? "__broken_link__" },
       }
     )
 
