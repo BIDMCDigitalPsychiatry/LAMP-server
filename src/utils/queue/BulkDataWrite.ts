@@ -13,11 +13,11 @@ const Max_Store_Size = 50000
  */
 export const BulkDataWrite = async (key: string, participant_id: string, data: any[]): Promise<void> => {
   switch (key) {
-    case "sensor_event":    
+    case "sensor_event":
+      console.log("data length to be published to nats", data.length)
+      if (data.length === 0 || data.length === undefined) break
+      publishSensorEvent(participant_id, [data[data.length - 1]])
       const release = await clientLock.acquire()
-      console.log("data length to be published to nats",data.length)
-      if(data.length!==0 || data.length!==undefined)
-       publishSensorEvent(participant_id, [data[data.length - 1]])
       const Store_Size = (await RedisClient?.llen("sensor_event")) as number
       console.log("Store_Size", Store_Size)
       console.log("Max_Store_Size", Max_Store_Size)
