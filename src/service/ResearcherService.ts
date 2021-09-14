@@ -34,6 +34,7 @@ export class ResearcherService {
 
   public static async get(auth: any, researcher_id: string) {
     const ResearcherRepository = new Repository().getResearcherRepository()
+    researcher_id = await _verify(auth, ["self", "parent"], researcher_id)
     return await ResearcherRepository._select(researcher_id)
   }
 
