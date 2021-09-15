@@ -38,6 +38,7 @@ export class SensorRepository implements SensorInterface {
         {
           ...orig,
           name: object.name ?? orig.name,
+          spec: object.spec ?? orig.spec,
           settings: object.settings ?? orig.settings,
         },
       ],

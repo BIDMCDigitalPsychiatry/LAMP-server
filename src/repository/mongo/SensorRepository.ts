@@ -41,7 +41,7 @@ export class SensorRepository implements SensorInterface {
   }
 
   public async _update(sensor_id: string, object: any /*Sensor*/): Promise<{}> {
-    const orig: any = await MongoClientDB.collection("sensor").findOne(sensor_id)
+    const orig: any = await MongoClientDB.collection("sensor").findOne({_id:sensor_id}) 
     await MongoClientDB.collection("sensor").findOneAndUpdate(
       { _id: orig._id },
       {
