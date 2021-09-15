@@ -134,8 +134,7 @@ export class TypeRepository implements TypeInterface {
     //     multiple keys per-subquery; the difference is almost ~7sec vs. ~150ms.
     for (const condition of conditions) {
       try {
-        const value = await MongoClientDB.collection("tag").find(condition).limit(1).maxTimeMS(60000).toArray()
-        console.log("value", value)
+        const value = await MongoClientDB.collection("tag").find(condition).limit(1).maxTimeMS(60000).toArray()        
         if (value.length > 0) return value.map((x: any) => JSON.parse(x.value))[0]
       } catch (error) {
         console.error(error, `Failed to search Tag index for ${condition._parent}:${condition.type}.`)
