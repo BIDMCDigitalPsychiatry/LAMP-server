@@ -5,7 +5,7 @@ import { MongoClientDB } from "../Bootstrap"
 export class SensorSpecRepository implements SensorSpecInterface {
   public async _select(id?: string): Promise<SensorSpec[]> {
     const data = !!id
-      ? await MongoClientDB.collection("sensor_spec").find({ _id: id },{$or: [ { _deleted: false }, { _deleted: undefined } ]}).maxTimeMS(60000).toArray()
+      ? await MongoClientDB.collection("sensor_spec").find({$or: [ { _deleted: false,  _id: id }, { _deleted: undefined, _id: id } ]}).maxTimeMS(60000).toArray()
       : await MongoClientDB.collection("sensor_spec").find({$or: [ { _deleted: false }, { _deleted: undefined } ]}).maxTimeMS(60000).toArray()
     return (data as any).map((x: any) => ({          
       id: x._id,
