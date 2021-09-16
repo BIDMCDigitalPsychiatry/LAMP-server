@@ -28,14 +28,8 @@ export class SensorEventService {
 
   public static async create(auth: any, participant_id: string, sensor_events: any[]) {    
     const SensorEventRepository = new Repository().getSensorEventRepository()
-    participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
-    let data: {} = {}
-    //If Redis is configured, use cache to insert the bulk
-    if (!!process.env.REDIS_HOST) {
-      BulkDataWrite("sensor_event", participant_id, sensor_events)
-    } else {
-      data = await SensorEventRepository._insert(participant_id, sensor_events)
-    }
+    participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)   
+    const data = await SensorEventRepository._insert(participant_id, sensor_events)    
     return data
   }
 }
