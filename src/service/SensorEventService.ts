@@ -3,6 +3,7 @@ import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository } from "../repository/Bootstrap"
 import { BulkDataWrite } from "../utils/queue/BulkDataWrite"
+import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
 
 // default to LIMIT_NAN, clamped to [-LIMIT_MAX, +LIMIT_MAX]
 const LIMIT_NAN = 1000
@@ -32,6 +33,50 @@ export class SensorEventService {
     const SensorEventRepository = new Repository().getSensorEventRepository()
     participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)   
     const data = await SensorEventRepository._insert(participant_id, sensor_events)    
+      //publishing data for activity_event add api((Token will be created in PubSubAPIListenerQueue consumer, as request is assumed as array and token should be created individually)
+      PubSubAPIListenerQueue?.add({
+        topic: `sensor_event`,
+        action: "create",
+        timestamp: Date.now(),
+        participant_id: participant_id,
+        payload: sensor_events,
+      },{
+        removeOnComplete: true,
+        removeOnFail: true,
+      })
+  
+      PubSubAPIListenerQueue?.add({
+        topic: `participant.*.sensor_event`,
+        action: "create",
+        timestamp: Date.now(),
+        participant_id: participant_id,
+        payload: sensor_events,
+      },{
+        removeOnComplete: true,
+        removeOnFail: true,
+      })
+  
+      PubSubAPIListenerQueue?.add({
+        topic: `sensor.*.sensor_event`,
+        action: "create",
+        timestamp: Date.now(),
+        participant_id: participant_id,
+        payload: sensor_events,
+      },{
+        removeOnComplete: true,
+        removeOnFail: true,
+      })
+  
+      PubSubAPIListenerQueue?.add({
+        topic: `participant.*.sensor.*.sensor_event`,
+        action: "create",
+        timestamp: Date.now(),
+        participant_id: participant_id,
+        payload: sensor_events,
+      },{
+        removeOnComplete: true,
+        removeOnFail: true,
+      })
     return data
   }
 }
