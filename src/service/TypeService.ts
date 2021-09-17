@@ -8,7 +8,7 @@ export class TypeService {
   public static _name = "Type"
   public static Router = Router()
 
-  public static async parent(auth: any, type_id: string) {
+  public static async parent(auth: any, type_id: string | null) {
     const TypeRepository = new Repository().getTypeRepository()
     type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
     const data = await TypeRepository._parent(type_id)
@@ -25,13 +25,13 @@ export class TypeService {
     return data
   }
 
-  public static async list(auth: any, type_id: string) {
+  public static async list(auth: any, type_id: string | null) {
     const TypeRepository = new Repository().getTypeRepository()
     type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
     return await TypeRepository._list("a", <string>type_id)
   }
 
-  public static async get(auth: any, type_id: string, attachment_key: string, index?: string) {
+  public static async get(auth: any, type_id: string | null, attachment_key: string, index?: string) {
     const TypeRepository = new Repository().getTypeRepository()
     type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
     let obj = await TypeRepository._get("a", <string>type_id, attachment_key)
@@ -47,7 +47,13 @@ export class TypeService {
     return obj !== undefined ? obj : null
   }
 
-  public static async set(auth: any, type_id: string, attachment_key: string, target: string, attachment_value: any) {
+  public static async set(
+    auth: any,
+    type_id: string | null,
+    attachment_key: string,
+    target: string,
+    attachment_value: any
+  ) {
     const TypeRepository = new Repository().getTypeRepository()
     type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
     return await TypeRepository._set("a", target, <string>type_id, attachment_key, attachment_value)
@@ -77,7 +83,12 @@ const _put_routes = (<string[]>[]).concat(
 )
 TypeService.Router.get(_parent_routes, async (req: Request, res: Response) => {
   try {
-    let output = { data: await TypeService.parent(req.get("Authorization"), req.params.type_id) }
+    let output = {
+      data: await TypeService.parent(
+        req.get("Authorization"),
+        req.params.type_id === "null" ? null : req.params.type_id
+      ),
+    }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {
@@ -88,9 +99,21 @@ TypeService.Router.get(_parent_routes, async (req: Request, res: Response) => {
 TypeService.Router.get(_get_routes, async (req: Request, res: Response) => {
   try {
     if (req.params.attachment_key === undefined) {
-      res.json({ data: await TypeService.list(req.get("Authorization"), req.params.type_id) })
+      res.json({
+        data: await TypeService.list(
+          req.get("Authorization"),
+          req.params.type_id === "null" ? null : req.params.type_id
+        ),
+      })
     } else {
-      res.json({ data: await TypeService.get(req.get("Authorization"), req.params.type_id, req.params.attachment_key, req.params.index) })
+      res.json({
+        data: await TypeService.get(
+          req.get("Authorization"),
+          req.params.type_id === "null" ? null : req.params.type_id,
+          req.params.attachment_key,
+          req.params.index
+        ),
+      })
     }
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -100,7 +123,13 @@ TypeService.Router.get(_get_routes, async (req: Request, res: Response) => {
 TypeService.Router.put(_put_routes, async (req: Request, res: Response) => {
   try {
     res.json({
-      data: (await TypeService.set(req.get("Authorization"), req.params.type_id, req.params.attachment_key, req.params.target, req.body))
+      data: (await TypeService.set(
+        req.get("Authorization"),
+        req.params.type_id === "null" ? null : req.params.type_id,
+        req.params.attachment_key,
+        req.params.target,
+        req.body
+      ))
         ? {}
         : null /* error */,
     })

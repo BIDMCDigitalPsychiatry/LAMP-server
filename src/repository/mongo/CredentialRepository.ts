@@ -32,7 +32,7 @@ export class CredentialRepository implements CredentialInterface {
     }))
   }
   public async _insert(type_id: string | null, credential: any): Promise<{}> {
-    if (credential.origin === "me") {
+    if (credential.origin === "me" || credential.origin === null) {
       // FIXME: context substitution doesn't actually work within the object here, so do it manually.
       credential.origin = type_id
     }

@@ -6,7 +6,7 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
   public async _select(id?: string): Promise<ActivitySpec[]> {
     const parents = []    
     const data = !!id
-      ? await MongoClientDB.collection("activity_spec").find({ _id: id },{$or: [ { _deleted: false }, { _deleted: undefined } ]}).maxTimeMS(60000).toArray()
+      ? await MongoClientDB.collection("activity_spec").find({$or: [ { _deleted: false, _id: id }, { _deleted: undefined, _id: id } ]}).maxTimeMS(60000).toArray()
       : await MongoClientDB.collection("activity_spec").find({$or: [ { _deleted: false }, { _deleted: undefined } ]}).maxTimeMS(60000).toArray()
     return (data as any).map((x: any) => ({
       id: x._id,

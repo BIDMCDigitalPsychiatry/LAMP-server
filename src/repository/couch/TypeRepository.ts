@@ -135,8 +135,9 @@ export class TypeRepository implements TypeInterface {
   public async _get(mode: any, type_id: string, attachment_key: string): Promise<any | undefined> {
     const repo = new Repository()
     const TypeRepository = repo.getTypeRepository()
-    const self_type = await TypeRepository._self_type(type_id)
-    const parents = Object.values(await TypeRepository._parent(type_id)).reverse()
+    const self_type = (type_id ===null) ? undefined : await TypeRepository._self_type(type_id)
+    const parents = (type_id ===null) ? new Array : Object.values(await TypeRepository._parent(type_id)).reverse() 
+    
 
     // All possible conditions to retreive Tags, ordered greatest-to-least priority.
     const conditions = [
@@ -171,8 +172,8 @@ export class TypeRepository implements TypeInterface {
   public async _list(mode: any, type_id: string): Promise<string[]> {
     const repo = new Repository()
     const TypeRepository = repo.getTypeRepository()
-    const self_type = await TypeRepository._self_type(type_id)
-    const parents = Object.values(await TypeRepository._parent(type_id)).reverse()
+    const self_type = (type_id ===null) ? undefined : await TypeRepository._self_type(type_id)
+    const parents = (type_id ===null) ? new Array : Object.values(await TypeRepository._parent(type_id)).reverse() 
 
     // All possible conditions to retreive Tags, ordered greatest-to-least priority.
     // Note: We MUST add a "key" selector to force CouchDB to use the right Mango index.
