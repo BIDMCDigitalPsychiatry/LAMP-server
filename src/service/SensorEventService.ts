@@ -26,7 +26,9 @@ export class SensorEventService {
     return await SensorEventRepository._select(participant_id, origin, from, to, limit)
   }
 
-  public static async create(auth: any, participant_id: string, sensor_events: any[]) {    
+  public static async create(auth: any, participant_id: string, sensor_events: any[]) {  
+    console.log("Participant----",participant_id)
+    console.log("sensor_events length----",sensor_events.length)  
     const SensorEventRepository = new Repository().getSensorEventRepository()
     participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)   
     const data = await SensorEventRepository._insert(participant_id, sensor_events)    
