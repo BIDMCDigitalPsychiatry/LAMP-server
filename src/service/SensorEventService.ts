@@ -27,56 +27,69 @@ export class SensorEventService {
     return await SensorEventRepository._select(participant_id, origin, from, to, limit)
   }
 
-  public static async create(auth: any, participant_id: string, sensor_events: any[]) {  
-    console.log("Participant----",participant_id)
-    console.log("sensor_events length----",sensor_events.length)  
+  public static async create(auth: any, participant_id: string, sensor_events: any[]) {     
     const SensorEventRepository = new Repository().getSensorEventRepository()
-    participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)   
-    const data = await SensorEventRepository._insert(participant_id, sensor_events)    
-      //publishing data for activity_event add api((Token will be created in PubSubAPIListenerQueue consumer, as request is assumed as array and token should be created individually)
-      PubSubAPIListenerQueue?.add({
-        topic: `sensor_event`,
-        action: "create",
-        timestamp: Date.now(),
-        participant_id: participant_id,
-        payload: sensor_events,
-      },{
-        removeOnComplete: true,
-        removeOnFail: true,
-      })
-  
-      PubSubAPIListenerQueue?.add({
-        topic: `participant.*.sensor_event`,
-        action: "create",
-        timestamp: Date.now(),
-        participant_id: participant_id,
-        payload: sensor_events,
-      },{
-        removeOnComplete: true,
-        removeOnFail: true,
-      })
-  
-      PubSubAPIListenerQueue?.add({
-        topic: `sensor.*.sensor_event`,
-        action: "create",
-        timestamp: Date.now(),
-        participant_id: participant_id,
-        payload: sensor_events,
-      },{
-        removeOnComplete: true,
-        removeOnFail: true,
-      })
-  
-      PubSubAPIListenerQueue?.add({
-        topic: `participant.*.sensor.*.sensor_event`,
-        action: "create",
-        timestamp: Date.now(),
-        participant_id: participant_id,
-        payload: sensor_events,
-      },{
-        removeOnComplete: true,
-        removeOnFail: true,
-      })
+    participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
+    const data = await SensorEventRepository._insert(participant_id, sensor_events)
+    //publishing data for activity_event add api((Token will be created in PubSubAPIListenerQueue consumer, as request is assumed as array and token should be created individually)
+    if (sensor_events.length !== 0) {
+      PubSubAPIListenerQueue?.add(
+        {
+          topic: `sensor_event`,
+          action: "create",
+          timestamp: Date.now(),
+          participant_id: participant_id,
+          payload: [sensor_events[sensor_events.length - 1]],
+        },
+        {
+          removeOnComplete: true,
+          removeOnFail: true,
+        }
+      )
+
+      PubSubAPIListenerQueue?.add(
+        {
+          topic: `participant.*.sensor_event`,
+          action: "create",
+          timestamp: Date.now(),
+          participant_id: participant_id,
+          payload: [sensor_events[sensor_events.length - 1]],
+        },
+        {
+          removeOnComplete: true,
+          removeOnFail: true,
+        }
+      )
+
+      PubSubAPIListenerQueue?.add(
+        {
+          topic: `sensor.*.sensor_event`,
+          action: "create",
+          timestamp: Date.now(),
+          participant_id: participant_id,
+          payload: [sensor_events[sensor_events.length - 1]],
+        },
+        {
+          removeOnComplete: true,
+          removeOnFail: true,
+        }
+      )
+
+      PubSubAPIListenerQueue?.add(
+        {
+          topic: `participant.*.sensor.*.sensor_event`,
+          action: "create",
+          timestamp: Date.now(),
+          participant_id: participant_id,
+          payload: [sensor_events[sensor_events.length - 1]],
+        },
+        {
+          removeOnComplete: true,
+          removeOnFail: true,
+        }
+      )
+    }
+
     return data
   }
 }
