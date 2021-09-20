@@ -3,7 +3,7 @@ import { PubSubAPIListenerQueue } from "./Queue"
 import { Repository } from "../../repository/Bootstrap"
 import { Mutex } from "async-mutex"
 const clientLock = new Mutex()
-const Max_Store_Size = 10
+const Max_Store_Size = 50000
 
 /**Bulk data write to database
  *
@@ -15,8 +15,7 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
   switch (key) {
     case "sensor_event":
       console.log("incoming sensor events length", data.length)
-      if (data.length === 0 || data.length === undefined) break
-      publishSensorEvent(participant_id, [data[data.length - 1]]) 
+      if (data.length === 0 || data.length === undefined) break     
 
       const Q_List = await RedisClient?.lrange("se_names_Q", 0, 0)
       console.log("Qnames", Q_List)
@@ -41,6 +40,7 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
             event.participant_id = participant_id
             event.timestamp = Number.parse(event.timestamp)
             event.sensor = String(event.sensor)
+            publishSensorEvent(participant_id, [event]) 
             SaveSensorEvent([JSON.stringify(event)])
           } else {
             event.participant_id = participant_id
