@@ -3,7 +3,7 @@ import { PubSubAPIListenerQueue } from "./Queue"
 import { Repository } from "../../repository/Bootstrap"
 import { Mutex } from "async-mutex"
 const clientLock = new Mutex()
-const Max_Store_Size = 50000
+const Max_Store_Size = 10
 
 /**Bulk data write to database
  *
@@ -30,7 +30,9 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
       let create_new_queue = false
       if (Q_Name === "") {
         create_new_queue = true
-        Q_Name = `se_Q:${Math.floor(Math.random() * 1000000) + 1}`
+        console.log(Date.now())
+        Q_Name = `se_Q:${Math.floor(Math.random() * 1000000) + 1}${Date.now()}`  
+         
       }
       console.log("Q_name generated", Q_Name)
       for (const event of data) {
@@ -89,7 +91,8 @@ async function PushFromRedis() {
     console.log("Removing data from redis store")
     try {
       //Remove data from redis store
-      await RedisClient?.ltrim(Q_Name, 1, -Store_Size)
+      // await RedisClient?.ltrim(Q_Name, 1, -Store_Size)
+      await RedisClient?.del(Q_Name)
     } catch (error) {
       console.log(error)
     }
