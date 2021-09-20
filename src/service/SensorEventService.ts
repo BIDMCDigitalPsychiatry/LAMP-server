@@ -31,9 +31,9 @@ export class SensorEventService {
     const SensorEventRepository = new Repository().getSensorEventRepository()
     participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
     let data={} 
-    // if(!!process.env.REDIS_HOST)
-    //  BulkDataWrite("sensor_event", participant_id, sensor_events)
-    // else
+    if(!!process.env.REDIS_HOST)
+     BulkDataWrite("sensor_event", participant_id, sensor_events)
+    else
      data = await SensorEventRepository._insert(participant_id, sensor_events)
 
     return data
