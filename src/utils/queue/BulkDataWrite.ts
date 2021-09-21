@@ -70,7 +70,7 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
  *
  */
 async function PushFromRedis() {
-  const release = await clientLock.acquire()
+  // const release = await clientLock.acquire()
   const Q_Len = (await RedisClient?.llen("se_names_Q")) as number
   console.log("Q Length of se names", Q_Len)
   var Q_Name = ""
@@ -78,7 +78,7 @@ async function PushFromRedis() {
     Q_Name = (await RedisClient?.rpop("se_names_Q")) as string
     console.log("Data Queue to be processed to db", Q_Name)
   }
-  release()  
+  // release()  
   if (Q_Name != "") {
     const Store_Size = (await RedisClient?.llen(Q_Name)) as number
     for (let i = 0; i < Store_Size; i = i + 501) {
@@ -142,7 +142,7 @@ async function SaveSensorEvent(datas: any[]) {
   for (const data of datas) {
     const participant_id = JSON.parse(data).participant_id
     const sensor_event = JSON.parse(data)
-    delete sensor_event.participant_id
+    await delete sensor_event.participant_id
     if (process.env.DB?.startsWith("mongodb://")) {
       await sensor_events.push({ ...sensor_event, _parent: participant_id })
     } else {
@@ -153,6 +153,6 @@ async function SaveSensorEvent(datas: any[]) {
     console.log("writing to sensor_event db of data length", sensor_events.length)
     await SensorEventRepository._bulkWrite(sensor_events)
   } catch (error) {
-    console.log(error)
+    console.log("db write error",error)
   }
 }
