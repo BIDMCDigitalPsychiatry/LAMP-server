@@ -17,8 +17,7 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
       console.log("incoming sensor events length", data.length)
       if (data.length === 0 || data.length === undefined) break     
 
-      const Q_List = await RedisClient?.lrange("se_names_Q", 0, 0)
-      console.log("Qnames", Q_List)
+      const Q_List = await RedisClient?.lrange("se_names_Q", 0, 0)      
       let Q_Name: string = ""
       if (Q_List !== undefined && Q_List.length !== 0) {
         const Store_Size = (await RedisClient?.llen(Q_List[0])) as number
@@ -29,11 +28,11 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
       let create_new_queue = false
       if (Q_Name === "") {
         create_new_queue = true
-        console.log(Date.now())
+        
         Q_Name = `se_Q:${Math.floor(Math.random() * 1000000) + 1}${Date.now()}`  
          
       }
-      console.log("Q_name generated", Q_Name)
+      
       for (const event of data) {
         try {
           if (event.sensor === "lamp.analytics") {
@@ -71,17 +70,16 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
  */
 async function PushFromRedis() {
   // const release = await clientLock.acquire()
-  const Q_Len = (await RedisClient?.llen("se_names_Q")) as number
-  console.log("Q Length of se names", Q_Len)
+  const Q_Len = (await RedisClient?.llen("se_names_Q")) as number  
   var Q_Name = ""
   if (Q_Len > 1) {
-    Q_Name = (await RedisClient?.rpop("se_names_Q")) as string
-    console.log("Data Queue to be processed to db", Q_Name)
-  }
+    Q_Name = (await RedisClient?.rpop("se_names_Q")) as string    
+   }
   // release()  
   if (Q_Name != "") {
     const Store_Size = (await RedisClient?.llen(Q_Name)) as number
-    console.log("Store_Size to be processed to db for write=======", Store_Size)
+    console.log("Store_Size to be processed to db for write", `${Q_Name}--${Store_Size}`)
+
     for (let i = 0; i < Store_Size; i = i + 501) {
       const start = i === 0 ? i : i + 1
       const end = i + 501      
@@ -89,7 +87,7 @@ async function PushFromRedis() {
       const Store_Data = (await RedisClient?.lrange(Q_Name, start, end)) as any
       SaveSensorEvent(Store_Data)
     }
-    console.log("Removing data from redis store")
+    
     try {
       //Remove data from redis store
       // await RedisClient?.ltrim(Q_Name, 1, -Store_Size)
@@ -151,7 +149,7 @@ async function SaveSensorEvent(datas: any[]) {
     }
   }  
   try {
-    console.log("writing to sensor_event db of data length", sensor_events.length)
+   
     await SensorEventRepository._bulkWrite(sensor_events)
   } catch (error) {
     console.log("db write error",error)
