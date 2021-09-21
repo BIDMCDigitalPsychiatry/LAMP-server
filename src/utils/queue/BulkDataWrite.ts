@@ -69,13 +69,13 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
  *
  */
 async function PushFromRedis() {
-  // const release = await clientLock.acquire()
+  const release = await clientLock.acquire()
   const Q_Len = (await RedisClient?.llen("se_names_Q")) as number  
   var Q_Name = ""
   if (Q_Len > 1) {
     Q_Name = (await RedisClient?.rpop("se_names_Q")) as string    
    }
-  // release()  
+  release()  
   if (Q_Name != "") {
     const Store_Size = (await RedisClient?.llen(Q_Name)) as number
     console.log("Store_Size to be processed to db for write", `${Q_Name}--${Store_Size}`)
@@ -90,8 +90,15 @@ async function PushFromRedis() {
     
     try {
       //Remove data from redis store
-      // await RedisClient?.ltrim(Q_Name, 1, -Store_Size)
-      await RedisClient?.del(Q_Name)
+      await RedisClient?.ltrim(Q_Name, 1, -Store_Size)
+      // await RedisClient?.del(Q_Name)
+      const New_Size = (await RedisClient?.llen(Q_Name)) as number 
+      console.log("New_Size of cache to be removed ", `${Q_Name}--${New_Size}`)
+      if (New_Size===0) {
+        await RedisClient?.del(Q_Name)
+      } else {
+        await RedisClient?.rpush("se_names_Q", Q_Name)
+      }
     } catch (error) {
       console.log(error)
     }
