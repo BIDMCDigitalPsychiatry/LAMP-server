@@ -81,6 +81,7 @@ async function PushFromRedis() {
   // release()  
   if (Q_Name != "") {
     const Store_Size = (await RedisClient?.llen(Q_Name)) as number
+    console.log("Store_Size to be processed to db for write=======", Store_Size)
     for (let i = 0; i < Store_Size; i = i + 501) {
       const start = i === 0 ? i : i + 1
       const end = i + 501      
