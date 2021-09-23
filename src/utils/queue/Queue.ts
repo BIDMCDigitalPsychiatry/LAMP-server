@@ -1,11 +1,13 @@
 import Bull from "bull"
 import { PushNotificationQueueProcess } from "./PushNotificationQueue"
 import { PubSubAPIListenerQueueProcess } from "./PubSubAPIListenerQueue"
+import { BulkDataWriteQueueProcess } from "./BulkDataWriteQueue"
 
 export let PushNotificationQueue: Bull.Queue<any> | undefined
 export let PubSubAPIListenerQueue: Bull.Queue<any> | undefined
 export let CacheDataQueue: Bull.Queue<any> | undefined
 export let BulkDataWriteQueue: Bull.Queue<any> | undefined
+
 
 /**Initialize queues and its process
  *
@@ -13,13 +15,17 @@ export let BulkDataWriteQueue: Bull.Queue<any> | undefined
 export async function initializeQueues(): Promise<void> {
   try {
     PushNotificationQueue = new Bull("PushNotification", process.env.REDIS_HOST ?? "")
-    PubSubAPIListenerQueue = new Bull("PubSubAPIListener", process.env.REDIS_HOST ?? "")    
+    PubSubAPIListenerQueue = new Bull("PubSubAPIListener", process.env.REDIS_HOST ?? "")
+    BulkDataWriteQueue = new Bull("BulkDataWrite", process.env.REDIS_HOST ?? "")
     PushNotificationQueue.process((job) => {
       PushNotificationQueueProcess(job)
     })
     PubSubAPIListenerQueue.process((job, done) => {
       PubSubAPIListenerQueueProcess(job, done)
-    })    
+    })
+    BulkDataWriteQueue.process((job) => {
+      BulkDataWriteQueueProcess(job)
+    })
   } catch (error) {
     console.log(error)
   }

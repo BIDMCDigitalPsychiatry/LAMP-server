@@ -87,6 +87,8 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
       job.data.topic === "activity.*.activity_event" ||
       job.data.topic === "participant.*.activity.*.activity_event"
     ) {
+      const repo = new Repository()
+      const ActivityRepository = repo.getActivityRepository()
       for (const payload of job.data.payload) {
         const release = await clientLock.acquire()
         try {
@@ -94,6 +96,14 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
           payload.topic = job.data.topic
           payload.participant_id = job.data.participant_id
           payload.action = job.data.action
+
+          const activity_detail = await ActivityRepository._select(payload.activity, false, true)
+          if (activity_detail.length !== 0) {
+            payload.static_data =
+              !!activity_detail[0].spec && activity_detail[0].spec === "lamp.recording"
+                ? undefined
+                : payload.static_data
+          }
           Data.data = JSON.stringify(payload)
           //form the token for the consumer
           Data.token = `activity.${payload.activity}.participant.${job.data.participant_id}`
