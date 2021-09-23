@@ -27,7 +27,7 @@ export class SensorEventService {
     return await SensorEventRepository._select(participant_id, origin, from, to, limit)
   }
 
-  public static async create(auth: any, participant_id: string, sensor_events: any[]) {     
+  public static async create(auth: any, participant_id: string, sensor_events: any[]) {       
     const SensorEventRepository = new Repository().getSensorEventRepository()
     participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
     let data={} 
@@ -50,6 +50,11 @@ SensorEventService.Router.post("/participant/:participant_id/sensor_event", asyn
       ),
     })
   } catch (e) {
+    console.log("Sensor Events On Failure",req.body)
+    if(!!e.message) {
+     console.log("Error On Failure",e)
+     console.log("Failure Msg On Sensor Events Failure",e.message)
+    }
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
