@@ -3,7 +3,7 @@ import { Repository } from "../../repository/Bootstrap"
 import { Mutex } from "async-mutex"
 import { MongoClientDB } from "../../repository/Bootstrap"
 import { Database } from "../../repository/Bootstrap"
-const clientLock = new Mutex()
+
 /** Queue Process
  *
  * @param job
@@ -13,7 +13,6 @@ export async function BulkDataWriteQueueProcess(job: Bull.Job<any>): Promise<voi
   switch (job.data.key) {
     case "sensor_event":
       const SensorEventRepository = repo.getSensorEventRepository()
-      // const release = await clientLock.acquire()      
       let sensor_events: any[] = []
       for (const data of job.data.payload) {
         const participant_id = JSON.parse(data).participant_id
@@ -26,12 +25,12 @@ export async function BulkDataWriteQueueProcess(job: Bull.Job<any>): Promise<voi
         }
       }
       try {
-        console.log("sensor_events length",sensor_events.length)
-          await SensorEventRepository._bulkWrite(sensor_events)
+        console.log("sensor_events length", sensor_events.length)
+        await SensorEventRepository._bulkWrite(sensor_events)
       } catch (error) {
         console.log(error)
       }
-      // release()
+
       break
 
     default:
