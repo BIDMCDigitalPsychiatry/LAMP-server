@@ -3,7 +3,7 @@ import { Repository } from "../../repository/Bootstrap"
 import { RedisClient } from "../../repository/Bootstrap"
 import { Mutex } from "async-mutex"
 const clientLock = new Mutex()
-const Max_Store_Size = 10
+const Max_Store_Size = 20000
 /** Queue Process
  *
  * @param job
