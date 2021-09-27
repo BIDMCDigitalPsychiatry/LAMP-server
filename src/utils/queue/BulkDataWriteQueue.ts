@@ -3,12 +3,12 @@ import { Repository } from "../../repository/Bootstrap"
 import { RedisClient } from "../../repository/Bootstrap"
 import { Mutex } from "async-mutex"
 const clientLock = new Mutex()
-const Max_Store_Size = 20000
+const Max_Store_Size = 6000
 /** Queue Process
  *
  * @param job
  */
-export async function BulkDataWriteQueueProcess(job: Bull.Job<any>): Promise<void> {  
+export async function BulkDataWriteQueueProcess(job: Bull.Job<any>): Promise<void> {
   switch (job.data.key) {
     case "sensor_event":
       //wait for same participant with same timestamp
@@ -24,7 +24,7 @@ export async function BulkDataWriteQueueProcess(job: Bull.Job<any>): Promise<voi
         await RedisClient?.ltrim(participant_id, Max_Store_Size, -1)
       }
       release()
-      if (write) {   
+      if (write) {
         console.log("Store_length to write", `${participant_id}-${Store_Data.length}}`)     
         SaveSensorEvent(Store_Data) 
       }       
