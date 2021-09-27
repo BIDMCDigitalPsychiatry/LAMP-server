@@ -19,7 +19,7 @@ export async function BulkDataWriteQueueProcess(job: Bull.Job<any>): Promise<voi
       let  Store_Data = new Array
       if (Store_Size > Max_Store_Size) {
         console.log("Store_Size", `${participant_id}-${Store_Size}`)
-        Store_Data = (await RedisClient?.lrange(participant_id, 0, Max_Store_Size)) as any       
+        Store_Data = (await RedisClient?.lrange(participant_id, 0, (Max_Store_Size-1))) as any       
         write = true
         await RedisClient?.ltrim(participant_id, Max_Store_Size, -1)
       }
