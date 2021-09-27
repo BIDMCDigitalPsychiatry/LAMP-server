@@ -1,21 +1,34 @@
 import Bull from "bull"
 import { Repository } from "../../repository/Bootstrap"
 import { RedisClient } from "../../repository/Bootstrap"
-const Max_Store_Size = 20000
+import { Mutex } from "async-mutex"
+const clientLock = new Mutex()
+const Max_Store_Size = 10
 /** Queue Process
  *
  * @param job
  */
-export async function BulkDataWriteQueueProcess(job: Bull.Job<any>): Promise<void> {
-  const repo = new Repository()
+export async function BulkDataWriteQueueProcess(job: Bull.Job<any>): Promise<void> {  
   switch (job.data.key) {
     case "sensor_event":
+      //wait for same participant with same timestamp
+      const release = await clientLock.acquire()
+      let write = false
       const participant_id = job.data.participant_id
-      const Store_Size = (await RedisClient?.llen(participant_id)) as number
-      console.log("Store_Size", `${participant_id}-${Store_Size}`)
+      const Store_Size = (await RedisClient?.llen(participant_id)) as number      
+      let  Store_Data = new Array
       if (Store_Size > Max_Store_Size) {
-        PushFromRedis(participant_id, Store_Size)
+        console.log("Store_Size", `${participant_id}-${Store_Size}`)
+        Store_Data = (await RedisClient?.lrange(participant_id, 0, Max_Store_Size)) as any       
+        write = true
+        await RedisClient?.ltrim(participant_id, Max_Store_Size, -1)
       }
+      release()
+      if (write) {   
+        console.log("Store_length to write", `${participant_id}-${Store_Data.length}}`)     
+        SaveSensorEvent(Store_Data) 
+      }       
+
       break
     default:
       break
@@ -50,6 +63,7 @@ async function PushFromRedis(Q_Name: string, Store_Size: number) {
  * @param datas
  */
 async function SaveSensorEvent(datas: any[]) {
+  console.log("write started timestamp",Date.now())
   const repo = new Repository()
   const SensorEventRepository = repo.getSensorEventRepository()
   let sensor_events: any[] = []
@@ -64,7 +78,9 @@ async function SaveSensorEvent(datas: any[]) {
     }
   }
   try {
-    await SensorEventRepository._bulkWrite(sensor_events)
+     let obj = await SensorEventRepository._bulkWrite(sensor_events)
+     console.log("bulk write finished",obj)
+     console.log("write finished timestamp",Date.now())
   } catch (error) {
     console.log("db write error", error)
   }
