@@ -11,8 +11,7 @@ import { BulkDataWriteQueue } from "./Queue"
  */
 export const BulkDataWrite = async (key: string, participant_id: string, data: any[]): Promise<void> => {
   switch (key) {
-    case "sensor_event":
-      console.log(Date.now())
+    case "sensor_event":      
       if (data.length === 0 || data.length === undefined) break
       publishSensorEvent(participant_id, [data[data.length - 1]])
       if (data.length === 1) {
