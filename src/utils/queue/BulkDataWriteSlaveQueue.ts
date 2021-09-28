@@ -1,8 +1,6 @@
 import Bull from "bull"
 import { Repository } from "../../repository/Bootstrap"
-import { Mutex } from "async-mutex"
-const clientLock = new Mutex()
-const Max_Store_Size = 60000
+
 /** Queue Process
  *
  * @param job
@@ -10,7 +8,7 @@ const Max_Store_Size = 60000
 export async function BulkDataWriteSlaveQueueProcess(job: Bull.Job<any>): Promise<void> {
   switch (job.data.key) {
     case "sensor_event":
-        console.log("write started timestamp",Date.now())
+        console.log("write started timestamp",`${job.id}-${Date.now()}`)
         const repo = new Repository()
         const SensorEventRepository = repo.getSensorEventRepository()
         const datas = job.data.payload
@@ -25,11 +23,10 @@ export async function BulkDataWriteSlaveQueueProcess(job: Bull.Job<any>): Promis
            await sensor_events.push({ ...sensor_event, "#parent": participant_id })
          }
   }
-  try {
-    
+  try {    
      let obj = await SensorEventRepository._bulkWrite(sensor_events)
      console.log("bulk write finished",obj)
-     console.log("write finished timestamp",Date.now())     
+     console.log("write finished timestamp",`${job.id}-${Date.now()}`)     
   } catch (error) {
     console.log("db write error", error)
   }     
