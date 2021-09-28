@@ -1,9 +1,9 @@
 import Bull from "bull"
-import { Repository } from "../../repository/Bootstrap"
 import { RedisClient } from "../../repository/Bootstrap"
+import { BulkDataWriteSlaveQueue } from "./Queue"
 import { Mutex } from "async-mutex"
 const clientLock = new Mutex()
-const Max_Store_Size = 6000
+const Max_Store_Size = 60000
 /** Queue Process
  *
  * @param job
@@ -11,22 +11,24 @@ const Max_Store_Size = 6000
 export async function BulkDataWriteQueueProcess(job: Bull.Job<any>): Promise<void> {
   switch (job.data.key) {
     case "sensor_event":
+      
       //wait for same participant with same timestamp
       const release = await clientLock.acquire()
-      let write = false
-      const participant_id = job.data.participant_id
-      const Store_Size = (await RedisClient?.llen(participant_id)) as number      
+      let write = false      
+      const Store_Size = (await RedisClient?.llen('se_Q')) as number      
       let  Store_Data = new Array
       if (Store_Size > Max_Store_Size) {
-        console.log("Store_Size", `${participant_id}-${Store_Size}`)
-        Store_Data = (await RedisClient?.lrange(participant_id, 0, (Max_Store_Size-1))) as any       
+        console.log("Store_Size", `${Store_Size}`)
+        Store_Data = (await RedisClient?.lrange('se_Q', 0, (Max_Store_Size-1))) as any       
         write = true
-        await RedisClient?.ltrim(participant_id, Max_Store_Size, -1)
+        await RedisClient?.ltrim('se_Q', Max_Store_Size, -1)
       }
       release()
-      if (write) {
-        console.log("Store_length to write", `${participant_id}-${Store_Data.length}}`)     
-        SaveSensorEvent(Store_Data) 
+      if (write) {      
+        //delayed write    
+        SaveSensorEvent(Store_Data.slice(0,20001)) 
+        SaveSensorEvent(Store_Data.slice(20001,40002),15000) 
+        SaveSensorEvent(Store_Data.slice(40002,60001),30000) 
       }       
 
       break
@@ -58,30 +60,27 @@ async function PushFromRedis(Q_Name: string, Store_Size: number) {
   }
 }
 
-/** save bulk sensor event data
+/** save bulk sensor event data via queue
  *
  * @param datas
  */
-async function SaveSensorEvent(datas: any[]) {
-  console.log("write started timestamp",Date.now())
-  const repo = new Repository()
-  const SensorEventRepository = repo.getSensorEventRepository()
-  let sensor_events: any[] = []
-  for (const data of datas) {
-    const participant_id = JSON.parse(data).participant_id
-    const sensor_event = JSON.parse(data)
-    await delete sensor_event.participant_id
-    if (process.env.DB?.startsWith("mongodb://")) {
-      await sensor_events.push({ ...sensor_event, _parent: participant_id })
-    } else {
-      await sensor_events.push({ ...sensor_event, "#parent": participant_id })
-    }
-  }
-  try {
-     let obj = await SensorEventRepository._bulkWrite(sensor_events)
-     console.log("bulk write finished",obj)
-     console.log("write finished timestamp",Date.now())
-  } catch (error) {
-    console.log("db write error", error)
-  }
+async function SaveSensorEvent(datas: any[],delay?:number) {  
+  console.log('datas length to write',datas.length)
+  console.log('delay to write',delay)
+  if(datas.length>0) {
+    BulkDataWriteSlaveQueue?.add(
+      {
+        key: "sensor_event",
+        payload:datas
+      },
+      {
+        attempts: 3, //attempts to do db write if failed
+        backoff: 10000, // retry for db insert every 10 seconds if failed
+        removeOnComplete: true,
+        removeOnFail: true,
+        delay:delay===undefined ? 2000:delay
+      }
+    )
+  } 
+  
 }
