@@ -3,7 +3,7 @@ import { RedisClient } from "../../repository/Bootstrap"
 import { BulkDataWriteSlaveQueue } from "./Queue"
 import { Mutex } from "async-mutex"
 const clientLock = new Mutex()
-const Max_Store_Size = 60000
+const Max_Store_Size = 30000
 /** Queue Process
  *
  * @param job
@@ -26,9 +26,9 @@ export async function BulkDataWriteQueueProcess(job: Bull.Job<any>): Promise<voi
       release()
       if (write) {      
         //delayed write    
-        SaveSensorEvent(Store_Data.slice(0,20001)) 
-        SaveSensorEvent(Store_Data.slice(20001,40002),15000) 
-        SaveSensorEvent(Store_Data.slice(40002,60001),30000) 
+        SaveSensorEvent(Store_Data) 
+        // SaveSensorEvent(Store_Data.slice(20001,40002),15000) 
+        // SaveSensorEvent(Store_Data.slice(40002,60001),30000) 
       }       
 
       break
@@ -78,7 +78,7 @@ async function SaveSensorEvent(datas: any[],delay?:number) {
         backoff: 10000, // retry for db insert every 10 seconds if failed
         removeOnComplete: true,
         removeOnFail: true,
-        delay:delay===undefined ? 2000:delay
+        delay:delay===undefined ? 1000 : delay
       }
     )
   } 
