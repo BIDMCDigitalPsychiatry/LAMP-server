@@ -49,12 +49,8 @@ SensorEventService.Router.post("/participant/:participant_id/sensor_event", asyn
         Array.isArray(req.body) ? req.body : [req.body]
       ),
     })
-  } catch (e) {
-    console.log("Sensor Events On Failure",req.body)
-    if(!!e.message) {
-     console.log("Error On Failure",e)
-     console.log("Failure Msg On Sensor Events Failure",e.message)
-    }
+  } catch (e) {           
+    console.log("Failure Msg On sensor events post",e.message)   
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
@@ -79,17 +75,4 @@ SensorEventService.Router.get("/participant/:participant_id/sensor_event", async
   }
 })
 
-SensorEventService.Router.get("/cache/sensor_event", async (req: Request, res: Response) => {
-  try {    
-    let start = Number.parse((req.query as any).from) as any
-    let end = Number.parse((req.query as any).to) as any
-    const Store_Data = {data:(await RedisClient?.lrange('se_Q', start, end)) as any  }
-    // console.log("LIN",JSON.parse(Store_Data))
-    let output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(Store_Data) : Store_Data
-    res.json(output)
-  } catch (e) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
-    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
-  }
-})
 // TODO: activity/* and sensor/* entry
