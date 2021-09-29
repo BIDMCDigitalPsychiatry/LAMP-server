@@ -9,8 +9,7 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
       ? await MongoClientDB.collection("activity_spec").find({$or: [ { _deleted: false, _id: id }, { _deleted: undefined, _id: id } ]}).maxTimeMS(60000).toArray()
       : await MongoClientDB.collection("activity_spec").find({$or: [ { _deleted: false }, { _deleted: undefined } ]}).maxTimeMS(60000).toArray()
     return (data as any).map((x: any) => ({
-      id: x._id,
-      name: x._id,
+      id: x._id, 
       ...x,
       _id: undefined,
       __v: undefined,
