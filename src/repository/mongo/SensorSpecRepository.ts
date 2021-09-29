@@ -9,7 +9,6 @@ export class SensorSpecRepository implements SensorSpecInterface {
       : await MongoClientDB.collection("sensor_spec").find({$or: [ { _deleted: false }, { _deleted: undefined } ]}).maxTimeMS(60000).toArray()
     return (data as any).map((x: any) => ({          
       id: x._id,
-      name: x._id,
       ...x,
       _id: undefined,
       __v: undefined,
