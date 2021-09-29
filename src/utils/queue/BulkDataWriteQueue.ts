@@ -11,25 +11,24 @@ const Max_Store_Size = 30000
 export async function BulkDataWriteQueueProcess(job: Bull.Job<any>): Promise<void> {
   switch (job.data.key) {
     case "sensor_event":
-      
       //wait for same participant with same timestamp
       const release = await clientLock.acquire()
-      let write = false      
-      const Store_Size = (await RedisClient?.llen('se_Q')) as number      
-      let  Store_Data = new Array
+      let write = false
+      const Store_Size = (await RedisClient?.llen("se_Q")) as number
+      let Store_Data = new Array()
       if (Store_Size > Max_Store_Size) {
         console.log("Store_Size", `${Store_Size}`)
-        Store_Data = (await RedisClient?.lrange('se_Q', 0, (Max_Store_Size-1))) as any       
+        Store_Data = (await RedisClient?.lrange("se_Q", 0, Max_Store_Size - 1)) as any
         write = true
-        await RedisClient?.ltrim('se_Q', Max_Store_Size, -1)
+        await RedisClient?.ltrim("se_Q", Max_Store_Size, -1)
       }
       release()
-      if (write) {      
-        //delayed write    
-        SaveSensorEvent(Store_Data) 
-        // SaveSensorEvent(Store_Data.slice(20001,40002),15000) 
-        // SaveSensorEvent(Store_Data.slice(40002,60001),30000) 
-      }       
+      if (write) {
+        //delayed write
+        SaveSensorEvent(Store_Data)
+        // SaveSensorEvent(Store_Data.slice(20001,40002),15000)
+        // SaveSensorEvent(Store_Data.slice(40002,60001),30000)
+      }
 
       break
     default:
@@ -64,23 +63,20 @@ async function PushFromRedis(Q_Name: string, Store_Size: number) {
  *
  * @param datas
  */
-async function SaveSensorEvent(datas: any[],delay?:number) {  
-  console.log('datas length to write',datas.length)
-  console.log('delay to write',delay)
-  if(datas.length>0) {
+async function SaveSensorEvent(datas: any[], delay?: number) {
+  if (datas.length > 0) {
     BulkDataWriteSlaveQueue?.add(
       {
         key: "sensor_event",
-        payload:datas
+        payload: datas,
       },
       {
         attempts: 3, //attempts to do db write if failed
         backoff: 10000, // retry for db insert every 10 seconds if failed
         removeOnComplete: true,
         removeOnFail: true,
-        delay:delay===undefined ? 1000 : delay
+        delay: delay === undefined ? 1000 : delay,
       }
     )
-  } 
-  
+  }
 }
