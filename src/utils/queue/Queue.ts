@@ -2,14 +2,13 @@ import Bull from "bull"
 import { PushNotificationQueueProcess } from "./PushNotificationQueue"
 import { PubSubAPIListenerQueueProcess } from "./PubSubAPIListenerQueue"
 import { BulkDataWriteQueueProcess } from "./BulkDataWriteQueue"
-import { BulkDataWriteSlaveQueueProcess  } from "./BulkDataWriteSlaveQueue"
+import { BulkDataWriteSlaveQueueProcess } from "./BulkDataWriteSlaveQueue"
 
 export let PushNotificationQueue: Bull.Queue<any> | undefined
 export let PubSubAPIListenerQueue: Bull.Queue<any> | undefined
 export let CacheDataQueue: Bull.Queue<any> | undefined
 export let BulkDataWriteQueue: Bull.Queue<any> | undefined
 export let BulkDataWriteSlaveQueue: Bull.Queue<any> | undefined
-
 
 /**Initialize queues and its process
  *
