@@ -1,5 +1,6 @@
 import { Identifier, Timestamp } from "./Type"
 type JSONSchema = any
+type Tab = 'learn' | 'assess' | 'manage' | 'prevent'
 export class ActivitySpec {
   public name?: string
   public help_contents?: string
@@ -7,4 +8,5 @@ export class ActivitySpec {
   public static_data_schema?: JSONSchema
   public temporal_slice_schema?: JSONSchema
   public settings_schema?: JSONSchema
+  public category?: Tab[] | null
 }

@@ -292,7 +292,7 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
       }
     }
   } catch (error) {
-    console.log("Nats server is disconnected")
+    console.log("Nats server is disconnected1",error)
   }
   done()
 }
@@ -306,7 +306,7 @@ async function publishSensorEvent(topic: any, data: any): Promise<void> {
   try {
     ;(await nc).publish(topic, data)
   } catch (error) {
-    console.log("Nats server is disconnected")
+    console.log("Nats server is disconnected2",error)
   }
 }
 
@@ -319,7 +319,7 @@ async function publishActivityEvent(topic: any, data: any): Promise<void> {
   try {
     ;(await nc).publish(topic, data)
   } catch (error) {
-    console.log("Nats server is disconnected")
+    console.log("Nats server is disconnected3",error)
   }
 }
 
@@ -330,6 +330,6 @@ async function publishIDs(topic: string, Data: any): Promise<any> {
   try {
     ;(await nc).publish(topic, Data)
   } catch (error) {
-    console.log("Nats server is disconnected")
+    console.log("Nats server is disconnected4",error)
   }
 }

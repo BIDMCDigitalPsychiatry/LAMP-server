@@ -26,6 +26,7 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
         static_data_schema: object.static_data_schema ?? {},
         temporal_slice_schema: object.temporal_slice_schema ?? {},
         settings_schema: object.settings_schema ?? {},
+        category: object.category ?? null,
         _deleted: false,
       } as any)
       return {}
@@ -40,10 +41,11 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
       {
         $set: {
           help_contents: object.help_contents ?? orig.help_contents,
-          script_contents: object.script_contents ?? orig.script_contents,
+          script_contents: object.script_contents ?? orig.script_contents,          
           static_data_schema: object.static_data_schema ?? orig.static_data_schema,
           temporal_slice_schema: object.temporal_slice_schema ?? orig.temporal_slice_schema,
-          settings_schema: object.settings_schema ?? orig.settings_schema
+          settings_schema: object.settings_schema ?? orig.settings_schema,
+          category: object.category ?? orig.category
         },
       }
     )
