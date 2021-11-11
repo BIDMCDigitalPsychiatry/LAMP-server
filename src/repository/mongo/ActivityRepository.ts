@@ -5,7 +5,7 @@ import { MongoClientDB } from "../Bootstrap"
 
 export class ActivityRepository implements ActivityInterface {
   public async _select(id: string | null, parent = false, ignore_binary = false): Promise<Activity[]> {
-    console.log("Fetching acTivity--")
+    console.log("sdsFetching acTivity--")
     //aggregate will give faster results (particulary when projection in query is applied, 2sec -find, 0.5 sec-aggregate)
     const data = await MongoClientDB.collection("activity")
       .aggregate([
@@ -13,8 +13,8 @@ export class ActivityRepository implements ActivityInterface {
           ? { $match: !!id ? { _parent: { $eq: id }, _deleted: { $eq: false } } : { _deleted: { $eq: false } } }
           : { $match: !!id ? { _id: { $eq: id }, _deleted: { $eq: false } } : { _deleted: { $eq: false } } },
         ignore_binary
-          ? { $project: { name: 1, spec: 1, schedule: 1, _parent: 1 } }
-          : { $project: { name: 1, spec: 1, schedule: 1, _parent: 1, settings: 1 } },
+          ? { $project: { name: 1, spec: 1, schedule: 1, _parent: 1, category:1 } }
+          : { $project: { name: 1, spec: 1, schedule: 1, _parent: 1, settings: 1, category:1 } },
         { $sort: { timestamp: 1 } },
         { $limit: 2_147_483_647 },
       ], { allowDiskUse: true })
@@ -43,6 +43,7 @@ export class ActivityRepository implements ActivityInterface {
       name: object.name ?? "",
       settings: object.settings ?? {},
       schedule: object.schedule ?? [],
+      category:object.category ?? null,
       _deleted: false,
     } as any)
 
@@ -82,6 +83,7 @@ export class ActivityRepository implements ActivityInterface {
         $set: {
           name: object.name ?? orig.name,
           settings: object.settings ?? orig.settings,
+          category: object.category ?? orig.category,
           schedule: (newSchedules.length !== 0 ? newSchedules : object.schedule) ?? orig.schedule,
         },
       }
@@ -110,7 +112,7 @@ export class ActivityRepository implements ActivityInterface {
         parent
           ? { $match: !!id ? { _parent: { $eq: id }, _deleted: { $eq: false } } : { _deleted: { $eq: false } } }
           : { $match: !!id ? { _id: { $eq: id }, _deleted: { $eq: false } } : { _deleted: { $eq: false } } },
-        { $project: { name: 1, spec: 1, schedule: 1, _parent: 1 } },
+        { $project: { name: 1, spec: 1, schedule: 1, _parent: 1, category:1 } },
         { $sort: { timestamp: 1 } },
         { $limit: 2_147_483_647 },
       ])

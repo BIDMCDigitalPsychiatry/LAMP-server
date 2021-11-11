@@ -13,7 +13,8 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
   switch (key) {
     case "sensor_event":
       if (data.length === 0 || data.length === undefined) break
-      publishSensorEvent(participant_id, [data[data.length - 1]])
+      if (data.length !== undefined && data.length > 0)
+       publishSensorEvent(participant_id, [data[data.length - 1]])
       if (data.length === 1) {
         const SensorEventRepository = new Repository().getSensorEventRepository()
         await SensorEventRepository._insert(participant_id, data)
@@ -30,18 +31,22 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
           console.log("error while pushing to redis store", error)
         }
       }
-      //trigger event to check store size and db writes
-      BulkDataWriteQueue?.add(
-        {
-          key: "sensor_event",
-        },
-        {
-          attempts: 3, //attempts to do db write if failed
-          backoff: 10000, // retry for db insert every 10 seconds if failed
-          removeOnComplete: true,
-          removeOnFail: true,
-        }
-      )
+      try {
+        //trigger event to check store size and db writes
+        BulkDataWriteQueue?.add(
+          {
+            key: "sensor_event",
+          },
+          {
+            attempts: 3, //attempts to do db write if failed
+            backoff: 10000, // retry for db insert every 10 seconds if failed
+            removeOnComplete: true,
+            removeOnFail: true,
+          }
+        )
+      } catch (error) {
+        console.log("error while pushing to BulkDataWriteQueue", error)
+      }
       break
 
     default:
@@ -78,5 +83,7 @@ function publishSensorEvent(participant_id: string, data: any[]) {
         }
       )
     })
-  } catch (error) {}
+  } catch (error) {
+    console.log("error while pushing to nats in bulk write", error)
+  }
 }
