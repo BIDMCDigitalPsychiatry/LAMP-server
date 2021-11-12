@@ -932,6 +932,7 @@ export async function Bootstrap(): Promise<void> {
 export const nc = connect({
   servers: [`${process.env.NATS_SERVER}`],
   payload: Payload.JSON,
+  maxReconnectAttempts:-1
 }).then((x) =>
   x.on("connect", (y) => {
     console.log("Connected to Nats Pub Server")
@@ -940,6 +941,7 @@ export const nc = connect({
 export const ncSub = connect({
   servers: [`${process.env.NATS_SERVER}`],
   payload: Payload.JSON,
+  maxReconnectAttempts:-1
 }).then((x) =>
   x.on("connect", (y) => {
     console.log("Connected to Nats Sub Server")
