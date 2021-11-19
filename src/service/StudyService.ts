@@ -208,6 +208,7 @@ StudyService.Router.post("/researcher/:researcher_id/study/clone", async (req: R
             spec: activity.spec,
             settings: activity.settings,
             schedule: activity.schedule,
+            category: activity.category ?? null
           }
           const res = await ActivityRepository._insert(output["data"], object)
           object.id = activity.id
