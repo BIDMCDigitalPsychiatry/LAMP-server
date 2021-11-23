@@ -32,6 +32,8 @@ export class ActivityService {
     activity.settings = undefined
     activity.schedule = undefined
     activity.photo = undefined
+    activity.icon = undefined
+    activity.category = undefined
 
     PubSubAPIListenerQueue?.add(
       {

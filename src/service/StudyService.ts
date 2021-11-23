@@ -227,7 +227,9 @@ StudyService.Router.post("/researcher/:researcher_id/study/clone", async (req: R
             token: `study.${output["data"]}.activity.${res}`,
             payload: { action: "create", activity_id: res, study_id: output["data"] },
           })
-        } catch (error) {}
+        } catch (error) {
+          console.log("error clone1",error)
+        }
       }
       let NewGroupActivities = new Array()
       if (GrpActivities.length) {
@@ -260,7 +262,9 @@ StudyService.Router.post("/researcher/:researcher_id/study/clone", async (req: R
             token: `study.${output["data"]}.activity.${res}`,
             payload: { action: "create", activity_id: res, study_id: output["data"] },
           })
-        } catch (error) {}
+        } catch (error) {
+          console.log("error clone2",error)
+        }
       }
 
       //clone sensors  to new studyid
