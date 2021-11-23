@@ -110,6 +110,7 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
           const size = Buffer.byteLength(Data.data)
           //IF SIZE GREATER THAN NATS PAYLOAD MAX SIZE
           if (size > maxPayloadSize) {
+            console.log("size > maxPayloadSize ae",size)
             const dataNew: any = {}
             dataNew.data = JSON.stringify({
               activity: payload.activity,
@@ -160,6 +161,7 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
 
           //IF SIZE GREATER THAN NATS PAYLOAD MAX SIZE
           if (size > maxPayloadSize) {
+            console.log("size > maxPayloadSize se",size)
             const dataNew: any = {}
             dataNew.data = JSON.stringify({
               subject_id: job.data.participant_id,
@@ -195,6 +197,7 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
 
         //IF SIZE GREATER THAN NATS PAYLOAD MAX SIZE-TAKE CORRESPONDIG IDs AND PUBLISH
         if (size > maxPayloadSize) {
+          console.log("size > maxPayloadSize not se/ae",size)
           const dataNew: any = {}
           switch (job.data.topic) {
             //FOR RESEARCHER APIS
@@ -251,7 +254,7 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
                   action: job.data.payload.action,
                   subject_id: job.data.payload.activity_id,
                 })
-                await publishIDs(job.data.topic, dataNew)
+                
               } else {
                 dataNew.data = JSON.stringify({
                   action: job.data.payload.action,
@@ -259,6 +262,7 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
                   study_id: job.data.payload.study_id,
                 })
               }
+              await publishIDs(job.data.topic, dataNew)
               break
             //FOR sensor APIS
             case "sensor":
@@ -268,8 +272,7 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
                 dataNew.data = JSON.stringify({
                   action: job.data.payload.action,
                   subject_id: job.data.payload.sensor_id,
-                })
-                await publishIDs(job.data.topic, dataNew)
+                })                
               } else {
                 dataNew.data = JSON.stringify({
                   action: job.data.payload.action,
@@ -277,6 +280,7 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
                   study_id: job.data.payload.study_id,
                 })
               }
+              await publishIDs(job.data.topic, dataNew)
               break
 
             default:

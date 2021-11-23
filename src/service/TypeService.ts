@@ -57,17 +57,18 @@ export class TypeService {
   ) {
     const TypeRepository = new Repository().getTypeRepository()
     type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
-    PubSubAPIListenerQueue?.add(
-        {
-          topic: attachment_key,
-          token: attachment_key,
-          payload: {researcher_id:type_id},
-        },
-        {
-          removeOnComplete: true,
-          removeOnFail: true,
-        }
-    )
+    if(attachment_key === 'lamp.automation')
+      PubSubAPIListenerQueue?.add(
+          {
+            topic: attachment_key,
+            token: attachment_key,
+            payload: {researcher_id:type_id},
+          },
+          {
+            removeOnComplete: true,
+            removeOnFail: true,
+          }
+      )
     return await TypeRepository._set("a", target, <string>type_id, attachment_key, attachment_value)
   }
 }
