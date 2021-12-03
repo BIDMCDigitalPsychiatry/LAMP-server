@@ -1,7 +1,7 @@
 import nano from "nano"
 import crypto from "crypto"
 import { customAlphabet } from "nanoid"
-import { connect, NatsConnectionOptions, Payload } from "ts-nats"
+import { connect, NatsConnectionOptions, Payload, Client, ServerInfo } from "ts-nats"
 import { MongoClient, ObjectID } from "mongodb"
 import {
   ResearcherRepository,
@@ -45,6 +45,7 @@ import {
 import ioredis from "ioredis"
 import { initializeQueues } from "../utils/queue/Queue"
 export let RedisClient: ioredis.Redis | undefined
+export let nc: Client
 export let MongoClientDB: any
 //initialize driver for db
 let DB_DRIVER = ""
@@ -117,12 +118,41 @@ export const Decrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"):
 // Initialize the CouchDB databases if any of them do not exist.
 export async function Bootstrap(): Promise<void> {
   if (typeof process.env.REDIS_HOST === "string") {
-    initializeQueues()
-    RedisClient = new ioredis(      
-      parseInt(`${(process.env.REDIS_HOST as any).match(/([0-9]+)/g)?.[0]}`),
-      process.env.REDIS_HOST.match(/\/\/([0-9a-zA-Z._]+)/g)?.[0]
-    )
+    let intervalId = setInterval(async () => {
+      try {
+        new Promise((resolve, reject) => {
+          RedisClient = new ioredis(
+            parseInt(`${(process.env.REDIS_HOST as any).match(/([0-9]+)/g)?.[0]}`),
+            (process.env.REDIS_HOST as any).match(/\/\/([0-9a-zA-Z._]+)/g)?.[0]
+          )
+          console.log("Trying to connect redis")
+          RedisClient.on("connect", () => {
+            console.log("Connected to redis")
+            initializeQueues()
+            clearInterval(intervalId)
+            resolve
+          })
+          RedisClient.on("error", async () => {
+            console.log("redis connection error")
+             reject
+          })
+          RedisClient.on("disconnected", async () => {
+            console.log(" redis disconnected")
+            reject
+          })
+          // RedisClient.monitor(function (err, monitor) {
+          //   // Entering monitoring mode.
+          //   monitor.on('monitor', function (time, args, source, database) {
+          //     // console.log(time + ": " + args);
+          //   });
+          // });
+        })
+      } catch (err) {
+        console.log("Error initializing redis ", err)
+      }
+    }, 10000)
   }
+  await NatsConnect()
 
   if (DB_DRIVER === "couchdb") {
     console.group("Initializing database connection...")
@@ -774,7 +804,6 @@ export async function Bootstrap(): Promise<void> {
     console.groupEnd()
     console.log("Database verification complete.")
   } else {
-      
     //Connect to mongoDB
     const client = new MongoClient(`${process.env.DB}`, {
       useNewUrlParser: true,
@@ -805,7 +834,7 @@ export async function Bootstrap(): Promise<void> {
       for (const db of DBs) {
         await dbs.push(db.name)
       }
-        
+
       // Preparing Mongo Collections
       if (!dbs.includes("activity_spec")) {
         console.log("Initializing ActivitySpec database...")
@@ -898,7 +927,7 @@ export async function Bootstrap(): Promise<void> {
         await database.createIndex({ access_key: 1 })
         await database.createIndex({ origin: 1 })
         await database.createIndex({ origin: 1, access_key: 1 })
-        
+
         console.dir(`An initial administrator password was generated and saved for this installation.`)
         try {
           // Create a new password and emit it to the console while saving it (to share it with the sysadmin).
@@ -917,7 +946,7 @@ export async function Bootstrap(): Promise<void> {
         }
       }
       console.log("Credential database online.")
-      
+
       console.groupEnd()
       console.groupEnd()
       console.log("Database verification complete.")
@@ -928,25 +957,24 @@ export async function Bootstrap(): Promise<void> {
   }
 }
 
-//Initialize NATS connection for publisher and subscriber
-export const nc = connect({
-  servers: [`${process.env.NATS_SERVER}`],
-  payload: Payload.JSON,
-  maxReconnectAttempts:-1
-}).then((x) =>
-  x.on("connect", (y) => {
-    console.log("Connected to Nats Pub Server")
-  })
-)
-export const ncSub = connect({
-  servers: [`${process.env.NATS_SERVER}`],
-  payload: Payload.JSON,
-  maxReconnectAttempts:-1
-}).then((x) =>
-  x.on("connect", (y) => {
-    console.log("Connected to Nats Sub Server")
-  })
-)
+
+async function NatsConnect() {
+  let intervalId = setInterval(async () => {
+    try {
+      nc = await connect({
+        servers: [`${process.env.NATS_SERVER}`],
+        payload: Payload.JSON,
+        maxReconnectAttempts: -1,
+        reconnect: true,
+        reconnectTimeWait: 2000,
+      })
+      clearInterval(intervalId)
+      console.log("Connected to nats pub server")
+    } catch (error) {
+      console.log("Error in Connecting to nats pub server")
+    }
+  }, 10000)
+}
 
 //GET THE REPOSITORY TO USE(Mongo/Couch)
 export class Repository {
