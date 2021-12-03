@@ -15,10 +15,18 @@ export let BulkDataWriteSlaveQueue: Bull.Queue<any> | undefined
  */
 export async function initializeQueues(): Promise<void> {
   try {
-    PushNotificationQueue = new Bull("PushNotification", process.env.REDIS_HOST ?? "")
-    PubSubAPIListenerQueue = new Bull("PubSubAPIListener", process.env.REDIS_HOST ?? "")
-    BulkDataWriteQueue = new Bull("BulkDataWrite", process.env.REDIS_HOST ?? "")
-    BulkDataWriteSlaveQueue = new Bull("BulkDataWriteSlave", process.env.REDIS_HOST ?? "")
+    PushNotificationQueue = new Bull("PushNotification", process.env.REDIS_HOST ?? "",{
+      redis: { enableReadyCheck: true, maxRetriesPerRequest: null },
+    })
+    PubSubAPIListenerQueue = new Bull("PubSubAPIListener", process.env.REDIS_HOST ?? "",{
+      redis: { enableReadyCheck: true, maxRetriesPerRequest: null },
+    })
+    BulkDataWriteQueue = new Bull("BulkDataWrite", process.env.REDIS_HOST ?? "",{
+      redis: { enableReadyCheck: true, maxRetriesPerRequest: null },
+    })
+    BulkDataWriteSlaveQueue = new Bull("BulkDataWriteSlave", process.env.REDIS_HOST ?? "",{
+      redis: { enableReadyCheck: true, maxRetriesPerRequest: null },
+    })
     PushNotificationQueue.process((job) => {
       PushNotificationQueueProcess(job)
     })
