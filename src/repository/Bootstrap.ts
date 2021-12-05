@@ -132,12 +132,12 @@ export async function Bootstrap(): Promise<void> {
             clearInterval(intervalId)
             resolve
           })
-          RedisClient.on("error", async () => {
-            console.log("redis connection error")
+          RedisClient.on("error", async (err) => {
+            console.log("redis connection error",err)
              reject
           })
           RedisClient.on("disconnected", async () => {
-            console.log(" redis disconnected")
+            console.log("redis disconnected")
             reject
           })
           // RedisClient.monitor(function (err, monitor) {
