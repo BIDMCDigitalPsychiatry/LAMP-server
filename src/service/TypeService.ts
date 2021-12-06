@@ -141,8 +141,8 @@ TypeService.Router.put(_put_routes, async (req: Request, res: Response) => {
       data: (await TypeService.set(
         req.get("Authorization"),
         req.params.type_id === "null" ? null : req.params.type_id,
-        req.params.attachment_key,
         req.params.target,
+        req.params.attachment_key,
         req.body
       ))
         ? {}
