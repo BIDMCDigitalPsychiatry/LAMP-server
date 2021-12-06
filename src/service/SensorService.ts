@@ -28,6 +28,7 @@ export class SensorService {
     //publishing data for sensor add api with token = study.{study_id}.sensor.{_id}
     sensor.study_id = study_id
     sensor.action = "create"
+    sensor.settings = undefined
     sensor.sensor_id = data
     PubSubAPIListenerQueue?.add(
       {
@@ -112,6 +113,7 @@ export class SensorService {
       //publishing data for sensor update api (Token will be created in PubSubAPIListenerQueue? consumer, as study for this sensor need to fetched to create token)
       sensor.sensor_id = sensor_id
       sensor.action = "update"
+      sensor.settings = undefined
       PubSubAPIListenerQueue?.add(
         { topic: `sensor.*`, payload: sensor },
         {

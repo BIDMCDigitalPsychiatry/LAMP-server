@@ -7,7 +7,6 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
     const data = await Database.use("activity_spec").list({ include_docs: true, start_key: id, end_key: id })
     return (data.rows as any).map((x: any) => ({
       id: x.doc._id,
-      name: x.doc._id,
       ...x.doc,
       _id: undefined,
       _rev: undefined,
@@ -22,6 +21,7 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
         static_data_schema: object.static_data_schema ?? {},
         temporal_slice_schema: object.temporal_slice_schema ?? {},
         settings_schema: object.settings_schema ?? {},
+        category: object.category ?? null,
       } as any)
       return {}
     } catch (error) {
@@ -39,6 +39,7 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
           static_data_schema: object.static_data_schema ?? orig.static_data_schema,
           temporal_slice_schema: object.temporal_slice_schema ?? orig.temporal_slice_schema,
           settings_schema: object.settings_schema ?? orig.settings_schema,
+          category: object.category ?? orig.category
         },
       ],
     })

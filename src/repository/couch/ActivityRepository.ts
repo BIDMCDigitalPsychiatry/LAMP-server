@@ -30,6 +30,7 @@ export class ActivityRepository implements ActivityInterface {
       name: object.name ?? "",
       settings: object.settings ?? {},
       schedule: object.schedule ?? [],
+      category:object.category ?? null
     } as any)
     return _id
   }
@@ -66,6 +67,7 @@ export class ActivityRepository implements ActivityInterface {
           ...orig,
           name: object.name ?? orig.name,
           settings: object.settings ?? orig.settings,
+          category: object.category ?? orig.category,
           schedule: (newSchedules.length !== 0 ? newSchedules : object.schedule) ?? orig.schedule,
         },
       ],
@@ -97,7 +99,7 @@ export class ActivityRepository implements ActivityInterface {
       await Database.use("activity").find({
         selector: id === null ? {} : { [parent ? "#parent" : "_id"]: id },
         sort: [{ timestamp: "asc" }],
-        fields:["_id","name","spec","schedule","#parent"],
+        fields:["_id","name","spec","schedule","#parent","category"],
         limit: 2_147_483_647 /* 32-bit INT_MAX */,
       })
     ).docs.map((x: any) => ({

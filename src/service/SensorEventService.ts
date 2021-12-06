@@ -4,7 +4,7 @@ const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN TH
 import { Repository } from "../repository/Bootstrap"
 import { BulkDataWrite } from "../utils/queue/BulkDataWrite"
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
-
+import { RedisClient } from "../repository/Bootstrap"
 // default to LIMIT_NAN, clamped to [-LIMIT_MAX, +LIMIT_MAX]
 const LIMIT_NAN = 1000
 const LIMIT_MAX = 2_147_483_647
@@ -27,7 +27,7 @@ export class SensorEventService {
     return await SensorEventRepository._select(participant_id, origin, from, to, limit)
   }
 
-  public static async create(auth: any, participant_id: string, sensor_events: any[]) {     
+  public static async create(auth: any, participant_id: string, sensor_events: any[]) {       
     const SensorEventRepository = new Repository().getSensorEventRepository()
     participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
     let data={} 
@@ -49,7 +49,8 @@ SensorEventService.Router.post("/participant/:participant_id/sensor_event", asyn
         Array.isArray(req.body) ? req.body : [req.body]
       ),
     })
-  } catch (e) {
+  } catch (e) {           
+    console.log("Failure Msg On sensor events post",e.message)   
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
@@ -73,4 +74,5 @@ SensorEventService.Router.get("/participant/:participant_id/sensor_event", async
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
+
 // TODO: activity/* and sensor/* entry

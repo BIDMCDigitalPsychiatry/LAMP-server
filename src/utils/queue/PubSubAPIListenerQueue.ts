@@ -87,6 +87,8 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
       job.data.topic === "activity.*.activity_event" ||
       job.data.topic === "participant.*.activity.*.activity_event"
     ) {
+      const repo = new Repository()
+      const ActivityRepository = repo.getActivityRepository()
       for (const payload of job.data.payload) {
         const release = await clientLock.acquire()
         try {
@@ -94,12 +96,21 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
           payload.topic = job.data.topic
           payload.participant_id = job.data.participant_id
           payload.action = job.data.action
+
+          const activity_detail = await ActivityRepository._select(payload.activity, false, true)
+          if (activity_detail.length !== 0) {
+            payload.static_data =
+              !!activity_detail[0].spec && activity_detail[0].spec === "lamp.recording"
+                ? undefined
+                : payload.static_data
+          }
           Data.data = JSON.stringify(payload)
           //form the token for the consumer
           Data.token = `activity.${payload.activity}.participant.${job.data.participant_id}`
           const size = Buffer.byteLength(Data.data)
           //IF SIZE GREATER THAN NATS PAYLOAD MAX SIZE
           if (size > maxPayloadSize) {
+            console.log('size > maxPayloadSize ae', size)
             const dataNew: any = {}
             dataNew.data = JSON.stringify({
               activity: payload.activity,
@@ -150,6 +161,7 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
 
           //IF SIZE GREATER THAN NATS PAYLOAD MAX SIZE
           if (size > maxPayloadSize) {
+            console.log('size > maxPayloadSize se', size)
             const dataNew: any = {}
             dataNew.data = JSON.stringify({
               subject_id: job.data.participant_id,
@@ -185,6 +197,7 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
 
         //IF SIZE GREATER THAN NATS PAYLOAD MAX SIZE-TAKE CORRESPONDIG IDs AND PUBLISH
         if (size > maxPayloadSize) {
+          console.log('size > maxPayloadSize ', size)
           const dataNew: any = {}
           switch (job.data.topic) {
             //FOR RESEARCHER APIS
@@ -240,8 +253,7 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
                 dataNew.data = JSON.stringify({
                   action: job.data.payload.action,
                   subject_id: job.data.payload.activity_id,
-                })
-                await publishIDs(job.data.topic, dataNew)
+                })                
               } else {
                 dataNew.data = JSON.stringify({
                   action: job.data.payload.action,
@@ -249,6 +261,7 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
                   study_id: job.data.payload.study_id,
                 })
               }
+              await publishIDs(job.data.topic, dataNew)
               break
             //FOR sensor APIS
             case "sensor":
@@ -258,8 +271,7 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
                 dataNew.data = JSON.stringify({
                   action: job.data.payload.action,
                   subject_id: job.data.payload.sensor_id,
-                })
-                await publishIDs(job.data.topic, dataNew)
+                })                
               } else {
                 dataNew.data = JSON.stringify({
                   action: job.data.payload.action,
@@ -267,6 +279,7 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
                   study_id: job.data.payload.study_id,
                 })
               }
+              await publishIDs(job.data.topic, dataNew)
               break
 
             default:
@@ -277,12 +290,13 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
         }
         release()
       } catch (error) {
+        console.log('size > maxPayloadSize ', error)
         release()
         console.log(error)
       }
     }
   } catch (error) {
-    console.log("Nats server is disconnected")
+    console.log("Nats  error 3",error)
   }
   done()
 }
@@ -296,7 +310,7 @@ async function publishSensorEvent(topic: any, data: any): Promise<void> {
   try {
     ;(await nc).publish(topic, data)
   } catch (error) {
-    console.log("Nats server is disconnected")
+    console.log("Nats server is disconnected2",error)
   }
 }
 
@@ -309,7 +323,7 @@ async function publishActivityEvent(topic: any, data: any): Promise<void> {
   try {
     ;(await nc).publish(topic, data)
   } catch (error) {
-    console.log("Nats server is disconnected")
+    console.log("Nats server is disconnected3",error)
   }
 }
 
@@ -320,6 +334,6 @@ async function publishIDs(topic: string, Data: any): Promise<any> {
   try {
     ;(await nc).publish(topic, Data)
   } catch (error) {
-    console.log("Nats server is disconnected")
+    console.log("Nats server is disconnected4",error)
   }
 }

@@ -1,4 +1,4 @@
-import { Request, Response, Router } from "express"
+import e, { Request, Response, Router } from "express"
 import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
@@ -193,16 +193,27 @@ StudyService.Router.post("/researcher/:researcher_id/study/clone", async (req: R
     if (!!StudyID) {
       let activities = await ActivityRepository._select(StudyID, true)
       let sensors = await SensorRepository._lookup(StudyID, true)
-      //clone activities  to new studyid
-      for (const activity of activities) {
+      let GrpActivities = new Array()
+      let ClonedActivities = new Array()
+
+      for (let activity of activities) {
+        //process group activities later
+        if (activity.spec === "lamp.group") {
+          GrpActivities.push(activity)
+          continue
+        }
         try {
-          let object = {
+          let object: any = {
             name: activity.name,
             spec: activity.spec,
             settings: activity.settings,
             schedule: activity.schedule,
+            category: activity.category ?? null
           }
           const res = await ActivityRepository._insert(output["data"], object)
+          object.id = activity.id
+          object.cloneId = res
+          await ClonedActivities.push(object)
           try {
             let attachment_key = "lamp.dashboard.survey_description"
             if (activity.spec !== "lamp.survey") attachment_key = "lamp.dashboard.activity_details"
@@ -211,15 +222,51 @@ StudyService.Router.post("/researcher/:researcher_id/study/clone", async (req: R
             await TypeRepository._set("a", "me", <string>res, attachment_key, tags)
           } catch (error) {}
 
-          //add the schedules of new activity
-          // UpdateToSchedulerQueue?.add({ activity_id: res })
           PubSubAPIListenerQueue?.add({
             topic: `activity`,
             token: `study.${output["data"]}.activity.${res}`,
             payload: { action: "create", activity_id: res, study_id: output["data"] },
           })
-        } catch (error) {}
+        } catch (error) {
+          console.log("error clone1",error)
+        }
       }
+      let NewGroupActivities = new Array()
+      if (GrpActivities.length) {
+        for (const GrpActivity of GrpActivities) {
+          let settings = new Array()
+          for (const ClonedActivity of ClonedActivities) {
+            for (const groupMapId of GrpActivity.settings) {
+              if (groupMapId === ClonedActivity.id) {
+                await settings.push(ClonedActivity.cloneId)
+                break
+              }
+            }
+          }
+
+          GrpActivity.settings = settings
+          await NewGroupActivities.push(GrpActivity)
+        }
+      }
+      //Save group activity 
+      for (const NewGroupActivity of NewGroupActivities) {
+        const res = await ActivityRepository._insert(output["data"], NewGroupActivity)
+        try {
+          let attachment_key = "lamp.dashboard.survey_description"
+          if (NewGroupActivity.spec !== "lamp.survey") attachment_key = "lamp.dashboard.activity_details"
+          const tags = await TypeRepository._get("a", <string>NewGroupActivity.id, attachment_key)
+          await TypeRepository._get("a", <string>NewGroupActivity.id, attachment_key)
+          await TypeRepository._set("a", "me", <string>res, attachment_key, tags)
+          PubSubAPIListenerQueue?.add({
+            topic: `activity`,
+            token: `study.${output["data"]}.activity.${res}`,
+            payload: { action: "create", activity_id: res, study_id: output["data"] },
+          })
+        } catch (error) {
+          console.log("error clone2",error)
+        }
+      }
+
       //clone sensors  to new studyid
       for (const sensor of sensors) {
         let object = { name: sensor.name, spec: sensor.spec, settings: sensor.settings }
@@ -230,7 +277,6 @@ StudyService.Router.post("/researcher/:researcher_id/study/clone", async (req: R
     if (should_add_participant) {
       const CredentialRepository = new Repository().getCredentialRepository()
       const participant = await ParticipantRepository._insert(output["data"], {})
-      console.log("cloned partID", participant.id)
       await CredentialRepository._insert(participant.id, {
         origin: participant.id,
         access_key: `${participant.id}@lamp.com`,

@@ -280,11 +280,11 @@ const METHOD_LIST = (auth: any) => ({
         console.log(` -- LAMP.Tag.get: ${((Date.now() - _start)).toFixed(2)} ms`)
         return x 
       },
-      set: async (type_id: string, attachment_key: string, target: string, attachment_value: string) => {
+      set: async (type_id: string,  target: string, attachment_key: string, attachment_value: string) => {
         const _start = Date.now()
         let x = null // error
         try {
-          x = await TypeService.set(auth, type_id, attachment_key, target, attachment_value)
+          x = await TypeService.set(auth, type_id, target, attachment_key, attachment_value)
         } catch (e) {}
         console.log(` -- LAMP.Tag.set: ${((Date.now() - _start)).toFixed(2)} ms`)
         return x 
