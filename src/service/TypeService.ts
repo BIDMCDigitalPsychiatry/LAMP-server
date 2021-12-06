@@ -51,8 +51,8 @@ export class TypeService {
   public static async set(
     auth: any,
     type_id: string | null,
-    attachment_key: string,
     target: string,
+    attachment_key: string,
     attachment_value: any
   ) {
     const TypeRepository = new Repository().getTypeRepository()
