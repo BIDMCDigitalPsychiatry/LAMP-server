@@ -44,7 +44,7 @@ import {
 } from "./interface/RepositoryInterface"
 import ioredis from "ioredis"
 import { initializeQueues } from "../utils/queue/Queue"
-export let RedisClient: ioredis.Redis | undefined
+export let RedisClient: ioredis.Redis | any
 export let nc: Client
 export let MongoClientDB: any
 //initialize driver for db
@@ -118,42 +118,26 @@ export const Decrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"):
 // Initialize the CouchDB databases if any of them do not exist.
 export async function Bootstrap(): Promise<void> {
   if (typeof process.env.REDIS_HOST === "string") {
-    let intervalId = setInterval(async () => {
-      try {
-        new Promise((resolve, reject) => {
-          RedisClient = new ioredis(
-            parseInt(`${(process.env.REDIS_HOST as any).match(/([0-9]+)/g)?.[0]}`),
-            (process.env.REDIS_HOST as any).match(/\/\/([0-9a-zA-Z._]+)/g)?.[0]
-          )
-          console.log("Trying to connect redis")
-          RedisClient.on("connect", () => {
-            console.log("Connected to redis")
-            initializeQueues()
-            clearInterval(intervalId)
-            resolve
-          })
-          RedisClient.on("error", async () => {
-            console.log("redis connection error")
-             reject
-          })
-          RedisClient.on("disconnected", async () => {
-            console.log(" redis disconnected")
-            reject
-          })
-          // RedisClient.monitor(function (err, monitor) {
-          //   // Entering monitoring mode.
-          //   monitor.on('monitor', function (time, args, source, database) {
-          //     // console.log(time + ": " + args);
-          //   });
-          // });
-        })
-      } catch (err) {
-        console.log("Error initializing redis ", err)
-      }
-    }, 10000)
+    try {
+      RedisClient = RedisSingleton.getInstance()
+      console.log("Trying to connect redis")
+      RedisClient.on("connect", () => {
+        console.log("Connected to redis")
+        initializeQueues()
+      })
+      RedisClient.on("error", async (err: any) => {
+        console.log("redis connection error", err)
+        RedisClient = RedisSingleton.getInstance()
+      })
+      RedisClient.on("disconnected", async () => {
+        console.log("redis disconnected")
+        RedisClient = RedisSingleton.getInstance()
+      })
+    } catch (err) {
+      console.log("Error initializing redis ", err)
+    }
   }
   await NatsConnect()
-
   if (DB_DRIVER === "couchdb") {
     console.group("Initializing database connection...")
     const _db_list = await Database.db.list()
@@ -957,7 +941,6 @@ export async function Bootstrap(): Promise<void> {
   }
 }
 
-
 async function NatsConnect() {
   let intervalId = setInterval(async () => {
     try {
@@ -1025,5 +1008,27 @@ export class Repository {
   //GET TypeRepository Repository
   public getTypeRepository(): TypeInterface {
     return DB_DRIVER === "couchdb" ? new TypeRepository() : new TypeRepositoryMongo()
+  }
+}
+
+/**
+ * Creating singleton class for redis
+ */
+class RedisSingleton {
+  private static instance: RedisSingleton
+  private constructor() {}
+  public static getInstance(): RedisSingleton {
+    if (RedisSingleton.instance === undefined) {
+      RedisSingleton.instance = new ioredis(
+                parseInt(`${(process.env.REDIS_HOST as any).match(/([0-9]+)/g)?.[0]}`),
+                (process.env.REDIS_HOST as any).match(/\/\/([0-9a-zA-Z._]+)/g)?.[0],
+      {
+        reconnectOnError() {
+          return 1
+        },
+        enableReadyCheck: true,
+      })
+    }
+    return RedisSingleton.instance
   }
 }
