@@ -112,10 +112,10 @@ export function sendNotification(device_token: string, device_type: string, payl
               }
             })
             .catch((e) => {
-              console.log(`"Error encountered sending APN push notification."--${e}`)
+              console.log(`Error encountered sending APN push notification-${e}`)
             })
         } catch (error) {
-          console.log(`"Error encountered sending APN push notification"-${error}`)
+          console.log(`Error encountered sending APN push notification-${error}`)
         }
         break
 
