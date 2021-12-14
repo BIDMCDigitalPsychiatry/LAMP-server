@@ -44,7 +44,7 @@ import {
 } from "./interface/RepositoryInterface"
 import ioredis from "ioredis"
 import { initializeQueues } from "../utils/queue/Queue"
-export let RedisClient: ioredis.Redis | any
+export let RedisClient: ioredis.Redis
 export let nc: Client
 export let MongoClientDB: any
 //initialize driver for db
@@ -119,7 +119,7 @@ export const Decrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"):
 export async function Bootstrap(): Promise<void> {
   if (typeof process.env.REDIS_HOST === "string") {
     try {
-      RedisClient = RedisSingleton.getInstance()
+      RedisClient = RedisFactory.getInstance()      
       console.log("Trying to connect redis")
       RedisClient.on("connect", () => {
         console.log("Connected to redis")
@@ -127,17 +127,18 @@ export async function Bootstrap(): Promise<void> {
       })
       RedisClient.on("error", async (err: any) => {
         console.log("redis connection error", err)
-        RedisClient = RedisSingleton.getInstance()
+        RedisClient = RedisFactory.getInstance()
       })
       RedisClient.on("disconnected", async () => {
         console.log("redis disconnected")
-        RedisClient = RedisSingleton.getInstance()
-      })
+        RedisClient = RedisFactory.getInstance()
+      })      
     } catch (err) {
-      console.log("Error initializing redis ", err)
+      console.log("Error initializing redis", err)
     }
-  }
+  }  
   await NatsConnect()
+  
   if (DB_DRIVER === "couchdb") {
     console.group("Initializing database connection...")
     const _db_list = await Database.db.list()
@@ -941,7 +942,11 @@ export async function Bootstrap(): Promise<void> {
   }
 }
 
-async function NatsConnect() {
+
+/**
+ * nats connect
+ */
+ async function NatsConnect() {
   let intervalId = setInterval(async () => {
     try {
       nc = await connect({
@@ -952,14 +957,16 @@ async function NatsConnect() {
         reconnectTimeWait: 2000,
       })
       clearInterval(intervalId)
-      console.log("Connected to nats pub server")
+      console.log("Connected to nats pub server")    
     } catch (error) {
       console.log("Error in Connecting to nats pub server")
     }
-  }, 10000)
+  }, 3000)
 }
 
-//GET THE REPOSITORY TO USE(Mongo/Couch)
+/**
+ * GET THE REPOSITORY TO USE(Mongo/Couch)
+ */
 export class Repository {
   //GET Researcher Repository
   public getResearcherRepository(): ResearcherInterface {
@@ -1013,13 +1020,17 @@ export class Repository {
 
 /**
  * Creating singleton class for redis
- */
-class RedisSingleton {
-  private static instance: RedisSingleton
+*/
+export class RedisFactory {
+  private static instance: ioredis.Redis
   private constructor() {}
-  public static getInstance(): RedisSingleton {
-    if (RedisSingleton.instance === undefined) {
-      RedisSingleton.instance = new ioredis(
+  
+  /**
+   * @returns redis client instance
+  */
+  public static getInstance(): ioredis.Redis {
+    if (this.instance === undefined) {
+      this.instance = new ioredis(
                 parseInt(`${(process.env.REDIS_HOST as any).match(/([0-9]+)/g)?.[0]}`),
                 (process.env.REDIS_HOST as any).match(/\/\/([0-9a-zA-Z._]+)/g)?.[0],
       {
@@ -1029,6 +1040,6 @@ class RedisSingleton {
         enableReadyCheck: true,
       })
     }
-    return RedisSingleton.instance
+    return this.instance
   }
 }
