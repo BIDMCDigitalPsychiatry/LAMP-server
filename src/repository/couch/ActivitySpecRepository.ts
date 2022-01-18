@@ -22,6 +22,7 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
         temporal_slice_schema: object.temporal_slice_schema ?? {},
         settings_schema: object.settings_schema ?? {},
         category: object.category ?? null,
+        executable: object.executable ?? null
       } as any)
       return {}
     } catch (error) {
@@ -39,7 +40,8 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
           static_data_schema: object.static_data_schema ?? orig.static_data_schema,
           temporal_slice_schema: object.temporal_slice_schema ?? orig.temporal_slice_schema,
           settings_schema: object.settings_schema ?? orig.settings_schema,
-          category: object.category ?? orig.category
+          category: object.category ?? orig.category,
+          executable:object.executable ?? orig.executable
         },
       ],
     })
