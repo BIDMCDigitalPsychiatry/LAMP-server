@@ -9,10 +9,11 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
       ? await MongoClientDB.collection("activity_spec").find({$or: [ { _deleted: false, _id: id }, { _deleted: undefined, _id: id } ]}).maxTimeMS(60000).toArray()
       : await MongoClientDB.collection("activity_spec").find({$or: [ { _deleted: false }, { _deleted: undefined } ]}).maxTimeMS(60000).toArray()
     return (data as any).map((x: any) => ({
-      id: x._id, 
+      id: x._id,       
       ...x,
       _id: undefined,
       __v: undefined,
+      executable: !!id ? x.executable : undefined,
       _deleted: undefined,
     }))
   }
@@ -27,6 +28,7 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
         temporal_slice_schema: object.temporal_slice_schema ?? {},
         settings_schema: object.settings_schema ?? {},
         category: object.category ?? null,
+        executable: object.executable ?? null,
         _deleted: false,
       } as any)
       return {}
@@ -45,7 +47,8 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
           static_data_schema: object.static_data_schema ?? orig.static_data_schema,
           temporal_slice_schema: object.temporal_slice_schema ?? orig.temporal_slice_schema,
           settings_schema: object.settings_schema ?? orig.settings_schema,
-          category: object.category ?? orig.category
+          category: object.category ?? orig.category,
+          executable: object.executable ?? orig.executable
         },
       }
     )

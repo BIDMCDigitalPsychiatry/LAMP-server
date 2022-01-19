@@ -9,6 +9,7 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
       id: x.doc._id,
       ...x.doc,
       _id: undefined,
+      executable: !!id ? x.doc.executable : undefined,
       _rev: undefined,
     }))
   }
