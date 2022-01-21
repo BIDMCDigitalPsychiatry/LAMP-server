@@ -9,4 +9,5 @@ export class ActivitySpec {
   public temporal_slice_schema?: JSONSchema
   public settings_schema?: JSONSchema
   public category?: Tab[] | null
+  public executable?: string | null
 }
