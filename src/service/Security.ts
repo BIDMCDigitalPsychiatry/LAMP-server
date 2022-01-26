@@ -49,8 +49,9 @@ export async function _verify(
   if (isRoot)
     return authObject as any  
   
-  // Check if `authObject` and `authSubject` are the same.
-  if (!isRoot && authType.includes("self") && (authSubject.origin === authObject))
+  // Check if `authObject` and `authSubject` are the same || authenticated for  resource * 
+  if ((!isRoot && authType.includes("self") && (authSubject.origin === authObject))
+      || (JSON.stringify(authType) === JSON.stringify(["self", "sibling", "parent"]) && authObject === undefined))
     return authObject as any 
   
   // Optimization.
