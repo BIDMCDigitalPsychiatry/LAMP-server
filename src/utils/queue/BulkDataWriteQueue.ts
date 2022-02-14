@@ -4,7 +4,7 @@ import { BulkDataWriteSlaveQueue } from "./Queue"
 import { Mutex } from "async-mutex"
 const clientLock = new Mutex()
 const Max_Store_Size = !!process.env.CACHE_SIZE
-  ? (Number(process.env.CACHE_SIZE) === 0
+  ? (Number(process.env.CACHE_SIZE) < 100
     ? 100
     : Number(process.env.CACHE_SIZE))
   : 30000
