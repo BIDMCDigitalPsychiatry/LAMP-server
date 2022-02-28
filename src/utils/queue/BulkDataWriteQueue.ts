@@ -4,8 +4,8 @@ import { BulkDataWriteSlaveQueue } from "./Queue"
 import { Mutex } from "async-mutex"
 const clientLock = new Mutex()
 const Max_Store_Size = !!process.env.CACHE_SIZE
-  ? Number(process.env.CACHE_SIZE) < 5000
-    ? 5000
+  ? Number(process.env.CACHE_SIZE) < 100
+    ? 100
     : Number(process.env.CACHE_SIZE)
   : 30000
 
@@ -24,9 +24,9 @@ export async function BulkDataWriteQueueProcess(job: Bull.Job<any>): Promise<voi
       if (Store_Size > Max_Store_Size) {
         console.log("Store_Size", `${Store_Size}`)
         try {
-          Store_Data = (await RedisClient?.lrange("se_Q", 0, Max_Store_Size - 1)) as any
+          Store_Data = (await RedisClient?.lrange("se_Q", 0, Store_Size - 1)) as any
           write = true
-          await RedisClient?.ltrim("se_Q", Max_Store_Size, -1)
+          await RedisClient?.ltrim("se_Q", Store_Size, -1)
         } catch (error) {
           console.log("error in trimming data", error)
         }
