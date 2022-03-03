@@ -6647,7 +6647,7 @@
             "type": "string",
             "description": "The WebView-compatible script that provides this Activity on mobile or desktop (IFrame) clients."
           },
-          "static_data_schema": {
+          "static_data": {
             "allOf": [
               {
                 "$ref": "#/components/schemas/JSONSchema"
@@ -6674,7 +6674,7 @@
               }
             ]
           },
-          "temporal_event_schema": {
+          "temporal_slices": {
             "allOf": [
               {
                 "$ref": "#/components/schemas/JSONSchema"
@@ -6723,7 +6723,7 @@
               }
             ]
           },
-          "settings_schema": {
+          "settings": {
             "allOf": [
               {
                 "$ref": "#/components/schemas/JSONSchema"

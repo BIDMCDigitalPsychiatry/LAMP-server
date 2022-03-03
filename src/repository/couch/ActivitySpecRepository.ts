@@ -17,13 +17,12 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
     try {
       await Database.use("activity_spec").insert({
         _id: object.name,
-        help_contents: object.help_contents ?? null,
-        script_contents: object.script_contents ?? null,
-        static_data_schema: object.static_data_schema ?? {},
-        temporal_slice_schema: object.temporal_slice_schema ?? {},
-        settings_schema: object.settings_schema ?? {},
+        description: object.description ?? null,
+        executable: object.executable ?? null,
+        static_data: object.static_data ?? {},
+        temporal_slices: object.temporal_slices ?? {},
+        settings: object.settings ?? {},
         category: object.category ?? null,
-        executable: object.executable ?? null
       } as any)
       return {}
     } catch (error) {
@@ -36,13 +35,12 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
       docs: [
         {
           ...orig,
-          help_contents: object.help_contents ?? orig.help_contents,
-          script_contents: object.script_contents ?? orig.script_contents,
-          static_data_schema: object.static_data_schema ?? orig.static_data_schema,
-          temporal_slice_schema: object.temporal_slice_schema ?? orig.temporal_slice_schema,
-          settings_schema: object.settings_schema ?? orig.settings_schema,
+          description: object.description ?? orig.description,
+          executable: object.executable ?? orig.executable,
+          static_data: object.static_data ?? orig.static_data,
+          temporal_slices: object.temporal_slices ?? orig.temporal_slices,
+          settings: object.settings ?? orig.settings,
           category: object.category ?? orig.category,
-          executable:object.executable ?? orig.executable
         },
       ],
     })

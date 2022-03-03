@@ -22,13 +22,12 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
     try {
       await MongoClientDB.collection("activity_spec").insertOne({
         _id: object.name,
-        help_contents: object.help_contents ?? null,
-        script_contents: object.script_contents ?? null,
-        static_data_schema: object.static_data_schema ?? {},
-        temporal_slice_schema: object.temporal_slice_schema ?? {},
-        settings_schema: object.settings_schema ?? {},
-        category: object.category ?? null,
+        description: object.description ?? null,
         executable: object.executable ?? null,
+        static_data: object.static_data ?? {},
+        temporal_slices: object.temporal_slices ?? {},
+        settings: object.settings ?? {},
+        category: object.category ?? null,
         _deleted: false,
       } as any)
       return {}
@@ -42,13 +41,12 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
       { _id: orig._id },
       {
         $set: {
-          help_contents: object.help_contents ?? orig.help_contents,
-          script_contents: object.script_contents ?? orig.script_contents,          
-          static_data_schema: object.static_data_schema ?? orig.static_data_schema,
-          temporal_slice_schema: object.temporal_slice_schema ?? orig.temporal_slice_schema,
-          settings_schema: object.settings_schema ?? orig.settings_schema,
+          description: object.description ?? orig.description,
+          executable: object.executable ?? orig.executable,          
+          static_data: object.static_data ?? orig.static_data,
+          temporal_slices: object.temporal_slices ?? orig.temporal_slices,
+          settings: object.settings ?? orig.settings,
           category: object.category ?? orig.category,
-          executable: object.executable ?? orig.executable
         },
       }
     )
