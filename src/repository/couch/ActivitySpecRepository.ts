@@ -20,7 +20,7 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
         description: object.description ?? null,
         executable: object.executable ?? null,
         static_data: object.static_data ?? {},
-        temporal_slice: object.temporal_slice ?? {},
+        temporal_slices: object.temporal_slices ?? {},
         settings: object.settings ?? {},
         category: object.category ?? null,
       } as any)
@@ -38,7 +38,7 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
           description: object.description ?? orig.description,
           executable: object.executable ?? orig.executable,
           static_data: object.static_data ?? orig.static_data,
-          temporal_slice: object.temporal_slice ?? orig.temporal_slice,
+          temporal_slices: object.temporal_slices ?? orig.temporal_slices,
           settings: object.settings ?? orig.settings,
           category: object.category ?? orig.category,
         },

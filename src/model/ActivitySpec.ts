@@ -6,7 +6,7 @@ export class ActivitySpec {
   public description?: string
   public executable?: string
   public static_data?: JSONSchema
-  public temporal_slice?: JSONSchema
+  public temporal_slices?: JSONSchema
   public settings?: JSONSchema
   public category?: Tab[] | null
 }

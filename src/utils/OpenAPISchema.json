@@ -6674,7 +6674,7 @@
               }
             ]
           },
-          "temporal_event": {
+          "temporal_slices": {
             "allOf": [
               {
                 "$ref": "#/components/schemas/JSONSchema"
