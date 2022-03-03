@@ -27,14 +27,17 @@ export class SensorEventService {
     return await SensorEventRepository._select(participant_id, origin, from, to, limit)
   }
 
-  public static async create(auth: any, participant_id: string, sensor_events: any[]) {       
+  public static async create(auth: any, participant_id: string, sensor_events: any[]) {
     const SensorEventRepository = new Repository().getSensorEventRepository()
     participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
-    let data={} 
-    if(!!process.env.REDIS_HOST)
-     BulkDataWrite("sensor_event", participant_id, sensor_events)
-    else
-     data = await SensorEventRepository._insert(participant_id, sensor_events)
+    let data = {}
+    //check for the existance of cache size and redis host
+    if (!!process.env.REDIS_HOST) {
+      if (!!process.env.CACHE_SIZE) {
+        if (Number(process.env.CACHE_SIZE) !== 0) BulkDataWrite("sensor_event", participant_id, sensor_events)
+        else data = await SensorEventRepository._insert(participant_id, sensor_events)
+      } else data = await SensorEventRepository._insert(participant_id, sensor_events)
+    } else data = await SensorEventRepository._insert(participant_id, sensor_events)
 
     return data
   }
@@ -49,8 +52,8 @@ SensorEventService.Router.post("/participant/:participant_id/sensor_event", asyn
         Array.isArray(req.body) ? req.body : [req.body]
       ),
     })
-  } catch (e) {           
-    console.log("Failure Msg On sensor events post",e.message)   
+  } catch (e) {
+    console.log("Failure Msg On sensor events post", e.message)
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
