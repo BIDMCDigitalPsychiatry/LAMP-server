@@ -6372,6 +6372,17 @@
           }
         ]
       }
+    },
+    "/oauth/start": {
+      "get": {
+        "operationId": "API.oauth",
+        "summary": "Start OAuth flow.",
+        "description": "Redirect to chosen OAuth identity provider.",
+        "tags": [
+          "API"
+        ],
+        "parameters": []
+      }
     }
   },
   "components": {
