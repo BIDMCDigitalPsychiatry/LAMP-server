@@ -14,6 +14,7 @@ import { ActivityEventService } from "./ActivityEventService"
 import { SensorService } from "./SensorService"
 import { SensorSpecService } from "./SensorSpecService"
 import { SensorEventService } from "./SensorEventService"
+import { OAuthService } from "./OAuthService"
 
 export { TypeService } from "./TypeService"
 export { CredentialService } from "./CredentialService"
@@ -26,6 +27,7 @@ export { ActivityEventService } from "./ActivityEventService"
 export { SensorService } from "./SensorService"
 export { SensorSpecService } from "./SensorSpecService"
 export { SensorEventService } from "./SensorEventService"
+export { OAuthService } from "./OAuthService"
 
 const API = Router()
 API.use(TypeService.Router)
@@ -39,6 +41,7 @@ API.use(ActivityEventService.Router)
 API.use(SensorService.Router)
 API.use(SensorSpecService.Router)
 API.use(SensorEventService.Router)
+API.use(OAuthService.Router)
 API.use(QueryAPI)
 API.use("/subscribe", ListenerAPI)
 API.use("/send", PushNotificationAPI)
