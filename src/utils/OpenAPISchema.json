@@ -6377,7 +6377,7 @@
       "get": {
         "operationId": "API.oauth",
         "summary": "Start OAuth flow.",
-        "description": "Redirect to chosen OAuth identity provider.",
+        "description": "Redirect to configured OAuth identity provider.",
         "tags": [
           "API"
         ],
