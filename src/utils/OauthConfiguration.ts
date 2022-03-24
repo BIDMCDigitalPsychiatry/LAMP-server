@@ -18,11 +18,27 @@ export class OauthConfiguration {
     public getStartFlowUrl() : string {
         switch(this.provider) {
             case IdentityProvider.AZURE:
-                return "https://login.microsoftonline.com/" + process.env.AZURE_TENANT + "/oauth2/v2.0/authorize";
+                let url = new URL(`https://login.microsoftonline.com/${process.env.AZURE_TENANT}/oauth2/v2.0/authorize`)
+                
+                this.addParameter(url, "response_type", "token");
+                this.addParameter(url, "response_mode", "query");
+                this.addParameter(url, "clientId", process.env.AZURE_CLIENT_ID);
+                this.addParameter(url, "redirect_uri", process.env.AZURE_REDIRECT_URI);
+                this.addParameter(url, "scope", process.env.AZURE_SCOPE)
+                this.addParameter(url, "state", process.env.AZURE_STATE)
+                this.addParameter(url, "nonce", process.env.AZURE_NONCE)
+
+                return url.href;
             case IdentityProvider.GOOGLE:
                 return "https://google.com/oauth2/v2.0/authorize"; // Placeholder
             default:
                 return "localhost:3000/auth/login"; // Placeholder
+        }
+    }
+
+    private addParameter(url: URL, name: string, value: string | undefined) {
+        if(!!value) {
+            url.searchParams.set(name, value);
         }
     }
 }
