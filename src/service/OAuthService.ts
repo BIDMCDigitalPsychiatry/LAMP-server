@@ -9,5 +9,7 @@ export class OAuthService {
 
 OAuthService.Router.get("/oauth/start", async (req: Request, res: Response) => {
   const startURL = new OauthConfiguration().getStartFlowUrl()
-  res.redirect(startURL)
+  res.json({
+    "url": startURL
+  })
 })
