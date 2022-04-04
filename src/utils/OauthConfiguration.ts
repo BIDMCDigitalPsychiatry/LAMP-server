@@ -20,7 +20,7 @@ export class OauthConfiguration {
             case IdentityProvider.AZURE:
                 let url = new URL(`https://login.microsoftonline.com/${process.env.AZURE_TENANT}/oauth2/v2.0/authorize`)
 
-                this.addParameter(url, "response_type", "token");
+                this.addParameter(url, "response_type", "code");
                 this.addParameter(url, "response_mode", "query");
                 this.addParameter(url, "client_id", process.env.AZURE_CLIENT_ID);
 
