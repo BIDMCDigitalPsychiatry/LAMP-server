@@ -18,7 +18,7 @@ export class OauthConfiguration {
     public getStartFlowUrl() : string {
         switch(this.provider) {
             case IdentityProvider.AZURE:
-                let url = new URL(`https://login.microsoftonline.com/${process.env.AZURE_TENANT}/oauth2/v2.0/authorize`)
+                let url = this.getAzureUrl("authorize")
 
                 this.addParameter(url, "response_type", "code");
                 this.addParameter(url, "response_mode", "query");
@@ -35,6 +35,31 @@ export class OauthConfiguration {
             default:
                 return "localhost:3000/auth/login"; // Placeholder
         }
+    }
+
+    public getRedeemTokenData(code: string, code_verifier: string) : {url: URL, body: URLSearchParams } {
+        switch(this.provider) {
+            case IdentityProvider.AZURE:
+                let url = this.getAzureUrl("token")
+                
+                let params = new URLSearchParams()
+                params.append("client_id", process.env.AZURE_CLIENT_ID ?? "")
+                params.append("scope", process.env.OAUTH_SCOPE ?? "")
+                params.append("code", code)
+                params.append("redirect_uri", process.env.OAUTH_REDIRECT_URI ?? "")
+                params.append("grant_type", "authorization_code")
+                params.append("code_verifier", code_verifier)
+                params.append("client_secret", "7ab7Q~XIdqFDxQjWyDsbA8Ul4mC6uvLhIzyZK")
+                return {url: url, body: params}
+            case IdentityProvider.GOOGLE:
+                return {url: new URL("https://google.com/oauth2/v2.0/token"), body: new URLSearchParams()}; // Placeholder
+            default:
+                return {url: new URL("https://google.com/oauth2/v2.0/token"), body: new URLSearchParams()}; // Placeholder
+        }
+    }
+
+    private getAzureUrl(endpoint: string) : URL {
+        return new URL(`https://login.microsoftonline.com/${process.env.AZURE_TENANT}/oauth2/v2.0/${endpoint}`)
     }
 
     private addParameter(url: URL, name: string, value: string | undefined) {
