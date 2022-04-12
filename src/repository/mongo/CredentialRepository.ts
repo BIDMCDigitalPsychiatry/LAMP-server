@@ -81,4 +81,22 @@ export class CredentialRepository implements CredentialInterface {
 
     return {}
   }
+
+  async _updateOAuth(access_key: string, access_token: string, refresh_token: string) : Promise<boolean> {
+    let response: boolean = false
+    await MongoClientDB.collection("credential").findOneAndUpdate(
+      { access_key: access_key },
+      { $set: { access_token: access_token, refresh_token: refresh_token }},
+      { upsert: true }
+    ).then(() => { response = true })
+    .catch(() => { response = false })
+
+    return response
+  }
+
+  async _findByAccessToken(access_token: string) : Promise<string> {
+    const res = await MongoClientDB.collection("credential").findOne({ access_token: access_token })
+    if(res != null) return res.origin
+    throw new Error("403.no-such-credentials")
+  }
 }
