@@ -2,6 +2,9 @@ import { Request, Response, Router } from "express"
 import { OauthConfiguration } from "../utils/OauthConfiguration"
 import { _verify } from "./Security"
 import fetch from "node-fetch"
+import jwt_decode from "jwt-decode"
+import { MongoClientDB, Repository } from "../repository/Bootstrap"
+
 export class OAuthService {
   public static _name = "OAuth"
   public static Router = Router()
@@ -24,20 +27,28 @@ OAuthService.Router.post("/oauth/authenticate", async (req: Request, res: Respon
     body: data.body
   })
 
-  response.json().then(json => {
+  response.json().then(async json => {
     if(!!json.error) {
       res.json({
         "success": false
       })
     } else {
+      let accessToken = json.access_token
+      let refreshToken = json.refresh_token
+      let email = jwt_decode<any>(accessToken).email
+      let repository = new Repository().getCredentialRepository()
+      let success = await repository._updateOAuth(email, accessToken, refreshToken)
+
       res.json({
-        "success": true,
+        "success": success,
+        "access_token": success ? accessToken : null,
+        "refresh_token": success ? refreshToken : null
       })
     }
-  })
-  .catch(() => {
+  }).catch(() => {
     res.json({
       "success": false
     })
   })
+
 })
