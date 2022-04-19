@@ -111,4 +111,6 @@ export interface CredentialInterface {
   _insert(type_id: string | null, credential: any): Promise<{}>
   _update(type_id: string | null, access_key: string, credential: any): Promise<{}>
   _delete(type_id: string | null, access_key: string): Promise<{}>
+  _updateOAuth(access_key: string, access_token: string, refresh_token: string) : Promise<boolean>
+  _findByAccessToken(access_token: string) : Promise<string>
 }

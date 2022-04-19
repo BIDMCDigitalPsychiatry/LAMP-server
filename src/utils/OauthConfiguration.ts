@@ -21,13 +21,14 @@ export class OauthConfiguration {
                 let url = this.getAzureUrl("authorize")
 
                 this.addParameter(url, "response_type", "code");
-                this.addParameter(url, "response_mode", "query");
+                this.addParameter(url, "response_mode", "fragment");
                 this.addParameter(url, "client_id", process.env.AZURE_CLIENT_ID);
 
                 this.addParameter(url, "redirect_uri", process.env.OAUTH_REDIRECT_URI);
                 this.addParameter(url, "scope", process.env.OAUTH_SCOPE)
                 this.addParameter(url, "state", process.env.OAUTH_STATE)
                 this.addParameter(url, "nonce", process.env.OAUTH_NONCE)
+                this.addParameter(url, "code_challenge_method", "S256")
 
                 return url.href;
             case IdentityProvider.GOOGLE:
@@ -49,7 +50,7 @@ export class OauthConfiguration {
                 params.append("redirect_uri", process.env.OAUTH_REDIRECT_URI ?? "")
                 params.append("grant_type", "authorization_code")
                 params.append("code_verifier", code_verifier)
-                params.append("client_secret", "7ab7Q~XIdqFDxQjWyDsbA8Ul4mC6uvLhIzyZK")
+                params.append("client_secret", process.env.AZURE_CLIENT_SECRET ?? "")
                 return {url: url, body: params}
             case IdentityProvider.GOOGLE:
                 return {url: new URL("https://google.com/oauth2/v2.0/token"), body: new URLSearchParams()}; // Placeholder

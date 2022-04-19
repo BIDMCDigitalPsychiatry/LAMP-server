@@ -8,15 +8,32 @@ type AuthSubject = { origin: string; access_key: string; secret_key: string; }
 // Otherwise, locate the Credential or throw an error if not found/invalid.
 export async function _createAuthSubject(authHeader: string | undefined): Promise<AuthSubject> {
   const CredentialRepository = new Repository().getCredentialRepository()  
-  if (authHeader === undefined) throw new Error("401.missing-credentials")
-  const authStr = authHeader.replace("Basic", "").trim()
-  const auth = (authStr.indexOf(":") >= 0 ? authStr : Buffer.from(authStr, "base64").toString()).split(":", 2)
-  if (auth.length !== 2 || !auth[1]) throw new Error("401.missing-credentials")
-  let origin = await CredentialRepository._find(auth[0], auth[1] || "*" /* FIXME: this forces password match */)   
-  return {
-    origin: origin,
-    access_key: auth[0],
-    secret_key: auth[1]
+  
+  if (authHeader === undefined) 
+    throw new Error("401.missing-credentials")
+
+  if(authHeader.includes("Bearer")) {
+    const accessToken = authHeader.replace("Bearer ", "").trim()
+    const origin = await CredentialRepository._findByAccessToken(accessToken)
+    return {
+      origin: origin,
+      access_key: "",
+      secret_key: ""
+    }
+  } else {
+    const authStr = authHeader.replace("Basic", "").trim()
+    const auth = (authStr.indexOf(":") >= 0 ? authStr : Buffer.from(authStr, "base64").toString()).split(":", 2)
+
+    if (auth.length !== 2 || !auth[1])
+      throw new Error("401.missing-credentials")
+
+    let origin = await CredentialRepository._find(auth[0], auth[1] || "*" /* FIXME: this forces password match */)   
+
+    return {
+      origin: origin,
+      access_key: auth[0],
+      secret_key: auth[1]
+    }
   }
 }
 
