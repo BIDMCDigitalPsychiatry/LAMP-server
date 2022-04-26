@@ -1,7 +1,7 @@
 import { Request, Response, Router } from "express"
 import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
-import { Repository } from "../repository/Bootstrap"
+import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 
 export class ActivitySpecService {
   public static _name = "ActivitySpec"
@@ -37,6 +37,7 @@ export class ActivitySpecService {
 }
 
 ActivitySpecService.Router.post("/activity_spec", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     res.json({ data: await ActivitySpecService.create(req.get("Authorization"), null, req.body) })
   } catch (e) {
@@ -45,6 +46,7 @@ ActivitySpecService.Router.post("/activity_spec", async (req: Request, res: Resp
   }
 })
 ActivitySpecService.Router.put("/activity_spec/:activity_spec_name", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     res.json({ data: await ActivitySpecService.set(req.get("Authorization"), req.params.activity_spec_name, req.body) })
   } catch (e) {
@@ -53,6 +55,7 @@ ActivitySpecService.Router.put("/activity_spec/:activity_spec_name", async (req:
   }
 })
 ActivitySpecService.Router.delete("/activity_spec/:activity_spec_name", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     res.json({ data: await ActivitySpecService.set(req.get("Authorization"), req.params.activity_spec_name, null) })
   } catch (e) {
@@ -61,6 +64,7 @@ ActivitySpecService.Router.delete("/activity_spec/:activity_spec_name", async (r
   }
 })
 ActivitySpecService.Router.get("/activity_spec/:activity_spec_name", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     let output = { data: await ActivitySpecService.get(req.get("Authorization"), req.params.activity_spec_name) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
@@ -71,6 +75,7 @@ ActivitySpecService.Router.get("/activity_spec/:activity_spec_name", async (req:
   }
 })
 ActivitySpecService.Router.get("/activity_spec", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     let output = { data: await ActivitySpecService.list(req.get("Authorization"), null) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output

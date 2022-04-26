@@ -47,6 +47,14 @@ import { initializeQueues } from "../utils/queue/Queue"
 export let RedisClient: ioredis.Redis
 export let nc: Client
 export let MongoClientDB: any
+export const ApiResponseHeaders = {
+  "Cache-Control": "no-store",
+  "Content-Security-Policy":"default-src 'self'",
+  "X-XSS-Protection":" 1; mode=block",
+  "X-Content-Type-Options":"nosniff",
+  "X-Frame-Options":"deny",
+  "Strict-Transport-Security":"max-age=31536000; includeSubdomains"
+}
 //initialize driver for db
 let DB_DRIVER = ""
 //Identifying the Database driver -- IF the DB in env starts with mongodb://, create mongodb connection

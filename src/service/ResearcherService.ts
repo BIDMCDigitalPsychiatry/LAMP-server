@@ -2,7 +2,7 @@ import { Request, Response, Router } from "express"
 import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
-import { Repository } from "../repository/Bootstrap"
+import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 
 export class ResearcherService {
   public static _name = "Researcher"
@@ -88,6 +88,7 @@ export class ResearcherService {
 }
 
 ResearcherService.Router.post("/researcher", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     res.json({ data: await ResearcherService.create(req.get("Authorization"), null, req.body) })
   } catch (e) {
@@ -97,6 +98,7 @@ ResearcherService.Router.post("/researcher", async (req: Request, res: Response)
 })
 
 ResearcherService.Router.put("/researcher/:researcher_id", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     res.json({ data: await ResearcherService.set(req.get("Authorization"), req.params.researcher_id, req.body) })
   } catch (e) {
@@ -105,6 +107,7 @@ ResearcherService.Router.put("/researcher/:researcher_id", async (req: Request, 
   }
 })
 ResearcherService.Router.delete("/researcher/:researcher_id", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     res.json({ data: await ResearcherService.set(req.get("Authorization"), req.params.researcher_id, null) })
   } catch (e) {
@@ -113,6 +116,7 @@ ResearcherService.Router.delete("/researcher/:researcher_id", async (req: Reques
   }
 })
 ResearcherService.Router.get("/researcher/:researcher_id", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     let output = { data: await ResearcherService.get(req.get("Authorization"), req.params.researcher_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
@@ -123,6 +127,7 @@ ResearcherService.Router.get("/researcher/:researcher_id", async (req: Request, 
   }
 })
 ResearcherService.Router.get("/researcher", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     let output = { data: await ResearcherService.list(req.get("Authorization"), null) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
@@ -141,6 +146,7 @@ ResearcherService.Router.get("/researcher", async (req: Request, res: Response) 
  * @return ARRAY
  */
 ResearcherService.Router.get("/researcher/:researcher_id/_lookup/:lookup", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     const _lookup: string = req.params.lookup
     const studyID: string = (!!req.query.study_id ? req.query.study_id : undefined) as any
@@ -220,6 +226,7 @@ ResearcherService.Router.get("/researcher/:researcher_id/_lookup/:lookup", async
  *  mode 1 - return only gps,accelerometer,analytics, mode 2- return only activity_event data
  */
 ResearcherService.Router.get("/study/:study_id/_lookup/:lookup/mode/:mode", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     const repo = new Repository()
     const ParticipantRepository = repo.getParticipantRepository()

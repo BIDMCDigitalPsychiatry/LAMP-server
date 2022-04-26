@@ -2,7 +2,7 @@ import { Request, Response, Router } from "express"
 import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
-import { Repository } from "../repository/Bootstrap"
+import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 
 export class ParticipantService {
   public static _name = "Participant"
@@ -116,6 +116,7 @@ export class ParticipantService {
 }
 
 ParticipantService.Router.post("/study/:study_id/participant", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     res.json({ data: await ParticipantService.create(req.get("Authorization"), req.params.study_id, req.body) })
   } catch (e) {
@@ -124,6 +125,7 @@ ParticipantService.Router.post("/study/:study_id/participant", async (req: Reque
   }
 })
 ParticipantService.Router.put("/participant/:participant_id", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     res.json({ data: await ParticipantService.set(req.get("Authorization"), req.params.participant_id, req.body) })
   } catch (e) {
@@ -132,6 +134,7 @@ ParticipantService.Router.put("/participant/:participant_id", async (req: Reques
   }
 })
 ParticipantService.Router.delete("/participant/:participant_id", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     res.json({ data: await ParticipantService.set(req.get("Authorization"), req.params.participant_id, null) })
   } catch (e) {
@@ -140,6 +143,7 @@ ParticipantService.Router.delete("/participant/:participant_id", async (req: Req
   }
 })
 ParticipantService.Router.get("/participant/:participant_id", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     let output = { data: await ParticipantService.get(req.get("Authorization"), req.params.participant_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
@@ -150,6 +154,7 @@ ParticipantService.Router.get("/participant/:participant_id", async (req: Reques
   }
 })
 ParticipantService.Router.get("/activity/:activity_id/participant", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     let output = { data: await ParticipantService.list(req.get("Authorization"), req.params.activity_id, true) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
@@ -160,6 +165,7 @@ ParticipantService.Router.get("/activity/:activity_id/participant", async (req: 
   }
 })
 ParticipantService.Router.get("/sensor/:sensor_id/participant", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     let output = { data: await ParticipantService.list(req.get("Authorization"), req.params.sensor_id, true) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
@@ -170,6 +176,7 @@ ParticipantService.Router.get("/sensor/:sensor_id/participant", async (req: Requ
   }
 })
 ParticipantService.Router.get("/study/:study_id/participant", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     let output = { data: await ParticipantService.list(req.get("Authorization"), req.params.study_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
