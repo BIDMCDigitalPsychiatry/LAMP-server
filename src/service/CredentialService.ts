@@ -1,7 +1,7 @@
 import { Request, Response, Router } from "express"
 import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
-import { Repository } from "../repository/Bootstrap"
+import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 
 export class CredentialService {
   public static _name = "Credential"
@@ -40,6 +40,7 @@ export class CredentialService {
 CredentialService.Router.get(
   ["researcher", "study", "participant", "activity", "sensor", "type"].map((type) => `/${type}/:type_id/credential`),
   async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)    
     try {
       let output = {
         data: await CredentialService.list(
@@ -58,6 +59,7 @@ CredentialService.Router.get(
 CredentialService.Router.post(
   ["researcher", "study", "participant", "activity", "sensor", "type"].map((type) => `/${type}/:type_id/credential/`),
   async (req: Request, res: Response) => {
+    res.header(ApiResponseHeaders)
     try {
       res.json({
         data: await CredentialService.create(
@@ -77,6 +79,7 @@ CredentialService.Router.put(
     (type) => `/${type}/:type_id/credential/:access_key`
   ),
   async (req: Request, res: Response) => {
+    res.header(ApiResponseHeaders)
     try {
       res.json({
         data: await CredentialService.set(
@@ -97,6 +100,7 @@ CredentialService.Router.delete(
     (type) => `/${type}/:type_id/credential/:access_key`
   ),
   async (req: Request, res: Response) => {
+    res.header(ApiResponseHeaders)
     try {
       res.json({
         data: await CredentialService.set(

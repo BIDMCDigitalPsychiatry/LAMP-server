@@ -2,7 +2,7 @@ import { Request, Response, Router } from "express"
 import { DynamicAttachment } from "../model/Type"
 import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
-import { Repository } from "../repository/Bootstrap"
+import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
 
 export class TypeService {
@@ -97,6 +97,7 @@ const _put_routes = (<string[]>[]).concat(
   )
 )
 TypeService.Router.get(_parent_routes, async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     let output = {
       data: await TypeService.parent(
@@ -112,6 +113,7 @@ TypeService.Router.get(_parent_routes, async (req: Request, res: Response) => {
   }
 })
 TypeService.Router.get(_get_routes, async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     if (req.params.attachment_key === undefined) {
       res.json({
@@ -136,6 +138,7 @@ TypeService.Router.get(_get_routes, async (req: Request, res: Response) => {
   }
 })
 TypeService.Router.put(_put_routes, async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     res.json({
       data: (await TypeService.set(

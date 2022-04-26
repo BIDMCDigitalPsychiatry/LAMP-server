@@ -2,7 +2,7 @@ import e, { Request, Response, Router } from "express"
 import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
-import { Repository } from "../repository/Bootstrap"
+import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 
 export class StudyService {
   public static _name = "Study"
@@ -131,6 +131,7 @@ export class StudyService {
 }
 
 StudyService.Router.post("/researcher/:researcher_id/study", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     res.json({ data: await StudyService.create(req.get("Authorization"), req.params.researcher_id, req.body) })
   } catch (e) {
@@ -139,6 +140,7 @@ StudyService.Router.post("/researcher/:researcher_id/study", async (req: Request
   }
 })
 StudyService.Router.put("/study/:study_id", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     res.json({ data: await StudyService.set(req.get("Authorization"), req.params.study_id, req.body) })
   } catch (e) {
@@ -147,6 +149,7 @@ StudyService.Router.put("/study/:study_id", async (req: Request, res: Response) 
   }
 })
 StudyService.Router.delete("/study/:study_id", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     res.json({ data: await StudyService.set(req.get("Authorization"), req.params.study_id, null) })
   } catch (e) {
@@ -155,6 +158,7 @@ StudyService.Router.delete("/study/:study_id", async (req: Request, res: Respons
   }
 })
 StudyService.Router.get("/study/:study_id", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     let output = { data: await StudyService.get(req.get("Authorization"), req.params.study_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
@@ -165,6 +169,7 @@ StudyService.Router.get("/study/:study_id", async (req: Request, res: Response) 
   }
 })
 StudyService.Router.get("/researcher/:researcher_id/study", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     let output = { data: await StudyService.list(req.get("Authorization"), req.params.researcher_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
@@ -177,6 +182,7 @@ StudyService.Router.get("/researcher/:researcher_id/study", async (req: Request,
 
 // Clone study id to another-import activities,sensors to new studyid given
 StudyService.Router.post("/researcher/:researcher_id/study/clone", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     const StudyRepository = new Repository().getStudyRepository()
     const ActivityRepository = new Repository().getActivityRepository()

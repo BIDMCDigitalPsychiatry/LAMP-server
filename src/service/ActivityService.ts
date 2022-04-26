@@ -2,7 +2,7 @@ import { Request, Response, Router } from "express"
 import { _verify } from "./Security"
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
-import { Repository } from "../repository/Bootstrap"
+import { Repository, ApiResponseHeaders} from "../repository/Bootstrap"
 
 export class ActivityService {
   public static _name = "Activity"
@@ -112,6 +112,7 @@ export class ActivityService {
 }
 
 ActivityService.Router.post("/study/:study_id/activity", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     res.json({ data: await ActivityService.create(req.get("Authorization"), req.params.study_id, req.body) })
   } catch (e) {
@@ -120,6 +121,7 @@ ActivityService.Router.post("/study/:study_id/activity", async (req: Request, re
   }
 })
 ActivityService.Router.put("/activity/:activity_id", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     res.json({ data: await ActivityService.set(req.get("Authorization"), req.params.activity_id, req.body) })
   } catch (e) {
@@ -128,6 +130,7 @@ ActivityService.Router.put("/activity/:activity_id", async (req: Request, res: R
   }
 })
 ActivityService.Router.delete("/activity/:activity_id", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     res.json({ data: await ActivityService.set(req.get("Authorization"), req.params.activity_id, null) })
   } catch (e) {
@@ -136,6 +139,7 @@ ActivityService.Router.delete("/activity/:activity_id", async (req: Request, res
   }
 })
 ActivityService.Router.get("/activity/:activity_id", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     let output = { data: await ActivityService.get(req.get("Authorization"), req.params.activity_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
@@ -146,6 +150,7 @@ ActivityService.Router.get("/activity/:activity_id", async (req: Request, res: R
   }
 })
 ActivityService.Router.get("/participant/:participant_id/activity", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     let output = {
       data: await ActivityService.list(
@@ -163,6 +168,7 @@ ActivityService.Router.get("/participant/:participant_id/activity", async (req: 
   }
 })
 ActivityService.Router.get("/study/:study_id/activity", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     let output = {
       data: await ActivityService.list(

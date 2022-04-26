@@ -2,7 +2,7 @@ import { Request, Response, Router } from "express"
 import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
-import { Repository } from "../repository/Bootstrap"
+import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 
 export class SensorService {
   public static _name = "Sensor"
@@ -141,6 +141,7 @@ export class SensorService {
 }
 
 SensorService.Router.post("/study/:study_id/sensor", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     res.json({ data: await SensorService.create(req.get("Authorization"), req.params.study_id, req.body) })
   } catch (e) {
@@ -157,6 +158,7 @@ SensorService.Router.put("/sensor/:sensor_id", async (req: Request, res: Respons
   }
 })
 SensorService.Router.delete("/sensor/:sensor_id", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     res.json({ data: await SensorService.set(req.get("Authorization"), req.params.sensor_id, null) })
   } catch (e) {
@@ -165,6 +167,7 @@ SensorService.Router.delete("/sensor/:sensor_id", async (req: Request, res: Resp
   }
 })
 SensorService.Router.get("/sensor/:sensor_id", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     let output = { data: await SensorService.get(req.get("Authorization"), req.params.sensor_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
@@ -175,6 +178,7 @@ SensorService.Router.get("/sensor/:sensor_id", async (req: Request, res: Respons
   }
 })
 SensorService.Router.get("/participant/:participant_id/sensor", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     let output = {
       data: await SensorService.list(
@@ -192,6 +196,7 @@ SensorService.Router.get("/participant/:participant_id/sensor", async (req: Requ
   }
 })
 SensorService.Router.get("/study/:study_id/sensor", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     let output = {
       data: await SensorService.list(req.get("Authorization"), req.params.study_id, req.query.ignore_binary === "true"),

@@ -1,7 +1,7 @@
 import { Request, Response, Router } from "express"
 import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
-import { Repository } from "../repository/Bootstrap"
+import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 import { BulkDataWrite } from "../utils/queue/BulkDataWrite"
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
 import { RedisClient } from "../repository/Bootstrap"
@@ -44,6 +44,7 @@ export class SensorEventService {
 }
 
 SensorEventService.Router.post("/participant/:participant_id/sensor_event", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     res.json({
       data: await SensorEventService.create(
@@ -59,6 +60,7 @@ SensorEventService.Router.post("/participant/:participant_id/sensor_event", asyn
   }
 })
 SensorEventService.Router.get("/participant/:participant_id/sensor_event", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
   try {
     let output = {
       data: await SensorEventService.list(
