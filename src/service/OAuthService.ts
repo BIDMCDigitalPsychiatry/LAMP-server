@@ -11,7 +11,16 @@ export class OAuthService {
 }
 
 OAuthService.Router.get("/oauth/start", async (req: Request, res: Response) => {
-  const startURL = new OauthConfiguration().getStartFlowUrl()
+  const configuration = new OauthConfiguration()
+
+  if (!configuration.isEnabled) {
+    res
+      .status(404)
+      .json({ message: "404.oauth-disabled" })
+    return
+  }
+
+  const startURL = configuration.getStartFlowUrl()
   res.json({
     "url": startURL
   })
