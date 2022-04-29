@@ -2,6 +2,8 @@ import { Request, Response, Router } from "express"
 import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository } from "../repository/Bootstrap"
+import sign from "jwt-encode"
+import { TypeService } from "./TypeService"
 
 export class CredentialService {
   public static _name = "Credential"
@@ -36,6 +38,58 @@ export class CredentialService {
     }
   }
 }
+
+CredentialService.Router.post("/token", async (req: Request, res: Response) => {
+  const { id, password } = req.body
+  const secret = process.env.TOKEN_SECRET
+
+  if (!secret) {
+    res.status(500).send("Missing TOKEN_SECRET")
+  }
+
+  if (!id || !password) {
+    res.status(400).send("Both id and password are required")
+    return
+  }
+
+  const repository = new Repository().getCredentialRepository()
+
+  try {
+    await repository._find(id, password)
+  } catch (error) {
+    res.status(400).json({ error: error.message })
+  }
+
+  let roles: string[]
+  try {
+    const typeData = await TypeService.parent(`Basic ${id}:${password}`, "me")
+    if (Object.entries(typeData).length === 0) {
+      roles = ["researcher"]
+    } else {
+      roles = ["participant"]
+    }
+  } catch (error) {
+    if (error.message === "400.context-substitution-failed") {
+      roles = ["admin"]
+    } else {
+      roles = []
+    }
+  }
+
+  const accessToken = sign({
+    id: id,
+    roles: roles
+  }, secret!)
+  const refreshToken = sign({
+    time: new Date().toISOString()
+  }, secret!)
+  const success = await repository._updateOAuth(id, accessToken, refreshToken)
+  res.json({
+    success: success,
+    access_token: success ? accessToken : null,
+    refresh_token: success ? refreshToken : null,
+  })
+})
 
 CredentialService.Router.get(
   ["researcher", "study", "participant", "activity", "sensor", "type"].map((type) => `/${type}/:type_id/credential`),
