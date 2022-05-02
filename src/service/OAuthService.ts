@@ -12,7 +12,6 @@ export class OAuthService {
 
 OAuthService.Router.get("/oauth/start", async (req: Request, res: Response) => {
   const configuration = new OauthConfiguration()
-
   if (!configuration.isEnabled) {
     res
       .status(404)
@@ -20,9 +19,16 @@ OAuthService.Router.get("/oauth/start", async (req: Request, res: Response) => {
     return
   }
 
-  const startURL = configuration.getStartFlowUrl()
+  let startURL: string
+  try {
+    startURL = configuration.getStartFlowUrl()
+  } catch {
+    res.status(500).send("Internal server error")
+    return
+  }
+
   res.json({
-    "url": startURL
+    url: startURL
   })
 })
 
@@ -30,7 +36,14 @@ OAuthService.Router.post("/oauth/authenticate", async (req: Request, res: Respon
   let code = req.body.code
   let verifier = req.body.code_verifier
 
-  let data = new OauthConfiguration().getRedeemTokenData(code, verifier)
+  let data: { url: URL, body: URLSearchParams }
+  try {
+    data = new OauthConfiguration().getRedeemTokenData(code, verifier)
+  } catch {
+    res.status(500).send("Internal server error")
+    return
+  }
+
   let response = await fetch(data.url, {
     method: "POST",
     body: data.body
