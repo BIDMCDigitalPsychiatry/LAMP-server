@@ -3,6 +3,7 @@ import { Encrypt, Decrypt } from "../Bootstrap"
 import { CredentialInterface } from "../interface/RepositoryInterface"
 import { MongoClientDB } from "../Bootstrap"
 import { ObjectID } from "mongodb"
+import { OauthConfiguration } from '../../utils/OauthConfiguration';
 
 export class CredentialRepository implements CredentialInterface {
   // if used with secret_key, will throw error if mismatch, else, will return confirmation of existence
@@ -37,7 +38,9 @@ export class CredentialRepository implements CredentialInterface {
       credential.origin = type_id
     }
     // Verify this is "our" credential correctly
-    if (credential.origin !== type_id || !credential.access_key || !credential.secret_key)
+    if (credential.origin !== type_id ||
+      !credential.access_key ||
+      validateSecretKey(credential.secret_key))
       throw new Error("400.malformed-credential-object")
     const res = await MongoClientDB.collection("credential").findOne({
       _deleted: false,
@@ -99,4 +102,8 @@ export class CredentialRepository implements CredentialInterface {
     if(res != null) return res.origin
     throw new Error("403.no-such-credentials")
   }
+}
+
+function validateSecretKey(secret_key: string): boolean {
+  return new OauthConfiguration().isEnabled || !!secret_key
 }
