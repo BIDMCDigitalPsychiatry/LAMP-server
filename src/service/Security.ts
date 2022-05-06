@@ -46,8 +46,10 @@ export async function _verify(
     throw new Error("400.context-substitution-failed")
   }  
   // Check if `authSubject` is root for a root-only authType.
-  if (isRoot)
+  if (isRoot) {
+    let _owner = !!authObject ? await TypeRepository._owner(authObject ?? "") : undefined
     return authObject as any  
+  }
   
   // Check if `authObject` and `authSubject` are the same || authenticated for  resource * 
   if ((!isRoot && authType.includes("self") && (authSubject.origin === authObject))
