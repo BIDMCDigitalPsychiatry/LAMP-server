@@ -48,8 +48,8 @@ export class TypeRepository implements TypeInterface {
       return ((await MongoClientDB.collection("participant").findOne({ _deleted: false, _id: type_id })) as any)._parent
     } catch (e) {}
     try {
-      const data: any = await (MongoClientDB.collection("researcher").findOne({ _deleted: false, _id: type_id }) as any)
-      if (null !== data) return null
+      await (MongoClientDB.collection("researcher").findOne({ _deleted: false, _id: type_id }) as any)
+      return null
     } catch (e) {}
     try {
       return ((await MongoClientDB.collection("study").findOne({ _deleted: false, _id: type_id })) as any)._parent
@@ -60,7 +60,7 @@ export class TypeRepository implements TypeInterface {
     try {
       return ((await MongoClientDB.collection("sensor").findOne({ _deleted: false, _id: type_id })) as any)._parent
     } catch (e) {}
-    return null
+    throw new Error("404.resource-not-found")
   }
 
   public async _parent_type(type_id: string): Promise<string[]> {

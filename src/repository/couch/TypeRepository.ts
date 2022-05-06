@@ -56,7 +56,7 @@ export class TypeRepository implements TypeInterface {
     try {
       return ((await Database.use("sensor").get(type_id)) as any)["#parent"]
     } catch (e) {}
-    return null
+    throw new Error("404.resource-not-found")
   }
 
   public async _parent_type(type_id: string): Promise<string[]> {
