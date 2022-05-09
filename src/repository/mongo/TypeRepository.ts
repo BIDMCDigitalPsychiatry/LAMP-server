@@ -48,8 +48,8 @@ export class TypeRepository implements TypeInterface {
       return ((await MongoClientDB.collection("participant").findOne({ _deleted: false, _id: type_id })) as any)._parent
     } catch (e) {}
     try {
-      await (MongoClientDB.collection("researcher").findOne({ _deleted: false, _id: type_id }) as any)
-      return null
+      let data = await (MongoClientDB.collection("researcher").findOne({ _deleted: false, _id: type_id }) as any)
+      if (null !== data) return null
     } catch (e) {}
     try {
       return ((await MongoClientDB.collection("study").findOne({ _deleted: false, _id: type_id })) as any)._parent
