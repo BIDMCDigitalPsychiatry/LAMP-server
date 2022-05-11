@@ -1,4 +1,5 @@
 import { Repository } from "../repository/Bootstrap"
+import { verify } from "jsonwebtoken"
 
 // The AuthSubject type represents an already-validated authorization that can be reused. 
 type AuthSubject = { origin: string; access_key: string; secret_key: string; }
@@ -11,12 +12,23 @@ export async function _createAuthSubject(authHeader: string | undefined): Promis
   
   if (authHeader === undefined) 
     throw new Error("401.missing-credentials")
+  
+  const secret = process.env.TOKEN_SECRET
+  if (!secret) {
+    throw new Error("500.invalid-configuration")
+  }
 
   if(authHeader.includes("Bearer")) {
     const accessToken = authHeader.replace("Bearer ", "").trim()
-    const origin = await CredentialRepository._findByAccessToken(accessToken)
+    let payload: any
+    try {
+      payload = verify(accessToken, secret)
+    } catch (e) {
+      throw new Error("403.invalid-token")
+    }
+
     return {
-      origin: origin,
+      origin: payload.origin,
       access_key: "",
       secret_key: ""
     }
