@@ -40,7 +40,7 @@ export class CredentialRepository implements CredentialInterface {
     // Verify this is "our" credential correctly
     if (credential.origin !== type_id ||
       !credential.access_key ||
-      validateSecretKey(credential.secret_key))
+      !validateSecretKey(credential.secret_key))
       throw new Error("400.malformed-credential-object")
     const res = await MongoClientDB.collection("credential").findOne({
       _deleted: false,
@@ -85,22 +85,24 @@ export class CredentialRepository implements CredentialInterface {
     return {}
   }
 
-  async _updateOAuth(access_key: string, access_token: string, refresh_token: string) : Promise<boolean> {
-    let response: boolean = false
+  async _saveRefreshToken(access_key: string, refresh_token: string) : Promise<void> {
     await MongoClientDB.collection("credential").findOneAndUpdate(
       { access_key: access_key },
-      { $set: { access_token: access_token, refresh_token: refresh_token }},
+      { $set: { refresh_token: refresh_token }},
       { upsert: true }
-    ).then(() => { response = true })
-    .catch(() => { response = false })
-
-    return response
+    )
   }
 
   async _findByAccessToken(access_token: string) : Promise<string> {
     const res = await MongoClientDB.collection("credential").findOne({ access_token: access_token })
     if(res != null) return res.origin
     throw new Error("403.no-such-credentials")
+  }
+
+  async _getIdPRefreshToken(access_key: string): Promise<string> {
+    const res = await MongoClientDB.collection("credential")
+      .findOne({ _deleted: false, access_key: access_key })
+    return res.refresh_token
   }
 }
 
