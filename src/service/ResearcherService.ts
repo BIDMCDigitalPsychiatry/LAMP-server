@@ -91,7 +91,7 @@ ResearcherService.Router.post("/researcher", async (req: Request, res: Response)
   res.header(ApiResponseHeaders)
   try {
     res.json({ data: await ResearcherService.create(req.get("Authorization"), null, req.body) })
-  } catch (e) {
+  } catch (e:any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
@@ -101,7 +101,7 @@ ResearcherService.Router.put("/researcher/:researcher_id", async (req: Request, 
   res.header(ApiResponseHeaders)
   try {
     res.json({ data: await ResearcherService.set(req.get("Authorization"), req.params.researcher_id, req.body) })
-  } catch (e) {
+  } catch (e:any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
@@ -110,7 +110,7 @@ ResearcherService.Router.delete("/researcher/:researcher_id", async (req: Reques
   res.header(ApiResponseHeaders)
   try {
     res.json({ data: await ResearcherService.set(req.get("Authorization"), req.params.researcher_id, null) })
-  } catch (e) {
+  } catch (e:any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
@@ -121,7 +121,7 @@ ResearcherService.Router.get("/researcher/:researcher_id", async (req: Request, 
     let output = { data: await ResearcherService.get(req.get("Authorization"), req.params.researcher_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
-  } catch (e) {
+  } catch (e:any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
@@ -132,7 +132,7 @@ ResearcherService.Router.get("/researcher", async (req: Request, res: Response) 
     let output = { data: await ResearcherService.list(req.get("Authorization"), null) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
-  } catch (e) {
+  } catch (e:any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
@@ -209,7 +209,7 @@ ResearcherService.Router.get("/researcher/:researcher_id/_lookup/:lookup", async
       }
       res.json({ studies: study_details, sensors: sensors })
     }
-  } catch (e) {
+  } catch (e:any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
@@ -327,7 +327,7 @@ ResearcherService.Router.get("/study/:study_id/_lookup/:lookup/mode/:mode", asyn
 
       res.json({ participants: ParticipantIDs })
     }
-  } catch (e) {
+  } catch (e:any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }

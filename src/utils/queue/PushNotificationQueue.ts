@@ -165,7 +165,7 @@ export function sendNotification(device_token: string, device_type: string, payl
       default:
         break
     }
-  } catch (error) {
+  } catch (error:any) {
     console.log(error.message)
   }
 }

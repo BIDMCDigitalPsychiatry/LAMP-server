@@ -2,7 +2,7 @@ import { Request, Response, Router } from "express"
 import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
-import { BulkDataWrite } from "../utils/queue/BulkDataWrite"
+import { BulkDataWrite, publishSensorEvent } from "../utils/queue/BulkDataWrite"
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
 import { RedisClient } from "../repository/Bootstrap"
 // default to LIMIT_NAN, clamped to [-LIMIT_MAX, +LIMIT_MAX]
@@ -34,9 +34,16 @@ export class SensorEventService {
     //check for the existance of cache size and redis host
     if (!!process.env.REDIS_HOST) {
       if (!!process.env.CACHE_SIZE) {
-        if (Number(process.env.CACHE_SIZE) !== 0) BulkDataWrite("sensor_event", participant_id, sensor_events)
-        else data = await SensorEventRepository._insert(participant_id, sensor_events)
-      } else data = await SensorEventRepository._insert(participant_id, sensor_events)
+        if (Number(process.env.CACHE_SIZE) !== 0) 
+        BulkDataWrite("sensor_event", participant_id, sensor_events)
+        else {
+        data = await SensorEventRepository._insert(participant_id, sensor_events)
+        publishSensorEvent(participant_id, [sensor_events[sensor_events.length - 1]])
+        }
+      } else {
+        data = await SensorEventRepository._insert(participant_id, sensor_events)
+        publishSensorEvent(participant_id, [sensor_events[sensor_events.length - 1]])
+      }
     } else data = await SensorEventRepository._insert(participant_id, sensor_events)
 
     return data
@@ -53,7 +60,7 @@ SensorEventService.Router.post("/participant/:participant_id/sensor_event", asyn
         Array.isArray(req.body) ? req.body : [req.body]
       ),
     })
-  } catch (e) {
+  } catch (e:any) {
     console.log("Failure Msg On sensor events post", e.message)
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
@@ -74,7 +81,7 @@ SensorEventService.Router.get("/participant/:participant_id/sensor_event", async
     }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
-  } catch (e) {
+  } catch (e:any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
