@@ -98,7 +98,7 @@ PushNotificationAPI.post("/notifications", async (req: Request, res: Response) =
         //send notifications to the participants given
         sendToParticipants(Participants, scheduleTime)
         res.status(200).json(responseMsg)
-      } catch (error) {
+      } catch (error:any) {
         res.status(parseInt(error.message.split(".")[0]) || 500).json({ error: error.message })
       }
       break
@@ -120,7 +120,7 @@ PushNotificationAPI.post("/notifications", async (req: Request, res: Response) =
           const newParticipants = await prepareParticipants(Participants, title, message, study)
           //send notifications to participants of given study
           sendToParticipants(newParticipants, scheduleTime)
-        } catch (error) {
+        } catch (error:any) {
           console.log("Error fetching participants")
         }
       }
@@ -149,7 +149,7 @@ PushNotificationAPI.post("/notifications", async (req: Request, res: Response) =
           const newParticipants = await prepareParticipants(Participants, title, message, activityID)
           //send notifications to participants for given activity
           sendToParticipants(newParticipants, scheduleTime)
-        } catch (error) {
+        } catch (error:any) {
           console.log("Error fetching participants")
         }
       }
@@ -246,7 +246,7 @@ async function sendToParticipants(Participants: any, schedule: any): Promise<voi
           }
         }
       }
-    } catch (error) {
+    } catch (error:any) {
       console.log(error)
     }
   }

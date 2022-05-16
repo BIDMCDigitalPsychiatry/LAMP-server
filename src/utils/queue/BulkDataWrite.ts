@@ -59,7 +59,7 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
  * @param participant_id
  * @param data
  */
-function publishSensorEvent(participant_id: string, data: any[]) {
+export function publishSensorEvent(participant_id: string, data: any[]) {
   const topics = [
     `sensor_event`,
     `participant.*.sensor_event`,

@@ -276,7 +276,7 @@ const METHOD_LIST = (auth: any) => ({
         let x = null // error
         try {
           x = await TypeService.get(auth, type_id, attachment_key)
-        } catch (e) {}
+        } catch (e:any) {}
         console.log(` -- LAMP.Tag.get: ${((Date.now() - _start)).toFixed(2)} ms`)
         return x 
       },
@@ -285,7 +285,7 @@ const METHOD_LIST = (auth: any) => ({
         let x = null // error
         try {
           x = await TypeService.set(auth, type_id, target, attachment_key, attachment_value)
-        } catch (e) {}
+        } catch (e:any) {}
         console.log(` -- LAMP.Tag.set: ${((Date.now() - _start)).toFixed(2)} ms`)
         return x 
       }
@@ -304,7 +304,7 @@ QueryAPI.post("/", async (req, res) => {
     // Log the query itself like an HTTP request with how long it took.
     console.log(`Query: ${((Date.now() - _start)).toFixed(2)} ms`)
     res.status(200).json(data)
-  } catch (e) {
+  } catch (e:any) {
     res.status(500).json({ error: e.message })
   }
 })

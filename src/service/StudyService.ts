@@ -134,7 +134,7 @@ StudyService.Router.post("/researcher/:researcher_id/study", async (req: Request
   res.header(ApiResponseHeaders)
   try {
     res.json({ data: await StudyService.create(req.get("Authorization"), req.params.researcher_id, req.body) })
-  } catch (e) {
+  } catch (e:any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
@@ -143,7 +143,7 @@ StudyService.Router.put("/study/:study_id", async (req: Request, res: Response) 
   res.header(ApiResponseHeaders)
   try {
     res.json({ data: await StudyService.set(req.get("Authorization"), req.params.study_id, req.body) })
-  } catch (e) {
+  } catch (e:any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
@@ -152,7 +152,7 @@ StudyService.Router.delete("/study/:study_id", async (req: Request, res: Respons
   res.header(ApiResponseHeaders)
   try {
     res.json({ data: await StudyService.set(req.get("Authorization"), req.params.study_id, null) })
-  } catch (e) {
+  } catch (e:any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
@@ -163,7 +163,7 @@ StudyService.Router.get("/study/:study_id", async (req: Request, res: Response) 
     let output = { data: await StudyService.get(req.get("Authorization"), req.params.study_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
-  } catch (e) {
+  } catch (e:any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
@@ -174,7 +174,7 @@ StudyService.Router.get("/researcher/:researcher_id/study", async (req: Request,
     let output = { data: await StudyService.list(req.get("Authorization"), req.params.researcher_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
-  } catch (e) {
+  } catch (e:any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
@@ -317,7 +317,7 @@ StudyService.Router.post("/researcher/:researcher_id/study/clone", async (req: R
       }
     )
     res.json(output)
-  } catch (e) {
+  } catch (e:any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }

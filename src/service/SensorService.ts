@@ -144,7 +144,7 @@ SensorService.Router.post("/study/:study_id/sensor", async (req: Request, res: R
   res.header(ApiResponseHeaders)
   try {
     res.json({ data: await SensorService.create(req.get("Authorization"), req.params.study_id, req.body) })
-  } catch (e) {
+  } catch (e:any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
@@ -152,7 +152,7 @@ SensorService.Router.post("/study/:study_id/sensor", async (req: Request, res: R
 SensorService.Router.put("/sensor/:sensor_id", async (req: Request, res: Response) => {
   try {    
     res.json({ data: await SensorService.set(req.get("Authorization"), req.params.sensor_id, req.body) })
-  } catch (e) {
+  } catch (e:any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
@@ -161,7 +161,7 @@ SensorService.Router.delete("/sensor/:sensor_id", async (req: Request, res: Resp
   res.header(ApiResponseHeaders)
   try {
     res.json({ data: await SensorService.set(req.get("Authorization"), req.params.sensor_id, null) })
-  } catch (e) {
+  } catch (e:any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
@@ -172,7 +172,7 @@ SensorService.Router.get("/sensor/:sensor_id", async (req: Request, res: Respons
     let output = { data: await SensorService.get(req.get("Authorization"), req.params.sensor_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
-  } catch (e) {
+  } catch (e:any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
@@ -190,7 +190,7 @@ SensorService.Router.get("/participant/:participant_id/sensor", async (req: Requ
     }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
-  } catch (e) {
+  } catch (e:any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
@@ -203,7 +203,7 @@ SensorService.Router.get("/study/:study_id/sensor", async (req: Request, res: Re
     }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
-  } catch (e) {
+  } catch (e:any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
