@@ -1,3 +1,5 @@
+import { Request } from "node-fetch"
+
 export class OauthConfiguration {
   public get isEnabled(): boolean {
     return process.env.OAUTH === "on"
@@ -22,12 +24,10 @@ export class OauthConfiguration {
     return url.href
   }
 
-  public getRedeemTokenData(code: string, code_verifier: string): { url: URL; body: URLSearchParams } {
+  public getRedeemCodeRequest(code: string, code_verifier: string): Request {
     if (!process.env.OAUTH_TOKEN_URL) {
       throw Error("Environment variable OAUTH_AUTH_URL not set")
     }
-
-    const url = new URL(process.env.OAUTH_TOKEN_URL)
 
     const params = new URLSearchParams()
     params.append("client_id", process.env.OAUTH_CLIENT_ID ?? "")
@@ -37,7 +37,28 @@ export class OauthConfiguration {
     params.append("grant_type", "authorization_code")
     params.append("code_verifier", code_verifier)
     params.append("client_secret", process.env.OAUTH_CLIENT_SECRET ?? "")
-    return { url: url, body: params }
+
+    return new Request(
+      process.env.OAUTH_TOKEN_URL,
+      { method: "POST", body: params }
+    )
+  }
+
+  public getRefreshTokenRequest(refreshToken: string): Request {
+    if (!process.env.OAUTH_TOKEN_URL) {
+      throw Error("Environment variable OAUTH_AUTH_URL not set")
+    }
+
+    const params = new URLSearchParams()
+    params.append("client_id", process.env.OAUTH_CLIENT_ID ?? "")
+    params.append("client_secret", process.env.OAUTH_CLIENT_SECRET ?? "")
+    params.append("grant_type", "refresh_token")
+    params.append("refresh_token", refreshToken)
+
+    return new Request(
+      process.env.OAUTH_TOKEN_URL,
+      { method: "POST", body: params }
+    )
   }
 }
 

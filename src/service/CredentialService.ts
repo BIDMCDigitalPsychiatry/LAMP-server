@@ -2,8 +2,15 @@ import { Request, Response, Router } from "express"
 import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository } from "../repository/Bootstrap"
-import sign from "jwt-encode"
-import { TypeService } from "./TypeService"
+import { sign, verify } from 'jsonwebtoken';
+import { v4 as uuidv4 } from "uuid"
+import { OauthConfiguration } from '../utils/OauthConfiguration';
+import fetch from "node-fetch"
+
+export interface UpdateTokenResult {
+  access_token?: string
+  refresh_token?: string
+}
 
 export class CredentialService {
   public static _name = "Credential"
@@ -37,58 +44,91 @@ export class CredentialService {
       return await CredentialRepository._update(type_id, access_key, credential)
     }
   }
+
+  public static async updateToken(access_key: string, refresh_token: string, secret_key?: string): Promise<UpdateTokenResult> {
+    const secret = process.env.TOKEN_SECRET
+    if (!secret) {
+      throw new Error("500.invalid-configuration")
+    }
+
+    const CredentialRepository = new Repository().getCredentialRepository()
+    const origin = await CredentialRepository._find(access_key, secret_key)
+    await CredentialRepository._saveRefreshToken(access_key, refresh_token)
+
+    const accessToken = sign({
+      typ: "Bearer",
+      id: access_key,
+      origin: origin,
+    }, secret, {
+      expiresIn: "1 week",
+      jwtid: uuidv4(),
+    })
+    const refreshToken = sign({
+      typ: "Offline",
+      sid: uuidv4(),
+      id: access_key,
+    }, secret, {
+      jwtid: uuidv4(),
+    })
+
+    return {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    }
+  }
+
+  public static async refreshToken(refreshToken: string): Promise<UpdateTokenResult> {
+    const secret = process.env.TOKEN_SECRET
+    if (!secret) {
+      throw new Error("500.invalid-configuration")
+    }
+
+    const payload = verify(refreshToken, secret) as any
+    if (!payload.id) {
+      throw new Error("401.invalid-token")
+    }
+
+    const CredentialRepository = new Repository().getCredentialRepository()
+    const currentRefreshToken = await CredentialRepository._getIdPRefreshToken(payload.id)
+    const request = new OauthConfiguration().getRefreshTokenRequest(currentRefreshToken)
+    const response = await fetch(request)
+
+    if (!response.ok) {
+      throw new Error("500.idp-refresh-token-error")
+    }
+
+    const newRefreshToken = (await response.json()).refresh_token
+    return CredentialService.updateToken(payload.id, newRefreshToken)
+  }
 }
 
 CredentialService.Router.post("/token", async (req: Request, res: Response) => {
-  const { id, password } = req.body
-  const secret = process.env.TOKEN_SECRET
-
-  if (!secret) {
-    res.status(500).send("Missing TOKEN_SECRET")
-  }
-
-  if (!id || !password) {
-    res.status(400).send("Both id and password are required")
-    return
-  }
-
-  const repository = new Repository().getCredentialRepository()
+  const { id, password, refresh_token } = req.body
 
   try {
-    await repository._find(id, password)
-  } catch (error) {
-    res.status(400).json({ error: error.message })
+    let result: UpdateTokenResult
+    if (!!id && !!password) {
+      result = await CredentialService.updateToken(id, password)
+    } else if (!!refresh_token) {
+      result = await CredentialService.refreshToken(refresh_token)
+    } else {
+      throw Error("400.invalid-parameters")
+    }
+
+    res.json({
+      ...result,
+      success: true,
+    })
+  } catch (e) {
+    res
+      .status(parseInt(e.message.split(".")[0]) || 500)
+      .json({
+        success: false,
+        error: e.message,
+      })
+      return
   }
 
-  let roles: string[]
-  try {
-    const typeData = await TypeService.parent(`Basic ${id}:${password}`, "me")
-    if (Object.entries(typeData).length === 0) {
-      roles = ["researcher"]
-    } else {
-      roles = ["participant"]
-    }
-  } catch (error) {
-    if (error.message === "400.context-substitution-failed") {
-      roles = ["admin"]
-    } else {
-      roles = []
-    }
-  }
-
-  const accessToken = sign({
-    id: id,
-    roles: roles
-  }, secret!)
-  const refreshToken = sign({
-    time: new Date().toISOString()
-  }, secret!)
-  const success = await repository._updateOAuth(id, accessToken, refreshToken)
-  res.json({
-    success: success,
-    access_token: success ? accessToken : null,
-    refresh_token: success ? refreshToken : null,
-  })
 })
 
 CredentialService.Router.get(

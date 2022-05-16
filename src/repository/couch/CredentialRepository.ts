@@ -87,11 +87,14 @@ export class CredentialRepository implements CredentialInterface {
   }
 
   // TODO: Implement Couch compatibility
-  async _updateOAuth(access_key: string, access_token: string, refresh_token: string) : Promise<boolean> {
-    return false
+  async _saveRefreshToken(access_key: string, refresh_token: string) : Promise<void> {
   }
 
   async _findByAccessToken(access_token: string) : Promise<string> {
+    return ""
+  }
+
+  async _getIdPRefreshToken(access_key: string): Promise<string> {
     return ""
   }
 

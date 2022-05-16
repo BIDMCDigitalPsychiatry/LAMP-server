@@ -1,9 +1,10 @@
 import { Request, Response, Router } from "express"
 import { OauthConfiguration } from "../utils/OauthConfiguration"
 import { _verify } from "./Security"
-import fetch from "node-fetch"
-import jwt_decode from "jwt-decode"
+import fetch, { Request as Req, Response as Res } from "node-fetch"
 import { MongoClientDB, Repository } from "../repository/Bootstrap"
+import { CredentialService, UpdateTokenResult } from './CredentialService';
+import { decode } from "jsonwebtoken"
 
 export class OAuthService {
   public static _name = "OAuth"
@@ -36,41 +37,59 @@ OAuthService.Router.post("/oauth/authenticate", async (req: Request, res: Respon
   let code = req.body.code
   let verifier = req.body.code_verifier
 
-  let data: { url: URL, body: URLSearchParams }
-  try {
-    data = new OauthConfiguration().getRedeemTokenData(code, verifier)
-  } catch {
-    res.status(500).send("Internal server error")
+  if (!code || !verifier) {
+    res.status(400).send("Invalid parameters")
     return
   }
 
-  let response = await fetch(data.url, {
-    method: "POST",
-    body: data.body
-  })
+  let request = new OauthConfiguration().getRedeemCodeRequest(code, verifier)
+  let response: Res
+  try {
+    response = await fetch(request)
+  } catch {
+    res.status(500).send("Identity provider error")
+    return
+  }
 
-  response.json().then(async json => {
-    if(!!json.error) {
-      res.json({
-        "success": false
-      })
-    } else {
-      let accessToken = json.access_token
-      let refreshToken = json.refresh_token
-      let email = jwt_decode<any>(accessToken).email
-      let repository = new Repository().getCredentialRepository()
-      let success = await repository._updateOAuth(email, accessToken, refreshToken)
+  let json: any
+  try {
+    json = await response.json()
 
-      res.json({
-        "success": success,
-        "access_token": success ? accessToken : null,
-        "refresh_token": success ? refreshToken : null
-      })
+    if (!!json.error) {
+      throw new Error()
     }
-  }).catch(() => {
+  } catch {
     res.json({
-      "success": false
+      success: false
     })
-  })
+    return
+  }
 
+  const accessToken = json.access_token
+  const refreshToken = json.refresh_token
+  const payload = !!accessToken ? decode(accessToken) as any : {}
+  if (!payload.email) {
+    res
+      .status(500)
+      .json({ success: false })
+    return
+  }
+
+  let result: UpdateTokenResult
+  try {
+    result = await CredentialService.updateToken(payload.email, refreshToken)
+  } catch (e) {
+    res
+      .status(parseInt(e.message.split(".")[0]) || 500)
+      .json({
+        success: false,
+        error: e.message,
+      })
+    return
+  }  
+  
+  res.json({
+    ...result,
+    success: true,
+  })
 })

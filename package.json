@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "bin": "build/index.js",
   "dependencies": {
+    "@types/jsonwebtoken": "^8.5.8",
     "ajv": "^8.1.0",
     "async-mutex": "^0.2.4",
     "bson": "^4.6.0",
@@ -10,14 +11,14 @@
     "cors": "^2.8.5",
     "express": "^4.17.1",
     "ioredis": "^4.22.0",
-    "jwt-decode": "^3.1.2",
-    "jwt-encode": "^1.0.1",
+    "jsonwebtoken": "^8.5.1",
     "mongodb": "^3.6.6",
     "morgan": "^1.9.1",
     "nano": "^8.2.2",
     "nanoid": "^3.1.3",
     "node-fetch": "^2.6.1",
-    "ts-nats": "^1.2.15"
+    "ts-nats": "^1.2.15",
+    "uuid": "^8.3.2"
   },
   "devDependencies": {
     "@types/bull": "^3.14.2",
