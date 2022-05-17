@@ -2,8 +2,7 @@ import { Request, Response, Router } from "express"
 import { OAuthConfiguration } from "../utils/OAuthConfiguration"
 import { _verify } from "./Security"
 import fetch, { Request as Req, Response as Res } from "node-fetch"
-import { MongoClientDB, Repository } from "../repository/Bootstrap"
-import { CredentialService, UpdateTokenResult } from './CredentialService';
+import { CredentialService } from './CredentialService';
 import { decode } from "jsonwebtoken"
 
 export class OAuthService {
@@ -19,16 +18,17 @@ OAuthService.Router.get("/oauth/start", async (req: Request, res: Response) => {
     return
   }
 
-  let startURL: string
-  try {
-    startURL = OAuthConfiguration.getStartFlowUrl()
-  } catch {
-    res.status(500).send("Internal server error")
+  let loginURL = configuration.getLoginURL()
+  if (!loginURL) {
+    res.status(500).send("Internal server errror")
     return
   }
 
+  let logoutURL = configuration.getLogoutURL()
+
   res.json({
-    url: startURL
+    loginURL,
+    logoutURL,
   })
 })
 
@@ -41,54 +41,34 @@ OAuthService.Router.post("/oauth/authenticate", async (req: Request, res: Respon
     return
   }
 
-  let request = OAuthConfiguration.getRedeemCodeRequest(code, verifier)
-  let response: Res
-  try {
-    response = await fetch(request)
-  } catch {
-    res.status(500).send("Identity provider error")
-    return
-  }
+  let request = new OauthConfiguration().getRedeemCodeRequest(code, verifier)
 
-  let json: any
-  try {
-    json = await response.json()
+  fetch(request).then(async response => {
+      let json = await response.json()
+      if(json.error) {
+        res.status(500).send(json.error)
+        return
+      }
 
-    if (!!json.error) {
-      throw new Error()
-    }
-  } catch {
-    res.json({
-      success: false
-    })
-    return
-  }
+      const idp_accessToken = json.access_token
+      const idp_refresh_token = json.refresh_token
+      const payload = decode(idp_accessToken) as any
 
-  const accessToken = json.access_token
-  const refreshToken = json.refresh_token
-  const payload = !!accessToken ? decode(accessToken) as any : {}
-  if (!payload.email) {
-    res
-      .status(500)
-      .json({ success: false })
-    return
-  }
+      let email = payload.email
+      if(!email) email = payload.emails[0]
+      if(!email) {
+        res.status(400).send("No email found")
+        return
+      }
 
-  let result: UpdateTokenResult
-  try {
-    result = await CredentialService.updateToken(payload.email, refreshToken)
-  } catch (e) {
-    res
-      .status(parseInt(e.message.split(".")[0]) || 500)
-      .json({
-        success: false,
-        error: e.message,
+      let result = await CredentialService.updateToken(email, idp_refresh_token)
+      if (!result.success) {
+        res.status(401).send("Unauthorized")
+        return
+      }
+      res.json({
+        ...result,
+        success: true
       })
-    return
-  }  
-  
-  res.json({
-    ...result,
-    success: true,
   })
 })

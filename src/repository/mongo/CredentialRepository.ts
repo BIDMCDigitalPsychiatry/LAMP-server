@@ -87,16 +87,10 @@ export class CredentialRepository implements CredentialInterface {
 
   async _saveRefreshToken(access_key: string, refresh_token: string) : Promise<void> {
     await MongoClientDB.collection("credential").findOneAndUpdate(
-      { access_key: access_key },
+      { access_key: access_key, _deleted: false },
       { $set: { refresh_token: refresh_token }},
-      { upsert: true }
+      { upsert: false }
     )
-  }
-
-  async _findByAccessToken(access_token: string) : Promise<string> {
-    const res = await MongoClientDB.collection("credential").findOne({ access_token: access_token })
-    if(res != null) return res.origin
-    throw new Error("403.no-such-credentials")
   }
 
   async _getIdPRefreshToken(access_key: string): Promise<string> {
