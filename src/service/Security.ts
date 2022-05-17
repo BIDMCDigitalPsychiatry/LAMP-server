@@ -12,21 +12,24 @@ export async function _createAuthSubject(authHeader: string | undefined): Promis
   
   if (authHeader === undefined) 
     throw new Error("401.missing-credentials")
-  
-  const secret = process.env.TOKEN_SECRET
-  if (!secret) {
-    throw new Error("500.invalid-configuration")
-  }
 
   if(authHeader.includes("Bearer")) {
-    const accessToken = authHeader.replace("Bearer ", "").trim()
-    let payload: any
-    try {
-      payload = verify(accessToken, secret)
-    } catch (e) {
-      throw new Error("403.invalid-token")
+    const secret = process.env.TOKEN_SECRET
+    if (!secret) {
+      throw new Error("500.invalid-configuration")
     }
 
+    const accessToken = authHeader.replace("Bearer ", "").trim()
+    let payload: any
+
+    verify(accessToken, secret, (errors, decoded) => {
+      if (errors) {
+        throw new Error("401.invalid-credentials")
+      }
+
+      payload = decoded
+    })
+    
     return {
       origin: payload.origin,
       access_key: "",

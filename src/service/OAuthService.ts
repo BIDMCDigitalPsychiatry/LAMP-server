@@ -2,7 +2,6 @@ import { Request, Response, Router } from "express"
 import { OauthConfiguration } from "../utils/OauthConfiguration"
 import { _verify } from "./Security"
 import fetch, { Request as Req, Response as Res } from "node-fetch"
-import { MongoClientDB, Repository } from "../repository/Bootstrap"
 import { CredentialService, UpdateTokenResult } from './CredentialService';
 import { decode } from "jsonwebtoken"
 
@@ -20,11 +19,10 @@ OAuthService.Router.get("/oauth/start", async (req: Request, res: Response) => {
     return
   }
 
-  let startURL: string
-  try {
-    startURL = configuration.getStartFlowUrl()
-  } catch {
-    res.status(500).send("Internal server error")
+  let startURL = configuration.getStartFlowUrl()
+  
+  if (!startURL) {
+    res.status(500).send("Internal server errror")
     return
   }
 
@@ -68,16 +66,17 @@ OAuthService.Router.post("/oauth/authenticate", async (req: Request, res: Respon
   const accessToken = json.access_token
   const refreshToken = json.refresh_token
   const payload = !!accessToken ? decode(accessToken) as any : {}
-  if (!payload.email) {
-    res
-      .status(500)
-      .json({ success: false })
+  
+  let email = payload.email
+  if(!email) email = payload.emails[0]
+  if(!email) {
+    res.status(500).send("Internal server error")
     return
   }
 
   let result: UpdateTokenResult
   try {
-    result = await CredentialService.updateToken(payload.email, refreshToken)
+    result = await CredentialService.updateToken(email, refreshToken)
   } catch (e) {
     res
       .status(parseInt(e.message.split(".")[0]) || 500)

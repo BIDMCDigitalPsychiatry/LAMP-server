@@ -5,9 +5,9 @@ export class OauthConfiguration {
     return process.env.OAUTH === "on"
   }
 
-  public getStartFlowUrl(): string {
+  public getStartFlowUrl(): string | null {
     if (!process.env.OAUTH_AUTH_URL) {
-      throw Error("Environment variable OAUTH_TOKEN_URL not set")
+      return null
     }
 
     const url = new URL(process.env.OAUTH_AUTH_URL)
