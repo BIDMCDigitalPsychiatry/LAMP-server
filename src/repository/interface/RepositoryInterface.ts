@@ -112,6 +112,5 @@ export interface CredentialInterface {
   _update(type_id: string | null, access_key: string, credential: any): Promise<{}>
   _delete(type_id: string | null, access_key: string): Promise<{}>
   _saveRefreshToken(access_key: string, refresh_token: string) : Promise<void>
-  _findByAccessToken(access_token: string) : Promise<string>
   _getIdPRefreshToken(access_key: string): Promise<string>
 }

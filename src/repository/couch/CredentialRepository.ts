@@ -90,10 +90,6 @@ export class CredentialRepository implements CredentialInterface {
   async _saveRefreshToken(access_key: string, refresh_token: string) : Promise<void> {
   }
 
-  async _findByAccessToken(access_token: string) : Promise<string> {
-    return ""
-  }
-
   async _getIdPRefreshToken(access_key: string): Promise<string> {
     return ""
   }
