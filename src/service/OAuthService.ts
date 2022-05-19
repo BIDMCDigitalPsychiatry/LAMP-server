@@ -1,5 +1,5 @@
 import { Request, Response, Router } from "express"
-import { OauthConfiguration } from "../utils/OauthConfiguration"
+import { OAuthConfiguration } from "../utils/OAuthConfiguration"
 import { _verify } from "./Security"
 import fetch, { Request as Req, Response as Res } from "node-fetch"
 import { MongoClientDB, Repository } from "../repository/Bootstrap"
@@ -12,8 +12,7 @@ export class OAuthService {
 }
 
 OAuthService.Router.get("/oauth/start", async (req: Request, res: Response) => {
-  const configuration = new OauthConfiguration()
-  if (!configuration.isEnabled) {
+  if (!OAuthConfiguration.isEnabled) {
     res
       .status(404)
       .json({ message: "404.oauth-disabled" })
@@ -22,7 +21,7 @@ OAuthService.Router.get("/oauth/start", async (req: Request, res: Response) => {
 
   let startURL: string
   try {
-    startURL = configuration.getStartFlowUrl()
+    startURL = OAuthConfiguration.getStartFlowUrl()
   } catch {
     res.status(500).send("Internal server error")
     return
@@ -42,7 +41,7 @@ OAuthService.Router.post("/oauth/authenticate", async (req: Request, res: Respon
     return
   }
 
-  let request = new OauthConfiguration().getRedeemCodeRequest(code, verifier)
+  let request = OAuthConfiguration.getRedeemCodeRequest(code, verifier)
   let response: Res
   try {
     response = await fetch(request)
