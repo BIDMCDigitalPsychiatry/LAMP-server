@@ -3,7 +3,7 @@ import { Encrypt, Decrypt } from "../Bootstrap"
 import { CredentialInterface } from "../interface/RepositoryInterface"
 import { MongoClientDB } from "../Bootstrap"
 import { ObjectID } from "mongodb"
-import { OauthConfiguration } from '../../utils/OauthConfiguration';
+import { OAuthConfiguration } from '../../utils/OAuthConfiguration';
 
 export class CredentialRepository implements CredentialInterface {
   // if used with secret_key, will throw error if mismatch, else, will return confirmation of existence
@@ -106,6 +106,5 @@ export class CredentialRepository implements CredentialInterface {
   }
 }
 
-function validateSecretKey(secret_key: string): boolean {
-  return new OauthConfiguration().isEnabled || !!secret_key
-}
+const validateSecretKey = (secret_key: string): boolean =>
+  OAuthConfiguration.isEnabled || !!secret_key
