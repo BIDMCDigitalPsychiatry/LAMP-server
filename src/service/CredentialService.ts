@@ -4,7 +4,7 @@ const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN TH
 import { Repository } from "../repository/Bootstrap"
 import { sign, verify } from 'jsonwebtoken';
 import { v4 as uuidv4 } from "uuid"
-import { OauthConfiguration } from '../utils/OauthConfiguration';
+import { OAuthConfiguration } from '../utils/OAuthConfiguration';
 import fetch from "node-fetch"
 
 export interface UpdateTokenResult {
@@ -90,7 +90,7 @@ export class CredentialService {
 
     const CredentialRepository = new Repository().getCredentialRepository()
     const currentRefreshToken = await CredentialRepository._getIdPRefreshToken(payload.id)
-    const request = new OauthConfiguration().getRefreshTokenRequest(currentRefreshToken)
+    const request = OAuthConfiguration.getRefreshTokenRequest(currentRefreshToken)
     const response = await fetch(request)
 
     if (!response.ok) {

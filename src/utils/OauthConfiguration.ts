@@ -1,11 +1,11 @@
 import { Request } from "node-fetch"
 
-export class OauthConfiguration {
-  public get isEnabled(): boolean {
+export class OAuthConfiguration {
+  public static get isEnabled(): boolean {
     return process.env.OAUTH === "on"
   }
 
-  public getStartFlowUrl(): string {
+  public static getStartFlowUrl(): string {
     if (!process.env.OAUTH_AUTH_URL) {
       throw Error("Environment variable OAUTH_TOKEN_URL not set")
     }
@@ -24,7 +24,7 @@ export class OauthConfiguration {
     return url.href
   }
 
-  public getRedeemCodeRequest(code: string, code_verifier: string): Request {
+  public static getRedeemCodeRequest(code: string, code_verifier: string): Request {
     if (!process.env.OAUTH_TOKEN_URL) {
       throw Error("Environment variable OAUTH_AUTH_URL not set")
     }
@@ -44,7 +44,7 @@ export class OauthConfiguration {
     )
   }
 
-  public getRefreshTokenRequest(refreshToken: string): Request {
+  public static getRefreshTokenRequest(refreshToken: string): Request {
     if (!process.env.OAUTH_TOKEN_URL) {
       throw Error("Environment variable OAUTH_AUTH_URL not set")
     }
@@ -62,7 +62,7 @@ export class OauthConfiguration {
   }
 }
 
-const addParameter = (url: URL, name: string, value: string | undefined) => {
+const addParameter = (url: URL, name: string, value?: string) => {
   if (!!value) {
     url.searchParams.set(name, value)
   }

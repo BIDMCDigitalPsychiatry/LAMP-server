@@ -1,6 +1,6 @@
 import { Database, Encrypt, Decrypt } from "../Bootstrap"
 import { CredentialInterface } from "../interface/RepositoryInterface"
-import { OauthConfiguration } from '../../utils/OauthConfiguration';
+import { OAuthConfiguration } from '../../utils/OAuthConfiguration';
 
 export class CredentialRepository implements CredentialInterface {
   
@@ -35,7 +35,7 @@ export class CredentialRepository implements CredentialInterface {
     // Verify this is "our" credential correctly
     if (credential.origin !== type_id ||
       !credential.access_key ||
-      !new OauthConfiguration().isEnabled && !credential.secret_key)
+      !validateSecretKey(credential.secret_key))
       throw new Error("400.malformed-credential-object")
     const res = await Database.use("credential").find({
       selector: { access_key: credential.access_key },
@@ -99,3 +99,6 @@ export class CredentialRepository implements CredentialInterface {
   }
 
 }
+
+const validateSecretKey = (secret_key: string): boolean =>
+  OAuthConfiguration.isEnabled || !!secret_key
