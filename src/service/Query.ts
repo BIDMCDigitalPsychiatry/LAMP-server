@@ -305,7 +305,9 @@ QueryAPI.post("/", async (req, res) => {
     console.log(`Query: ${((Date.now() - _start)).toFixed(2)} ms`)
     res.status(200).json(data)
   } catch (e) {
-    res.status(500).json({ error: e.message })
+    res
+      .status(parseInt(e.message.split(".")[0]) || 500)
+      .json({ error: e.message })
   }
 })
 export default QueryAPI
