@@ -5,9 +5,9 @@ export class OAuthConfiguration {
     return process.env.OAUTH === "on"
   }
 
-  public static getStartFlowUrl(): string {
+  public static getLoginURL(): string | null {
     if (!process.env.OAUTH_AUTH_URL) {
-      throw Error("Environment variable OAUTH_TOKEN_URL not set")
+      return null
     }
 
     const url = new URL(process.env.OAUTH_AUTH_URL)
@@ -22,6 +22,10 @@ export class OAuthConfiguration {
     addParameter(url, "code_challenge_method", "S256")
 
     return url.href
+  }
+
+  public static getLogoutURL(): string | null {
+    return process.env.OAUTH_LOGOUT_URL ?? null
   }
 
   public static getRedeemCodeRequest(code: string, code_verifier: string): Request {

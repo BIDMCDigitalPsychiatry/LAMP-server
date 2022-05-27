@@ -9,7 +9,8 @@ import fetch from "node-fetch"
 
 export interface UpdateTokenResult {
   access_token?: string
-  refresh_token?: string
+  refresh_token?: string,
+  success: boolean
 }
 
 export class CredentialService {
@@ -48,11 +49,14 @@ export class CredentialService {
   public static async updateToken(access_key: string, refresh_token: string, secret_key?: string): Promise<UpdateTokenResult> {
     const secret = process.env.TOKEN_SECRET
     if (!secret) {
-      throw new Error("500.invalid-configuration")
+      return { success: false }
     }
 
     const CredentialRepository = new Repository().getCredentialRepository()
     const origin = await CredentialRepository._find(access_key, secret_key)
+                  .catch(() => { "failed" })
+    if (origin === "failed") return { success: false }
+
     await CredentialRepository._saveRefreshToken(access_key, refresh_token)
 
     const accessToken = sign({
@@ -74,16 +78,23 @@ export class CredentialService {
     return {
       access_token: accessToken,
       refresh_token: refreshToken,
+      success: true,
     }
   }
 
   public static async refreshToken(refreshToken: string): Promise<UpdateTokenResult> {
     const secret = process.env.TOKEN_SECRET
-    if (!secret) {
-      throw new Error("500.invalid-configuration")
+    if (!secret || !refreshToken) {
+      return { success: false }
     }
 
-    const payload = verify(refreshToken, secret) as any
+    let payload: any
+    try {
+      payload = verify(refreshToken, secret)
+    } catch {
+      throw new Error("401.invalid-token")
+    }
+
     if (!payload.id) {
       throw new Error("401.invalid-token")
     }
@@ -103,32 +114,17 @@ export class CredentialService {
 }
 
 CredentialService.Router.post("/token", async (req: Request, res: Response) => {
-  const { id, password, refresh_token } = req.body
+  const { id, password, refresh_token, grant_type } = req.body
+  let result
 
-  try {
-    let result: UpdateTokenResult
-    if (!!id && !!password) {
-      result = await CredentialService.updateToken(id, password)
-    } else if (!!refresh_token) {
-      result = await CredentialService.refreshToken(refresh_token)
-    } else {
-      throw Error("400.invalid-parameters")
-    }
-
-    res.json({
-      ...result,
-      success: true,
-    })
-  } catch (e) {
-    res
-      .status(parseInt(e.message.split(".")[0]) || 500)
-      .json({
-        success: false,
-        error: e.message,
-      })
-      return
+  if(grant_type === "refresh_token") {
+    result = await CredentialService.refreshToken(refresh_token)
+  } else {
+    result = await CredentialService.updateToken(id, password)
   }
 
+  if (!result.success) res.status(401)
+  res.json(result)
 })
 
 CredentialService.Router.get(
