@@ -18,13 +18,13 @@ OAuthService.Router.get("/oauth/start", async (req: Request, res: Response) => {
     return
   }
 
-  let loginURL = configuration.getLoginURL()
+  let loginURL = OAuthConfiguration.getLoginURL()
   if (!loginURL) {
     res.status(500).send("Internal server errror")
     return
   }
 
-  let logoutURL = configuration.getLogoutURL()
+  let logoutURL = OAuthConfiguration.getLogoutURL()
 
   res.json({
     loginURL,
@@ -41,7 +41,7 @@ OAuthService.Router.post("/oauth/authenticate", async (req: Request, res: Respon
     return
   }
 
-  let request = new OauthConfiguration().getRedeemCodeRequest(code, verifier)
+  let request = OAuthConfiguration.getRedeemCodeRequest(code, verifier)
 
   fetch(request).then(async response => {
       let json = await response.json()

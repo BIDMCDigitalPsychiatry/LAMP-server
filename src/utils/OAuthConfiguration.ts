@@ -5,7 +5,7 @@ export class OAuthConfiguration {
     return process.env.OAUTH === "on"
   }
 
-  public getLoginURL(): string | null {
+  public static getLoginURL(): string | null {
     if (!process.env.OAUTH_AUTH_URL) {
       return null
     }
@@ -24,11 +24,11 @@ export class OAuthConfiguration {
     return url.href
   }
 
-  public getLogoutURL(): string | null {
+  public static getLogoutURL(): string | null {
     return process.env.OAUTH_LOGOUT_URL ?? null
   }
 
-  public getRedeemCodeRequest(code: string, code_verifier: string): Request {
+  public static getRedeemCodeRequest(code: string, code_verifier: string): Request {
     if (!process.env.OAUTH_TOKEN_URL) {
       throw Error("Environment variable OAUTH_AUTH_URL not set")
     }
