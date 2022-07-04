@@ -88,10 +88,11 @@ export class CredentialRepository implements CredentialInterface {
 
   // TODO: Implement Couch compatibility
   async _saveRefreshToken(access_key: string, refresh_token: string) : Promise<void> {
+    throw new Error("500.couch-not-supported")
   }
 
   async _getIdPRefreshToken(access_key: string): Promise<string> {
-    return ""
+    throw new Error("500.couch-not-supported")
   }
 
 }

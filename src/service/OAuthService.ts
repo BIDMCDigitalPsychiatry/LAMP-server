@@ -18,7 +18,7 @@ OAuthService.Router.get("/oauth/start", async (req: Request, res: Response) => {
     return
   }
 
-  let loginURL = OAuthConfiguration.getLoginURL()
+  let loginURL = OAuthConfiguration.loginUrl
   if (!loginURL) {
     res.status(500).send("Internal server errror")
     return

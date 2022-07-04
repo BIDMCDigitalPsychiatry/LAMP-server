@@ -32,7 +32,7 @@ export async function _createAuthSubject(authHeader: string | undefined): Promis
       access_key: "",
       secret_key: ""
     }
-  } else {
+  } else if (authHeader.includes("Basic")) {
     const authStr = authHeader.replace("Basic", "").trim()
     const auth = (authStr.indexOf(":") >= 0 ? authStr : Buffer.from(authStr, "base64").toString()).split(":", 2)
 
@@ -46,6 +46,8 @@ export async function _createAuthSubject(authHeader: string | undefined): Promis
       access_key: auth[0],
       secret_key: auth[1]
     }
+  } else {
+    throw (new Error("401.missing-credentials"))
   }
 }
 

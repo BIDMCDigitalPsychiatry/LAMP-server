@@ -1,6 +1,12 @@
 import { Request } from "node-fetch"
 
 export class OAuthConfiguration {
+
+  private static _loginUrl: string | null | undefined;
+
+  static get loginUrl() {
+    return this._loginUrl || (this._loginUrl = OAuthConfiguration.getLoginURL())
+  }
   public static get isEnabled(): boolean {
     return process.env.OAUTH === "on"
   }
