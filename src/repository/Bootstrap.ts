@@ -934,6 +934,16 @@ export async function Bootstrap(): Promise<void> {
             description: "System Administrator Credential",
             _deleted: false,
           } as any)
+
+          if(process.env.OAUTH == 'on' && process.env.DB_ADMIN_USERNAME) {
+            console.log("Initializing OAuth Admin user....")
+            await database.insertOne({
+              _id: new ObjectID(),
+              origin: null,
+              access_key: process.env.DB_ADMIN_USERNAME,
+              _deleted: false
+            })
+          }
         } catch (error) {
           console.log(error)
         }
