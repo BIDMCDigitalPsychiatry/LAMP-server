@@ -54,8 +54,7 @@ export class CredentialService {
     }
 
     const CredentialRepository = new Repository().getCredentialRepository()
-    const origin = await CredentialRepository._find(access_key, secret_key)
-                  .catch(() => { "failed" })
+    const origin = await CredentialRepository._find(access_key, secret_key).catch(() => "failed" )
     if (origin === "failed") return { success: false }
 
     await CredentialRepository._saveRefreshToken(access_key, refresh_token)
