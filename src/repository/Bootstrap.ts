@@ -811,7 +811,10 @@ export async function Bootstrap(): Promise<void> {
     try {
       console.group("Initializing database connection...")
       if (client.isConnected()) {
-        const db = process.env.DB?.split("/").reverse()[0]?.split("?")[0]
+        // Max length for Mongo DB names is 64 characters, keep max 30 just to be safe
+        // Cosmos DB connection strings have a /? format before parameters, causing this to return empty.
+        // replace("/?", "?") fixes that issue.
+        const db = process.env.DB?.replace("/?", "?").split("/").reverse()[0]?.split("?")[0].substring(0, 30) 
         MongoClientDB = await client?.db(db)
       } else {
         console.log("Database connection failed.")
