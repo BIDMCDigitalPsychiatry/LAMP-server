@@ -34,7 +34,7 @@ const METHOD_LIST = (auth: any) => ({
       },
     },
     Activity: {
-      list: async (study_id: string, ignore_binary: boolean = true, sibling: boolean = false) => {
+      list: async (study_id: string, ignore_binary: boolean = false, sibling: boolean = false) => {
         const _start = Date.now()
         const x = await ActivityService.list(auth, study_id, ignore_binary, sibling)
         console.log(` -- LAMP.Activity.list: ${((Date.now() - _start)).toFixed(2)} ms`)
