@@ -50,14 +50,26 @@ export class CredentialService {
   public static async updateToken(access_key: string, refresh_token: string, secret_key?: string): Promise<UpdateTokenResult> {
     const secret = process.env.TOKEN_SECRET
     if (!secret) {
+      console.log("[OAuth] (updateToken) Missing TOKEN_SECRET")
       return { success: false }
     }
 
     const CredentialRepository = new Repository().getCredentialRepository()
     const origin = await CredentialRepository._find(access_key, secret_key).catch(() => "failed" )
-    if (origin === "failed") return { success: false }
+    if (origin === "failed") {
+      console.log("[OAuth] (updateToken) Invalid (access_key, secret_key) pair")
+      return { success: false }
+    }
 
-    await CredentialRepository._saveRefreshToken(access_key, refresh_token)
+    console.log("[OAuth] (updateToken) About to save refresh token")
+    try {
+      await CredentialRepository._saveRefreshToken(access_key, refresh_token)
+    } catch (error) {
+      console.log(`[OAuth] (updateToken) Could not save refresh token: ${error}`)
+      throw error
+    }
+
+    console.log("[OAuth] (updateToken) Refresh token successfully saved")
 
     const accessToken = sign({
       typ: "Bearer",

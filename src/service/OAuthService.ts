@@ -26,6 +26,8 @@ OAuthService.Router.get("/oauth/start", async (req: Request, res: Response) => {
 
   let logoutURL = OAuthConfiguration.getLogoutURL()
 
+  console.log(`[OAuth] loginURL: ${loginURL}, logoutURL: ${logoutURL}`)
+
   res.json({
     loginURL,
     logoutURL,
@@ -37,14 +39,40 @@ OAuthService.Router.post("/oauth/authenticate", async (req: Request, res: Respon
   let verifier = req.body.code_verifier
 
   if (!code || !verifier) {
+    console.log("[OAuth] Invalid authentication parameters")
+    console.log(`[OAuth] code: ${code != undefined}, code_verifier: ${verifier != undefined}`)
     res.status(400).send("Invalid parameters")
     return
   }
 
+  console.log(`[OAuth] code length: ${code.length}, code_verifier length: ${verifier.length}`)
+
   let request = OAuthConfiguration.getRedeemCodeRequest(code, verifier)
 
+  console.log("[OAuth] About to perform redeem code request")
+
   fetch(request).then(async response => {
-      let json = await response.json()
+      console.log(`[OAuth] Redeem code response status: ${response.status}`)
+      console.log(`[OAuth] Redeem code response statusText: ${response.statusText}`)
+      console.log(`[OAuth] Redeem code response ok: ${response.ok}`)
+      console.log(`[OAuth] Redeem code response redirected: ${response.redirected}`)
+      console.log(`[OAuth] Redeem code response timeout: ${response.timeout}`)
+      console.log(`[OAuth] Redeem code response type: ${response.type}`)
+      console.log(`[OAuth] Redeem code response url: ${response.url}`)
+
+      let json: any
+      try {
+        json = await response.json()
+      } catch (error) {
+        console.log(`[OAUth] Redeem code response parse error: ${error}`)
+        console.log(`[OAuth] Redeem code response body: ${await response.text()}`)
+        throw error
+      }
+
+      console.log(`[OAUth] Redeem code response parse successful`)
+      console.log(`[OAuth] Redeem code response has access_token: ${json.hasOwnProperty("access_token")}, refresh_token: ${json.hasOwnProperty("refresh_token")}`)
+      console.log(`[OAuth] Redeem code response error: ${json.error}`)
+
       if(json.error) {
         res.status(500).send(json.error)
         return
@@ -52,7 +80,18 @@ OAuthService.Router.post("/oauth/authenticate", async (req: Request, res: Respon
 
       const idp_accessToken = json.access_token
       const idp_refresh_token = json.refresh_token
-      const payload = decode(idp_accessToken) as any
+
+      console.log("[OAuth] About to decode IdP access token")
+
+      let payload: any
+      try {
+        payload = decode(idp_accessToken) as any
+      } catch (error) {
+        console.log(`[OAuth] IdP access token could not be decoded: ${error}`)
+        throw error
+      }
+
+      console.log(`[OAuth] Redeem code response payload: ${payload}`)
 
       let email = payload.email
       if(!email) email = payload.emails[0]
@@ -61,7 +100,14 @@ OAuthService.Router.post("/oauth/authenticate", async (req: Request, res: Respon
         return
       }
 
-      let result = await CredentialService.updateToken(email, idp_refresh_token)
+      let result: any
+      try {
+        result = await CredentialService.updateToken(email, idp_refresh_token)
+      } catch (error) {
+        console.log(`[OAuth] Update token error: ${error}`)
+        throw error
+      }
+      console.log(`[OAuth] Update token success: ${result.success}`)
       if (!result.success) {
         res.status(401).send("Unauthorized")
         return

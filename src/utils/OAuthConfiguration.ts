@@ -35,6 +35,8 @@ export class OAuthConfiguration {
   }
 
   public static getRedeemCodeRequest(code: string, code_verifier: string): Request {
+    console.log(`[OAuth] (getRedeemCodeRequest) OAUTH_TOKEN_URL: ${process.env.OAUTH_TOKEN_URL}`)
+
     if (!process.env.OAUTH_TOKEN_URL) {
       throw Error("Environment variable OAUTH_AUTH_URL not set")
     }
@@ -47,6 +49,11 @@ export class OAuthConfiguration {
     params.append("grant_type", "authorization_code")
     params.append("code_verifier", code_verifier)
     params.append("client_secret", process.env.OAUTH_CLIENT_SECRET ?? "")
+
+    console.log("[OAuth] (getRedeemCodeRequest) Request parameters:")
+    for (const param of ["client_id", "scope", "redirect_uri", "grant_type", "client_secret"]) {
+      console.log(`[OAuth] ${param}: ${params.get(param)}`)
+    }
 
     return new Request(
       process.env.OAUTH_TOKEN_URL,
