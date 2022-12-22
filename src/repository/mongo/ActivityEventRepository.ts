@@ -34,13 +34,15 @@ export class ActivityEventRepository implements ActivityEventInterface {
       .limit(limit ?? 1)
       .maxTimeMS(60000)
       .toArray()
-    return (all_res as any).map((x: any) => ({
-      ...x,
-      _id: undefined,
-      __v: undefined,
-      _parent: undefined,
-      _deleted: undefined,
-    }))
+    return (all_res as any).map((x: any) => {
+      delete x._id, x.__v, x._parent, x._deleted
+
+      // Embedded binary audio data is excluded for performance reasons
+      if (/^data:audio.+/.test(x.static_data?.url))
+        delete x.static_data?.url
+
+      return x
+    })
   }
   public async _insert(participant_id: string, objects: ActivityEvent[]): Promise<{}> {
     const data: any[] = []
