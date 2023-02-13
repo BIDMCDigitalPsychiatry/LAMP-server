@@ -78,10 +78,10 @@ OAuthService.Router.post("/oauth/authenticate", async (req: Request, res: Respon
         return
       }
 
-      const idp_accessToken = json.access_token
+      const idp_accessToken = json.id_token ? json.id_token : json.access_token
       const idp_refresh_token = json.refresh_token
 
-      console.log("[OAuth] About to decode IdP access token")
+      console.log("[OAuth] About to decode IdP access token", idp_accessToken)
 
       let payload: any
       try {
@@ -91,7 +91,11 @@ OAuthService.Router.post("/oauth/authenticate", async (req: Request, res: Respon
         throw error
       }
 
-      console.log(`[OAuth] Redeem code response payload: ${payload}`)
+      if (!payload) {
+        throw new Error("[OAuth] IdP access token is null");
+      }
+      
+      console.log(`[OAuth] Redeem code response payload:`, payload)
 
       let email = payload.email
       if(!email) email = payload.emails[0]

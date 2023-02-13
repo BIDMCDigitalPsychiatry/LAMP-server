@@ -26,6 +26,7 @@ export class OAuthConfiguration {
     addParameter(url, "state", process.env.OAUTH_STATE)
     addParameter(url, "nonce", process.env.OAUTH_NONCE)
     addParameter(url, "code_challenge_method", "S256")
+    addParameter(url, "access_type", "offline")
 
     return url.href
   }
