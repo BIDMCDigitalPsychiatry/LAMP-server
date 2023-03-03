@@ -112,8 +112,8 @@ export class TypeRepository implements TypeInterface {
   public async _get(mode: any, type_id: string, attachment_key: string): Promise<any | undefined> {
     const repo = new Repository()
     const TypeRepository = repo.getTypeRepository()
-    const self_type = (type_id ===null) ? undefined : await TypeRepository._self_type(type_id)
-    const parents = (type_id ===null) ? new Array : Object.values(await TypeRepository._parent(type_id)).reverse() 
+    const self_type = ( type_id ===null ) ? undefined : await TypeRepository._self_type(type_id)
+    const parents = ( type_id ===null ) ? new Array : Object.values(await TypeRepository._parent(type_id)).reverse() 
     // All possible conditions to retreive Tags, ordered greatest-to-least priority.
     const conditions = [
       // Explicit parent-ownership. (Ordered greatest-to-least ancestor.)
@@ -124,6 +124,10 @@ export class TypeRepository implements TypeInterface {
       { _deleted: false, _parent: type_id, type: type_id, key: attachment_key },
       // Implicit self-ownership.
       { _deleted: false, _parent: type_id, type: "me", key: attachment_key },
+      { _deleted: false, _parent: null, type: '*', key: attachment_key },
+      { _deleted: false, _parent: type_id, type: '*', key: attachment_key },
+      { _deleted: false, _parent:null , type: self_type, key: attachment_key },
+      
     ]
 
     // Following greatest-to-least priority, see if the Tag exists. We do this because:
@@ -160,7 +164,10 @@ export class TypeRepository implements TypeInterface {
       { _deleted: false, _parent: type_id, type: type_id, key: { $ne: null } },
       // Implicit self-ownership.
       { _deleted: false, _parent: type_id, type: "me", key: { $ne: null } },
-    ]
+      { _deleted: false, _parent: null, type: '*',  key: { $ne: null }},
+      { _deleted: false, _parent: type_id, type: '*',  key: { $ne: null }},
+      { _deleted: false, _parent: null, type: self_type,  key: { $ne: null }},
+      ]
 
     // Following greatest-to-least priority, see if the Tag exists. We do this because:
     // (1) Following priority order allows us to avoid searching the database after we find the

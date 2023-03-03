@@ -135,8 +135,8 @@ export class TypeRepository implements TypeInterface {
   public async _get(mode: any, type_id: string, attachment_key: string): Promise<any | undefined> {
     const repo = new Repository()
     const TypeRepository = repo.getTypeRepository()
-    const self_type = (type_id ===null) ? undefined : await TypeRepository._self_type(type_id)
-    const parents = (type_id ===null) ? new Array : Object.values(await TypeRepository._parent(type_id)).reverse() 
+    const self_type = ( type_id ===null ) ? undefined : await TypeRepository._self_type(type_id)
+    const parents = ( type_id ===null ) ? new Array : Object.values(await TypeRepository._parent(type_id)).reverse() 
     
 
     // All possible conditions to retreive Tags, ordered greatest-to-least priority.
@@ -149,6 +149,9 @@ export class TypeRepository implements TypeInterface {
       { "#parent": type_id, type: type_id, key: attachment_key },
       // Implicit self-ownership.
       { "#parent": type_id, type: "me", key: attachment_key },
+      { "#parent": null, type: '*', key: attachment_key },
+      { "#parent": type_id, type: '*', key: attachment_key },
+      { "#parent": null, type: self_type, key: attachment_key },
     ]
 
     // Following greatest-to-least priority, see if the Tag exists. We do this because:
@@ -186,6 +189,9 @@ export class TypeRepository implements TypeInterface {
       { "#parent": type_id, type: type_id, key: { $gt: null } },
       // Implicit self-ownership.
       { "#parent": type_id, type: "me", key: { $gt: null } },
+      { "#parent": null, type: '*',  key: { $gt: null }},
+      { "#parent": type_id, type: '*',  key: { $gt: null }},
+      { "#parent": null, type:self_type,  key: { $gt: null }},
     ]
 
     // Following greatest-to-least priority, see if the Tag exists. We do this because:
