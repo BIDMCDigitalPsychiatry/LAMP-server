@@ -124,6 +124,12 @@ export class TypeRepository implements TypeInterface {
       { _deleted: false, _parent: type_id, type: type_id, key: attachment_key },
       // Implicit self-ownership.
       { _deleted: false, _parent: type_id, type: "me", key: attachment_key },
+      { _deleted: false, _parent: null, type: '*', key: attachment_key },
+      { _deleted: false, _parent: type_id, type: '*', key: attachment_key },
+      { _deleted: false, _parent:null , type: self_type, key: attachment_key },
+      { _deleted: false, _parent:null , type: type_id, key: attachment_key },
+      { _deleted: false, _parent:type_id , type: "null", key: attachment_key },
+      { _deleted: false, _parent:null , type: "null", key: attachment_key },
     ]
 
     // Following greatest-to-least priority, see if the Tag exists. We do this because:
@@ -160,6 +166,12 @@ export class TypeRepository implements TypeInterface {
       { _deleted: false, _parent: type_id, type: type_id, key: { $ne: null } },
       // Implicit self-ownership.
       { _deleted: false, _parent: type_id, type: "me", key: { $ne: null } },
+      { _deleted: false, _parent: null, type: '*',  key: { $ne: null }},
+      { _deleted: false, _parent: type_id, type: '*',  key: { $ne: null }},
+      { _deleted: false, _parent: null, type: self_type,  key: { $ne: null }},
+      { _deleted: false, _parent: null, type: type_id,  key: { $ne: null }},
+      { _deleted: false, _parent: type_id, type: "null",  key: { $ne: null }},
+      { _deleted: false, _parent: null, type: "null",  key: { $ne: null }},
     ]
 
     // Following greatest-to-least priority, see if the Tag exists. We do this because:
