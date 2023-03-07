@@ -56,7 +56,7 @@ export class TypeService {
     attachment_value: any
   ) {
     const TypeRepository = new Repository().getTypeRepository()
-    type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
+    type_id = await _verify(auth, type_id!=="*" ? ["self", "sibling", "parent"]:[], type_id)
     if(attachment_key === 'lamp.automation') {
       PubSubAPIListenerQueue?.add(
           {
