@@ -47,17 +47,14 @@ export async function _verify(
   }  
   // Check if `authSubject` is root for a root-only authType.
   if (isRoot) {
-    if(authObject=='*') return authObject as any  
     let _owner = !!authObject ? await TypeRepository._owner(authObject ?? "") : undefined
     return authObject as any  
   }
   
   // Check if `authObject` and `authSubject` are the same || authenticated for  resource * 
   if ((!isRoot && authType.includes("self") && (authSubject.origin === authObject))
-      || (JSON.stringify(authType) === JSON.stringify(["self", "sibling", "parent"]) 
-      && (authObject === undefined ||  (authObject == '*') )) ) {
-        return authObject as any 
-      }
+      || (JSON.stringify(authType) === JSON.stringify(["self", "sibling", "parent"]) && authObject === undefined))
+    return authObject as any 
   
   // Optimization.
   if (!isRoot && (authType.includes("parent") || authType.includes("sibling"))) {
