@@ -114,7 +114,7 @@ export class TypeRepository implements TypeInterface {
     const TypeRepository = repo.getTypeRepository()
     const self_type = (type_id === null) ? undefined : await TypeRepository._self_type(type_id)
     const parents = (type_id === null) ? new Array : [null,...Object.values(await TypeRepository._parent(type_id)).reverse()]    
-   console.log("parents1",parents)
+   
     // All possible conditions to retreive Tags, ordered greatest-to-least priority.
     const conditions = [
       // Explicit parent-ownership. (Ordered greatest-to-least ancestor.)
@@ -149,8 +149,7 @@ export class TypeRepository implements TypeInterface {
     const repo = new Repository()
     const TypeRepository = repo.getTypeRepository()
     const self_type = (type_id === null) ? undefined : await TypeRepository._self_type(type_id)
-    const parents = (type_id === null) ? new Array : [null,...Object.values(await TypeRepository._parent(type_id)).reverse()]
-    console.log("parents21",parents)
+    const parents = (type_id === null) ? new Array : [null,...Object.values(await TypeRepository._parent(type_id)).reverse()]    
     let conditions: any[] = []
     conditions = [
       // Explicit parent-ownership. (Ordered greatest-to-least ancestor.)
