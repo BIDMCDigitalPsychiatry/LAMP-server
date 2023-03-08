@@ -13,26 +13,38 @@ export async function _createAuthSubject(authHeader: string | undefined): Promis
   if (authHeader === undefined) 
     throw new Error("401.missing-credentials")
 
-  if(authHeader.includes("Bearer")) {
-    const secret = process.env.TOKEN_SECRET
-    if (!secret) {
-      throw new Error("500.invalid-configuration")
-    }
+    if(authHeader.includes("Bearer")) {
+      const secret = process.env.TOKEN_SECRET
+      if (!secret) {
+        throw new Error("500.invalid-configuration")
+      }
+  
+      const accessToken = authHeader.replace("PAT ", "").trim()
+      let payload: any
+      try {
+        payload = verify(accessToken, secret)
+      } catch {
+        throw new Error("401.invalid-credentials")
+      }
+      
+      const credentialAccessKey = payload.id;
 
-    const accessToken = authHeader.replace("Bearer ", "").trim()
-    let payload: any
-    try {
-      payload = verify(accessToken, secret)
-    } catch {
-      throw new Error("401.invalid-credentials")
-    }
-    
-    return {
-      origin: payload.origin,
-      access_key: "",
-      secret_key: ""
-    }
-  } else if (authHeader.includes("Basic")) {
+      const origin = await CredentialRepository._find(credentialAccessKey)   
+
+      if (payload.type === "PersonalAccessToken") {
+        const tokens = await CredentialRepository._tokens(credentialAccessKey)   
+        const token = tokens.find((token) => token.token === accessToken);
+        if (!token || token.expiresAt > Date.now()) {
+          throw new Error("401.invalid-credentials")
+        }
+      }
+
+      return {
+        origin,
+        access_key: credentialAccessKey,
+        secret_key: ""
+      }
+    } else if (authHeader.includes("Basic")) {
     const authStr = authHeader.replace("Basic", "").trim()
     const auth = (authStr.indexOf(":") >= 0 ? authStr : Buffer.from(authStr, "base64").toString()).split(":", 2)
 

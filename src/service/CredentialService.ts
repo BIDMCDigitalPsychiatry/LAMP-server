@@ -14,6 +14,11 @@ export interface UpdateTokenResult {
   success: boolean
 }
 
+export interface PersonalAccessTokenResult {
+  personal_access_token?: string
+  success: boolean
+}
+
 export class CredentialService {
   public static _name = "Credential"
   public static Router = Router()
@@ -74,7 +79,6 @@ export class CredentialService {
     const accessToken = sign({
       typ: "Bearer",
       id: access_key,
-      origin: origin,
     }, secret, {
       expiresIn: "1 week",
       jwtid: uuidv4(),
@@ -91,6 +95,78 @@ export class CredentialService {
       access_token: accessToken,
       refresh_token: refreshToken,
       success: true,
+    }
+  }
+
+  public static async createPersonalAccessToken(auth: any, access_key: string, expiresAt: number, description: string): Promise<PersonalAccessTokenResult> {
+    const secret = process.env.TOKEN_SECRET
+    if (!secret) {
+      console.log("[OAuth] (createPersonalAccessToken) Missing TOKEN_SECRET")
+      return { success: false }
+    }
+
+    const CredentialRepository = new Repository().getCredentialRepository()
+    const origin = await CredentialRepository._find(access_key).catch(() => "failed" )
+    if (origin === "failed") {
+      console.log("[OAuth] (createPersonalAccessToken) Invalid access_key")
+      return { success: false }
+    }
+
+    await _verify(auth, ["self", "parent"], origin)
+
+    const accessToken = sign({
+      typ: "Bearer",
+      id: access_key,
+      type: "PersonalAccessToken"
+    }, secret, {
+      jwtid: uuidv4(),
+    })
+
+    const tokens = await CredentialRepository._tokens(access_key).catch(() => "failed");
+    if (typeof tokens === "string") {
+      console.log("[OAuth] (revokePersonalAccessToken) Invalid access_key")
+      return { success: false }
+    }
+    tokens.push({token: accessToken, createdAt: Date.now(), expiresAt: expiresAt, description});
+
+    const result = await CredentialRepository._update(origin, access_key, {tokens}).catch(() => "failed");
+    return {
+      success: result !== "failed",
+    }
+  }
+
+  public static async revokePersonalAccessToken(auth: any, access_key: string, personal_access_token: string): Promise<{success: boolean}> {
+    const secret = process.env.TOKEN_SECRET
+    if (!secret) {
+      console.log("[OAuth] (revokePersonalAccessToken) Missing TOKEN_SECRET")
+      return { success: false }
+    }
+
+    const CredentialRepository = new Repository().getCredentialRepository()
+    const origin = await CredentialRepository._find(access_key).catch(() => "failed" )
+    if (origin === "failed") {
+      console.log("[OAuth] (revokePersonalAccessToken) Invalid access_key")
+      return { success: false }
+    }
+
+    await _verify(auth, ["self", "parent"], origin)
+
+    const tokens = await CredentialRepository._tokens(access_key).catch(() => "failed");
+    if (typeof tokens === "string") {
+      console.log("[OAuth] (revokePersonalAccessToken) Invalid access_key")
+      return { success: false }
+    }
+    const token = tokens.find(({token}) => token === personal_access_token);
+    if (!token) {
+      console.log("[OAuth] (revokePersonalAccessToken) Personal Access Token not found")
+      return { success: false }
+    }
+    const newTokens = tokens.filter(({token}) => token !== personal_access_token);
+    newTokens.push({...token, expiresAt: Date.now()})
+
+    const result = await CredentialRepository._update(origin, access_key, {tokens}).catch(() => "failed");
+    return {
+      success: result !== "failed",
     }
   }
 
@@ -133,6 +209,23 @@ CredentialService.Router.post("/token", async (req: Request, res: Response) => {
     result = await CredentialService.refreshToken(refresh_token)
   } else {
     result = await CredentialService.updateToken(id, password)
+  }
+
+  if (!result.success) res.status(401)
+  res.json(result)
+})
+
+
+CredentialService.Router.post("/personal_access_token", async (req: Request, res: Response) => {
+  const { access_key, expiresAt, token, grant_type } = req.body
+  let result
+
+  if(grant_type === "create") {
+    result = await CredentialService.createPersonalAccessToken(
+      req.get("Authorization"), access_key, expiresAt, description)
+  } else {
+    result = await CredentialService.revokePersonalAccessToken(
+      req.get("Authorization"), access_key, token)
   }
 
   if (!result.success) res.status(401)
