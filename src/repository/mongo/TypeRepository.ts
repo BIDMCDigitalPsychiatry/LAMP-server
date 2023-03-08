@@ -166,8 +166,7 @@ export class TypeRepository implements TypeInterface {
       { _deleted: false, _parent: type_id, type: type_id, key: { $ne: null } },
       // Implicit self-ownership.
       { _deleted: false, _parent: type_id, type: "me", key: { $ne: null } },
-      { _deleted: false, _parent: null, type: '*',  key: { $ne: null }},
-      { _deleted: false, _parent: type_id, type: '*',  key: { $ne: null }},
+      { _deleted: false, _parent: (type_id !== null ? null : "null"), type: '*',  key: { $ne: null }},      
       { _deleted: false, _parent: null, type: self_type,  key: { $ne: null }},
       { _deleted: false, _parent: null, type: type_id,  key: { $ne: null }},
       { _deleted: false, _parent: type_id, type: "null",  key: { $ne: null }},

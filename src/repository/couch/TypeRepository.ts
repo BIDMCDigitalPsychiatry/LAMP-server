@@ -192,8 +192,7 @@ export class TypeRepository implements TypeInterface {
       { "#parent": type_id, type: type_id, key: { $gt: null } },
       // Implicit self-ownership.
       { "#parent": type_id, type: "me", key: { $gt: null } },
-      { "#parent": null, type: '*',  key: { $gt: null }},
-      { "#parent": type_id, type: '*',  key: { $gt: null }},
+      { "#parent": (type_id !== null ? null : "null"), type: '*', key: { $gt: null }},      
       { "#parent": null, type:self_type,  key: { $gt: null }},
       { "#parent": null, type:type_id,  key: { $gt: null }},
       { "#parent": type_id, type:"null",  key: { $gt: null }},
