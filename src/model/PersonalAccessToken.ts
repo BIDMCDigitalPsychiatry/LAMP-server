@@ -1,6 +1,6 @@
 export class PersonalAccessToken {
     public token: string = ""
     public description: string = ""
-    public createdAt: number = Date.now()
-    public expiresAt: number = Date.now()
+    public created: number = Date.now()
+    public expiry: number = Date.now()
 }

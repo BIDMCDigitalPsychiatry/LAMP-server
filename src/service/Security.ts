@@ -34,7 +34,7 @@ export async function _createAuthSubject(authHeader: string | undefined): Promis
       if (payload.type === "PersonalAccessToken") {
         const tokens = await CredentialRepository._tokens(credentialAccessKey)   
         const token = tokens.find((token) => token.token === accessToken);
-        if (!token || token.expiresAt > Date.now()) {
+        if (!token || token.expiry <= Date.now()) {
           throw new Error("401.invalid-credentials")
         }
       } else if (payload.type !== "OAuthToken") {
