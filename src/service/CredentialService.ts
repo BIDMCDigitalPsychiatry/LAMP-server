@@ -277,7 +277,7 @@ CredentialService.Router.post(`/credential/:id/token`,
   }
 )
 
-CredentialService.Router.get(`/credential/:id/tokens`,
+CredentialService.Router.get(`/credential/:id/token`,
   async (req: Request, res: Response) => {
     const {expiry, description} = req.body
     res.header(ApiResponseHeaders)

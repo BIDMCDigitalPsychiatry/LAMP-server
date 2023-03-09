@@ -4,7 +4,6 @@ import { CredentialInterface } from "../interface/RepositoryInterface"
 import { MongoClientDB } from "../Bootstrap"
 import { ObjectID } from "mongodb"
 import { OAuthConfiguration } from '../../utils/OAuthConfiguration';
-import { Credential } from "../../model"
 import { PersonalAccessToken } from "../../model/PersonalAccessToken"
 
 export class CredentialRepository implements CredentialInterface {

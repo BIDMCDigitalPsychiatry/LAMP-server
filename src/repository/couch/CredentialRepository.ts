@@ -1,6 +1,7 @@
 import { Database, Encrypt, Decrypt } from "../Bootstrap"
 import { CredentialInterface } from "../interface/RepositoryInterface"
 import { OAuthConfiguration } from '../../utils/OAuthConfiguration';
+import { PersonalAccessToken } from "../../model/PersonalAccessToken";
 
 export class CredentialRepository implements CredentialInterface {
   
@@ -87,6 +88,9 @@ export class CredentialRepository implements CredentialInterface {
   }
 
   // TODO: Implement Couch compatibility
+  public async _tokens(access_key: string): Promise<PersonalAccessToken[]> {
+    throw new Error("500.couch-not-supported")
+  }
   async _saveRefreshToken(access_key: string, refresh_token: string) : Promise<void> {
     throw new Error("500.couch-not-supported")
   }
