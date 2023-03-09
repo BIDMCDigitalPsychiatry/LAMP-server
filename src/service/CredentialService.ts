@@ -79,6 +79,7 @@ export class CredentialService {
     const accessToken = sign({
       typ: "Bearer",
       id: access_key,
+      type: "OAuthToken"
     }, secret, {
       expiresIn: "1 week",
       jwtid: uuidv4(),
@@ -128,6 +129,41 @@ export class CredentialService {
       return { success: false }
     }
     tokens.push({token: accessToken, createdAt: Date.now(), expiresAt: expiresAt, description});
+
+    const result = await CredentialRepository._update(origin, access_key, {tokens}).catch(() => "failed");
+    return {
+      success: result !== "failed",
+    }
+  }
+
+  public static async updatePersonalAccessToken(auth: any, access_key: string, personal_access_token: string, expiresAt: number, description: string): Promise<PersonalAccessTokenResult> {
+    const secret = process.env.TOKEN_SECRET
+    if (!secret) {
+      console.log("[OAuth] (revokePersonalAccessToken) Missing TOKEN_SECRET")
+      return { success: false }
+    }
+
+    const CredentialRepository = new Repository().getCredentialRepository()
+    const origin = await CredentialRepository._find(access_key).catch(() => "failed" )
+    if (origin === "failed") {
+      console.log("[OAuth] (revokePersonalAccessToken) Invalid access_key")
+      return { success: false }
+    }
+
+    await _verify(auth, ["self", "parent"], origin)
+
+    const tokens = await CredentialRepository._tokens(access_key).catch(() => "failed");
+    if (typeof tokens === "string") {
+      console.log("[OAuth] (revokePersonalAccessToken) Invalid access_key")
+      return { success: false }
+    }
+    const token = tokens.find(({token}) => token === personal_access_token);
+    if (!token) {
+      console.log("[OAuth] (revokePersonalAccessToken) Personal Access Token not found")
+      return { success: false }
+    }
+    const newTokens = tokens.filter(({token}) => token !== personal_access_token);
+    newTokens.push({...token, expiresAt, description})
 
     const result = await CredentialRepository._update(origin, access_key, {tokens}).catch(() => "failed");
     return {
@@ -215,22 +251,94 @@ CredentialService.Router.post("/token", async (req: Request, res: Response) => {
   res.json(result)
 })
 
-
-CredentialService.Router.post("/personal_access_token", async (req: Request, res: Response) => {
-  const { access_key, expiresAt, token, grant_type } = req.body
-  let result
-
-  if(grant_type === "create") {
-    result = await CredentialService.createPersonalAccessToken(
-      req.get("Authorization"), access_key, expiresAt, description)
-  } else {
-    result = await CredentialService.revokePersonalAccessToken(
-      req.get("Authorization"), access_key, token)
+CredentialService.Router.post(`/credential/:id/token`,
+  async (req: Request, res: Response) => {
+    const {expiresAt, description} = req.body
+    res.header(ApiResponseHeaders)
+    const access_key = req.params.id === "null" ? null : req.params.id;
+    if (!access_key) {
+      console.log("[OAuth] (createPersonalAccessToken) Missing Credential ID")
+      res.status(400).json({ error: "Missing Credential ID" })
+      return;
+    }
+    try {
+      res.json({
+        data: await CredentialService.createPersonalAccessToken(
+          req.get("Authorization"),
+          access_key,
+          expiresAt,
+          description
+        ),
+      })
+    } catch (e:any) {
+      if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
+      res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
+    }
   }
+)
 
-  if (!result.success) res.status(401)
-  res.json(result)
-})
+CredentialService.Router.post(`/credential/:id/token/:token`,
+  async (req: Request, res: Response) => {
+    const {expiresAt, description} = req.body
+    res.header(ApiResponseHeaders)
+    const access_key = req.params.id === "null" ? null : req.params.id;
+    if (!access_key) {
+      console.log("[OAuth] (createPersonalAccessToken) Missing Credential ID")
+      res.status(400).json({ error: "Missing Credential ID" })
+      return;
+    }
+    const token = req.params.token === "null" ? null : req.params.token;
+    if (!token) {
+      console.log("[OAuth] (createPersonalAccessToken) Missing Token")
+      res.status(400).json({ error: "Missing Token" })
+      return;
+    }
+    try {
+      res.json({
+        data: await CredentialService.updatePersonalAccessToken(
+          req.get("Authorization"),
+          access_key,
+          token,
+          expiresAt,
+          description
+        ),
+      })
+    } catch (e:any) {
+      if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
+      res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
+    }
+  }
+)
+
+CredentialService.Router.delete(`/credential/:id/token/:token`,
+  async (req: Request, res: Response) => {
+    res.header(ApiResponseHeaders)
+    const access_key = req.params.id === "null" ? null : req.params.id;
+    if (!access_key) {
+      console.log("[OAuth] (createPersonalAccessToken) Missing Credential ID")
+      res.status(400).json({ error: "Missing Credential ID" })
+      return;
+    }
+    const token = req.params.token === "null" ? null : req.params.token;
+    if (!token) {
+      console.log("[OAuth] (createPersonalAccessToken) Missing Token")
+      res.status(400).json({ error: "Missing Token" })
+      return;
+    }
+    try {
+      res.json({
+        data: await CredentialService.revokePersonalAccessToken(
+          req.get("Authorization"),
+          access_key,
+          token,
+        ),
+      })
+    } catch (e:any) {
+      if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
+      res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
+    }
+  }
+)
 
 CredentialService.Router.get(
   ["researcher", "study", "participant", "activity", "sensor", "type"].map((type) => `/${type}/:type_id/credential`),

@@ -5,6 +5,7 @@ import { MongoClientDB } from "../Bootstrap"
 import { ObjectID } from "mongodb"
 import { OAuthConfiguration } from '../../utils/OAuthConfiguration';
 import { Credential } from "../../model"
+import { PersonalAccessToken } from "../../model/PersonalAccessToken"
 
 export class CredentialRepository implements CredentialInterface {
   // if used with secret_key, will throw error if mismatch, else, will return confirmation of existence
@@ -88,7 +89,7 @@ export class CredentialRepository implements CredentialInterface {
     return {}
   }
 
-  public async _tokens(access_key: string): Promise<Credential["tokens"]> {
+  public async _tokens(access_key: string): Promise<PersonalAccessToken[]> {
     const res = (
       await MongoClientDB.collection("credential")
         .find({ _deleted: false, access_key: access_key })

@@ -19,7 +19,7 @@ export async function _createAuthSubject(authHeader: string | undefined): Promis
         throw new Error("500.invalid-configuration")
       }
   
-      const accessToken = authHeader.replace("PAT ", "").trim()
+      const accessToken = authHeader.replace("Bearer ", "").trim()
       let payload: any
       try {
         payload = verify(accessToken, secret)
@@ -37,6 +37,8 @@ export async function _createAuthSubject(authHeader: string | undefined): Promis
         if (!token || token.expiresAt > Date.now()) {
           throw new Error("401.invalid-credentials")
         }
+      } else if (payload.type !== "OAuthToken") {
+        throw new Error("401.invalid-credentials")
       }
 
       return {
