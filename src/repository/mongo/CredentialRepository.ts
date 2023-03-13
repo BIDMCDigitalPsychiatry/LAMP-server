@@ -97,7 +97,7 @@ export class CredentialRepository implements CredentialInterface {
         .toArray()
     )
 
-    if (res.length !== 0) return (res[0] as any).tokens
+    if (res.length !== 0) return (res[0] as any).tokens ?? []
     throw new Error("403.no-such-credentials")
   }
 
