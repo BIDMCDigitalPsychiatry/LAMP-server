@@ -4,6 +4,7 @@ import { CredentialInterface } from "../interface/RepositoryInterface"
 import { MongoClientDB } from "../Bootstrap"
 import { ObjectID } from "mongodb"
 import { OAuthConfiguration } from '../../utils/OAuthConfiguration';
+import { PersonalAccessToken } from "../../model/PersonalAccessToken"
 
 export class CredentialRepository implements CredentialInterface {
   // if used with secret_key, will throw error if mismatch, else, will return confirmation of existence
@@ -55,6 +56,7 @@ export class CredentialRepository implements CredentialInterface {
       access_key: credential.access_key,
       secret_key: Encrypt(credential.secret_key, "AES256"),
       description: credential.description,
+      tokens: credential.tokens,
       _deleted: false,
     } as any)
     return {}
@@ -69,6 +71,7 @@ export class CredentialRepository implements CredentialInterface {
         $set: {
           secret_key: !!credential.secret_key ? Encrypt(credential.secret_key, "AES256") : res.secret_key,
           description: !!credential.description ? credential.description : res.description,
+          tokens: !!credential.tokens ? credential.tokens : res.tokens,
         },
       }
     )
@@ -83,6 +86,19 @@ export class CredentialRepository implements CredentialInterface {
     // await CredentialModel.deleteOne({ _id: oldCred })
 
     return {}
+  }
+
+  public async _tokens(access_key: string): Promise<PersonalAccessToken[]> {
+    const res = (
+      await MongoClientDB.collection("credential")
+        .find({ _deleted: false, access_key: access_key })
+        .limit(2_147_483_647)
+        .maxTimeMS(60000)
+        .toArray()
+    )
+
+    if (res.length !== 0) return (res[0] as any).tokens
+    throw new Error("403.no-such-credentials")
   }
 
   async _saveRefreshToken(access_key: string, refresh_token: string) : Promise<void> {

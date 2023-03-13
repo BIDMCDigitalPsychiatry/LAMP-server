@@ -7,6 +7,7 @@ import { ActivityEvent } from "../../model/ActivityEvent"
 import { SensorEvent } from "../../model/SensorEvent"
 import { SensorSpec } from "../../model/SensorSpec"
 import { ActivitySpec } from "../../model/ActivitySpec"
+import { PersonalAccessToken } from "../../model/PersonalAccessToken"
 
 //Interface for Researcher Repository
 export interface ResearcherInterface {
@@ -111,6 +112,7 @@ export interface CredentialInterface {
   _insert(type_id: string | null, credential: any): Promise<{}>
   _update(type_id: string | null, access_key: string, credential: any): Promise<{}>
   _delete(type_id: string | null, access_key: string): Promise<{}>
+  _tokens(access_key: string): Promise<PersonalAccessToken[]>
   _saveRefreshToken(access_key: string, refresh_token: string) : Promise<void>
   _getIdPRefreshToken(access_key: string): Promise<string>
 }
