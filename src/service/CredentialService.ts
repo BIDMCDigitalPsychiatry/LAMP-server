@@ -116,14 +116,6 @@ export class CredentialService {
 
     await _verify(auth, ["self", "parent"], origin)
 
-    const accessToken = sign({
-      typ: "Bearer",
-      id: access_key,
-      type: "PersonalAccessToken"
-    }, secret, {
-      jwtid: uuidv4(),
-    })
-
     const tokens = await CredentialRepository._tokens(access_key).catch(() => "failed");
     if (typeof tokens === "string") {
       console.log("[OAuth] (revokePersonalAccessToken) Invalid access_key")
@@ -132,24 +124,28 @@ export class CredentialService {
     return tokens;
   }
 
-  public static async createPersonalAccessToken(auth: any, access_key: string, expiry: number, description: string): Promise<PersonalAccessTokenResult> {
+  public static async createPersonalAccessToken(auth: any, access_key: string, expiry: number, description: string): Promise<string | null> {
     const secret = process.env.TOKEN_SECRET
     if (!secret) {
       console.log("[OAuth] (createPersonalAccessToken) Missing TOKEN_SECRET")
-      return { success: false }
+      return null;
     }
 
     const CredentialRepository = new Repository().getCredentialRepository()
     const origin = await CredentialRepository._find(access_key).catch(() => "failed" )
     if (origin === "failed") {
       console.log("[OAuth] (createPersonalAccessToken) Invalid access_key")
-      return { success: false }
+      return null;
     }
 
     await _verify(auth, ["self", "parent"], origin)
 
     const now = Date.now();
-    const expiresInSeconds = (expiry - now)/1000;
+    if (expiry <= now) {
+      console.log("[OAuth] (createPersonalAccessToken) Expiry date must be > now")
+      return null;
+    }
+    const expiresInSeconds = Math.round((expiry - now)/1000);
     const accessToken = sign({
       typ: "Bearer",
       id: access_key,
@@ -161,15 +157,18 @@ export class CredentialService {
 
     const tokens = await CredentialRepository._tokens(access_key).catch(() => "failed");
     if (typeof tokens === "string") {
-      console.log("[OAuth] (revokePersonalAccessToken) Invalid access_key")
-      return { success: false }
+      console.log("[OAuth] (createPersonalAccessToken) Invalid access_key")
+      return null;
     }
     tokens.push({token: accessToken, created: Date.now(), expiry, description});
 
     const result = await CredentialRepository._update(origin, access_key, {tokens}).catch(() => "failed");
-    return {
-      success: result !== "failed",
+
+    if (result === "failed") {
+      console.log("[OAuth] (createPersonalAccessToken) Couldn't save the token")
+      return null; 
     }
+    return accessToken;
   }
 
   public static async revokePersonalAccessToken(auth: any, access_key: string, personal_access_token: string): Promise<{success: boolean}> {
@@ -200,7 +199,7 @@ export class CredentialService {
     }
     const newTokens = tokens.filter(({token}) => token !== personal_access_token);
 
-    const result = await CredentialRepository._update(origin, access_key, {newTokens}).catch(() => "failed");
+    const result = await CredentialRepository._update(origin, access_key, {tokens: newTokens}).catch(() => "failed");
     return {
       success: result !== "failed",
     }
@@ -279,7 +278,6 @@ CredentialService.Router.post(`/credential/:id/token`,
 
 CredentialService.Router.get(`/credential/:id/token`,
   async (req: Request, res: Response) => {
-    const {expiry, description} = req.body
     res.header(ApiResponseHeaders)
     const access_key = req.params.id === "null" ? null : req.params.id;
     if (!access_key) {
