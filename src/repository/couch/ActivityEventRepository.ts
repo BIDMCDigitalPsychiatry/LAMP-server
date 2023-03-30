@@ -31,12 +31,15 @@ export class ActivityEventRepository implements ActivityEventInterface {
         ],
         limit: Math.abs(limit ?? 1),
       })
-    ).docs.map((x: any) => ({
-      ...x,
-      _id: undefined,
-      _rev: undefined,
-      "#parent": undefined,
-    })) as any
+    ).docs.map((x: any) => {
+      delete x._id, x._rev, x["#parent"]
+
+      // Embedded binary audio data is excluded for performance reasons
+      if (/^data:audio.+/.test(x.static_data?.url))
+        delete x.static_data?.url
+
+      return x
+    }) as any
     return all_res
   }
   public async _insert(participant_id: string, objects: ActivityEvent[]): Promise<{}> {
