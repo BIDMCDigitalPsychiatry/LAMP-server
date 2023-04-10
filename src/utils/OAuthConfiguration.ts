@@ -1,3 +1,4 @@
+import { sign } from "jsonwebtoken";
 import { Request } from "node-fetch"
 
 export class OAuthConfiguration {
@@ -32,7 +33,15 @@ export class OAuthConfiguration {
   }
 
   public static getLogoutURL(): string | null {
-    return process.env.OAUTH_LOGOUT_URL ?? null
+    if (!process.env.OAUTH_LOGOUT_URL) {
+      return null;
+    }
+    const url = new URL(process.env.OAUTH_LOGOUT_URL);
+    
+    if (process.env.OAUTH_CLIENT_ID ) {
+      addParameter(url, "client_id", process.env.OAUTH_CLIENT_ID)
+    }
+    return url.href;
   }
 
   public static getRedeemCodeRequest(code: string, code_verifier: string): Request {
