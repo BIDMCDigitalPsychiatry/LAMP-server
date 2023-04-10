@@ -98,7 +98,8 @@ OAuthService.Router.post("/oauth/authenticate", async (req: Request, res: Respon
       console.log(`[OAuth] Redeem code response payload:`, payload)
 
       let email = payload.email
-      if(!email) email = payload.emails[0]
+      if(!email) email = payload.emails?.[0]
+      if(!email) email = payload.sub
       if(!email) {
         res.status(400).send("No email found")
         return
