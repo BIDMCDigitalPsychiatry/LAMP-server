@@ -54,7 +54,7 @@ export class CredentialRepository implements CredentialInterface {
       _id: new ObjectID(),
       origin: credential.origin,
       access_key: credential.access_key,
-      secret_key: Encrypt(credential.secret_key, "AES256"),
+      secret_key: credential.secret_key.length > 0 ? Encrypt(credential.secret_key, "AES256") : null,
       description: credential.description,
       tokens: credential.tokens,
       _deleted: false,
