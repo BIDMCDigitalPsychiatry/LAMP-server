@@ -114,7 +114,7 @@ ActivityEventService.Router.get("/participant/:participant_id/activity_event", a
       data: await ActivityEventService.list(
         req.get("Authorization"),
         req.params.participant_id,
-        req.params.ignore_binary as boolean,
+        req.query.ignore_binary === "true",
         req.query.origin as string,
         Number.parse((req.query as any).from),
         Number.parse((req.query as any).to),
