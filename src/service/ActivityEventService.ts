@@ -15,6 +15,7 @@ export class ActivityEventService {
   public static async list(
     auth: any,
     participant_id: string,
+    ignore_binary: boolean | undefined, 
     origin: string | undefined,
     from: number | undefined,
     to: number | undefined,
@@ -23,7 +24,7 @@ export class ActivityEventService {
     const ActivityEventRepository = new Repository().getActivityEventRepository()
     limit = Math.min(Math.max(limit ?? LIMIT_NAN, -LIMIT_MAX), LIMIT_MAX)
     participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
-    return await ActivityEventRepository._select(participant_id, origin, from, to, limit)
+    return await ActivityEventRepository._select(participant_id, ignore_binary, origin, from, to, limit)
   }
 
   public static async create(auth: any, participant_id: string, activity_events: any[]) {
@@ -113,6 +114,7 @@ ActivityEventService.Router.get("/participant/:participant_id/activity_event", a
       data: await ActivityEventService.list(
         req.get("Authorization"),
         req.params.participant_id,
+        req.query.ignore_binary === "true",
         req.query.origin as string,
         Number.parse((req.query as any).from),
         Number.parse((req.query as any).to),

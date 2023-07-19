@@ -175,6 +175,7 @@ async function sendToParticipants(Participants: any, schedule: any): Promise<voi
       const SensorEventRepository = repo.getSensorEventRepository()
       const event_data = await SensorEventRepository._select(
         participant.participant_id,
+        false,
         "lamp.analytics",
         undefined,
         undefined,

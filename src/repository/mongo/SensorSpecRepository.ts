@@ -3,7 +3,7 @@ import { SensorSpecInterface } from "../interface/RepositoryInterface"
 import { MongoClientDB } from "../Bootstrap"
 
 export class SensorSpecRepository implements SensorSpecInterface {
-  public async _select(id?: string): Promise<SensorSpec[]> {
+  public async _select(id?: string, ignore_binary?: boolean): Promise<SensorSpec[]> {
     const data = !!id
       ? await MongoClientDB.collection("sensor_spec").find({$or: [ { _deleted: false,  _id: id }, { _deleted: undefined, _id: id } ]}).maxTimeMS(60000).toArray()
       : await MongoClientDB.collection("sensor_spec").find({$or: [ { _deleted: false }, { _deleted: undefined } ]}).maxTimeMS(60000).toArray()

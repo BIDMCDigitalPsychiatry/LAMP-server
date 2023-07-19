@@ -7,10 +7,10 @@ export class SensorSpecService {
   public static _name = "SensorSpec"
   public static Router = Router()
 
-  public static async list(auth: any, parent_id: null) {
+  public static async list(auth: any, parent_id: null, ignore_binary?: boolean) {
     const SensorSpecRepository = new Repository().getSensorSpecRepository()
     const _ = await _verify(auth, ["self", "sibling", "parent"])
-    return await SensorSpecRepository._select()
+    return await SensorSpecRepository._select(parent_id, ignore_binary)
   }
 
   public static async create(auth: any, parent_id: null, sensor_spec: any) {

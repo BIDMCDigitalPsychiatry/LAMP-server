@@ -7,10 +7,10 @@ export class ActivitySpecService {
   public static _name = "ActivitySpec"
   public static Router = Router()
 
-  public static async list(auth: any, parent_id: null) {
+  public static async list(auth: any, parent_id: null, ignore_binary?: boolean) {
     const ActivitySpecRepository = new Repository().getActivitySpecRepository()
     const _ = await _verify(auth, ["self", "sibling", "parent"])
-    return await ActivitySpecRepository._select()
+    return await ActivitySpecRepository._select(parent_id, ignore_binary)
   }
 
   public static async create(auth: any, parent_id: null, activity_spec: any) {

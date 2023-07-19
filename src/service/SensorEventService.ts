@@ -16,6 +16,7 @@ export class SensorEventService {
   public static async list(
     auth: any,
     participant_id: string,
+    ignore_binary: boolean | undefined,
     origin: string | undefined,
     from: number | undefined,
     to: number | undefined,
@@ -24,7 +25,7 @@ export class SensorEventService {
     const SensorEventRepository = new Repository().getSensorEventRepository()
     participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
     limit = Math.min(Math.max(limit ?? LIMIT_NAN, -LIMIT_MAX), LIMIT_MAX)
-    return await SensorEventRepository._select(participant_id, origin, from, to, limit)
+    return await SensorEventRepository._select(participant_id, ignore_binary,origin, from, to, limit)
   }
 
   public static async create(auth: any, participant_id: string, sensor_events: any[]) {
@@ -73,6 +74,7 @@ SensorEventService.Router.get("/participant/:participant_id/sensor_event", async
       data: await SensorEventService.list(
         req.get("Authorization"),
         req.params.participant_id,
+        req.query.ignore_binary === "true",
         req.query.origin as string,
         Number.parse((req.query as any).from),
         Number.parse((req.query as any).to),

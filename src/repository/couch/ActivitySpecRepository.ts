@@ -3,13 +3,13 @@ import { ActivitySpec } from "../../model/ActivitySpec"
 import { ActivitySpecInterface } from "../interface/RepositoryInterface"
 
 export class ActivitySpecRepository implements ActivitySpecInterface {
-  public async _select(id?: string): Promise<ActivitySpec[]> {
+  public async _select(id?: string, ignore_binary?: boolean): Promise<ActivitySpec[]> {
     const data = await Database.use("activity_spec").list({ include_docs: true, start_key: id, end_key: id })
     return (data.rows as any).map((x: any) => ({
       id: x.doc._id,
       ...x.doc,
       _id: undefined,
-      executable: !!id ? x.doc.executable : undefined,
+      executable: !!id && !ignore_binary ? x.doc.executable : undefined,
       _rev: undefined,
     }))
   }

@@ -3,7 +3,7 @@ import { ActivitySpecInterface } from "../interface/RepositoryInterface"
 import { MongoClientDB } from "../Bootstrap"
 
 export class ActivitySpecRepository implements ActivitySpecInterface {
-  public async _select(id?: string): Promise<ActivitySpec[]> {
+  public async _select(id?: string, ignore_binary?: boolean): Promise<ActivitySpec[]> {
     const parents = []    
     const data = !!id
       ? await MongoClientDB.collection("activity_spec").find({$or: [ { _deleted: false, _id: id }, { _deleted: undefined, _id: id } ]}).maxTimeMS(60000).toArray()
@@ -13,7 +13,7 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
       ...x,
       _id: undefined,
       __v: undefined,
-      executable: !!id ? x.executable : undefined,
+      executable: !!id && !ignore_binary? x.executable : undefined,
       _deleted: undefined,
     }))
   }

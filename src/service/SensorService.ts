@@ -58,7 +58,7 @@ export class SensorService {
   public static async get(auth: any, sensor_id: string) {
     const SensorRepository = new Repository().getSensorRepository()
     sensor_id = await _verify(auth, ["self", "sibling", "parent"], sensor_id)
-    return await SensorRepository._select(sensor_id)
+    return await SensorRepository._select(sensor_id, false)
   }
 
   public static async set(auth: any, sensor_id: string, sensor: any | null) {
