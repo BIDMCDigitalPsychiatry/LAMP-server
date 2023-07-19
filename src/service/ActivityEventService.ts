@@ -15,7 +15,7 @@ export class ActivityEventService {
   public static async list(
     auth: any,
     participant_id: string,
-    ignore_binary: boolean, 
+    ignore_binary: boolean | undefined, 
     origin: string | undefined,
     from: number | undefined,
     to: number | undefined,
@@ -114,7 +114,7 @@ ActivityEventService.Router.get("/participant/:participant_id/activity_event", a
       data: await ActivityEventService.list(
         req.get("Authorization"),
         req.params.participant_id,
-        Boolean(req.params.ignore_binary as boolean),
+        req.params.ignore_binary as boolean,
         req.query.origin as string,
         Number.parse((req.query as any).from),
         Number.parse((req.query as any).to),
