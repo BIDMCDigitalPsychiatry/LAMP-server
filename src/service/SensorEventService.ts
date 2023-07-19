@@ -16,7 +16,7 @@ export class SensorEventService {
   public static async list(
     auth: any,
     participant_id: string,
-    ignore_binary: boolean,
+    ignore_binary: boolean | false,
     origin: string | undefined,
     from: number | undefined,
     to: number | undefined,
