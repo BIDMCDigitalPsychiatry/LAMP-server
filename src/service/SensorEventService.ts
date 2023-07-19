@@ -16,7 +16,7 @@ export class SensorEventService {
   public static async list(
     auth: any,
     participant_id: string,
-    ignore_binary: boolean | false,
+    ignore_binary: boolean,
     origin: string | undefined,
     from: number | undefined,
     to: number | undefined,
@@ -74,7 +74,7 @@ SensorEventService.Router.get("/participant/:participant_id/sensor_event", async
       data: await SensorEventService.list(
         req.get("Authorization"),
         req.params.participant_id,
-        req.params.ignore_binary,
+        Boolean(req.params.ignore_binary as boolean),
         req.query.origin as string,
         Number.parse((req.query as any).from),
         Number.parse((req.query as any).to),
