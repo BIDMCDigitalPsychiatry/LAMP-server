@@ -55,6 +55,7 @@ export interface SensorInterface {
 export interface ActivityEventInterface {
   _select(
     id?: string,
+    ignore_binary?: boolean, 
     activity_id_or_spec?: string,
     from_date?: number,
     to_date?: number,
@@ -67,6 +68,7 @@ export interface ActivityEventInterface {
 export interface SensorEventInterface {
   _select(
     id?: string,
+    ignore_binary?: boolean, 
     sensor_spec?: string,
     from_date?: number,
     to_date?: number,
@@ -78,7 +80,7 @@ export interface SensorEventInterface {
 
 //Interface for ActivitySpec Repository
 export interface ActivitySpecInterface {
-  _select(id?: string): Promise<ActivitySpec[]>
+  _select(id?: any, ignore_binary?: boolean): Promise<ActivitySpec[]>
   _insert(object: {}): Promise<{}>
   _update(id: string, object: {}): Promise<{}>
   _delete(id: string): Promise<{}>
@@ -86,7 +88,7 @@ export interface ActivitySpecInterface {
 
 //Interface for SensorSpec Repository
 export interface SensorSpecInterface {
-  _select(id?: string): Promise<SensorSpec[]>
+  _select(id?: any, ignore_binary?: boolean): Promise<SensorSpec[]>
   _insert(object: SensorSpec): Promise<{}>
   _update(id: string, object: SensorSpec): Promise<{}>
   _delete(id: string): Promise<{}>
