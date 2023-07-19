@@ -13,7 +13,7 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
       ...x,
       _id: undefined,
       __v: undefined,
-      executable: !!id && !!ignore_binary? x.executable : undefined,
+      executable: !!id && !ignore_binary? x.executable : undefined,
       _deleted: undefined,
     }))
   }
