@@ -63,7 +63,7 @@ export class ActivityService {
   public static async get(auth: any, activity_id: string) {
     const ActivityRepository = new Repository().getActivityRepository()
     activity_id = await _verify(auth, ["self", "sibling", "parent"], activity_id)
-    return await ActivityRepository._select(activity_id)
+    return await ActivityRepository._select(activity_id, false)
   }
 
   public static async set(auth: any, activity_id: string, activity: any | null) {

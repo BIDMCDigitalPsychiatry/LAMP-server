@@ -6,6 +6,7 @@ import { MongoClientDB } from "../Bootstrap"
 export class SensorEventRepository implements SensorEventInterface {
   public async _select(
     id?: string,
+    ignore_binary?: boolean,
     sensor_spec?: string,
     from_date?: number,
     to_date?: number,

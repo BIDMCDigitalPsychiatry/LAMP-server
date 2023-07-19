@@ -314,7 +314,7 @@ ResearcherService.Router.get("/study/:study_id/_lookup/:lookup/mode/:mode", asyn
           //Fetch participant's active data i.e mode=2
           if (mode === 2) {
             const active = await ActivityEventRepository._select(
-              ParticipantIDs[index].id,
+              ParticipantIDs[index].id,false,
               undefined,
               undefined,
               undefined,
