@@ -269,8 +269,8 @@ ResearcherService.Router.get("/study/:study_id/_lookup/:lookup/mode/:mode", asyn
           //Fetch participant's gps data i.e mode=1
           if (mode === 1) {
             const gps =
-              (await SensorEventRepository._select(ParticipantIDs[index].id, "lamp.gps", undefined, undefined, 5)) ??
-              (await SensorEventRepository._select(ParticipantIDs[index].id, "beiwe.gps", undefined, undefined, 5))
+              (await SensorEventRepository._select(ParticipantIDs[index].id, false, "lamp.gps", undefined, undefined, 5)) ??
+              (await SensorEventRepository._select(ParticipantIDs[index].id, false,"beiwe.gps", undefined, undefined, 5))
 
             ParticipantIDs[index].gps = gps
           }
@@ -280,14 +280,14 @@ ResearcherService.Router.get("/study/:study_id/_lookup/:lookup/mode/:mode", asyn
           if (mode === 1) {
             const accelerometer =
               (await SensorEventRepository._select(
-                ParticipantIDs[index].id,
+                ParticipantIDs[index].id,false,
                 "lamp.accelerometer",
                 undefined,
                 undefined,
                 5
               )) ??
               (await SensorEventRepository._select(
-                ParticipantIDs[index].id,
+                ParticipantIDs[index].id,false,
                 "beiwe.accelerometer",
                 undefined,
                 undefined,
@@ -301,7 +301,7 @@ ResearcherService.Router.get("/study/:study_id/_lookup/:lookup/mode/:mode", asyn
           //Fetch participant's analytics data i.e mode=1
           if (mode === 1) {
             const analytics = await SensorEventRepository._select(
-              ParticipantIDs[index].id,
+              ParticipantIDs[index].id,false,
               "lamp.analytics",
               undefined,
               undefined,

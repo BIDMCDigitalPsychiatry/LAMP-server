@@ -6,6 +6,7 @@ import { ActivityEventInterface } from "../interface/RepositoryInterface"
 export class ActivityEventRepository implements ActivityEventInterface {
   public async _select(
     id?: string,
+    ignore_binary?:boolean,
     activity_id_or_spec?: string,
     from_date?: number,
     to_date?: number,
@@ -35,8 +36,10 @@ export class ActivityEventRepository implements ActivityEventInterface {
       delete x._id, x._rev, x["#parent"]
 
       // Embedded binary audio data is excluded for performance reasons
-      if (/^data:audio.+/.test(x.static_data?.url))
-        delete x.static_data?.url
+      if(!!ignore_binary) {
+        if (/^data:audio.+/.test(x.static_data?.url))
+          delete x.static_data?.url
+      }
 
       return x
     }) as any
