@@ -36,10 +36,10 @@ export class ActivityEventRepository implements ActivityEventInterface {
       delete x._id, x._rev, x["#parent"]
 
       // Embedded binary audio data is excluded for performance reasons
-      if(!!ignore_binary) {
-        if (/^data:audio.+/.test(x.static_data?.url))
-          delete x.static_data?.url
-      }
+      // if(!!ignore_binary) {
+      //   if (/^data:audio.+/.test(x.static_data?.url))
+      //     delete x.static_data?.url
+      // }
 
       return x
     }) as any
