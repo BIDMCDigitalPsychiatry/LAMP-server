@@ -34,13 +34,18 @@ export class SensorEventRepository implements SensorEventInterface {
       .limit(limit ?? 1)
       .maxTimeMS(60000)
       .toArray()
-    return (all_res as any).map((x: any) => ({
-      ...x,
-      _id: undefined,
-      __v: undefined,
-      _parent: undefined,
-      _deleted: undefined,
-    }))
+    return (all_res as any).map((x: any) => {
+      if(!!ignore_binary) {        
+        delete x.data
+      }
+      return({
+        ...x,
+        _id: undefined,
+        __v: undefined,
+        _parent: undefined,
+        _deleted: undefined,
+      })
+    })
   }
 
   public async _insert(participant_id: string, objects: SensorEvent[]): Promise<{}> {

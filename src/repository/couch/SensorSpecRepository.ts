@@ -5,12 +5,17 @@ import { SensorSpecInterface } from "../interface/RepositoryInterface"
 export class SensorSpecRepository implements SensorSpecInterface {
   public async _select(id?: string, ignore_binary?: boolean): Promise<SensorSpec[]> {
     const data = await Database.use("sensor_spec").list({ include_docs: true, start_key: id, end_key: id })
-    return (data.rows as any).map((x: any) => ({
-      id: x.doc._id,
-      ...x.doc,
-      _id: undefined,
-      _rev: undefined,
-    }))
+    return (data.rows as any).map((x: any) => {       
+      if(!!ignore_binary) {        
+          delete x.settings_schema
+      }
+      return({
+        id: x.doc._id,
+        ...x.doc,
+        _id: undefined,
+        _rev: undefined,
+      })
+    })
   }
   public async _insert(object: SensorSpec): Promise<{}> {
     try {
