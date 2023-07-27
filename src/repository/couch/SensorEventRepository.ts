@@ -32,12 +32,15 @@ export class SensorEventRepository implements SensorEventInterface {
         ],
         limit: Math.abs(limit ?? 1),
       })
-    ).docs.map((x: any) => ({
-      ...x,
+    ).docs.map((x: any) => {
+      if(!!ignore_binary) {        
+          delete x.data
+      }
+      return({...x,
       _id: undefined,
       _rev: undefined,
       "#parent": undefined,
-    })) as any
+      })}) as any
     return all_res
   }
   public async _insert(participant_id: string, objects: SensorEvent[]): Promise<{}> {
