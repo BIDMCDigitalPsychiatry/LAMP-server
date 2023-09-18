@@ -22,11 +22,28 @@ export class SensorSpecRepository implements SensorSpecInterface {
   }
   public async _insert(object: SensorSpec): Promise<{}> {
     try {
-      await MongoClientDB.collection("sensor_spec").insertOne({
-        _id: object.name,
-         settings_schema: object.settings_schema ?? {},
-        _deleted: false,
-      } as any)
+      let res: any = await MongoClientDB.collection("sensor_spec").findOne({ _id: object.name, _deleted:false })
+      if(res !== null) {
+        throw new Error("500.sensorspec-already-exist")
+      } else {
+        res = await MongoClientDB.collection("sensor_spec").findOne({ _id: object.name, _deleted:true })
+        if (res === null) { 
+          await MongoClientDB.collection("sensor_spec").insertOne({
+            _id: object.name,
+            settings_schema: object.settings_schema ?? {},
+            _deleted: false,
+          } as any)
+        } else {
+          await MongoClientDB.collection("sensor_spec").findOneAndUpdate(
+            { _id: object.name },
+            {
+              $set: {
+                _deleted: false
+              },
+            }
+          )
+        } 
+      }     
       return {}
     } catch (error) {
       throw new Error("500.sensorspec-creation-failed")

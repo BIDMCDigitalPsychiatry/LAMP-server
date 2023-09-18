@@ -19,10 +19,32 @@ export class SensorSpecRepository implements SensorSpecInterface {
   }
   public async _insert(object: SensorSpec): Promise<{}> {
     try {
-      await Database.use("sensor_spec").insert({
-        _id: object.name,
-        settings_schema: object.settings_schema ?? {}
-      } as any)
+      const res: any = await Database.use("sensor_spec").find({
+        selector: { _id: object.name, _deleted: false },
+        limit: 1,
+      })
+      if(res.length > 0) {
+        throw new Error("500.sensorspec-already-exist")
+      } else {
+          const orig: any = await Database.use("sensor_spec").find({
+            selector: { _id: object.name, _deleted: true },
+            limit: 1,
+          })
+          if(orig.length > 0) {
+            await Database.use("sensor_spec").bulk({
+              docs: [
+                {
+                  ...orig,
+                  _deleted: false
+                }
+              ]})
+          } else {
+          await Database.use("sensor_spec").insert({
+            _id: object.name,
+            settings_schema: object.settings_schema ?? {}
+          } as any)
+        }
+      }
       return {}
     } catch (error) {
       throw new Error("500.sensorspec-creation-failed")
