@@ -20,16 +20,33 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
   public async _insert(object: ActivitySpec): Promise<{}> {
     //save ActivitySpec via ActivitySpec model
     try {
-      await MongoClientDB.collection("activity_spec").insertOne({
-        _id: object.name,
-        description: object.description ?? null,
-        executable: object.executable ?? null,
-        static_data: object.static_data ?? {},
-        temporal_slices: object.temporal_slices ?? {},
-        settings: object.settings ?? {},
-        category: object.category ?? null,
-        _deleted: false,
-      } as any)
+      let res: any = await MongoClientDB.collection("activity_spec").findOne({ _id: object.name, _deleted:false })
+      if(res !== null) {
+        throw new Error("500.activityspec-already-exist")
+      } else {
+        const res: any = await MongoClientDB.collection("activity_spec").findOne({ _id: object.name, _deleted:true })
+        if (res === null) { 
+          await MongoClientDB.collection("activity_spec").insertOne({
+            _id: object.name,
+            description: object.description ?? null,
+            executable: object.executable ?? null,
+            static_data: object.static_data ?? {},
+            temporal_slices: object.temporal_slices ?? {},
+            settings: object.settings ?? {},
+            category: object.category ?? null,
+            _deleted: false,
+          } as any)
+        } else {
+          await MongoClientDB.collection("activity_spec").findOneAndUpdate(
+            { _id: object.name },
+            {
+              $set: {
+                _deleted: false
+              },
+            }
+          )
+        }
+      }
       return {}
     } catch (error) {
       throw new Error("500.activityspec-creation-failed")
