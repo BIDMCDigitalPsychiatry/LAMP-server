@@ -22,7 +22,7 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
     try {
       let res: any = await MongoClientDB.collection("activity_spec").findOne({ _id: object.name, _deleted:false })
       if(res !== null) {
-        throw new Error("500.activityspec-already-exist")
+        throw new Error("500.ActivitySpec-already-exists")
       } else {
         const res: any = await MongoClientDB.collection("activity_spec").findOne({ _id: object.name, _deleted:true })
         if (res === null) { 
