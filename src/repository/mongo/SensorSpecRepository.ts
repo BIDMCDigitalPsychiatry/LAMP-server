@@ -24,7 +24,7 @@ export class SensorSpecRepository implements SensorSpecInterface {
     try {
       let res: any = await MongoClientDB.collection("sensor_spec").findOne({ _id: object.name, _deleted:false })
       if(res !== null) {
-        throw new Error("500.sensorspec-already-exist")
+        throw new Error("500.SensorSpec-already-exists")
       } else {
         res = await MongoClientDB.collection("sensor_spec").findOne({ _id: object.name, _deleted:true })
         if (res === null) { 
