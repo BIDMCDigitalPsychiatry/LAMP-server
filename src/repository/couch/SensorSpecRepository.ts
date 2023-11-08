@@ -24,7 +24,7 @@ export class SensorSpecRepository implements SensorSpecInterface {
         limit: 1,
       })
       if(res.length > 0) {
-        throw new Error("500.sensorspec-already-exist")
+        throw new Error("500.SensorSpec-already-exists")
       } else {
           const orig: any = await Database.use("sensor_spec").find({
             selector: { _id: object.name, _deleted: true },

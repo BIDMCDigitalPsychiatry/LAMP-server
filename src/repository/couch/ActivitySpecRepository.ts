@@ -20,7 +20,7 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
         limit: 1,
       })
       if(res.length > 0) {
-        throw new Error("500.activityspec-already-exist")
+        throw new Error("500.ActivitySpec-already-exists")
       } else {
         const orig: any = await Database.use("activity_spec").find({
           selector: { _id: object.name, _deleted: true },
