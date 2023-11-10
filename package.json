@@ -57,6 +57,7 @@
     "start-sw": "dotenv node build/src/index.js",
     "start": "npm run build && npm run start-sw",
     "test": "jest --watch",
+    "checkTs": "tsc --noEmit",
     "lint": "eslint src/**/*.ts",
     "prepare": "husky install"
   },
@@ -91,7 +92,6 @@
   "lint-staged": {
     "*.js": "eslint --cache --fix",
     "**/*.ts?(x)": [
-      "tsc -p tsconfig.json --noEmit",
       "eslint --cache --fix"
     ]
   }
