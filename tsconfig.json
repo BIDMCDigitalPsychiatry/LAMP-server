@@ -8,7 +8,7 @@
         "./src",
         "./test"
     ],
-    "typeRoots": ["node_modules/@types", "custom_typings"],
+    "typeRoots": ["./node_modules/@types"],
     "outDir": "./build",
     "esModuleInterop": true,
     "strict": true,
