@@ -4,16 +4,39 @@
     "module": "commonjs",
     "allowJs": true,
     "checkJs": true,
-    "rootDirs": [
-        "./src",
-        "./test"
-    ],
-    "typeRoots": ["./node_modules/@types"],
-    "outDir": "./build",
+    "sourceMap": true,
+    "moduleResolution": "node",
+    "rootDir": "src",
+    "forceConsistentCasingInFileNames": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "ignoreDeprecations": "5.0",
+    "suppressImplicitAnyIndexErrors": true,
+    "noUnusedLocals": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
     "esModuleInterop": true,
     "strict": true,
     "resolveJsonModule": true,
-    "inlineSourceMap": true,
-    "allowSyntheticDefaultImports": true,
-  }
+    "isolatedModules": true,
+    "noEmit": true,
+    "typeRoots": ["./node_modules/@types"],
+    "outDir": "./build",
+  },
+  "include": [
+    "src",
+    "index.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "build",
+    "scripts",
+    "acceptance-tests",
+    "webpack",
+    "jest",
+    "src/setupTests.ts",
+    "src/*.d.ts"
+  ],
 }

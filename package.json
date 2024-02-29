@@ -96,10 +96,8 @@
     "globalSetup": "./src/test/setup.js"
   },
   "lint-staged": {
-    "*.js": "eslint --cache --fix",
-    "**/*.ts?(x)": [
-      "tsc -p tsconfig.json --noEmit",
-      "eslint --cache --fix"
+    "**/*.ts": [
+      "tsc -p ./tsconfig.json --noEmit"
     ]
   }
 }

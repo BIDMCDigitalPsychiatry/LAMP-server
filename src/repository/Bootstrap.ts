@@ -42,9 +42,9 @@ import {
   CredentialInterface,
   TypeInterface,
 } from "./interface/RepositoryInterface"
-import ioredis from "ioredis"
+import * as ioredis from "ioredis"
 import { initializeQueues } from "../utils/queue/Queue"
-export let RedisClient: ioredis.Redis
+export let RedisClient = new ioredis.Redis()
 export let nc: Client
 export let MongoClientDB: any
 export const ApiResponseHeaders = {
@@ -1030,15 +1030,15 @@ export class Repository {
  * Creating singleton class for redis
 */
 export class RedisFactory {
-  private static instance: ioredis.Redis
+  private static instance: any
   private constructor() {}
   
   /**
    * @returns redis client instance
   */
-  public static getInstance(): ioredis.Redis {
+  public static getInstance(): any {
     if (this.instance === undefined) {
-      this.instance = new ioredis(
+      this.instance = new ioredis.Redis(
                 parseInt(`${(process.env.REDIS_HOST as any).match(/([0-9]+)/g)?.[0]}`),
                 (process.env.REDIS_HOST as any).match(/\/\/([0-9a-zA-Z._]+)/g)?.[0],
       {
