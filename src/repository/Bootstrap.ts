@@ -99,8 +99,10 @@ export const Encrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"):
       return Buffer.concat([ivl, cipher.update(Buffer.from(data, "utf16le")), cipher.final()]).toString("base64")
     }
     return undefined
-  } catch {}
-  return undefined
+  } catch (error) {
+      console.error("Encryption error:", error);
+      return undefined
+  }
 }
 
 /**
@@ -121,8 +123,10 @@ export const Decrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"):
       return Buffer.concat([cipher.update(dat.slice(16)), cipher.final()]).toString("utf16le")
     }
     return undefined
-  } catch {}
-  return undefined
+  } catch (error) {
+    console.error("Encryption error:", error)  
+    return undefined   
+  }
 }
 
 // Initialize the CouchDB databases if any of them do not exist.
