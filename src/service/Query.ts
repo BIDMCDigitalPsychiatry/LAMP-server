@@ -282,7 +282,7 @@ const METHOD_LIST = (auth: any) => ({
       },
       set: async (type_id: string,  target: string, attachment_key: string, attachment_value: string) => {
         const _start = Date.now()
-        let x = null // error
+        let x = {} // error
         try {
           x = await TypeService.set(auth, type_id, target, attachment_key, attachment_value)
         } catch (e:any) {}

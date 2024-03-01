@@ -97,7 +97,7 @@
   },
   "lint-staged": {
     "**/*.ts": [
-      "tsc -p ./tsconfig.json --noEmit"
+      "tsc --noEmit"
     ]
   }
 }

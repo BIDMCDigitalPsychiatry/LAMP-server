@@ -1,5 +1,4 @@
 import { Database } from "../Bootstrap"
-import { DynamicAttachment } from "../../model"
 //import { ScriptRunner } from "../../utils"
 import { TypeInterface } from "../interface/RepositoryInterface"
 import { Repository } from "../../repository/Bootstrap"

@@ -1,5 +1,4 @@
-import { Identifier, Timestamp } from "./Type"
-import { timeStamp } from "console"
+import { Identifier } from "./Type"
 
 export class Participant {
   public id?: Identifier

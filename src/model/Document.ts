@@ -1,4 +1,4 @@
-import { Identifier, Timestamp } from "./Type"
+import { Timestamp } from "./Type"
 export class AccessCitation {
   public in = ""
   public at = ""

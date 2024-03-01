@@ -1,4 +1,4 @@
-import { Identifier, Timestamp } from "./Type"
+import { Identifier } from "./Type"
 import { DurationIntervalLegacy } from "./Document"
 type Tab = 'learn' | 'assess' | 'manage' | 'prevent'
 export class Activity {

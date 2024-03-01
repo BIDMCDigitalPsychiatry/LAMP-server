@@ -1,5 +1,4 @@
 import { Identifier, Timestamp } from "./Type"
-import { KeyObject } from "crypto"
 
 export class TemporalSlice {
   public item?: any
