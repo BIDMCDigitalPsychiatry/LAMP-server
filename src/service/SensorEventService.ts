@@ -3,8 +3,6 @@ import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 import { BulkDataWrite, publishSensorEvent } from "../utils/queue/BulkDataWrite"
-import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
-import { RedisClient } from "../repository/Bootstrap"
 // default to LIMIT_NAN, clamped to [-LIMIT_MAX, +LIMIT_MAX]
 const LIMIT_NAN = 1000
 const LIMIT_MAX = 2_147_483_647

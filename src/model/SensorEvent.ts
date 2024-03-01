@@ -1,4 +1,4 @@
-import { Identifier, Timestamp } from "./Type"
+import { Timestamp } from "./Type"
 
 export enum SensorName {
   Analytics = "lamp.analytics",

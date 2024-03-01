@@ -1,4 +1,3 @@
-import { Identifier, Timestamp } from "./Type"
 type JSONSchema = any
 type Tab = 'learn' | 'assess' | 'manage' | 'prevent'
 export class ActivitySpec {

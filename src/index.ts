@@ -4,7 +4,6 @@ import https from "https"
 import { HTTPS_CERT } from "./utils"
 import { Bootstrap } from "./repository/Bootstrap"
 import app from "./app"
-import * as net from "net"
 
 // NodeJS v15+ do not log unhandled promise rejections anymore.
 process.on("unhandledRejection", error => {

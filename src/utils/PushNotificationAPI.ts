@@ -260,7 +260,7 @@ async function sendToParticipants(Participants: any, schedule: any): Promise<voi
  * @param message
  */
 async function prepareParticipants(Participants: any, title: any, message: any, customId?: any): Promise<any[]> {
-  const newParticipants = []
+  const newParticipants:any = []
   if (undefined === customId) customId = ""
   for (const ParticipantsData of Participants) {
     newParticipants.push({ participant_id: ParticipantsData.id, title: title, message: message, activity_id: customId })

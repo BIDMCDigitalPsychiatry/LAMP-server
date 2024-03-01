@@ -1,11 +1,10 @@
-import Bull from "bull"
 import { Repository } from "../../repository/Bootstrap"
 
 /** Queue Process
  *
  * @param job
  */
-export async function BulkDataWriteSlaveQueueProcess(job: Bull.Job<any>): Promise<void> {
+export async function BulkDataWriteSlaveQueueProcess(job: any): Promise<void> {
   switch (job.data.key) {
     case "sensor_event":
       console.log("write started timestamp", `${job.id}-${Date.now()}`)

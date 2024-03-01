@@ -1,4 +1,4 @@
-import { Identifier, Timestamp } from "./Type"
+import { Identifier } from "./Type"
 
 export class Study {
   public id?: Identifier

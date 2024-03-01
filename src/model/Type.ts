@@ -1,8 +1,3 @@
-import { Participant } from "./Participant"
-import { Study } from "./Study"
-import { Researcher } from "./Researcher"
-import { Activity } from "./Activity"
-
 export type Identifier = string
 export type Timestamp = number
 export class DynamicAttachment {

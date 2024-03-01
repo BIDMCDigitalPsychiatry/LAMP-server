@@ -42,9 +42,9 @@ import {
   CredentialInterface,
   TypeInterface,
 } from "./interface/RepositoryInterface"
-import ioredis from "ioredis"
+import * as ioredis from "ioredis"
 import { initializeQueues } from "../utils/queue/Queue"
-export let RedisClient: ioredis.Redis
+export let RedisClient = new ioredis.Redis()
 export let nc: Client
 export let MongoClientDB: any
 export const ApiResponseHeaders = {
@@ -98,6 +98,7 @@ export const Encrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"):
       const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(process.env.ROOT_KEY || "", "hex"), ivl)
       return Buffer.concat([ivl, cipher.update(Buffer.from(data, "utf16le")), cipher.final()]).toString("base64")
     }
+    return undefined
   } catch (error) {
       console.error("Encryption error:", error);
       return undefined
@@ -121,6 +122,7 @@ export const Decrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"):
       )
       return Buffer.concat([cipher.update(dat.slice(16)), cipher.final()]).toString("utf16le")
     }
+    return undefined
   } catch (error) {
     console.error("Encryption error:", error)  
     return undefined   
@@ -1034,15 +1036,15 @@ export class Repository {
  * Creating singleton class for redis
 */
 export class RedisFactory {
-  private static instance: ioredis.Redis
+  private static instance: any
   private constructor() {}
   
   /**
    * @returns redis client instance
   */
-  public static getInstance(): ioredis.Redis {
+  public static getInstance(): any {
     if (this.instance === undefined) {
-      this.instance = new ioredis(
+      this.instance = new ioredis.Redis(
                 parseInt(`${(process.env.REDIS_HOST as any).match(/([0-9]+)/g)?.[0]}`),
                 (process.env.REDIS_HOST as any).match(/\/\/([0-9a-zA-Z._]+)/g)?.[0],
       {
