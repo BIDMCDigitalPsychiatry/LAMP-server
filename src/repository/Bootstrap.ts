@@ -42,9 +42,10 @@ import {
   CredentialInterface,
   TypeInterface,
 } from "./interface/RepositoryInterface"
-import * as ioredis from "ioredis"
+import ioredis from "ioredis"
 import { initializeQueues } from "../utils/queue/Queue"
-export let RedisClient = new ioredis.Redis()
+
+export let RedisClient: ioredis
 export let nc: Client
 export let MongoClientDB: any
 export const ApiResponseHeaders = {
@@ -1042,9 +1043,9 @@ export class RedisFactory {
   /**
    * @returns redis client instance
   */
-  public static getInstance(): any {
+  public static getInstance(): ioredis {
     if (this.instance === undefined) {
-      this.instance = new ioredis.Redis(
+      this.instance = new ioredis(
                 parseInt(`${(process.env.REDIS_HOST as any).match(/([0-9]+)/g)?.[0]}`),
                 (process.env.REDIS_HOST as any).match(/\/\/([0-9a-zA-Z._]+)/g)?.[0],
       {

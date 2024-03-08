@@ -1,4 +1,4 @@
-import { Bull } from "bull"
+import Bull = require("bull")
 import { PushNotificationQueueProcess } from "./PushNotificationQueue"
 import { PubSubAPIListenerQueueProcess } from "./PubSubAPIListenerQueue"
 import { BulkDataWriteQueueProcess } from "./BulkDataWriteQueue"
