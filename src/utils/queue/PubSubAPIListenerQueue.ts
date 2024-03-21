@@ -1,3 +1,4 @@
+import Bull from "bull"
 import { nc, Repository } from "../../repository/Bootstrap"
 import { Mutex } from "async-mutex"
 const clientLock = new Mutex()
@@ -6,7 +7,7 @@ const clientLock = new Mutex()
  *
  * @param job
  */
-export async function PubSubAPIListenerQueueProcess(job: any, done: any): Promise<void> {
+export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bull.DoneCallback): Promise<void> {
   let publishStatus = true
   const repo = new Repository()
   const TypeRepository = repo.getTypeRepository()

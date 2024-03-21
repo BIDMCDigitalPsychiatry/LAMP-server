@@ -98,7 +98,6 @@ export const Encrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"):
       const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(process.env.ROOT_KEY || "", "hex"), ivl)
       return Buffer.concat([ivl, cipher.update(Buffer.from(data, "utf16le")), cipher.final()]).toString("base64")
     }
-    return undefined
   } catch (error) {
       console.error("Encryption error:", error);
       return undefined
@@ -122,7 +121,6 @@ export const Decrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"):
       )
       return Buffer.concat([cipher.update(dat.slice(16)), cipher.final()]).toString("utf16le")
     }
-    return undefined
   } catch (error) {
     console.error("Encryption error:", error)  
     return undefined   

@@ -26,7 +26,7 @@ export const BulkDataWrite = async (key: string, participant_id: string, data: a
           event.timestamp = Number.parse(event.timestamp)
           event.sensor = String(event.sensor)
           //Push to redis store
-          await RedisClient?.rpush("se_Q", JSON.stringify(event))
+          await RedisClient?.rpush("se_Q", [JSON.stringify(event)])
         } catch (error) {
           console.log("error while pushing to redis store", error)
         }
