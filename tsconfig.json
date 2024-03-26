@@ -21,12 +21,12 @@
     "isolatedModules": true,
     "noEmit": true,
     "outDir": "./build",
-    "noUnusedParameters": false
+    "noUnusedParameters": false,
+    "typeRoots": ["node_modules/@types"]
   },
   "include": [
-    "src",
-    "index.d.ts"
-  ],
+    "src"
+ ],
   "exclude": [
     "node_modules",
     "build",
