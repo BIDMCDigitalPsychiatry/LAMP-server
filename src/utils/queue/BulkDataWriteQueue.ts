@@ -1,3 +1,4 @@
+import Bull from "bull"
 import { RedisClient } from "../../repository/Bootstrap"
 import { BulkDataWriteSlaveQueue } from "./Queue"
 import { Mutex } from "async-mutex"
@@ -7,7 +8,7 @@ const clientLock = new Mutex()
  *
  * @param job
  */
-export async function BulkDataWriteQueueProcess(job: any): Promise<void> {
+export async function BulkDataWriteQueueProcess(job: Bull.Job<any>): Promise<void> {
   switch (job.data.key) {
     case "sensor_event":
       //wait for same participant with same timestamp

@@ -4,32 +4,15 @@
     "module": "commonjs",
     "allowJs": true,
     "checkJs": true,
-    "sourceMap": true,
-    "moduleResolution": "node",
-    "rootDir": "src",
-    "forceConsistentCasingInFileNames": true,
-    "noImplicitReturns": true,
-    "noUnusedLocals":false,
-    "noImplicitThis": true,
-    "noImplicitAny": false,
-    "strictNullChecks": true,
-    "allowSyntheticDefaultImports": true,
-    "skipLibCheck": true,
+    "rootDirs": [
+        "./src",
+        "./test"
+    ],
+    "outDir": "./build",
     "esModuleInterop": true,
     "strict": true,
     "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noEmit": true,
-    "outDir": "./build",
-    "noUnusedParameters": false
-  },
-  "include": [
-    "src",
-    "index.d.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "build",
-    "test"
-  ],
- }
+    "inlineSourceMap": true,
+    "allowSyntheticDefaultImports": true,
+  }
+}
