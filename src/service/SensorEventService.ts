@@ -72,7 +72,7 @@ SensorEventService.Router.get("/participant/:participant_id/sensor_event", async
       data: await SensorEventService.list(
         req.get("Authorization"),
         req.params.participant_id,
-        req.query.ignore_binary === "true",
+        (req.params as any).ignore_binary as boolean,
         req.query.origin as string,
         Number.parse((req.query as any).from),
         Number.parse((req.query as any).to),
