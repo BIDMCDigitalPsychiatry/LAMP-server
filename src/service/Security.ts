@@ -1,7 +1,9 @@
 import { Repository } from "../repository/Bootstrap"
+import jwt from "jsonwebtoken"
 
 // The AuthSubject type represents an already-validated authorization that can be reused. 
 type AuthSubject = { origin: string; access_key: string; secret_key: string; }
+const JWT_SECRET = process.env.secret_key as string;
 
 // Converts an Authorization header (`Authorization: Basic btoa('user:pass')` to an object.
 // If components are missing, throw a missing credentials error (HTTP 401).
@@ -33,42 +35,65 @@ export async function _verify(
 ): Promise<string> {
   const TypeRepository = new Repository().getTypeRepository()
 
+  const response: any = {};
+
   // If an actual AuthSubject was not provided, create one first.
   if (authSubject === undefined || typeof authSubject === "string")
     authSubject = await _createAuthSubject(authSubject)
     const isRoot = authSubject.origin === null
 
+  // Generating jwt access token 
+    const access_token = jwt.sign({ access_key: authSubject.access_key, secret_key: authSubject.secret_key }, JWT_SECRET, {
+      expiresIn: '1h', 
+    });
+
+  // Refresh token
+    const refresh_token = jwt.sign({ access_key: authSubject.access_key }, JWT_SECRET, {
+        expiresIn: '12h', 
+    });
+  
+    response.access_token = access_token;
+    response.access_key = authSubject.access_key
+    response.origin = authSubject.origin
+    response.refreh_token = refresh_token;
   // Patch in the special-cased "me" to the actual authenticated credential.
   // Root credentials (origin is null) are not allowed to substitute the "me" value.
   if (authObject === "me" && !isRoot) {
     authObject = authSubject.origin
+    response.id = authObject;
+    return response;
   } else if (authObject === "me" && isRoot) {
     throw new Error("400.context-substitution-failed")
   }  
   // Check if `authSubject` is root for a root-only authType.
   if (isRoot) {
     let _owner = !!authObject ? await TypeRepository._owner(authObject ?? "") : undefined
-    return authObject as any  
+    response.id = authObject
+    return response;  
   }
   
   // Check if `authObject` and `authSubject` are the same || authenticated for  resource * 
   if ((!isRoot && authType.includes("self") && (authSubject.origin === authObject))
-      || (JSON.stringify(authType) === JSON.stringify(["self", "sibling", "parent"]) && authObject === undefined))
-    return authObject as any 
-  
+      || (JSON.stringify(authType) === JSON.stringify(["self", "sibling", "parent"]) && authObject === undefined)) {
+    response.id = authObject
+    return response;  
+  }
   // Optimization.
   if (!isRoot && (authType.includes("parent") || authType.includes("sibling"))) {
     let _owner = await TypeRepository._owner(authObject ?? "")
 
     // Check if the immediate parent type of `authObject` is found in `authSubject`'s inheritance tree.
     if (authType.includes("sibling") && (_owner === (await TypeRepository._owner(authSubject.origin)))) {
-      return authObject as any
+      response.id = authObject
+      return response;  
     } else {
       // Check if `authSubject` is actually the parent ID of `authObject` matching the same type as `authSubject`.
       // Do the "parent" check before the "sibling" check since it's more likely to be the case, so short circuit here.
       while(_owner !== null) {
-        if (_owner === authSubject.origin)
-          return authObject as any
+        if (_owner === authSubject.origin) {
+          response.id = authObject
+          return response;  
+        }
         _owner = await TypeRepository._owner(_owner)
       }
     }
