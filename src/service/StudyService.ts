@@ -3,6 +3,7 @@ import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
+import { authenticateToken } from "./jwtToken"
 
 export class StudyService {
   public static _name = "Study"
@@ -10,14 +11,15 @@ export class StudyService {
 
   public static async list(auth: any, researcher_id: string) {
     const StudyRepository = new Repository().getStudyRepository()
-    researcher_id = await _verify(auth, ["self", "parent"], researcher_id)
-    return await StudyRepository._select(researcher_id, true)
+    const response: any = await _verify(auth, ["self", "parent"], researcher_id)
+    return await StudyRepository._select(response.id, true)
   }
 
   public static async create(auth: any, researcher_id: string, study: any) {
     const StudyRepository = new Repository().getStudyRepository()
 
-    researcher_id = await _verify(auth, ["self", "parent"], researcher_id)
+    const response: any = await _verify(auth, ["self", "parent"], researcher_id)
+    researcher_id = response.id
     const data = await StudyRepository._insert(researcher_id, study)
 
     //publishing data for study add api with token = researcher.{researcher_id}.study.{_id}
@@ -51,14 +53,15 @@ export class StudyService {
 
   public static async get(auth: any, study_id: string) {
     const StudyRepository = new Repository().getStudyRepository()
-    study_id = await _verify(auth, ["self", "parent"], study_id)
-    return await StudyRepository._select(study_id)
+    const response: any = await _verify(auth, ["self", "parent"], study_id)
+    return await StudyRepository._select(response.id)
   }
 
   public static async set(auth: any, study_id: string, study: any | null) {
     const StudyRepository = new Repository().getStudyRepository()
     const TypeRepository = new Repository().getTypeRepository()
-    study_id = await _verify(auth, ["self", "parent"], study_id)
+    const response: any = await _verify(auth, ["self", "parent"], study_id)
+    study_id = response.id
     if (study === null) {
       let parent = (await TypeRepository._parent(study_id)) as any
       const data = await StudyRepository._delete(study_id)
@@ -130,7 +133,7 @@ export class StudyService {
   }
 }
 
-StudyService.Router.post("/researcher/:researcher_id/study", async (req: Request, res: Response) => {
+StudyService.Router.post("/researcher/:researcher_id/study", authenticateToken, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     res.json({ data: await StudyService.create(req.get("Authorization"), req.params.researcher_id, req.body) })
@@ -139,7 +142,7 @@ StudyService.Router.post("/researcher/:researcher_id/study", async (req: Request
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-StudyService.Router.put("/study/:study_id", async (req: Request, res: Response) => {
+StudyService.Router.put("/study/:study_id", authenticateToken, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     res.json({ data: await StudyService.set(req.get("Authorization"), req.params.study_id, req.body) })
@@ -148,7 +151,7 @@ StudyService.Router.put("/study/:study_id", async (req: Request, res: Response) 
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-StudyService.Router.delete("/study/:study_id", async (req: Request, res: Response) => {
+StudyService.Router.delete("/study/:study_id", authenticateToken, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     res.json({ data: await StudyService.set(req.get("Authorization"), req.params.study_id, null) })
@@ -157,7 +160,7 @@ StudyService.Router.delete("/study/:study_id", async (req: Request, res: Respons
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-StudyService.Router.get("/study/:study_id", async (req: Request, res: Response) => {
+StudyService.Router.get("/study/:study_id", authenticateToken, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     let output = { data: await StudyService.get(req.get("Authorization"), req.params.study_id) }
@@ -168,7 +171,7 @@ StudyService.Router.get("/study/:study_id", async (req: Request, res: Response) 
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-StudyService.Router.get("/researcher/:researcher_id/study", async (req: Request, res: Response) => {
+StudyService.Router.get("/researcher/:researcher_id/study", authenticateToken, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     let output = { data: await StudyService.list(req.get("Authorization"), req.params.researcher_id) }
@@ -181,7 +184,7 @@ StudyService.Router.get("/researcher/:researcher_id/study", async (req: Request,
 })
 
 // Clone study id to another-import activities,sensors to new studyid given
-StudyService.Router.post("/researcher/:researcher_id/study/clone", async (req: Request, res: Response) => {
+StudyService.Router.post("/researcher/:researcher_id/study/clone", authenticateToken, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     const StudyRepository = new Repository().getStudyRepository()
@@ -191,7 +194,8 @@ StudyService.Router.post("/researcher/:researcher_id/study/clone", async (req: R
     const ParticipantRepository = new Repository().getParticipantRepository()
     let researcher_id = req.params.researcher_id
     const study = req.body
-    researcher_id = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
+    const response: any = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
+    researcher_id = response.id
     const output = { data: await StudyRepository._insert(researcher_id, study) }
     let should_add_participant: boolean = req.body.should_add_participant ?? false
     let StudyID: string | undefined =

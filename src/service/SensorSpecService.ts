@@ -2,6 +2,7 @@ import { Request, Response, Router } from "express"
 import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
+import { authenticateToken } from "./jwtToken"
 
 export class SensorSpecService {
   public static _name = "SensorSpec"
@@ -36,7 +37,7 @@ export class SensorSpecService {
   }
 }
 
-SensorSpecService.Router.post("/sensor_spec", async (req: Request, res: Response) => {
+SensorSpecService.Router.post("/sensor_spec", authenticateToken, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     res.json({ data: await SensorSpecService.create(req.get("Authorization"), null, req.body) })
@@ -45,7 +46,7 @@ SensorSpecService.Router.post("/sensor_spec", async (req: Request, res: Response
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-SensorSpecService.Router.put("/sensor_spec/:sensor_spec_name", async (req: Request, res: Response) => {
+SensorSpecService.Router.put("/sensor_spec/:sensor_spec_name", authenticateToken, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     res.json({ data: await SensorSpecService.set(req.get("Authorization"), req.params.sensor_spec_name, req.body) })
@@ -54,7 +55,7 @@ SensorSpecService.Router.put("/sensor_spec/:sensor_spec_name", async (req: Reque
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-SensorSpecService.Router.delete("/sensor_spec/:sensor_spec_name", async (req: Request, res: Response) => {
+SensorSpecService.Router.delete("/sensor_spec/:sensor_spec_name", authenticateToken, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     res.json({ data: await SensorSpecService.set(req.get("Authorization"), req.params.sensor_spec_name, null) })
@@ -63,7 +64,7 @@ SensorSpecService.Router.delete("/sensor_spec/:sensor_spec_name", async (req: Re
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-SensorSpecService.Router.get("/sensor_spec/:sensor_spec_name", async (req: Request, res: Response) => {
+SensorSpecService.Router.get("/sensor_spec/:sensor_spec_name", authenticateToken, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     let output = { data: await SensorSpecService.get(req.get("Authorization"), req.params.sensor_spec_name) }
@@ -74,7 +75,7 @@ SensorSpecService.Router.get("/sensor_spec/:sensor_spec_name", async (req: Reque
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-SensorSpecService.Router.get("/sensor_spec", async (req: Request, res: Response) => {
+SensorSpecService.Router.get("/sensor_spec", authenticateToken, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     let output = { data: await SensorSpecService.list(req.get("Authorization"), null) }
