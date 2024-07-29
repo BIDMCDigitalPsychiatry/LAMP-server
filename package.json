@@ -5,7 +5,6 @@
   "dependencies": {
     "ajv": "^8.1.0",
     "async-mutex": "^0.2.4",
-    "bcrypt": "^5.1.1",
     "bull": "^3.29.3",
     "cors": "^2.8.5",
     "express": "^4.17.1",
@@ -16,9 +15,8 @@
     "nano": "^10.1.3",
     "nanoid": "^3.1.3",
     "node-fetch": "^2.6.7",
-    "passport": "^0.7.0",
-    "passport-jwt": "^4.0.1",
-    "ts-nats": "^1.2.15"
+    "ts-nats": "^1.2.15",
+    "typescript": "^4.7.4"
   },
   "devDependencies": {
     "@types/bson": "4.0.5",
@@ -52,8 +50,7 @@
     "rimraf": "^2.6.3",
     "source-map-support": "^0.5.16",
     "ts-jest": "^28.0.2",
-    "ts-node": "^9.1.1",
-    "typescript": "^4.7.4"
+    "ts-node": "^9.1.1"
   },
   "overrides": {
     "tough-cookie": "4.1.3",
