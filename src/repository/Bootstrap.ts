@@ -2,7 +2,8 @@ import nano from "nano"
 import crypto from "crypto"
 import { customAlphabet } from "nanoid"
 import { connect, NatsConnectionOptions, Payload, Client, ServerInfo } from "ts-nats"
-import { MongoClient, ObjectID } from "mongodb"
+import { ObjectId } from "mongodb"
+const { MongoClient } = require('mongodb');
 import {
   ResearcherRepository,
   StudyRepository,
@@ -802,10 +803,13 @@ export async function Bootstrap(): Promise<void> {
     console.log("Database verification complete.")
   } else {
     //Connect to mongoDB
-    const client = new MongoClient(`${process.env.DB}`, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    })
+    // const client = new MongoClient(`${process.env.DB}`, {
+    //   useNewUrlParser: true,
+    //   useUnifiedTopology: true,
+    // })
+
+    const db_connection: any = `${process.env.DB}`;
+    const client = new MongoClient(db_connection);
     try {
       await client.connect()
     } catch (error) {
@@ -814,12 +818,16 @@ export async function Bootstrap(): Promise<void> {
     // return new Promise((resolve, reject) => {
     try {
       console.group("Initializing database connection...")
-      if (client.isConnected()) {
-        const db = process.env.DB?.split("/").reverse()[0]?.split("?")[0]
-        MongoClientDB = await client?.db(db)
-      } else {
-        console.log("Database connection failed.")
-      }
+      // if (client.isConnected()) {
+      //   const db = process.env.DB?.split("/").reverse()[0]?.split("?")[0]
+      //   MongoClientDB = await client?.db(db)
+      // } else {
+      //   console.log("Database connection failed.")
+      // }
+
+      const db = process.env.DB?.split("/").reverse()[0]?.split("?")[0];
+      MongoClientDB = await client?.db(db)
+      console.log("Database connection successful");
     } catch (error) {
       console.log("Database connection failed.")
     }
@@ -931,7 +939,7 @@ export async function Bootstrap(): Promise<void> {
           const p = crypto.randomBytes(32).toString("hex")
           console.table({ "Administrator Password": p })
           await database.insertOne({
-            _id: new ObjectID(),
+            _id: new ObjectId(),
             origin: null,
             access_key: "admin",
             secret_key: Encrypt(p, "AES256"),
