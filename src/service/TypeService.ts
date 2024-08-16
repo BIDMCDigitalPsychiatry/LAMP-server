@@ -111,7 +111,7 @@ TypeService.Router.get(_parent_routes, authenticateToken, async (req: Request, r
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e:any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
+    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Bearer realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
@@ -136,7 +136,7 @@ TypeService.Router.get(_get_routes, authenticateToken, async (req: Request, res:
       })
     }
   } catch (e:any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
+    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Bearer realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
@@ -155,7 +155,7 @@ TypeService.Router.put(_put_routes, authenticateToken, async (req: Request, res:
         : null /* error */,
     })
   } catch (e:any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
+    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Bearer realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })

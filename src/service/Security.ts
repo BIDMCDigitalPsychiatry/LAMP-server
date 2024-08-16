@@ -1,5 +1,5 @@
 import { Repository } from "../repository/Bootstrap"
-import jwt from "jsonwebtoken"
+import { SignJWT } from "jose";
 
 // The AuthSubject type represents an already-validated authorization that can be reused. 
 type AuthSubject = { origin: string; access_key: string; secret_key: string; }
@@ -9,7 +9,7 @@ const JWT_SECRET = process.env.secret_key as string;
 // If components are missing, throw a missing credentials error (HTTP 401).
 // Otherwise, locate the Credential or throw an error if not found/invalid.
 export async function _createAuthSubject(authHeader: string | undefined): Promise<AuthSubject> {
-  const CredentialRepository = new Repository().getCredentialRepository()  
+  const CredentialRepository = new Repository().getCredentialRepository() 
   if (authHeader === undefined) throw new Error("401.missing-credentials")
   const authStr = authHeader.replace("Basic", "").trim()
   const auth = (authStr.indexOf(":") >= 0 ? authStr : Buffer.from(authStr, "base64").toString()).split(":", 2)
@@ -42,15 +42,20 @@ export async function _verify(
     authSubject = await _createAuthSubject(authSubject)
     const isRoot = authSubject.origin === null
 
+    const secret_key = new TextEncoder().encode(JWT_SECRET);
   // Generating jwt access token 
-    const access_token = jwt.sign({ access_key: authSubject.access_key, secret_key: authSubject.secret_key }, JWT_SECRET, {
-      expiresIn: '1h', 
-    });
+    const access_token = await new SignJWT({ access_key: authSubject.access_key, secret_key: authSubject.secret_key })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setExpirationTime('2h')
+      .sign(secret_key);
 
   // Refresh token
-    const refresh_token = jwt.sign({ access_key: authSubject.access_key }, JWT_SECRET, {
-        expiresIn: '12h', 
-    });
+    const refresh_token = await new SignJWT({ access_key: authSubject.access_key })
+        .setProtectedHeader({ alg: 'HS256' })
+        .setIssuedAt()
+        .setExpirationTime('12h')
+        .sign(secret_key);
   
     response.access_token = access_token;
     response.access_key = authSubject.access_key
