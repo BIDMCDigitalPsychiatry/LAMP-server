@@ -43,7 +43,7 @@ import {
   CredentialInterface,
   TypeInterface,
 } from "./interface/RepositoryInterface"
-import ioredis from "ioredis"
+import ioredis, { RedisOptions } from "ioredis"
 import { initializeQueues } from "../utils/queue/Queue"
 export let RedisClient: ioredis.Redis
 export let nc: Client
@@ -1049,16 +1049,22 @@ export class RedisFactory {
    * @returns redis client instance
   */
   public static getInstance(): ioredis.Redis {
+    const redisOpts : RedisOptions = {
+      reconnectOnError() {
+        return 1
+      },
+      enableReadyCheck: true,
+    }
     if (this.instance === undefined) {
-      this.instance = new ioredis(
-                parseInt(`${(process.env.REDIS_HOST as any).match(/([0-9]+)/g)?.[0]}`),
-                (process.env.REDIS_HOST as any).match(/\/\/([0-9a-zA-Z._]+)/g)?.[0],
-      {
-        reconnectOnError() {
-          return 1
-        },
-        enableReadyCheck: true,
-      })
+      if (!! process.env.REDIS_CONNECTION_STRING) {
+        this.instance = new ioredis(process.env.REDIS_CONNECTION_STRING, redisOpts)
+      } else {
+        this.instance = new ioredis(
+                  parseInt(`${(process.env.REDIS_HOST as any).match(/([0-9]+)/g)?.[0]}`),
+                  (process.env.REDIS_HOST as any).match(/\/\/([0-9a-zA-Z._]+)/g)?.[0],
+                  redisOpts
+        )
+      }
     }
     return this.instance
   }
