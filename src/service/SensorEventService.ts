@@ -3,7 +3,6 @@ import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 import { BulkDataWrite, publishSensorEvent } from "../utils/queue/BulkDataWrite"
-import { authenticateToken } from "./jwtToken"
 // default to LIMIT_NAN, clamped to [-LIMIT_MAX, +LIMIT_MAX]
 const LIMIT_NAN = 1000
 const LIMIT_MAX = 2_147_483_647
@@ -22,15 +21,14 @@ export class SensorEventService {
     limit: number | undefined
   ) {
     const SensorEventRepository = new Repository().getSensorEventRepository()
-    const response: any = await _verify(auth, ["self", "sibling", "parent"], participant_id)
+    participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
     limit = Math.min(Math.max(limit ?? LIMIT_NAN, -LIMIT_MAX), LIMIT_MAX)
-    return await SensorEventRepository._select(response.id, ignore_binary,origin, from, to, limit)
+    return await SensorEventRepository._select(participant_id, ignore_binary,origin, from, to, limit)
   }
 
   public static async create(auth: any, participant_id: string, sensor_events: any[]) {
     const SensorEventRepository = new Repository().getSensorEventRepository()
-    const response: any = await _verify(auth, ["self", "sibling", "parent"], participant_id)
-    participant_id = response.id
+    participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
     let data = {}
     //check for the existance of cache size and redis host
     if (!!process.env.REDIS_HOST) {
@@ -51,7 +49,7 @@ export class SensorEventService {
   }
 }
 
-SensorEventService.Router.post("/participant/:participant_id/sensor_event", authenticateToken, async (req: Request, res: Response) => {
+SensorEventService.Router.post("/participant/:participant_id/sensor_event", async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     res.json({
@@ -67,7 +65,7 @@ SensorEventService.Router.post("/participant/:participant_id/sensor_event", auth
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-SensorEventService.Router.get("/participant/:participant_id/sensor_event", authenticateToken, async (req: Request, res: Response) => {
+SensorEventService.Router.get("/participant/:participant_id/sensor_event", async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     let output = {

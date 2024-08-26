@@ -3,7 +3,6 @@ import { _verify } from "./Security"
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository, ApiResponseHeaders} from "../repository/Bootstrap"
-import { authenticateToken } from "./jwtToken"
 
 export class ActivityService {
   public static _name = "Activity"
@@ -12,8 +11,7 @@ export class ActivityService {
   public static async list(auth: any, study_id: string, ignore_binary: boolean, sibling = false) {
     const ActivityRepository = new Repository().getActivityRepository()
     const TypeRepository = new Repository().getTypeRepository()
-    const response: any = await _verify(auth, ["self", "sibling", "parent"], study_id)
-    study_id = response.id
+    study_id = await _verify(auth, ["self", "sibling", "parent"], study_id)
     if (sibling) {
       const parent_id = await TypeRepository._owner(study_id)
       if (parent_id === null) throw new Error("403.invalid-sibling-ownership")
@@ -24,8 +22,7 @@ export class ActivityService {
 
   public static async create(auth: any, study_id: string, activity: any) {
     const ActivityRepository = new Repository().getActivityRepository()
-    const response: any = await _verify(auth, ["self", "sibling", "parent"], study_id)
-    study_id = response.id
+    study_id = await _verify(auth, ["self", "sibling", "parent"], study_id)
     const data = await ActivityRepository._insert(study_id, activity)
 
     //publishing data for activity add api with token = study.{study_id}.activity.{_id}
@@ -65,15 +62,14 @@ export class ActivityService {
 
   public static async get(auth: any, activity_id: string) {
     const ActivityRepository = new Repository().getActivityRepository()
-    const response: any = await _verify(auth, ["self", "sibling", "parent"], activity_id)
-    return await ActivityRepository._select(response.id, false)
+    activity_id = await _verify(auth, ["self", "sibling", "parent"], activity_id)
+    return await ActivityRepository._select(activity_id, false)
   }
 
   public static async set(auth: any, activity_id: string, activity: any | null) {
     const ActivityRepository = new Repository().getActivityRepository()
     const TypeRepository = new Repository().getTypeRepository()
-    const response: any = await _verify(auth, ["self", "sibling", "parent"], activity_id)
-    activity_id = response.id
+    activity_id = await _verify(auth, ["self", "sibling", "parent"], activity_id)
     if (activity === null) {
       const parent = (await TypeRepository._parent(activity_id)) as any
       const data = await ActivityRepository._delete(activity_id)
@@ -115,7 +111,7 @@ export class ActivityService {
   }
 }
 
-ActivityService.Router.post("/study/:study_id/activity", authenticateToken, async (req: Request, res: Response) => {
+ActivityService.Router.post("/study/:study_id/activity", async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     res.json({ data: await ActivityService.create(req.get("Authorization"), req.params.study_id, req.body) })
@@ -124,7 +120,7 @@ ActivityService.Router.post("/study/:study_id/activity", authenticateToken, asyn
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ActivityService.Router.put("/activity/:activity_id", authenticateToken, async (req: Request, res: Response) => {
+ActivityService.Router.put("/activity/:activity_id", async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     res.json({ data: await ActivityService.set(req.get("Authorization"), req.params.activity_id, req.body) })
@@ -133,7 +129,7 @@ ActivityService.Router.put("/activity/:activity_id", authenticateToken, async (r
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ActivityService.Router.delete("/activity/:activity_id", authenticateToken, async (req: Request, res: Response) => {
+ActivityService.Router.delete("/activity/:activity_id", async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     res.json({ data: await ActivityService.set(req.get("Authorization"), req.params.activity_id, null) })
@@ -142,7 +138,7 @@ ActivityService.Router.delete("/activity/:activity_id", authenticateToken, async
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ActivityService.Router.get("/activity/:activity_id", authenticateToken, async (req: Request, res: Response) => {
+ActivityService.Router.get("/activity/:activity_id", async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     let output = { data: await ActivityService.get(req.get("Authorization"), req.params.activity_id) }
@@ -153,7 +149,7 @@ ActivityService.Router.get("/activity/:activity_id", authenticateToken, async (r
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ActivityService.Router.get("/participant/:participant_id/activity", authenticateToken, async (req: Request, res: Response) => {
+ActivityService.Router.get("/participant/:participant_id/activity", async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     let output = {
@@ -171,7 +167,7 @@ ActivityService.Router.get("/participant/:participant_id/activity", authenticate
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ActivityService.Router.get("/study/:study_id/activity", authenticateToken, async (req: Request, res: Response) => {
+ActivityService.Router.get("/study/:study_id/activity", async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     let output = {

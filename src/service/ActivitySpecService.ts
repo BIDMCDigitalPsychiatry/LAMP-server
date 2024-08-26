@@ -2,7 +2,6 @@ import { Request, Response, Router } from "express"
 import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
-import { authenticateToken } from "./jwtToken"
 
 export class ActivitySpecService {
   public static _name = "ActivitySpec"
@@ -37,7 +36,7 @@ export class ActivitySpecService {
   }
 }
 
-ActivitySpecService.Router.post("/activity_spec", authenticateToken, async (req: Request, res: Response) => {
+ActivitySpecService.Router.post("/activity_spec", async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     res.json({ data: await ActivitySpecService.create(req.get("Authorization"), null, req.body) })
@@ -46,7 +45,7 @@ ActivitySpecService.Router.post("/activity_spec", authenticateToken, async (req:
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ActivitySpecService.Router.put("/activity_spec/:activity_spec_name", authenticateToken, async (req: Request, res: Response) => {
+ActivitySpecService.Router.put("/activity_spec/:activity_spec_name", async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     res.json({ data: await ActivitySpecService.set(req.get("Authorization"), req.params.activity_spec_name, req.body) })
@@ -55,7 +54,7 @@ ActivitySpecService.Router.put("/activity_spec/:activity_spec_name", authenticat
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ActivitySpecService.Router.delete("/activity_spec/:activity_spec_name", authenticateToken, async (req: Request, res: Response) => {
+ActivitySpecService.Router.delete("/activity_spec/:activity_spec_name", async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     res.json({ data: await ActivitySpecService.set(req.get("Authorization"), req.params.activity_spec_name, null) })
@@ -64,7 +63,7 @@ ActivitySpecService.Router.delete("/activity_spec/:activity_spec_name", authenti
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ActivitySpecService.Router.get("/activity_spec/:activity_spec_name", authenticateToken, async (req: Request, res: Response) => {
+ActivitySpecService.Router.get("/activity_spec/:activity_spec_name", async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     let output = { data: await ActivitySpecService.get(req.get("Authorization"), req.params.activity_spec_name) }
@@ -75,7 +74,7 @@ ActivitySpecService.Router.get("/activity_spec/:activity_spec_name", authenticat
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ActivitySpecService.Router.get("/activity_spec", authenticateToken, async (req: Request, res: Response) => {
+ActivitySpecService.Router.get("/activity_spec", async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     let output = { data: await ActivitySpecService.list(req.get("Authorization"), null) }
