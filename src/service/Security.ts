@@ -1,23 +1,32 @@
-import { Repository } from "../repository/Bootstrap"
+import { Decrypt, Repository } from "../repository/Bootstrap"
+import { jwtVerify } from "jose"
+const JWT_SECRET = process.env.SECRET_KEY as string
 
-// The AuthSubject type represents an already-validated authorization that can be reused. 
-type AuthSubject = { origin: string; access_key: string; secret_key: string; }
+// The AuthSubject type represents an already-validated authorization that can be reused.
+type AuthSubject = { origin: string; access_key: string; secret_key: string; error?: string }
 
 // Converts an Authorization header (`Authorization: Basic btoa('user:pass')` to an object.
 // If components are missing, throw a missing credentials error (HTTP 401).
 // Otherwise, locate the Credential or throw an error if not found/invalid.
 export async function _createAuthSubject(authHeader: string | undefined): Promise<AuthSubject> {
-  const CredentialRepository = new Repository().getCredentialRepository()  
-  if (authHeader === undefined) throw new Error("401.missing-credentials")
+  const CredentialRepository = new Repository().getCredentialRepository()
+
+  if (authHeader === undefined) throw new Error("401.missing-credentials1")
+
+  // if(authHeader.startsWith("Bearer"))  _createAuthSubjectFromToken(authHeader)
+  // else {
+
   const authStr = authHeader.replace("Basic", "").trim()
   const auth = (authStr.indexOf(":") >= 0 ? authStr : Buffer.from(authStr, "base64").toString()).split(":", 2)
-  if (auth.length !== 2 || !auth[1]) throw new Error("401.missing-credentials")
-  let origin = await CredentialRepository._find(auth[0], auth[1] || "*" /* FIXME: this forces password match */)   
+  // if (auth.length !== 2 || !auth[1]) throw new Error("401.missing-credentials2")
+  const origin = await CredentialRepository._find(auth[0], auth[1] || "*" /* FIXME: this forces password match */)
+
   return {
     origin: origin,
     access_key: auth[0],
-    secret_key: auth[1]
+    secret_key: auth[1],
   }
+  // }
 }
 
 // Simple Role-Based-Access-Control (RBAC) to answer: Can (subject) (verb) (object)?
@@ -32,43 +41,62 @@ export async function _verify(
   authObject?: string | null
 ): Promise<string> {
   const TypeRepository = new Repository().getTypeRepository()
+  if (authSubject === undefined || typeof authSubject === "string") {
+    if (authSubject?.toString()?.includes("Bearer")) {
+      authSubject = await _createAuthSubjectFromToken(authSubject)
+    } else {
+      authSubject = await _createAuthSubject(authSubject)
+    }
+  }
 
+  const response: any = {}
+  // console.log("AuthSub  ",authSubject)
   // If an actual AuthSubject was not provided, create one first.
-  if (authSubject === undefined || typeof authSubject === "string")
-    authSubject = await _createAuthSubject(authSubject)
-    const isRoot = authSubject.origin === null
 
+  const isRoot = authSubject.origin === null
+
+  response.origin = authSubject.origin
   // Patch in the special-cased "me" to the actual authenticated credential.
   // Root credentials (origin is null) are not allowed to substitute the "me" value.
   if (authObject === "me" && !isRoot) {
     authObject = authSubject.origin
+    response.id = authSubject.origin
+    console.log("response from security ", response)
+    return response
   } else if (authObject === "me" && isRoot) {
     throw new Error("400.context-substitution-failed")
-  }  
+  }
   // Check if `authSubject` is root for a root-only authType.
   if (isRoot) {
-    let _owner = !!authObject ? await TypeRepository._owner(authObject ?? "") : undefined
-    return authObject as any  
+    //const _owner = !!authObject ? await TypeRepository._owner(authObject ?? "") : undefined
+    response.id = authSubject.origin
+    return response
   }
-  
-  // Check if `authObject` and `authSubject` are the same || authenticated for  resource * 
-  if ((!isRoot && authType.includes("self") && (authSubject.origin === authObject))
-      || (JSON.stringify(authType) === JSON.stringify(["self", "sibling", "parent"]) && authObject === undefined))
-    return authObject as any 
-  
+
+  // Check if `authObject` and `authSubject` are the same || authenticated for  resource *
+  if (
+    (!isRoot && authType.includes("self") && authSubject.origin === authObject) ||
+    (JSON.stringify(authType) === JSON.stringify(["self", "sibling", "parent"]) && authObject === undefined)
+  ) {
+    response.id = authSubject.origin
+    return response
+  }
   // Optimization.
   if (!isRoot && (authType.includes("parent") || authType.includes("sibling"))) {
     let _owner = await TypeRepository._owner(authObject ?? "")
 
     // Check if the immediate parent type of `authObject` is found in `authSubject`'s inheritance tree.
-    if (authType.includes("sibling") && (_owner === (await TypeRepository._owner(authSubject.origin)))) {
-      return authObject as any
+    if (authType.includes("sibling") && _owner === (await TypeRepository._owner(authSubject.origin))) {
+      response.id = authSubject.origin
+      return response
     } else {
       // Check if `authSubject` is actually the parent ID of `authObject` matching the same type as `authSubject`.
       // Do the "parent" check before the "sibling" check since it's more likely to be the case, so short circuit here.
-      while(_owner !== null) {
-        if (_owner === authSubject.origin)
-          return authObject as any
+      while (_owner !== null) {
+        if (_owner === authSubject.origin) {
+          response.id = authSubject.origin
+          return response
+        }
         _owner = await TypeRepository._owner(_owner)
       }
     }
@@ -76,4 +104,35 @@ export async function _verify(
 
   // We've given the authorization enough chances... fail now.
   throw new Error("403.security-context-out-of-scope")
+}
+
+export async function _createAuthSubjectFromToken(authHeader: string | undefined): Promise<AuthSubject> {
+  const CredentialRepository = new Repository().getCredentialRepository()
+  if (authHeader === undefined) throw new Error("401.missing-credentials")
+  // Ensure the Authorization header contains the Bearer token.
+  const token = authHeader.replace("Bearer", "").trim()
+  if (!token) throw new Error("401.missing-token")
+
+  const secretKey = new TextEncoder().encode(JWT_SECRET)
+  let decoded: any
+  try {
+    // Verify the JWT token using secret key
+    const { payload } = await jwtVerify(token, secretKey)
+    decoded = payload
+
+    if (!decoded) throw new Error("error")
+  } catch (error) {
+    throw new Error("401.invalid-token")
+  }
+
+  if (!decoded.access_key || !decoded.secret_key) throw new Error("401.missing-credentials")
+  const origin = await CredentialRepository._find(decoded.access_key, Decrypt(decoded.secret_key, "AES256"))
+
+  if (!origin) throw new Error("404. Not Found")
+
+  return {
+    origin: origin,
+    access_key: decoded.access_key,
+    secret_key: decoded.secret_key,
+  }
 }

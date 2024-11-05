@@ -29,7 +29,7 @@ export interface ParticipantInterface {
   _select(id: string | null, parent?: boolean): Promise<Participant[]>
   _insert(study_id: string, object: {}): Promise<any>
   _update(participant_id: string, object: {}): Promise<{}>
-  _delete(participant_id: string): Promise<{}> 
+  _delete(participant_id: string): Promise<{}>
   _lookup(id: string | null, parent?: boolean): Promise<Participant[]>
 }
 
@@ -55,7 +55,7 @@ export interface SensorInterface {
 export interface ActivityEventInterface {
   _select(
     id?: string,
-    ignore_binary?: boolean, 
+    ignore_binary?: boolean,
     activity_id_or_spec?: string,
     from_date?: number,
     to_date?: number,
@@ -68,7 +68,7 @@ export interface ActivityEventInterface {
 export interface SensorEventInterface {
   _select(
     id?: string,
-    ignore_binary?: boolean, 
+    ignore_binary?: boolean,
     sensor_spec?: string,
     from_date?: number,
     to_date?: number,
@@ -113,4 +113,6 @@ export interface CredentialInterface {
   _insert(type_id: string | null, credential: any): Promise<{}>
   _update(type_id: string | null, access_key: string, credential: any): Promise<{}>
   _delete(type_id: string | null, access_key: string): Promise<{}>
+  _login(accessKey: string | null, secretKey: string): Promise<any>
+  _renewToken(refreshToken: string | null): Promise<any>
 }
