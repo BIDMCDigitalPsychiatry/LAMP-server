@@ -2,7 +2,6 @@ import { Database, Encrypt, Decrypt } from "../Bootstrap"
 import { CredentialInterface } from "../interface/RepositoryInterface"
 
 export class CredentialRepository implements CredentialInterface {
-  
   // if used with secret_key, will throw error if mismatch, else, will return confirmation of existence
   public async _find(access_key: string, secret_key?: string): Promise<string> {
     const res = (
@@ -81,5 +80,18 @@ export class CredentialRepository implements CredentialInterface {
       ],
     })
     return {}
+  }
+
+  public async _login(accessKey: string | null, secretKey: string | null): Promise<any> {
+    // const res = await Database.use("credential").find({
+    //   selector: { origin: type_id },
+    // })
+    // return res
+    console.log("username ", accessKey)
+    console.log("password ", secretKey)
+  }
+
+  public async _renewToken(refreshToken: string): Promise<any> {
+    console.log(`#####token renew`, refreshToken)
   }
 }
