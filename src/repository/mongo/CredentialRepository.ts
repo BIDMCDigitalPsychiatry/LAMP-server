@@ -1,8 +1,8 @@
-import crypto from "crypto"
 import { Encrypt, Decrypt } from "../Bootstrap"
 import { CredentialInterface } from "../interface/RepositoryInterface"
 import { MongoClientDB } from "../Bootstrap"
-import { ObjectID } from "mongodb"
+import { ObjectId } from "mongodb"
+import { jwtVerify, SignJWT } from "jose"
 
 export class CredentialRepository implements CredentialInterface {
   // if used with secret_key, will throw error if mismatch, else, will return confirmation of existence
@@ -47,7 +47,7 @@ export class CredentialRepository implements CredentialInterface {
     if (res !== null) throw new Error("403.access-key-already-in-use")
     //save Credential via Credential model
     await MongoClientDB.collection("credential").insert({
-      _id: new ObjectID(),
+      _id: new ObjectId(),
       origin: credential.origin,
       access_key: credential.access_key,
       secret_key: Encrypt(credential.secret_key, "AES256"),
@@ -80,5 +80,86 @@ export class CredentialRepository implements CredentialInterface {
     // await CredentialModel.deleteOne({ _id: oldCred })
 
     return {}
+  }
+
+  public async _login(accessKey: string | null, secretKey: string): Promise<any> {
+    const JWT_SECRET = process.env.SECRET_KEY as string
+    const secret_key = new TextEncoder().encode(JWT_SECRET)
+
+    const res = await MongoClientDB.collection("credential").findOne({ _deleted: false, access_key: accessKey })
+
+    if (res?.length !== 0) {
+      const secretKeyDecrypted = Decrypt(res.secret_key, "AES256")
+
+      if (secretKey === secretKeyDecrypted) {
+        // Generating jwt access token
+        try {
+          res.access_token = await new SignJWT({ access_key: res.access_key, secret_key: res.secret_key })
+            .setProtectedHeader({ alg: "HS256" })
+            .setIssuedAt()
+            .setExpirationTime("2m")
+            .sign(secret_key)
+
+          // Refresh token
+          res.refresh_token = await new SignJWT({ access_key: res.access_key, secret_key: res.secret_key })
+            .setProtectedHeader({ alg: "HS256" })
+            .setIssuedAt()
+            .setExpirationTime("5m")
+            .sign(secret_key)
+        } catch (err) {
+          console.log(err)
+        }
+
+        res.typeId = res.id
+
+        return res as any
+      }
+      throw new Error("403.no-such-credentials")
+    }
+    throw new Error("403.no-such-credentials")
+  }
+
+  public async _renewToken(refreshToken: string): Promise<any> {
+    const JWT_SECRET = process.env.SECRET_KEY as string
+    const jwtSecretKey = new TextEncoder().encode(JWT_SECRET)
+    try {
+      const { payload }: any = await jwtVerify(refreshToken, jwtSecretKey)
+      const accessKey = payload?.access_key
+      const secretKey = payload?.secret_key
+
+      const res = await MongoClientDB.collection("credential").findOne({
+        _deleted: false,
+        access_key: accessKey,
+      })
+
+      if (res?.length !== 0) {
+        // Generating new tokens
+        if (secretKey === res.secret_key) {
+          try {
+            res.access_token = await new SignJWT({ access_key: accessKey, secret_key: secretKey })
+              .setProtectedHeader({ alg: "HS256" })
+              .setIssuedAt()
+              .setExpirationTime("2m")
+              .sign(jwtSecretKey)
+
+            // Refresh token
+            res.refresh_token = await new SignJWT({ access_key: accessKey, secret_key: secretKey })
+              .setProtectedHeader({ alg: "HS256" })
+              .setIssuedAt()
+              .setExpirationTime("5m")
+              .sign(jwtSecretKey)
+            res.typeId = res.id
+
+            return res as any
+          } catch (err) {
+            console.log(err)
+          }
+        }
+      }
+    } catch (error) {
+      throw new Error("401.invalid-token")
+    }
+
+    throw new Error("403.no-such-credentials")
   }
 }
