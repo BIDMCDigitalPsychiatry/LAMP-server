@@ -11,7 +11,7 @@ on:
         default: stg
 
 concurrency:
-  group: ${{ github.workflow }}
+  group: ${{ github.workflow }}-${{ inputs.env }}
   cancel-in-progress: false
 
 jobs:

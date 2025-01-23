@@ -21,6 +21,7 @@ concurrency:
 
 jobs:
   deploy:
+    name: server
     runs-on: ubuntu-24.04
     environment: ${{ inputs.env }}
     steps:
@@ -65,7 +66,7 @@ jobs:
           echo "$( jq 'del(.registeredBy)'       task.json )" > task.json
 
           # Update Image
-          echo "$( jq --arg image "${{ steps.config.outputs.TARGET_IMAGE_W_DIGEST }}" '.containerDefinitions |= map((select(.name == "dashboard") | .image) |= $image)' task.json )" > task.json
+          echo "$( jq --arg image "${{ steps.config.outputs.TARGET_IMAGE_W_DIGEST }}" '.containerDefinitions |= map((select(.name == "server") | .image) |= $image)' task.json )" > task.json
           cat task.json
 
 

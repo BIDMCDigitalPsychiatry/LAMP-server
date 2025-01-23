@@ -57,7 +57,7 @@ jobs:
           fi
 
           length=$(expr length "${{ inputs.sha }}")
-          if [ "$length" != "40"]; then
+          if [ "$length" != "40" ]; then
             echo "sha must be all 40 characters"; exit 1
           fi
           
