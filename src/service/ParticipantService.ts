@@ -3,7 +3,6 @@ import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
-import { authenticateToken } from "./jwtToken"
 
 export class ParticipantService {
   public static _name = "Participant"
@@ -12,8 +11,7 @@ export class ParticipantService {
   public static async list(auth: any, study_id: string, sibling = false) {
     const ParticipantRepository = new Repository().getParticipantRepository()
     const TypeRepository = new Repository().getTypeRepository()
-    const response: any = await _verify(auth, ["self", "sibling", "parent"], study_id)
-    study_id = response.id
+    study_id = await _verify(auth, ["self", "sibling", "parent"], study_id)
     if (sibling) {
       const parent_id = await TypeRepository._owner(study_id)
       if (parent_id === null) throw new Error("403.invalid-sibling-ownership")
@@ -25,8 +23,7 @@ export class ParticipantService {
   // TODO: activity/* and sensor/* entry
   public static async create(auth: any, study_id: string, participant: any) {
     const ParticipantRepository = new Repository().getParticipantRepository()
-    const response: any = await _verify(auth, ["self", "sibling", "parent"], study_id)
-    study_id = response.id
+    study_id = await _verify(auth, ["self", "sibling", "parent"], study_id)
     const data = await ParticipantRepository._insert(study_id, participant)
 
     //publishing data for participant add api with token = study.{study_id}.participant.{_id}
@@ -61,8 +58,7 @@ export class ParticipantService {
   public static async set(auth: any, participant_id: string, participant: any | null) {
     const ParticipantRepository = new Repository().getParticipantRepository()
     const TypeRepository = new Repository().getTypeRepository()
-    const response: any = await _verify(auth, ["self", "sibling", "parent"], participant_id)
-    participant_id = response.id
+    participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
     if (participant === null) {
       //find the study id before delete, as it cannot be fetched after delete
       const parent = (await TypeRepository._parent(participant_id)) as any
@@ -119,74 +115,74 @@ export class ParticipantService {
   }
 }
 
-ParticipantService.Router.post("/study/:study_id/participant", authenticateToken, async (req: Request, res: Response) => {
+ParticipantService.Router.post("/study/:study_id/participant", async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     res.json({ data: await ParticipantService.create(req.get("Authorization"), req.params.study_id, req.body) })
   } catch (e:any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Bearer realm="LAMP" charset="UTF-8"`)
+    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ParticipantService.Router.put("/participant/:participant_id", authenticateToken, async (req: Request, res: Response) => {
+ParticipantService.Router.put("/participant/:participant_id", async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     res.json({ data: await ParticipantService.set(req.get("Authorization"), req.params.participant_id, req.body) })
   } catch (e:any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Bearer realm="LAMP" charset="UTF-8"`)
+    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ParticipantService.Router.delete("/participant/:participant_id", authenticateToken, async (req: Request, res: Response) => {
+ParticipantService.Router.delete("/participant/:participant_id", async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     res.json({ data: await ParticipantService.set(req.get("Authorization"), req.params.participant_id, null) })
   } catch (e:any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Bearer realm="LAMP" charset="UTF-8"`)
+    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ParticipantService.Router.get("/participant/:participant_id", authenticateToken, async (req: Request, res: Response) => {
+ParticipantService.Router.get("/participant/:participant_id", async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     let output = { data: await ParticipantService.get(req.get("Authorization"), req.params.participant_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e:any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Bearer realm="LAMP" charset="UTF-8"`)
+    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ParticipantService.Router.get("/activity/:activity_id/participant", authenticateToken, async (req: Request, res: Response) => {
+ParticipantService.Router.get("/activity/:activity_id/participant", async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     let output = { data: await ParticipantService.list(req.get("Authorization"), req.params.activity_id, true) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e:any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Bearer realm="LAMP" charset="UTF-8"`)
+    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ParticipantService.Router.get("/sensor/:sensor_id/participant", authenticateToken, async (req: Request, res: Response) => {
+ParticipantService.Router.get("/sensor/:sensor_id/participant", async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     let output = { data: await ParticipantService.list(req.get("Authorization"), req.params.sensor_id, true) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e:any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Bearer realm="LAMP" charset="UTF-8"`)
+    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ParticipantService.Router.get("/study/:study_id/participant", authenticateToken, async (req: Request, res: Response) => {
+ParticipantService.Router.get("/study/:study_id/participant", async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     let output = { data: await ParticipantService.list(req.get("Authorization"), req.params.study_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e:any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Bearer realm="LAMP" charset="UTF-8"`)
+    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })

@@ -3,7 +3,6 @@ import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
-import { authenticateToken } from "./jwtToken"
 
 // default to LIMIT_NAN, clamped to [-LIMIT_MAX, +LIMIT_MAX]
 const LIMIT_NAN = 1000
@@ -24,15 +23,14 @@ export class ActivityEventService {
   ) {
     const ActivityEventRepository = new Repository().getActivityEventRepository()
     limit = Math.min(Math.max(limit ?? LIMIT_NAN, -LIMIT_MAX), LIMIT_MAX)
-    const response: any = await _verify(auth, ["self", "sibling", "parent"], participant_id)
-    participant_id = response.id
+    participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
     return await ActivityEventRepository._select(participant_id, ignore_binary, origin, from, to, limit)
   }
 
   public static async create(auth: any, participant_id: string, activity_events: any[]) {
     const ActivityEventRepository = new Repository().getActivityEventRepository()
-    const response: any = await _verify(auth, ["self", "sibling", "parent"], participant_id)
-    let data = await ActivityEventRepository._insert(response.id, activity_events)
+    participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
+    let data = await ActivityEventRepository._insert(participant_id, activity_events)
 
     //publishing data for activity_event add api((Token will be created in PubSubAPIListenerQueue consumer, as request is assumed as array and token should be created individually)
     PubSubAPIListenerQueue?.add(
@@ -94,7 +92,7 @@ export class ActivityEventService {
   }
 }
 
-ActivityEventService.Router.post("/participant/:participant_id/activity_event", authenticateToken, async (req: Request, res: Response) => {
+ActivityEventService.Router.post("/participant/:participant_id/activity_event", async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     res.json({
@@ -105,11 +103,11 @@ ActivityEventService.Router.post("/participant/:participant_id/activity_event", 
       ),
     })
   } catch (e:any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Bearer realm="LAMP" charset="UTF-8"`)
+    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ActivityEventService.Router.get("/participant/:participant_id/activity_event", authenticateToken, async (req: Request, res: Response) => {
+ActivityEventService.Router.get("/participant/:participant_id/activity_event", async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     let output = {
@@ -126,7 +124,7 @@ ActivityEventService.Router.get("/participant/:participant_id/activity_event", a
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e:any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Bearer realm="LAMP" charset="UTF-8"`)
+    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
