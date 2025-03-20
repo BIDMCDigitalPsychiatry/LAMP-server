@@ -4,7 +4,6 @@ import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
-import { authenticateToken } from "./jwtToken"
 
 export class TypeService {
   public static _name = "Type"
@@ -12,8 +11,8 @@ export class TypeService {
 
   public static async parent(auth: any, type_id: string | null) {
     const TypeRepository = new Repository().getTypeRepository()
-    const response: any = await _verify(auth, ["self", "sibling", "parent"], type_id)
-    const data = await TypeRepository._parent(response.id)
+    type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
+    const data = await TypeRepository._parent(type_id)
 
     // FIXME: THIS WILL TRIGGER A DELETE EVERY TIME A RESOURCE'S PARENT IS REQUESTED!
     /*
@@ -29,14 +28,13 @@ export class TypeService {
 
   public static async list(auth: any, type_id: string | null) {
     const TypeRepository = new Repository().getTypeRepository()
-    const response: any = await _verify(auth, ["self", "sibling", "parent"], type_id)
-    return await TypeRepository._list("a", <string>response.id)
+    type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
+    return await TypeRepository._list("a", <string>type_id)
   }
 
   public static async get(auth: any, type_id: string | null, attachment_key: string, index?: string) {
     const TypeRepository = new Repository().getTypeRepository()
-    const response: any = await _verify(auth, ["self", "sibling", "parent"], type_id)
-    type_id = response.id
+    type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
     let obj = await TypeRepository._get("a", <string>type_id, attachment_key)
     // TODO: if obj undefined here, return null instead of throwing 404 error
     const sequenceObj = Array.isArray(obj) || typeof obj === "string"
@@ -58,8 +56,7 @@ export class TypeService {
     attachment_value: any
   ) {
     const TypeRepository = new Repository().getTypeRepository()
-    const response: any = await _verify(auth, ["self", "sibling", "parent"], type_id)
-    type_id = response.id
+    type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
     if(attachment_key === 'lamp.automation') {
       PubSubAPIListenerQueue?.add(
           {
@@ -99,7 +96,7 @@ const _put_routes = (<string[]>[]).concat(
     (type) => `/${type}/:type_id/tag/:attachment_key/:target`
   )
 )
-TypeService.Router.get(_parent_routes, authenticateToken, async (req: Request, res: Response) => {
+TypeService.Router.get(_parent_routes, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     let output = {
@@ -111,11 +108,11 @@ TypeService.Router.get(_parent_routes, authenticateToken, async (req: Request, r
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e:any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Bearer realm="LAMP" charset="UTF-8"`)
+    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-TypeService.Router.get(_get_routes, authenticateToken, async (req: Request, res: Response) => {
+TypeService.Router.get(_get_routes, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     if (req.params.attachment_key === undefined) {
@@ -136,11 +133,11 @@ TypeService.Router.get(_get_routes, authenticateToken, async (req: Request, res:
       })
     }
   } catch (e:any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Bearer realm="LAMP" charset="UTF-8"`)
+    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-TypeService.Router.put(_put_routes, authenticateToken, async (req: Request, res: Response) => {
+TypeService.Router.put(_put_routes, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     res.json({
@@ -155,7 +152,7 @@ TypeService.Router.put(_put_routes, authenticateToken, async (req: Request, res:
         : null /* error */,
     })
   } catch (e:any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Bearer realm="LAMP" charset="UTF-8"`)
+    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
