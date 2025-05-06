@@ -21,23 +21,22 @@ export class SensorEventService {
     limit: number | undefined
   ) {
     const SensorEventRepository = new Repository().getSensorEventRepository()
-    participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
+    const response: any = await _verify(auth, ["self", "sibling", "parent"], participant_id)
     limit = Math.min(Math.max(limit ?? LIMIT_NAN, -LIMIT_MAX), LIMIT_MAX)
-    return await SensorEventRepository._select(participant_id, ignore_binary,origin, from, to, limit)
+    return await SensorEventRepository._select(participant_id, ignore_binary, origin, from, to, limit)
   }
 
   public static async create(auth: any, participant_id: string, sensor_events: any[]) {
     const SensorEventRepository = new Repository().getSensorEventRepository()
-    participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
+    const response: any = await _verify(auth, ["self", "sibling", "parent"], participant_id)
     let data = {}
     //check for the existance of cache size and redis host
     if (!!process.env.REDIS_HOST) {
       if (!!process.env.CACHE_SIZE) {
-        if (Number(process.env.CACHE_SIZE) !== 0) 
-        BulkDataWrite("sensor_event", participant_id, sensor_events)
+        if (Number(process.env.CACHE_SIZE) !== 0) BulkDataWrite("sensor_event", participant_id, sensor_events)
         else {
-        data = await SensorEventRepository._insert(participant_id, sensor_events)
-        publishSensorEvent(participant_id, [sensor_events[sensor_events.length - 1]])
+          data = await SensorEventRepository._insert(participant_id, sensor_events)
+          publishSensorEvent(participant_id, [sensor_events[sensor_events.length - 1]])
         }
       } else {
         data = await SensorEventRepository._insert(participant_id, sensor_events)
@@ -59,7 +58,7 @@ SensorEventService.Router.post("/participant/:participant_id/sensor_event", asyn
         Array.isArray(req.body) ? req.body : [req.body]
       ),
     })
-  } catch (e:any) {
+  } catch (e: any) {
     console.log("Failure Msg On sensor events post", e.message)
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
@@ -81,7 +80,46 @@ SensorEventService.Router.get("/participant/:participant_id/sensor_event", async
     }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
-  } catch (e:any) {
+  } catch (e: any) {
+    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
+    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
+  }
+})
+
+SensorEventService.Router.get("/researcher/:researcher_id/sensor_event", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
+  try {
+    let output = {
+      data: await SensorEventService.list(
+        req.get("Authorization"),
+        req.params.researcher_id,
+        (req.params as any).ignore_binary as boolean,
+        req.query.origin as string,
+        Number.parse((req.query as any).from),
+        Number.parse((req.query as any).to),
+        Number.parse((req.query as any).limit)
+      ),
+    }
+    output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
+    res.json(output)
+  } catch (e: any) {
+    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
+    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
+  }
+})
+
+SensorEventService.Router.post("/researcher/:researcher_id/sensor_event", async (req: Request, res: Response) => {
+  res.header(ApiResponseHeaders)
+  try {
+    res.json({
+      data: await SensorEventService.create(
+        req.get("Authorization"),
+        req.params.researcher_id,
+        Array.isArray(req.body) ? req.body : [req.body]
+      ),
+    })
+  } catch (e: any) {
+    console.log("Failure Msg On sensor events post", e.message)
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
