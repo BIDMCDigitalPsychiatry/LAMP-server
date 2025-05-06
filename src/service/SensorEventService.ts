@@ -13,7 +13,7 @@ export class SensorEventService {
 
   public static async list(
     auth: any,
-    participant_id: string,
+    id: string,
     ignore_binary: boolean | undefined,
     origin: string | undefined,
     from: number | undefined,
@@ -21,28 +21,28 @@ export class SensorEventService {
     limit: number | undefined
   ) {
     const SensorEventRepository = new Repository().getSensorEventRepository()
-    const response: any = await _verify(auth, ["self", "sibling", "parent"], participant_id)
+    const response: any = await _verify(auth, ["self", "sibling", "parent"], id)
     limit = Math.min(Math.max(limit ?? LIMIT_NAN, -LIMIT_MAX), LIMIT_MAX)
-    return await SensorEventRepository._select(participant_id, ignore_binary, origin, from, to, limit)
+    return await SensorEventRepository._select(id, ignore_binary, origin, from, to, limit)
   }
 
-  public static async create(auth: any, participant_id: string, sensor_events: any[]) {
+  public static async create(auth: any, id: string, sensor_events: any[]) {
     const SensorEventRepository = new Repository().getSensorEventRepository()
-    const response: any = await _verify(auth, ["self", "sibling", "parent"], participant_id)
+    const response: any = await _verify(auth, ["self", "sibling", "parent"], id)
     let data = {}
     //check for the existance of cache size and redis host
     if (!!process.env.REDIS_HOST) {
       if (!!process.env.CACHE_SIZE) {
-        if (Number(process.env.CACHE_SIZE) !== 0) BulkDataWrite("sensor_event", participant_id, sensor_events)
+        if (Number(process.env.CACHE_SIZE) !== 0) BulkDataWrite("sensor_event", id, sensor_events)
         else {
-          data = await SensorEventRepository._insert(participant_id, sensor_events)
-          publishSensorEvent(participant_id, [sensor_events[sensor_events.length - 1]])
+          data = await SensorEventRepository._insert(id, sensor_events)
+          publishSensorEvent(id, [sensor_events[sensor_events.length - 1]])
         }
       } else {
-        data = await SensorEventRepository._insert(participant_id, sensor_events)
-        publishSensorEvent(participant_id, [sensor_events[sensor_events.length - 1]])
+        data = await SensorEventRepository._insert(id, sensor_events)
+        publishSensorEvent(id, [sensor_events[sensor_events.length - 1]])
       }
-    } else data = await SensorEventRepository._insert(participant_id, sensor_events)
+    } else data = await SensorEventRepository._insert(id, sensor_events)
 
     return data
   }
