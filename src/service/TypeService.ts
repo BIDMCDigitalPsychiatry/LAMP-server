@@ -10,13 +10,10 @@ export class TypeService {
   public static Router = Router()
 
   public static async parent(auth: any, type_id: string | null) {
-    console.log("inside parent")
     const TypeRepository = new Repository().getTypeRepository()
     const response: any = await _verify(auth, ["self", "sibling", "parent"], type_id)
-    console.log("response", response)
 
     const data = await TypeRepository._parent(response.id as any)
-    console.log("data", data)
 
     // FIXME: THIS WILL TRIGGER A DELETE EVERY TIME A RESOURCE'S PARENT IS REQUESTED!
     /*
@@ -109,14 +106,13 @@ const _put_routes = (<string[]>[]).concat(
 )
 TypeService.Router.get("/:type_id/cordinators", async (req: Request, res: Response) => {
   try {
-    console.log("inside try")
     let output = {
       data: (await TypeService.parent(
         req.get("Authorization"),
         req.params.type_id === "null" ? null : req.params.type_id
       )) as any,
     }
-    console.log("output", output)
+
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     const cordinators = await TypeService.cordinator(output.data.Researcher)
 
