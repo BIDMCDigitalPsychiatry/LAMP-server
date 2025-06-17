@@ -14,6 +14,11 @@ export class TypeRepository implements TypeInterface {
     return result
   }
 
+  public async _cordinator(type_id: string): Promise<any | undefined> {
+    try {
+    } catch (e) {}
+  }
+
   public async _self_type(type_id: string): Promise<string> {
     try {
       await Database.use("participant").head(type_id)

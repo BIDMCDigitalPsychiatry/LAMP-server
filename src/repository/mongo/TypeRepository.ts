@@ -15,7 +15,60 @@ export class TypeRepository implements TypeInterface {
       result[parent_type] = await TypeRepository._parent_id(type_id, parent_type)
     return result
   }
+  public async _cordinator(type_id: string): Promise<any | undefined> {
+    try {
+      const candidates = await MongoClientDB.collection("tag").find({ _parent: type_id }).toArray()
 
+      const conversationEnabledDoc = candidates.find(
+        (doc: any) => doc.key === "lamp.dashboard.conversation_enabled" && doc.value === "true"
+      )
+
+      if (!conversationEnabledDoc) {
+        console.log("No conversation enabled document found.")
+      } else {
+        const targetParent = conversationEnabledDoc._parent
+
+        const coordinatorValues = candidates.flatMap((doc: any) => {
+          if (doc._parent !== targetParent) return []
+
+          try {
+            const obj = JSON.parse(doc.value)
+
+            for (let key in obj) {
+              if (obj[key].role === "message_coordinator") {
+                return key
+              }
+            }
+          } catch (e) {
+            // Ignore non-JSON values
+          }
+          return []
+        })
+
+        return coordinatorValues
+      }
+      //   let cordarr: string[] = []
+
+      //   for (const doc of candidates) {
+      //     try {
+      //       const obj = JSON.parse(doc.value)
+
+      //       for (let key in obj) {
+      //         if (obj[key].role === "message_coordinator") {
+      //           cordarr.push(key)
+      //         }
+      //       }
+      //     } catch (e) {
+      //       console.log("error parsing value:", e)
+      //     }
+      //   }
+      //   return cordarr
+
+      //   // return undefined
+    } catch (e) {
+      console.log("error", e)
+    }
+  }
   public async _self_type(type_id: string): Promise<string> {
     try {
       const data: any = await (MongoClientDB.collection("participant").findOne({
