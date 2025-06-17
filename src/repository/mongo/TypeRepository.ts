@@ -15,7 +15,42 @@ export class TypeRepository implements TypeInterface {
       result[parent_type] = await TypeRepository._parent_id(type_id, parent_type)
     return result
   }
+  public async _cordinator(type_id: string): Promise<any | undefined> {
+    try {
+      const candidates = await MongoClientDB.collection("tag").find({ _parent: type_id }).toArray()
 
+      const conversationEnabledDoc = candidates.find(
+        (doc: any) => doc.key === "lamp.dashboard.conversation_enabled" && doc.value === "true"
+      )
+
+      if (!conversationEnabledDoc) {
+        console.log("No conversation enabled document found.")
+      } else {
+        const targetParent = conversationEnabledDoc._parent
+
+        const coordinatorValues = candidates.flatMap((doc: any) => {
+          if (doc._parent !== targetParent) return []
+
+          try {
+            const obj = JSON.parse(doc.value)
+
+            for (let key in obj) {
+              if (obj[key].role === "message_coordinator") {
+                return key
+              }
+            }
+          } catch (e) {
+            console.error(e)
+          }
+          return []
+        })
+
+        return coordinatorValues
+      }
+    } catch (e) {
+      console.log("error", e)
+    }
+  }
   public async _self_type(type_id: string): Promise<string> {
     try {
       const data: any = await (MongoClientDB.collection("participant").findOne({
@@ -112,9 +147,10 @@ export class TypeRepository implements TypeInterface {
   public async _get(mode: any, type_id: string, attachment_key: string): Promise<any | undefined> {
     const repo = new Repository()
     const TypeRepository = repo.getTypeRepository()
-    const self_type = (type_id === null) ? undefined : await TypeRepository._self_type(type_id)
-    const parents = (type_id === null) ? new Array : [null,...Object.values(await TypeRepository._parent(type_id)).reverse()]    
-   
+    const self_type = type_id === null ? undefined : await TypeRepository._self_type(type_id)
+    const parents =
+      type_id === null ? new Array() : [null, ...Object.values(await TypeRepository._parent(type_id)).reverse()]
+
     // All possible conditions to retreive Tags, ordered greatest-to-least priority.
     const conditions = [
       // Explicit parent-ownership. (Ordered greatest-to-least ancestor.)
@@ -126,7 +162,7 @@ export class TypeRepository implements TypeInterface {
       { _deleted: false, _parent: type_id, type: type_id, key: attachment_key },
       // Implicit self-ownership.
       { _deleted: false, _parent: type_id, type: "me", key: attachment_key },
-     ]
+    ]
     // Following greatest-to-least priority, see if the Tag exists. We do this because:
     // (1) Following priority order allows us to avoid searching the database after we find the
     //     Tag we're looking for that applies with the greatest priority.
@@ -134,7 +170,7 @@ export class TypeRepository implements TypeInterface {
     //     multiple keys per-subquery; the difference is almost ~7sec vs. ~150ms.
     for (const condition of conditions) {
       try {
-        const value = await MongoClientDB.collection("tag").find(condition).limit(1).maxTimeMS(60000).toArray()        
+        const value = await MongoClientDB.collection("tag").find(condition).limit(1).maxTimeMS(60000).toArray()
         if (value.length > 0) return value.map((x: any) => JSON.parse(x.value))[0]
       } catch (error) {
         console.error(error, `Failed to search Tag index for ${condition._parent}:${condition.type}.`)
@@ -148,8 +184,9 @@ export class TypeRepository implements TypeInterface {
   public async _list(mode: any, type_id: string): Promise<string[]> {
     const repo = new Repository()
     const TypeRepository = repo.getTypeRepository()
-    const self_type = (type_id === null) ? undefined : await TypeRepository._self_type(type_id)
-    const parents = (type_id === null) ? new Array : [null,...Object.values(await TypeRepository._parent(type_id)).reverse()]    
+    const self_type = type_id === null ? undefined : await TypeRepository._self_type(type_id)
+    const parents =
+      type_id === null ? new Array() : [null, ...Object.values(await TypeRepository._parent(type_id)).reverse()]
     let conditions: any[] = []
     conditions = [
       // Explicit parent-ownership. (Ordered greatest-to-least ancestor.)
@@ -162,7 +199,7 @@ export class TypeRepository implements TypeInterface {
       // Implicit self-ownership.
       { _deleted: false, _parent: type_id, type: "me", key: { $ne: null } },
     ]
-    
+
     // Following greatest-to-least priority, see if the Tag exists. We do this because:
     // (1) Following priority order allows us to avoid searching the database after we find the
     //     Tag we're looking for that applies with the greatest priority.

@@ -11,8 +11,9 @@ export class TypeService {
 
   public static async parent(auth: any, type_id: string | null) {
     const TypeRepository = new Repository().getTypeRepository()
-    type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
-    const data = await TypeRepository._parent(type_id)
+    const response: any = await _verify(auth, ["self", "sibling", "parent"], type_id)
+
+    const data = await TypeRepository._parent(response.id as any)
 
     // FIXME: THIS WILL TRIGGER A DELETE EVERY TIME A RESOURCE'S PARENT IS REQUESTED!
     /*
@@ -23,6 +24,13 @@ export class TypeService {
       await RedisClient?.del(`${type_id}_lookup:sensors`)
     } catch (error) { }
     */
+    return data
+  }
+
+  public static async cordinator(type_id: string | null) {
+    const TypeRepository = new Repository().getTypeRepository()
+    const data = await TypeRepository._cordinator(type_id as any)
+
     return data
   }
 
@@ -57,17 +65,17 @@ export class TypeService {
   ) {
     const TypeRepository = new Repository().getTypeRepository()
     type_id = await _verify(auth, ["self", "sibling", "parent"], type_id)
-    if(attachment_key === 'lamp.automation') {
+    if (attachment_key === "lamp.automation") {
       PubSubAPIListenerQueue?.add(
-          {
-            topic: attachment_key,
-            token: attachment_key,
-            payload: {researcher_id:type_id},
-          },
-          {
-            removeOnComplete: true,
-            removeOnFail: true,
-          }
+        {
+          topic: attachment_key,
+          token: attachment_key,
+          payload: { researcher_id: type_id },
+        },
+        {
+          removeOnComplete: true,
+          removeOnFail: true,
+        }
       )
     }
 
@@ -96,6 +104,26 @@ const _put_routes = (<string[]>[]).concat(
     (type) => `/${type}/:type_id/tag/:attachment_key/:target`
   )
 )
+TypeService.Router.get("/:type_id/cordinators", async (req: Request, res: Response) => {
+  try {
+    let output = {
+      data: (await TypeService.parent(
+        req.get("Authorization"),
+        req.params.type_id === "null" ? null : req.params.type_id
+      )) as any,
+    }
+
+    output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
+    const cordinators = await TypeService.cordinator(output.data.Researcher)
+
+    res.json({
+      cordinators: cordinators,
+    })
+  } catch (e: any) {
+    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
+    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
+  }
+})
 TypeService.Router.get(_parent_routes, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
@@ -107,7 +135,7 @@ TypeService.Router.get(_parent_routes, async (req: Request, res: Response) => {
     }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
-  } catch (e:any) {
+  } catch (e: any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
@@ -132,7 +160,7 @@ TypeService.Router.get(_get_routes, async (req: Request, res: Response) => {
         ),
       })
     }
-  } catch (e:any) {
+  } catch (e: any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
@@ -151,7 +179,7 @@ TypeService.Router.put(_put_routes, async (req: Request, res: Response) => {
         ? {}
         : null /* error */,
     })
-  } catch (e:any) {
+  } catch (e: any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }

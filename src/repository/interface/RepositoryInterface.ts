@@ -29,7 +29,7 @@ export interface ParticipantInterface {
   _select(id: string | null, parent?: boolean): Promise<Participant[]>
   _insert(study_id: string, object: {}): Promise<any>
   _update(participant_id: string, object: {}): Promise<{}>
-  _delete(participant_id: string): Promise<{}> 
+  _delete(participant_id: string): Promise<{}>
   _lookup(id: string | null, parent?: boolean): Promise<Participant[]>
 }
 
@@ -55,7 +55,7 @@ export interface SensorInterface {
 export interface ActivityEventInterface {
   _select(
     id?: string,
-    ignore_binary?: boolean, 
+    ignore_binary?: boolean,
     activity_id_or_spec?: string,
     from_date?: number,
     to_date?: number,
@@ -68,7 +68,7 @@ export interface ActivityEventInterface {
 export interface SensorEventInterface {
   _select(
     id?: string,
-    ignore_binary?: boolean, 
+    ignore_binary?: boolean,
     sensor_spec?: string,
     from_date?: number,
     to_date?: number,
@@ -104,6 +104,7 @@ export interface TypeInterface {
   _set(mode: any, type: string, type_id: string, key: string, value?: any): Promise<{}>
   _get(mode: any, type_id: string, attachment_key: string): Promise<any | undefined>
   _list(mode: any, type_id: string): Promise<string[]>
+  _cordinator(type_id: string): Promise<any | undefined>
 }
 
 //Interface for Credential Repository
