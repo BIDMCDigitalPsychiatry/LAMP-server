@@ -3,6 +3,9 @@ import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
+import { authenticateToken } from "../middlewares/authenticateToken"
+const { sensorValidationRules } = require("../validator/validationRules")
+const { validateRequest } = require("../middlewares/validateRequest")
 
 export class SensorService {
   public static _name = "Sensor"
@@ -11,7 +14,7 @@ export class SensorService {
   public static async list(auth: any, study_id: string, ignore_binary: boolean, sibling: boolean = false) {
     const SensorRepository = new Repository().getSensorRepository()
     const TypeRepository = new Repository().getTypeRepository()
-    study_id = await _verify(auth, ["self", "sibling", "parent"], study_id)
+    const response: any = await _verify(auth, ["self", "sibling", "parent"], study_id)
     if (sibling) {
       const parent_id = await TypeRepository._owner(study_id)
       if (parent_id === null) throw new Error("403.invalid-sibling-ownership")
@@ -22,7 +25,7 @@ export class SensorService {
 
   public static async create(auth: any, study_id: string, sensor: any) {
     const SensorRepository = new Repository().getSensorRepository()
-    study_id = await _verify(auth, ["self", "sibling", "parent"], study_id)
+    const response: any = await _verify(auth, ["self", "sibling", "parent"], study_id)
     const data = await SensorRepository._insert(study_id, sensor)
 
     //publishing data for sensor add api with token = study.{study_id}.sensor.{_id}
@@ -57,14 +60,14 @@ export class SensorService {
 
   public static async get(auth: any, sensor_id: string) {
     const SensorRepository = new Repository().getSensorRepository()
-    sensor_id = await _verify(auth, ["self", "sibling", "parent"], sensor_id)
+    const response: any = await _verify(auth, ["self", "sibling", "parent"], sensor_id)
     return await SensorRepository._select(sensor_id, false)
   }
 
   public static async set(auth: any, sensor_id: string, sensor: any | null) {
     const SensorRepository = new Repository().getSensorRepository()
     const TypeRepository = new Repository().getTypeRepository()
-    sensor_id = await _verify(auth, ["self", "sibling", "parent"], sensor_id)
+    const response: any = await _verify(auth, ["self", "sibling", "parent"], sensor_id)
     if (sensor === null) {
       //find the study id before delete, as it cannot be fetched after delete
       const parent = (await TypeRepository._parent(sensor_id)) as any
@@ -140,62 +143,78 @@ export class SensorService {
   }
 }
 
-SensorService.Router.post("/study/:study_id/sensor", async (req: Request, res: Response) => {
-  res.header(ApiResponseHeaders)
-  try {
-    res.json({ data: await SensorService.create(req.get("Authorization"), req.params.study_id, req.body) })
-  } catch (e:any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
-    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
+SensorService.Router.post(
+  "/study/:study_id/sensor",
+  authenticateToken,
+  sensorValidationRules(),
+  validateRequest,
+  async (req: Request, res: Response) => {
+    res.header(ApiResponseHeaders)
+    try {
+      res.json({ data: await SensorService.create(req.get("Authorization"), req.params.study_id, req.body) })
+    } catch (e: any) {
+      if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
+      res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
+    }
   }
-})
-SensorService.Router.put("/sensor/:sensor_id", async (req: Request, res: Response) => {
-  try {    
-    res.json({ data: await SensorService.set(req.get("Authorization"), req.params.sensor_id, req.body) })
-  } catch (e:any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
-    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
+)
+SensorService.Router.put(
+  "/sensor/:sensor_id",
+  sensorValidationRules(),
+  validateRequest,
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    try {
+      res.json({ data: await SensorService.set(req.get("Authorization"), req.params.sensor_id, req.body) })
+    } catch (e: any) {
+      if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
+      res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
+    }
   }
-})
-SensorService.Router.delete("/sensor/:sensor_id", async (req: Request, res: Response) => {
+)
+SensorService.Router.delete("/sensor/:sensor_id", authenticateToken, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     res.json({ data: await SensorService.set(req.get("Authorization"), req.params.sensor_id, null) })
-  } catch (e:any) {
+  } catch (e: any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-SensorService.Router.get("/sensor/:sensor_id", async (req: Request, res: Response) => {
+SensorService.Router.get("/sensor/:sensor_id", authenticateToken, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     let output = { data: await SensorService.get(req.get("Authorization"), req.params.sensor_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
-  } catch (e:any) {
+  } catch (e: any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-SensorService.Router.get("/participant/:participant_id/sensor", async (req: Request, res: Response) => {
-  res.header(ApiResponseHeaders)
-  try {
-    let output = {
-      data: await SensorService.list(
-        req.get("Authorization"),
-        req.params.participant_id,
-        req.query.ignore_binary === "true",
-        true
-      ),
+SensorService.Router.get(
+  "/participant/:participant_id/sensor",
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    res.header(ApiResponseHeaders)
+    try {
+      let output = {
+        data: await SensorService.list(
+          req.get("Authorization"),
+          req.params.participant_id,
+          req.query.ignore_binary === "true",
+          true
+        ),
+      }
+      output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
+      res.json(output)
+    } catch (e: any) {
+      if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
+      res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
     }
-    output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
-    res.json(output)
-  } catch (e:any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
-    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
-})
-SensorService.Router.get("/study/:study_id/sensor", async (req: Request, res: Response) => {
+)
+SensorService.Router.get("/study/:study_id/sensor", authenticateToken, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     let output = {
@@ -203,7 +222,7 @@ SensorService.Router.get("/study/:study_id/sensor", async (req: Request, res: Re
     }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
-  } catch (e:any) {
+  } catch (e: any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }

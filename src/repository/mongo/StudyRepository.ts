@@ -7,6 +7,7 @@ export class StudyRepository implements StudyInterface {
   public async _select(id: string | null, parent = false): Promise<Study[]> {
     const data = await MongoClientDB.collection("study")
       .find(!!id ? (parent ? { _deleted: false, _parent: id } : { _deleted: false, _id: id }) : { _deleted: false })
+      .project({ isMessagingEnabled: 1 , name: 1}) 
       .sort({ timestamp: 1 })
       .limit(2_147_483_647)
       .maxTimeMS(60000)
@@ -29,6 +30,7 @@ export class StudyRepository implements StudyInterface {
       timestamp: new Date().getTime(),
       name: object.name ?? "",
       _deleted: false,
+      isMessagingEnabled: object.isMessagingEnabled ?? true,
     })
     return _id
   }
@@ -36,7 +38,11 @@ export class StudyRepository implements StudyInterface {
     const orig: any = await MongoClientDB.collection("study").findOne({ _id: study_id })
     await MongoClientDB.collection("study").findOneAndUpdate(
       { _id: orig._id },
-      { $set: { name: object.name ?? orig.name } }
+      { $set: { 
+        name: object.name ?? orig.name,
+        isMessagingEnabled: object.isMessagingEnabled ?? orig.isMessagingEnabled,
+        } 
+      }
     )
     return {}
   }
