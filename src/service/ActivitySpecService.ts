@@ -42,7 +42,7 @@ export class ActivitySpecService {
 ActivitySpecService.Router.post(
   "/activity_spec",
   authenticateToken,
-  activitySpecValidationRules(),
+  // activitySpecValidationRules(),
   validateRequest,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
@@ -57,7 +57,7 @@ ActivitySpecService.Router.post(
 ActivitySpecService.Router.put(
   "/activity_spec/:activity_spec_name",
   authenticateToken,
-  activitySpecValidationRules(),
+  // activitySpecValidationRules(),
   validateRequest,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
