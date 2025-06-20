@@ -4,6 +4,7 @@ import { CredentialInterface } from "../interface/RepositoryInterface"
 import { MongoClientDB } from "../Bootstrap"
 import { ObjectId } from "mongodb"
 import { jwtVerify, SignJWT } from "jose"
+const path = require('path');
 
 const { isLocked, recordFailedAttempts, clearAttempts } = require("../../utils/accountLockout")
 
@@ -104,9 +105,11 @@ export class CredentialRepository implements CredentialInterface {
 
     const { privateDecrypt, constants } = require("crypto")
     const fs = require("fs")
-    const privateKey = fs.readFileSync("./src/utils/private_key.pem", "utf8")
+    // const privateKey = fs.readFileSync("./src/utils/private_key.pem", "utf8")
     // const publicKey = fs.readFileSync('./src/utils/public_key.pem', 'utf8');
 
+    const privateKeyPath = path.resolve(process.cwd(), 'private_key.pem');
+    const privateKey = fs.readFileSync(privateKeyPath, 'utf8');
     console.log("request ", accessKey, " &secret key ", secretKey)
     const encryptedPassword = secretKey
     let decrypted
@@ -142,7 +145,7 @@ export class CredentialRepository implements CredentialInterface {
           res.access_token = await new SignJWT({ user_id: res._id, origin: res.origin })
             .setProtectedHeader({ alg: "HS256" })
             .setIssuedAt()
-            .setExpirationTime("30min")
+            .setExpirationTime("30m")
             .sign(secret_key)
 
           // const { payload, protectedHeader } = await jwtVerify(res.access_token, secret_key);
@@ -220,7 +223,7 @@ export class CredentialRepository implements CredentialInterface {
           res.access_token = await new SignJWT({ user_id: res._id, origin: res.origin })
             .setProtectedHeader({ alg: "HS256" })
             .setIssuedAt()
-            .setExpirationTime("30min")
+            .setExpirationTime("30m")
             .sign(jwtSecretKey)
 
           // Refresh token

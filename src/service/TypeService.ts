@@ -175,28 +175,28 @@ TypeService.Router.get(_get_routes, authenticateToken, async (req: Request, res:
   }
 })
 TypeService.Router.put(_put_routes, authenticateToken, async (req: Request, res: Response) => {
-  let validateRes: any = true
-  if (req.params.attachment_key === "lamp.name") {
-    validateRes = validateInput(req.body.value)
-  }
+  // let validateRes: any = true
+  // if (req.params.attachment_key === "lamp.name") {
+  //   validateRes = validateInput(req.body.value)
+  // }
 
-  if (validateRes) {
-    res.header(ApiResponseHeaders)
-    try {
-      res.json({
-        data: (await TypeService.set(
-          req.get("Authorization"),
-          req.params.type_id === "null" ? null : req.params.type_id,
-          req.params.target,
-          req.params.attachment_key,
-          req.body
-        ))
-          ? {}
-          : null /* error */,
-      })
-    } catch (e: any) {
-      if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
-      res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
-    }
+  // if (validateRes) {
+  res.header(ApiResponseHeaders)
+  try {
+    res.json({
+      data: (await TypeService.set(
+        req.get("Authorization"),
+        req.params.type_id === "null" ? null : req.params.type_id,
+        req.params.target,
+        req.params.attachment_key,
+        req.body
+      ))
+        ? {}
+        : null /* error */,
+    })
+  } catch (e: any) {
+    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
+    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
+  // }
 })
