@@ -3,6 +3,7 @@ import { DynamicAttachment } from "../../model"
 import { Repository } from "../../repository/Bootstrap"
 import { TypeInterface } from "../interface/RepositoryInterface"
 import { MongoClientDB } from "../Bootstrap"
+import { isArray } from "util"
 
 // FIXME: Support application/json;indent=:spaces format mime type!
 
@@ -40,13 +41,31 @@ export class TypeRepository implements TypeInterface {
               }
             }
           } catch (e) {
-            console.error(e)
+            // Ignore non-JSON values
           }
           return []
         })
 
         return coordinatorValues
       }
+      //   let cordarr: string[] = []
+
+      //   for (const doc of candidates) {
+      //     try {
+      //       const obj = JSON.parse(doc.value)
+
+      //       for (let key in obj) {
+      //         if (obj[key].role === "message_coordinator") {
+      //           cordarr.push(key)
+      //         }
+      //       }
+      //     } catch (e) {
+      //       console.log("error parsing value:", e)
+      //     }
+      //   }
+      //   return cordarr
+
+      //   // return undefined
     } catch (e) {
       console.log("error", e)
     }

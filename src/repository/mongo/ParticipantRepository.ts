@@ -7,14 +7,39 @@ export class ParticipantRepository implements ParticipantInterface {
   public async _select(id: string | null, parent = false): Promise<Participant[]> {
     //get data from  Participant via  Participant model
     const data = await MongoClientDB.collection("participant")
-      .find(!!id ? (parent ? { _parent: id, _deleted: false } : { _id: id, _deleted: false }) : { _deleted: false })
-      .sort({ timestamp: 1 })
-      .limit(2_147_483_647)
-      .maxTimeMS(60000)
-      .toArray()
-    return (data as any).map((x: any) => ({
+      .aggregate([
+      {
+        $match: !!id
+          ? (parent ? { _parent: id, _deleted: false } : { _id: id, _deleted: false })
+          : { _deleted: false },
+      },
+      {
+        $lookup: {
+          from: "study",
+          localField: "_parent",   
+          foreignField: "_id",     
+          as: "studyData",
+        },
+      },
+      {
+        $addFields: {
+          isMessagingEnabled: { $arrayElemAt: ["$studyData.isMessagingEnabled", 0] },
+        },
+      },
+      {
+        $project: {
+          id: "$_id",
+          isMessagingEnabled: 1,
+        },
+      },
+    ])
+    .toArray();
+
+    return data.map((x: any) => ({
       id: x._id,
-    }))
+      isMessagingEnabled: x.isMessagingEnabled,
+    }));
+
   }
   // eslint-disable-next-line
   public async _insert(study_id: string, object: Participant): Promise<any> {

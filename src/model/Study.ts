@@ -5,4 +5,5 @@ export class Study {
   public name?: string
   public activities?: Identifier[]
   public participants?: Identifier[]
+  public isMessagingEnabled?: Boolean
 }

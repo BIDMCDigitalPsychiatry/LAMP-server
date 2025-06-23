@@ -139,9 +139,10 @@ export class TypeRepository implements TypeInterface {
   public async _get(mode: any, type_id: string, attachment_key: string): Promise<any | undefined> {
     const repo = new Repository()
     const TypeRepository = repo.getTypeRepository()
-    const self_type = (type_id === null) ? undefined : await TypeRepository._self_type(type_id)
-    const parents = (type_id === null) ? new Array : [null,...Object.values(await TypeRepository._parent(type_id)).reverse()]
-  
+    const self_type = type_id === null ? undefined : await TypeRepository._self_type(type_id)
+    const parents =
+      type_id === null ? new Array() : [null, ...Object.values(await TypeRepository._parent(type_id)).reverse()]
+
     // All possible conditions to retreive Tags, ordered greatest-to-least priority.
     const conditions = [
       // Explicit parent-ownership. (Ordered greatest-to-least ancestor.)
@@ -152,7 +153,7 @@ export class TypeRepository implements TypeInterface {
       // Explicit self-ownership.
       { "#parent": type_id, type: type_id, key: attachment_key },
       // Implicit self-ownership.
-      { "#parent": type_id, type: "me", key: attachment_key },      
+      { "#parent": type_id, type: "me", key: attachment_key },
     ]
 
     // Following greatest-to-least priority, see if the Tag exists. We do this because:
@@ -176,8 +177,9 @@ export class TypeRepository implements TypeInterface {
   public async _list(mode: any, type_id: string): Promise<string[]> {
     const repo = new Repository()
     const TypeRepository = repo.getTypeRepository()
-    const self_type = (type_id === null) ? undefined : await TypeRepository._self_type(type_id)
-    const parents = (type_id === null) ? new Array : [null,...Object.values(await TypeRepository._parent(type_id)).reverse()]    
+    const self_type = type_id === null ? undefined : await TypeRepository._self_type(type_id)
+    const parents =
+      type_id === null ? new Array() : [null, ...Object.values(await TypeRepository._parent(type_id)).reverse()]
     // All possible conditions to retreive Tags, ordered greatest-to-least priority.
     // Note: We MUST add a "key" selector to force CouchDB to use the right Mango index.
     const conditions = [
@@ -185,12 +187,11 @@ export class TypeRepository implements TypeInterface {
       ...parents.map((pid) => ({ "#parent": pid, type: type_id, key: { $gt: null } })),
       // Implicit parent-ownership. (Ordered greatest-to-least ancestor.)
       ...parents.map((pid) => ({ "#parent": pid, type: self_type, key: { $gt: null } })),
-      ...parents.map((pid) => ({ "#parent": pid, type: "*", key: { $gt: null } })),     
+      ...parents.map((pid) => ({ "#parent": pid, type: "*", key: { $gt: null } })),
       // Explicit self-ownership.
       { "#parent": type_id, type: type_id, key: { $gt: null } },
       // Implicit self-ownership.
       { "#parent": type_id, type: "me", key: { $gt: null } },
-     
     ]
 
     // Following greatest-to-least priority, see if the Tag exists. We do this because:

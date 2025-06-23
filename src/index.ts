@@ -6,7 +6,7 @@ import { Bootstrap } from "./repository/Bootstrap"
 import app from "./app"
 
 // NodeJS v15+ do not log unhandled promise rejections anymore.
-process.on("unhandledRejection", error => {
+process.on("unhandledRejection", (error) => {
   console.dir(error)
 })
 
@@ -56,4 +56,6 @@ async function main(): Promise<void> {
   })
 }
 
-main().then(() => console.log("Startup complete")).catch(console.error)
+main()
+  .then(() => console.log("Startup complete"))
+  .catch(console.error)

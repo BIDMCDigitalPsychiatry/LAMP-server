@@ -1,8 +1,8 @@
 import nano from "nano"
 import crypto from "crypto"
 import { customAlphabet } from "nanoid"
-import { connect, NatsConnectionOptions, Payload, Client, ServerInfo } from "ts-nats"
-import { MongoClient, ObjectID } from "mongodb"
+import { connect, Payload, Client } from "ts-nats"
+import { MongoClient, ObjectId } from "mongodb"
 import {
   ResearcherRepository,
   StudyRepository,
@@ -49,11 +49,13 @@ export let nc: Client
 export let MongoClientDB: any
 export const ApiResponseHeaders = {
   "Cache-Control": "no-store",
-  "Content-Security-Policy":"default-src 'self'",
-  "X-XSS-Protection":" 1; mode=block",
-  "X-Content-Type-Options":"nosniff",
-  "X-Frame-Options":"deny",
-  "Strict-Transport-Security":"max-age=31536000; includeSubdomains"
+  "Content-Security-Policy": "default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'",
+  "X-XSS-Protection": "1; mode=block",
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Strict-Transport-Security": "max-age=63072000; includeSubdomains; preload",
+  "Referrer-Policy": "no-referrer",
+  "Permissions-Policy": "geolocation=(), camera=(), microphone=()",
 }
 //initialize driver for db
 let DB_DRIVER = ""
@@ -99,8 +101,8 @@ export const Encrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"):
       return Buffer.concat([ivl, cipher.update(Buffer.from(data, "utf16le")), cipher.final()]).toString("base64")
     }
   } catch (error) {
-      console.error("Encryption error:", error);
-      return undefined
+    console.error("Encryption error:", error)
+    return undefined
   }
 }
 
@@ -122,8 +124,8 @@ export const Decrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"):
       return Buffer.concat([cipher.update(dat.slice(16)), cipher.final()]).toString("utf16le")
     }
   } catch (error) {
-    console.error("Encryption error:", error)  
-    return undefined   
+    console.error("Encryption error:", error)
+    return undefined
   }
 }
 
@@ -131,7 +133,7 @@ export const Decrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"):
 export async function Bootstrap(): Promise<void> {
   if (typeof process.env.REDIS_HOST === "string") {
     try {
-      RedisClient = RedisFactory.getInstance()      
+      RedisClient = RedisFactory.getInstance()
       console.log("Trying to connect redis")
       RedisClient.on("connect", () => {
         console.log("Connected to redis")
@@ -144,13 +146,13 @@ export async function Bootstrap(): Promise<void> {
       RedisClient.on("disconnected", async () => {
         console.log("redis disconnected")
         RedisClient = RedisFactory.getInstance()
-      })      
+      })
     } catch (err) {
       console.log("Error initializing redis", err)
     }
-  }  
+  }
   await NatsConnect()
-  
+
   if (DB_DRIVER === "couchdb") {
     console.group("Initializing database connection...")
     const _db_list = await Database.db.list()
@@ -801,11 +803,12 @@ export async function Bootstrap(): Promise<void> {
     console.groupEnd()
     console.log("Database verification complete.")
   } else {
-    //Connect to mongoDB
-    const client = new MongoClient(`${process.env.DB}`, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    })
+    //Connect to mongoDB ---Old code before updating the mongo version, ie 3.2
+    // const client = new MongoClient(`${process.env.DB}`, {
+    //   useNewUrlParser: true,
+    //   useUnifiedTopology: true,
+    // })
+    const client = new MongoClient(`${process.env.DB}`)
     try {
       await client.connect()
     } catch (error) {
@@ -814,12 +817,17 @@ export async function Bootstrap(): Promise<void> {
     // return new Promise((resolve, reject) => {
     try {
       console.group("Initializing database connection...")
-      if (client.isConnected()) {
-        const db = process.env.DB?.split("/").reverse()[0]?.split("?")[0]
-        MongoClientDB = await client?.db(db)
-      } else {
-        console.log("Database connection failed.")
-      }
+      // Old code before updating the mongo version, ie 3.2, currently client.isconnected not supporting new versions
+      // if (client.isConnected()) {
+      //   const db = process.env.DB?.split("/").reverse()[0]?.split("?")[0]
+      //   MongoClientDB = await client?.db("LampV2")
+      // } else {
+      //   console.log("Database connection failed.")
+      // }
+
+      const db = process.env.DB?.split("/").reverse()[0]?.split("?")[0]
+      MongoClientDB = await client?.db("LampV2")
+      console.log("MongoDB is connected and responding")
     } catch (error) {
       console.log("Database connection failed.")
     }
@@ -917,6 +925,13 @@ export async function Bootstrap(): Promise<void> {
         await database.createIndex({ _parent: 1, type: 1, key: 1 })
       }
       console.log("Tag database online.")
+      if (!dbs.includes("tokens")) {
+        console.log("Initializing Tokens database...")
+        await MongoClientDB.createCollection("tokens")
+        const database = MongoClientDB.collection("tokens")
+        await database.createIndex({ token: 1 })
+      }
+      console.log("Tokens database online.")
       if (!dbs.includes("credential")) {
         console.log("Initializing Credential database...")
         await MongoClientDB.createCollection("credential")
@@ -931,7 +946,7 @@ export async function Bootstrap(): Promise<void> {
           const p = crypto.randomBytes(32).toString("hex")
           console.table({ "Administrator Password": p })
           await database.insertOne({
-            _id: new ObjectID(),
+            _id: new ObjectId(),
             origin: null,
             access_key: "admin",
             secret_key: Encrypt(p, "AES256"),
@@ -954,11 +969,10 @@ export async function Bootstrap(): Promise<void> {
   }
 }
 
-
 /**
  * nats connect
  */
- async function NatsConnect() {
+async function NatsConnect() {
   let intervalId = setInterval(async () => {
     try {
       nc = await connect({
@@ -968,8 +982,9 @@ export async function Bootstrap(): Promise<void> {
         reconnect: true,
         reconnectTimeWait: 2000,
       })
+
       clearInterval(intervalId)
-      console.log("Connected to nats pub server")    
+      console.log("Connected to nats pub server")
     } catch (error) {
       console.log("Error in Connecting to nats pub server")
     }
@@ -1027,30 +1042,33 @@ export class Repository {
   //GET TypeRepository Repository
   public getTypeRepository(): TypeInterface {
     return DB_DRIVER === "couchdb" ? new TypeRepository() : new TypeRepositoryMongo()
+    // return new TypeRepositoryMongo()
   }
 }
 
 /**
  * Creating singleton class for redis
-*/
+ */
 export class RedisFactory {
   private static instance: ioredis.Redis
   private constructor() {}
-  
+
   /**
    * @returns redis client instance
-  */
+   */
   public static getInstance(): ioredis.Redis {
     if (this.instance === undefined) {
       this.instance = new ioredis(
-                parseInt(`${(process.env.REDIS_HOST as any).match(/([0-9]+)/g)?.[0]}`),
-                (process.env.REDIS_HOST as any).match(/\/\/([0-9a-zA-Z._]+)/g)?.[0],
-      {
-        reconnectOnError() {
-          return 1
-        },
-        enableReadyCheck: true,
-      })
+        parseInt(`${(process.env.REDIS_PORT as any).match(/([0-9]+)/g)?.[0]}`),
+        process.env.REDIS_HOST as any,
+        {
+          reconnectOnError() {
+            return 1
+          },
+
+          enableReadyCheck: true,
+        }
+      )
     }
     return this.instance
   }
