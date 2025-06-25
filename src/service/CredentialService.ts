@@ -32,11 +32,6 @@ export class CredentialService {
   }
 
   public static async set(auth: any, type_id: string | null, access_key: string, credential: any | null) {
-    // const minLength = 4
-    // if (credential.secret_key < minLength) {
-    //   throw new Error("password must not be less than")
-    // }
-
     const CredentialRepository = new Repository().getCredentialRepository()
     const response: any = await _verify(auth, ["self", "parent"], type_id)
 
@@ -65,7 +60,6 @@ export class CredentialService {
   public static async verify(accessKey: string | null, secretKey: string) {
     const CredentialRepository = new Repository().getCredentialRepository()
 
-    console.log("request ", accessKey, " &secret key ", secretKey)
     const res = await CredentialRepository._login(accessKey, secretKey)
     return res
   }
@@ -99,8 +93,7 @@ CredentialService.Router.get(
     try {
       let output = {
         data: await CredentialService.list(
-          // req.get("Authorization"),
-          req.cookies?.accessToken,
+          req.get("Authorization"),
           req.params.type_id === "null" ? null : req.params.type_id
         ),
       }
@@ -123,8 +116,7 @@ CredentialService.Router.post(
     try {
       res.json({
         data: await CredentialService.create(
-          // req.get("Authorization"),
-          req.cookies?.accessToken,
+          req.get("Authorization"),
           req.params.type_id === "null" ? null : req.params.type_id,
           req.body
         ),
@@ -147,7 +139,7 @@ CredentialService.Router.put(
     try {
       res.json({
         data: await CredentialService.set(
-          req.cookies?.accessToken,
+          req.get("Authorization"),
           req.params.type_id === "null" ? null : req.params.type_id,
           req.params.access_key,
           req.body
@@ -169,7 +161,7 @@ CredentialService.Router.delete(
     try {
       res.json({
         data: await CredentialService.set(
-          req.cookies?.accessToken,
+          req.get("Authorization"),
           req.params.type_id === "null" ? null : req.params.type_id,
           req.params.access_key,
           null
@@ -184,27 +176,7 @@ CredentialService.Router.delete(
 CredentialService.Router.post(`/login`, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
-    // res.json({
-    const data = await CredentialService.verify(
-      // req.get("Authorization"),
-      // req.params.type_id === "null" ? null : req.params.type_id,
-      req.body.accessKey,
-      req.body.secretKey
-    )
-    // })
-
-    res.cookie("accessToken", data.access_token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      maxAge: 30 * 60 * 1000,
-    })
-    res.cookie("refreshToken", data.refresh_token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    })
+    const data = await CredentialService.verify(req.body.accessKey, req.body.secretKey)
 
     res.json({ data })
   } catch (e: any) {
@@ -217,7 +189,7 @@ CredentialService.Router.post("/logout", authenticateToken, async (req: Request,
   res.header(ApiResponseHeaders)
   try {
     res.json({
-      data: await CredentialService.logOut(req.cookies?.accessToken),
+      data: await CredentialService.logOut(req.get("Authorization")),
     })
   } catch (e: any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -225,23 +197,12 @@ CredentialService.Router.post("/logout", authenticateToken, async (req: Request,
   }
 })
 
-CredentialService.Router.post(`/renewToken`, async (req: Request, res: Response) => {
+CredentialService.Router.post(`/renewToken`, authenticateToken, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
-    const data = await CredentialService.renewToken(req.cookies?.refreshToken)
-    res.cookie("accessToken", data.access_token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      maxAge: 1000 * 60 * 30, // 15 minutes
+    res.json({
+      data: await CredentialService.renewToken(req.body.refreshToken),
     })
-    res.cookie("refreshToken", data.refresh_token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    })
-    res.json(data)
   } catch (e: any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
@@ -250,7 +211,6 @@ CredentialService.Router.post(`/renewToken`, async (req: Request, res: Response)
 
 CredentialService.Router.get("/publicKey", async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
-
   try {
     const publicKey = await CredentialService.publicKey()
     res.json(publicKey)
