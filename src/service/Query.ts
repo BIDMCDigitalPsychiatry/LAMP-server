@@ -322,7 +322,6 @@ const METHOD_LIST = (auth: any) => ({
         let x = null // error
         try {
           x = await TypeService.get(auth, type_id, attachment_key)
-          console.log("x", x)
         } catch (e: any) {}
         console.log(` -- LAMP.Tag.get: ${(Date.now() - _start).toFixed(2)} ms`)
         return x

@@ -5,7 +5,6 @@ import { MongoClientDB } from "../Bootstrap"
 
 export class ResearcherRepository implements ResearcherInterface {
   public async _select(id?: string): Promise<[]> {
-    console.log("_select")
     const data = !!id
       ? await MongoClientDB.collection("researcher").find({ _deleted: false, _id: id }).maxTimeMS(60000).toArray()
       : await MongoClientDB.collection("researcher")

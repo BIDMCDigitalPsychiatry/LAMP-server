@@ -175,12 +175,6 @@ TypeService.Router.get(_get_routes, authenticateToken, async (req: Request, res:
   }
 })
 TypeService.Router.put(_put_routes, authenticateToken, async (req: Request, res: Response) => {
-  // let validateRes: any = true
-  // if (req.params.attachment_key === "lamp.name") {
-  //   validateRes = validateInput(req.body.value)
-  // }
-
-  // if (validateRes) {
   res.header(ApiResponseHeaders)
   try {
     res.json({
@@ -198,5 +192,4 @@ TypeService.Router.put(_put_routes, authenticateToken, async (req: Request, res:
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
-  // }
 })

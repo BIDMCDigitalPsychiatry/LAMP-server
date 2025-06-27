@@ -98,6 +98,7 @@ CredentialService.Router.get(
         ),
       }
       output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
+
       res.json(output)
     } catch (e: any) {
       if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)

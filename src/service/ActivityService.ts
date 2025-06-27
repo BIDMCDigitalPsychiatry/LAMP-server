@@ -153,7 +153,6 @@ ActivityService.Router.post(
 ActivityService.Router.put(
   "/activity/:activity_id",
   authenticateToken,
-  // activityValidationRules(),
   validateRequest,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
