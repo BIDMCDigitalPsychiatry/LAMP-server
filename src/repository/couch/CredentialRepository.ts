@@ -83,17 +83,10 @@ export class CredentialRepository implements CredentialInterface {
   }
 
   public async _login(accessKey: string | null, secretKey: any): Promise<any> {
-    // const res = await Database.use("credential").find({
-    //   selector: { origin: type_id },
-    // })
-    // return res
 
-    console.log("username ", accessKey)
-    console.log("password ", secretKey)
   }
 
   public async _renewToken(refreshToken: string): Promise<any> {
-    console.log(`#####token renew`, refreshToken)
   }
   public async _logout(token: string | undefined): Promise<any> {}
 }

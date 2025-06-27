@@ -165,8 +165,6 @@ ResearcherService.Router.get("/researcher/:researcher_id", authenticateToken, as
 ResearcherService.Router.get("/researcher", authenticateToken, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
-    console.log("cookies", req.cookies)
-
     let output = { data: await ResearcherService.list(req.get("Authorization"), null) }
 
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output

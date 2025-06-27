@@ -10,18 +10,9 @@ app.set("json spaces", 2)
 app.use(express.json({ limit: "50mb", strict: false }))
 app.use(express.text())
 
-const limiter = rateLimit({
-  windowMs: 60 * 1000, // 15 minutes
-  max: 500, // max requests per IP
-  message: "Too many requests, please try again later.",
-  standardHeaders: true,
-  legacyHeaders: false,
-})
-
-//app.use(cors({ origin: "*", credentials: true }))
 app.use(
   cors({
-    origin: "*",
+    origin: ["https://dashboard-staging.lamp.digital", "https://dashboard.lamp.digital"],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allowedHeaders: [
@@ -47,7 +38,6 @@ app.use(
     optionsSuccessStatus: 204,
     maxAge: 86400, // Access-Control-Max-Age is 24 hours
   }),
-  limiter
 )
 app.use(morgan(":method :url :status - :response-time ms"))
 app.use(express.urlencoded({ extended: true }))
