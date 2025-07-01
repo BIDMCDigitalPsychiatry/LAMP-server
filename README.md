@@ -23,5 +23,3 @@
 | `ROOT_KEY`   | :heavy_check_mark:  |   |
 | `secret_key`   |   |   |
 
-
-
