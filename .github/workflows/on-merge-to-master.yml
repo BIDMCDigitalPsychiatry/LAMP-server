@@ -1,0 +1,29 @@
+name: On Branch Update (master)
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+
+  build-docker:
+    name: "Build"
+    uses: ./.github/workflows/callable-build-docker.yml
+    secrets: inherit
+    with:
+      push: true
+
+  deploy-env-dev:
+    name: "Deploy Env - Dev"
+    uses: ./.github/workflows/callable-deploy-ecs.yml
+    secrets: inherit
+    with:
+      env: dev
+      container_digest: ${{ needs.build-docker.outputs.container_image_digest }}
+    needs: 
+      - build-docker
