@@ -8,41 +8,42 @@ export class ParticipantRepository implements ParticipantInterface {
     //get data from  Participant via  Participant model
     const data = await MongoClientDB.collection("participant")
       .aggregate([
-      {
-        $match: !!id
-          ? (parent ? { _parent: id, _deleted: false } : { _id: id, _deleted: false })
-          : { _deleted: false },
-      },
-      {
-        $lookup: {
-          from: "study",
-          localField: "_parent",   
-          foreignField: "_id",     
-          as: "studyData",
+        {
+          $match: !!id
+            ? parent
+              ? { _parent: id, _deleted: false }
+              : { _id: id, _deleted: false }
+            : { _deleted: false },
         },
-      },
-      {
-        $addFields: {
-          isMessagingEnabled: { $arrayElemAt: ["$studyData.isMessagingEnabled", 0] },
+        {
+          $lookup: {
+            from: "study",
+            localField: "_parent",
+            foreignField: "_id",
+            as: "studyData",
+          },
         },
-      },
-      {
-        $project: {
-          id: "$_id",
-          isMessagingEnabled: 1,
+        {
+          $addFields: {
+            isMessagingEnabled: { $arrayElemAt: ["$studyData.isMessagingEnabled", 0] },
+          },
         },
-      },
-    ])
-    .toArray();
+        {
+          $project: {
+            id: "$_id",
+            isMessagingEnabled: 1,
+          },
+        },
+      ])
+      .toArray()
 
     return data.map((x: any) => ({
       id: x._id,
       isMessagingEnabled: x.isMessagingEnabled,
-    }));
-
+    }))
   }
   // eslint-disable-next-line
-  public async _insert(study_id: string, object: Participant): Promise<any> {
+  public async _insert(study_id: string, object: Participant): Promise<string> {
     const _id = numeric_uuid()
     //if (study_id === undefined) throw new Error("404.study-does-not-exist") // FIXME
     try {
@@ -56,7 +57,7 @@ export class ParticipantRepository implements ParticipantInterface {
       console.error(e)
       throw new Error("500.participant-creation-failed")
     }
-    return { id: _id }
+    return _id
   }
   // eslint-disable-next-line
   public async _update(participant_id: string, object: Participant): Promise<{}> {

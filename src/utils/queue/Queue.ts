@@ -3,41 +3,73 @@ import { PushNotificationQueueProcess } from "./PushNotificationQueue"
 import { PubSubAPIListenerQueueProcess } from "./PubSubAPIListenerQueue"
 import { BulkDataWriteQueueProcess } from "./BulkDataWriteQueue"
 import { BulkDataWriteSlaveQueueProcess } from "./BulkDataWriteSlaveQueue"
+import { AuditLogQueueProcess } from "./AuditLogQueueProcess"
 
 export let PushNotificationQueue: Bull.Queue<any> | undefined
 export let PubSubAPIListenerQueue: Bull.Queue<any> | undefined
 export let CacheDataQueue: Bull.Queue<any> | undefined
 export let BulkDataWriteQueue: Bull.Queue<any> | undefined
 export let BulkDataWriteSlaveQueue: Bull.Queue<any> | undefined
-
-const redisConfig = {
-  redis: {
-    host: process.env.REDIS_HOST || "127.0.0.1",
-    port: process.env.REDIS_PORT,
-    password: process.env.REDIS_PASSWORD,
-    enableReadyCheck: true,
-    maxRetriesPerRequest: null,
-  },
-}
+export let AuditLogQueue: Bull.Queue<any> | undefined
 
 /**Initialize queues and its process
  *
  */
 export async function initializeQueues(): Promise<void> {
   try {
-    PushNotificationQueue = new Bull("PushNotification", process.env.REDIS_HOST ?? "", {
-      redis: { enableReadyCheck: true, maxRetriesPerRequest: null },
+    const redisUrl = new URL(process.env.REDIS_HOST as string)
+
+    PushNotificationQueue = new Bull("PushNotification", {
+      redis: {
+        host: redisUrl.hostname,
+        port: parseInt(redisUrl.port) || 6379,
+        password: redisUrl.password || undefined,
+        db: parseInt(redisUrl.pathname.slice(1)) || 0,
+        enableReadyCheck: true,
+        maxRetriesPerRequest: null,
+      },
     })
 
-    PubSubAPIListenerQueue = new Bull("PubSubAPIListener", process.env.REDIS_HOST ?? "", {
-      redis: { enableReadyCheck: true, maxRetriesPerRequest: null },
+    PubSubAPIListenerQueue = new Bull("PubSubAPIListener", {
+      redis: {
+        host: redisUrl.hostname,
+        port: parseInt(redisUrl.port) || 6379,
+        password: redisUrl.password || undefined,
+        db: parseInt(redisUrl.pathname.slice(1)) || 0,
+        enableReadyCheck: true,
+        maxRetriesPerRequest: null,
+      },
     })
 
-    BulkDataWriteQueue = new Bull("BulkDataWrite", process.env.REDIS_HOST ?? "", {
-      redis: { enableReadyCheck: true, maxRetriesPerRequest: null },
+    BulkDataWriteQueue = new Bull("BulkDataWrite", {
+      redis: {
+        host: redisUrl.hostname,
+        port: parseInt(redisUrl.port) || 6379,
+        password: redisUrl.password || undefined,
+        db: parseInt(redisUrl.pathname.slice(1)) || 0,
+        enableReadyCheck: true,
+        maxRetriesPerRequest: null,
+      },
     })
-    BulkDataWriteSlaveQueue = new Bull("BulkDataWriteSlave", process.env.REDIS_HOST ?? "", {
-      redis: { enableReadyCheck: true, maxRetriesPerRequest: null },
+    BulkDataWriteSlaveQueue = new Bull("BulkDataWriteSlave", {
+      redis: {
+        host: redisUrl.hostname,
+        port: parseInt(redisUrl.port) || 6379,
+        password: redisUrl.password || undefined,
+        db: parseInt(redisUrl.pathname.slice(1)) || 0,
+        enableReadyCheck: true,
+        maxRetriesPerRequest: null,
+      },
+    })
+    AuditLogQueue = new Bull("AuditLog", {
+      redis: {
+        host: redisUrl.hostname,
+        port: parseInt(redisUrl.port) || 6379,
+        password: redisUrl.password || undefined,
+        db: parseInt(redisUrl.pathname.slice(1)) || 0,
+        enableReadyCheck: true,
+        maxRetriesPerRequest: null,
+      },
     })
     PushNotificationQueue.process((job) => {
       PushNotificationQueueProcess(job)
@@ -50,6 +82,9 @@ export async function initializeQueues(): Promise<void> {
     })
     BulkDataWriteSlaveQueue.process((job) => {
       BulkDataWriteSlaveQueueProcess(job)
+    })
+    AuditLogQueue.process((job) => {
+      AuditLogQueueProcess(job)
     })
   } catch (error) {
     console.log(error)

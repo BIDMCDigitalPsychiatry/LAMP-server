@@ -1,4 +1,4 @@
-import { Database } from "../Bootstrap"
+import { Database, uuid } from "../Bootstrap"
 import { SensorEvent } from "../../model/SensorEvent"
 import { SensorEventInterface } from "../interface/RepositoryInterface"
 // FIXME: does not support filtering by Sensor yet.
@@ -6,7 +6,7 @@ import { SensorEventInterface } from "../interface/RepositoryInterface"
 export class SensorEventRepository implements SensorEventInterface {
   public async _select(
     id?: string,
-    ignore_binary?: boolean, 
+    ignore_binary?: boolean,
     sensor_spec?: string,
     from_date?: number,
     to_date?: number,
@@ -33,17 +33,15 @@ export class SensorEventRepository implements SensorEventInterface {
         limit: Math.abs(limit ?? 1),
       })
     ).docs.map((x: any) => {
-      if(!!ignore_binary) {        
-          delete x.data
+      if (!!ignore_binary) {
+        delete x.data
       }
-      return({...x,
-      _id: undefined,
-      _rev: undefined,
-      "#parent": undefined,
-      })}) as any
+      return { ...x, _id: undefined, _rev: undefined, "#parent": undefined }
+    }) as any
     return all_res
   }
-  public async _insert(participant_id: string, objects: SensorEvent[]): Promise<{}> {
+  public async _insert(participant_id: string, objects: SensorEvent[]): Promise<string> {
+    const _id = uuid()
     const data = await Database.use("sensor_event").bulk({
       docs: (objects as any[]).map((x) => ({
         "#parent": participant_id,
@@ -54,7 +52,7 @@ export class SensorEventRepository implements SensorEventInterface {
     })
     const output = data.filter((x: any) => !!x.error)
     if (output.length > 0) console.error(output)
-    return {}
+    return _id
   }
 
   /** write to db in bulk (argument does not contain participant_id, as participant_id will be present in the array objects given as argument)

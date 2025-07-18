@@ -2,10 +2,13 @@ import { Request, Response, Router } from "express"
 import { _verify } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
-import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
+import { Repository, ApiResponseHeaders, MongoClientDB } from "../repository/Bootstrap"
 import { authenticateToken } from "../middlewares/authenticateToken"
+import { recordStartTime } from "../middlewares/recordStartTime"
 const { sensorValidationRules } = require("../validator/validationRules")
 const { validateRequest } = require("../middlewares/validateRequest")
+import { ObjectId } from "bson"
+import { logAuditEvent, extractAuditContext } from "../utils/AuditLogger"
 
 export class SensorService {
   public static _name = "Sensor"
@@ -145,14 +148,80 @@ export class SensorService {
 
 SensorService.Router.post(
   "/study/:study_id/sensor",
+  recordStartTime,
   authenticateToken,
   sensorValidationRules(),
   validateRequest,
   async (req: Request, res: Response) => {
+    const startTime = (req as any).startTime
     res.header(ApiResponseHeaders)
     try {
-      res.json({ data: await SensorService.create(req.get("Authorization"), req.params.study_id, req.body) })
+      const data = await SensorService.create(req.get("Authorization"), req.params.study_id, req.body)
+      const responseTime = Date.now() - startTime
+      res.json({ data })
+      setImmediate(async () => {
+        try {
+          const authSubject = await _verify(
+            req.get("Authorization"),
+            ["self", "sibling", "parent"],
+            req.params.study_id
+          )
+
+          const credential = await MongoClientDB.collection("credential").findOne({
+            _id: new ObjectId(authSubject._id),
+          })
+
+          logAuditEvent({
+            timestamp: new Date(),
+            object_type: "sensor",
+            object_id: data,
+            read_only: false,
+            fields_changed: req.body,
+            access_by: credential.access_key, // The authenticated user's access key
+            response_status: 200, // Success status
+            response_time_ms: responseTime,
+            ...extractAuditContext(req),
+          })
+        } catch (auditError) {
+          console.error("Audit logging failed:", auditError)
+        }
+      })
     } catch (e: any) {
+      const responseTime = Date.now() - startTime
+      const statusCode = parseInt(e.message.split(".")[0]) || 500
+
+      setImmediate(async () => {
+        try {
+          let authSubject
+          try {
+            authSubject = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], req.params.study_id)
+          } catch (err) {
+            authSubject = { _id: "" }
+          }
+
+          let credential
+          try {
+            const id = new ObjectId(authSubject._id)
+            credential = await MongoClientDB.collection("credential").findOne({ _id: id })
+          } catch (e) {
+            credential = { access_key: "anonymous" }
+          }
+
+          logAuditEvent({
+            timestamp: new Date(),
+            object_type: "sensor",
+            object_id: "req.params.study_id",
+            read_only: false,
+            fields_changed: req.body,
+            access_by: credential.access_key,
+            response_status: statusCode,
+            response_time_ms: responseTime,
+            ...extractAuditContext(req),
+          })
+        } catch (auditError) {
+          console.error("Audit logging failed:", auditError)
+        }
+      })
       if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
       res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
     }
@@ -160,42 +229,247 @@ SensorService.Router.post(
 )
 SensorService.Router.put(
   "/sensor/:sensor_id",
+  recordStartTime,
   sensorValidationRules(),
   validateRequest,
   authenticateToken,
   async (req: Request, res: Response) => {
+    const startTime = (req as any).startTime
     try {
-      res.json({ data: await SensorService.set(req.get("Authorization"), req.params.sensor_id, req.body) })
+      const data = await SensorService.set(req.get("Authorization"), req.params.sensor_id, req.body)
+      const responseTime = Date.now() - startTime
+      res.json({ data })
+      setImmediate(async () => {
+        try {
+          const authSubject = await _verify(
+            req.get("Authorization"),
+            ["self", "sibling", "parent"],
+            req.params.sensor_id
+          )
+
+          const credential = await MongoClientDB.collection("credential").findOne({
+            _id: new ObjectId(authSubject._id),
+          })
+
+          logAuditEvent({
+            timestamp: new Date(),
+            object_type: "sensor",
+            object_id: req.params.sensor_id,
+            read_only: false,
+            fields_changed: req.body,
+            access_by: credential.access_key, // The authenticated user's access key
+            response_status: 200, // Success status
+            response_time_ms: responseTime,
+            ...extractAuditContext(req),
+          })
+        } catch (auditError) {
+          console.error("Audit logging failed:", auditError)
+        }
+      })
     } catch (e: any) {
+      const responseTime = Date.now() - startTime
+      const statusCode = parseInt(e.message.split(".")[0]) || 500
+
+      setImmediate(async () => {
+        try {
+          let authSubject
+          try {
+            authSubject = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], req.params.sensor_id)
+          } catch (err) {
+            authSubject = { _id: "" }
+          }
+
+          let credential
+          try {
+            const id = new ObjectId(authSubject._id)
+            credential = await MongoClientDB.collection("credential").findOne({ _id: id })
+          } catch (e) {
+            credential = { access_key: "anonymous" }
+          }
+
+          logAuditEvent({
+            timestamp: new Date(),
+            object_type: "sensor",
+            object_id: req.params.sensor_id,
+            read_only: false,
+            fields_changed: req.body,
+            access_by: credential.access_key,
+            response_status: statusCode,
+            response_time_ms: responseTime,
+            ...extractAuditContext(req),
+          })
+        } catch (auditError) {
+          console.error("Audit logging failed:", auditError)
+        }
+      })
       if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
       res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
     }
   }
 )
-SensorService.Router.delete("/sensor/:sensor_id", authenticateToken, async (req: Request, res: Response) => {
-  res.header(ApiResponseHeaders)
-  try {
-    res.json({ data: await SensorService.set(req.get("Authorization"), req.params.sensor_id, null) })
-  } catch (e: any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
-    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
-  }
-})
-SensorService.Router.get("/sensor/:sensor_id", authenticateToken, async (req: Request, res: Response) => {
-  res.header(ApiResponseHeaders)
-  try {
-    let output = { data: await SensorService.get(req.get("Authorization"), req.params.sensor_id) }
-    output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
-    res.json(output)
-  } catch (e: any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
-    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
-  }
-})
-SensorService.Router.get(
-  "/participant/:participant_id/sensor",
+SensorService.Router.delete(
+  "/sensor/:sensor_id",
+  recordStartTime,
   authenticateToken,
   async (req: Request, res: Response) => {
+    const startTime = (req as any).startTime
+    res.header(ApiResponseHeaders)
+    try {
+      const data = await SensorService.set(req.get("Authorization"), req.params.sensor_id, null)
+      const responseTime = Date.now() - startTime
+      res.json({ data })
+      setImmediate(async () => {
+        try {
+          const authSubject = await _verify(
+            req.get("Authorization"),
+            ["self", "sibling", "parent"],
+            req.params.sensor_id
+          )
+
+          const credential = await MongoClientDB.collection("credential").findOne({
+            _id: new ObjectId(authSubject._id),
+          })
+
+          logAuditEvent({
+            timestamp: new Date(),
+            object_type: "sensor",
+            object_id: req.params.sensor_id,
+            read_only: false,
+            fields_changed: { deleted: true },
+            access_by: credential.access_key, // The authenticated user's access key
+            response_status: 200, // Success status
+            response_time_ms: responseTime,
+            ...extractAuditContext(req),
+          })
+        } catch (auditError) {
+          console.error("Audit logging failed:", auditError)
+        }
+      })
+    } catch (e: any) {
+      const responseTime = Date.now() - startTime
+      const statusCode = parseInt(e.message.split(".")[0]) || 500
+
+      setImmediate(async () => {
+        try {
+          let authSubject
+          try {
+            authSubject = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], req.params.sensor_id)
+          } catch (err) {
+            authSubject = { _id: "" }
+          }
+
+          let credential
+          try {
+            const id = new ObjectId(authSubject._id)
+            credential = await MongoClientDB.collection("credential").findOne({ _id: id })
+          } catch (e) {
+            credential = { access_key: "anonymous" }
+          }
+
+          logAuditEvent({
+            timestamp: new Date(),
+            object_type: "sensor",
+            object_id: req.params.sensor_id,
+            read_only: false,
+            fields_changed: { deleted: true },
+            access_by: credential.access_key,
+            response_status: statusCode,
+            response_time_ms: responseTime,
+            ...extractAuditContext(req),
+          })
+        } catch (auditError) {
+          console.error("Audit logging failed:", auditError)
+        }
+      })
+      if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
+      res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
+    }
+  }
+)
+SensorService.Router.get(
+  "/sensor/:sensor_id",
+  recordStartTime,
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    const startTime = (req as any).startTime
+    res.header(ApiResponseHeaders)
+    try {
+      let output = { data: await SensorService.get(req.get("Authorization"), req.params.sensor_id) }
+      output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
+      const responseTime = Date.now() - startTime
+      res.json(output)
+      setImmediate(async () => {
+        try {
+          const authSubject = await _verify(
+            req.get("Authorization"),
+            ["self", "sibling", "parent"],
+            req.params.sensor_id
+          )
+          const credential = await MongoClientDB.collection("credential").findOne({
+            _id: new ObjectId(authSubject._id),
+          })
+          logAuditEvent({
+            timestamp: new Date(),
+            object_type: "sensor",
+            object_id: req.params.sensor_id,
+            read_only: true,
+            fields_changed: null,
+            access_by: credential.access_key,
+            response_status: 200,
+            response_time_ms: responseTime,
+            ...extractAuditContext(req),
+          })
+        } catch (auditError) {
+          console.error("Audit logging failed:", auditError)
+        }
+      })
+    } catch (e: any) {
+      const responseTime = Date.now() - startTime
+      const statusCode = parseInt(e.message.split(".")[0]) || 500
+
+      setImmediate(async () => {
+        try {
+          let authSubject
+          try {
+            authSubject = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], req.params.sensor_id)
+          } catch (err) {
+            authSubject = { _id: "" }
+          }
+
+          let credential
+          try {
+            const id = new ObjectId(authSubject._id)
+            credential = await MongoClientDB.collection("credential").findOne({ _id: id })
+          } catch (e) {
+            credential = { access_key: "anonymous" }
+          }
+
+          logAuditEvent({
+            timestamp: new Date(),
+            object_type: "sensor",
+            object_id: req.params.sensor_id,
+            read_only: true,
+            fields_changed: null,
+            access_by: credential.access_key,
+            response_status: statusCode,
+            response_time_ms: responseTime,
+            ...extractAuditContext(req),
+          })
+        } catch (auditError) {
+          console.error("Audit logging failed:", auditError)
+        }
+      })
+      if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
+      res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
+    }
+  }
+)
+SensorService.Router.get(
+  "/participant/:participant_id/sensor",
+  recordStartTime,
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    const startTime = (req as any).startTime
     res.header(ApiResponseHeaders)
     try {
       let output = {
@@ -207,23 +481,159 @@ SensorService.Router.get(
         ),
       }
       output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
+      const responseTime = Date.now() - startTime
       res.json(output)
+      setImmediate(async () => {
+        try {
+          const authSubject = await _verify(
+            req.get("Authorization"),
+            ["self", "sibling", "parent"],
+            req.params.participant_id
+          )
+          const credential = await MongoClientDB.collection("credential").findOne({
+            _id: new ObjectId(authSubject._id),
+          })
+          logAuditEvent({
+            timestamp: new Date(),
+            object_type: "sensor",
+            object_id: req.params.participant_id,
+            read_only: true,
+            fields_changed: null,
+            access_by: credential.access_key,
+            response_status: 200,
+            response_time_ms: responseTime,
+            ...extractAuditContext(req),
+          })
+        } catch (auditError) {
+          console.error("Audit logging failed:", auditError)
+        }
+      })
     } catch (e: any) {
+      const responseTime = Date.now() - startTime
+      const statusCode = parseInt(e.message.split(".")[0]) || 500
+
+      setImmediate(async () => {
+        try {
+          let authSubject
+          try {
+            authSubject = await _verify(
+              req.get("Authorization"),
+              ["self", "sibling", "parent"],
+              req.params.participant_id
+            )
+          } catch (err) {
+            authSubject = { _id: "" }
+          }
+
+          let credential
+          try {
+            const id = new ObjectId(authSubject._id)
+            credential = await MongoClientDB.collection("credential").findOne({ _id: id })
+          } catch (e) {
+            credential = { access_key: "anonymous" }
+          }
+
+          logAuditEvent({
+            timestamp: new Date(),
+            object_type: "sensor",
+            object_id: req.params.participant_id,
+            read_only: true,
+            fields_changed: null,
+            access_by: credential.access_key,
+            response_status: statusCode,
+            response_time_ms: responseTime,
+            ...extractAuditContext(req),
+          })
+        } catch (auditError) {
+          console.error("Audit logging failed:", auditError)
+        }
+      })
       if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
       res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
     }
   }
 )
-SensorService.Router.get("/study/:study_id/sensor", authenticateToken, async (req: Request, res: Response) => {
-  res.header(ApiResponseHeaders)
-  try {
-    let output = {
-      data: await SensorService.list(req.get("Authorization"), req.params.study_id, req.query.ignore_binary === "true"),
+SensorService.Router.get(
+  "/study/:study_id/sensor",
+  recordStartTime,
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    const startTime = (req as any).startTime
+    res.header(ApiResponseHeaders)
+    try {
+      let output = {
+        data: await SensorService.list(
+          req.get("Authorization"),
+          req.params.study_id,
+          req.query.ignore_binary === "true"
+        ),
+      }
+      output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
+      const responseTime = Date.now() - startTime
+      res.json(output)
+      setImmediate(async () => {
+        try {
+          const authSubject = await _verify(
+            req.get("Authorization"),
+            ["self", "sibling", "parent"],
+            req.params.study_id
+          )
+          const credential = await MongoClientDB.collection("credential").findOne({
+            _id: new ObjectId(authSubject._id),
+          })
+          logAuditEvent({
+            timestamp: new Date(),
+            object_type: "sensor",
+            object_id: req.params.study_id,
+            read_only: true,
+            fields_changed: null,
+            access_by: credential.access_key,
+            response_status: 200,
+            response_time_ms: responseTime,
+            ...extractAuditContext(req),
+          })
+        } catch (auditError) {
+          console.error("Audit logging failed:", auditError)
+        }
+      })
+    } catch (e: any) {
+      const responseTime = Date.now() - startTime
+      const statusCode = parseInt(e.message.split(".")[0]) || 500
+
+      setImmediate(async () => {
+        try {
+          let authSubject
+          try {
+            authSubject = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], req.params.study_id)
+          } catch (err) {
+            authSubject = { _id: "" }
+          }
+
+          let credential
+          try {
+            const id = new ObjectId(authSubject._id)
+            credential = await MongoClientDB.collection("credential").findOne({ _id: id })
+          } catch (e) {
+            credential = { access_key: "anonymous" }
+          }
+
+          logAuditEvent({
+            timestamp: new Date(),
+            object_type: "sensor",
+            object_id: req.params.study_id,
+            read_only: true,
+            fields_changed: null,
+            access_by: credential.access_key,
+            response_status: statusCode,
+            response_time_ms: responseTime,
+            ...extractAuditContext(req),
+          })
+        } catch (auditError) {
+          console.error("Audit logging failed:", auditError)
+        }
+      })
+      if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
+      res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
     }
-    output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
-    res.json(output)
-  } catch (e: any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
-    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
-})
+)

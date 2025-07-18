@@ -101,7 +101,6 @@ export const Encrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"):
       return Buffer.concat([ivl, cipher.update(Buffer.from(data, "utf16le")), cipher.final()]).toString("base64")
     }
   } catch (error) {
-    console.error("Encryption error:", error)
     return undefined
   }
 }
@@ -124,7 +123,6 @@ export const Decrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"):
       return Buffer.concat([cipher.update(dat.slice(16)), cipher.final()]).toString("utf16le")
     }
   } catch (error) {
-    console.error("Encryption error:", error)
     return undefined
   }
 }
@@ -757,7 +755,6 @@ export async function Bootstrap(): Promise<void> {
       try {
         // Create a new password and emit it to the console while saving it (to share it with the sysadmin).
         const p = crypto.randomBytes(32).toString("hex")
-        console.table({ "Administrator Password": p })
         await Database.use("credential").insert({
           origin: null,
           access_key: "admin",
@@ -944,7 +941,6 @@ export async function Bootstrap(): Promise<void> {
         try {
           // Create a new password and emit it to the console while saving it (to share it with the sysadmin).
           const p = crypto.randomBytes(32).toString("hex")
-          console.table({ "Administrator Password": p })
           await database.insertOne({
             _id: new ObjectId(),
             origin: null,
@@ -954,12 +950,10 @@ export async function Bootstrap(): Promise<void> {
             _deleted: false,
           } as any)
         } catch (error) {
-          console.log(error)
+          console.log("error")
         }
       }
       console.log("Credential database online.")
-
-      console.groupEnd()
       console.groupEnd()
       console.log("Database verification complete.")
     } else {
@@ -1057,19 +1051,29 @@ export class RedisFactory {
    * @returns redis client instance
    */
   public static getInstance(): ioredis.Redis {
-    if (this.instance === undefined) {
-      this.instance = new ioredis(
-        parseInt(`${(process.env.REDIS_PORT as any).match(/([0-9]+)/g)?.[0]}`),
-        process.env.REDIS_HOST as any,
-        {
-          reconnectOnError() {
-            return 1
-          },
+    // if (this.instance === undefined) {
+    //   this.instance = new ioredis(
+    //     parseInt(`${(process.env.REDIS_PORT as any).match(/([0-9]+)/g)?.[0]}`),
+    //     process.env.REDIS_HOST as any,
+    //     {
+    //       reconnectOnError() {
+    //         return 1
+    //       },
 
-          enableReadyCheck: true,
-        }
-      )
+    //       enableReadyCheck: true,
+    //     }
+    //   )
+    // }
+
+    if (this.instance === undefined) {
+      this.instance = new ioredis(process.env.REDIS_HOST as string, {
+        reconnectOnError() {
+          return 1
+        },
+        enableReadyCheck: true,
+      })
     }
+
     return this.instance
   }
 }

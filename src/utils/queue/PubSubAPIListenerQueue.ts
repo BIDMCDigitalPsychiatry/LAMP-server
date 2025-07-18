@@ -8,7 +8,6 @@ const clientLock = new Mutex()
  * @param job
  */
 export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bull.DoneCallback): Promise<void> {
-  console.log("inside PubSubAPIListenerQueueProcess")
   let publishStatus = true
   const repo = new Repository()
   const TypeRepository = repo.getTypeRepository()
@@ -55,7 +54,6 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
     ) {
       try {
         const parent: any = await TypeRepository._parent(job.data.payload.activity_id)
-        console.log("parent inside parent", parent)
         job.data.payload.study_id = parent["Study"]
         //form the token for the consumer
         job.data.token = `study.${parent["Study"]}.activity.${job.data.payload.activity_id}`
@@ -111,7 +109,6 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
           const size = Buffer.byteLength(Data.data)
           //IF SIZE GREATER THAN NATS PAYLOAD MAX SIZE
           if (size > maxPayloadSize) {
-            console.log("size > maxPayloadSize ae", size)
             const dataNew: any = {}
             dataNew.data = JSON.stringify({
               activity: payload.activity,
@@ -129,8 +126,6 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
         } catch (error) {
           release()
           publishStatus = false
-          console.log("activity_event_payload_size", Buffer.byteLength(JSON.stringify(payload)))
-          console.log("activity_event_payload", payload)
           console.log(error)
         }
       }
@@ -162,7 +157,6 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
 
           //IF SIZE GREATER THAN NATS PAYLOAD MAX SIZE
           if (size > maxPayloadSize) {
-            console.log("size > maxPayloadSize se", size)
             const dataNew: any = {}
             dataNew.data = JSON.stringify({
               subject_id: job.data.participant_id,
@@ -178,8 +172,6 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
         } catch (error) {
           release()
           publishStatus = false
-          console.log("sensor_event_payload_size", Buffer.byteLength(JSON.stringify(payload)))
-          console.log("sensor_event_payload", payload)
           console.log(error)
         }
       }
@@ -198,7 +190,6 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
 
         //IF SIZE GREATER THAN NATS PAYLOAD MAX SIZE-TAKE CORRESPONDIG IDs AND PUBLISH
         if (size > maxPayloadSize) {
-          console.log("size > maxPayloadSize ", size)
           const dataNew: any = {}
           switch (job.data.topic) {
             //FOR RESEARCHER APIS
@@ -287,13 +278,10 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
               break
           }
         } else {
-          console.log("inside else")
           ;(await nc).publish(job.data.topic, Data)
-          console.log("nc", nc)
         }
         release()
       } catch (error) {
-        console.log("size > maxPayloadSize ", error)
         release()
         console.log(error)
       }
