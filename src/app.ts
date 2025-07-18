@@ -12,7 +12,7 @@ app.use(express.text())
 
 app.use(
   cors({
-    origin: ["https://dashboard-staging.lamp.digital", "https://dashboard.lamp.digital"],
+    origin: ["https://lamp-dashboard.zcodemo.com/", "http://localhost:3000","https://dashboard-staging.lamp.digital", "https://dashboard.lamp.digital"],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allowedHeaders: [
