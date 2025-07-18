@@ -142,7 +142,7 @@ ActivityService.Router.post(
   "/study/:study_id/activity",
   recordStartTime,
   authenticateToken,
-  activityValidationRules(),
+  // activityValidationRules(),
   validateRequest,
   async (req: Request, res: Response) => {
     const startTime = (req as any).startTime

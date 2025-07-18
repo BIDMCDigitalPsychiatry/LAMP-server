@@ -53,7 +53,7 @@ ActivitySpecService.Router.post(
     res.header(ApiResponseHeaders)
     try {
       const data = await ActivitySpecService.create(req.get("Authorization"), null, req.body)
-      const responseTime = startTime - Date.now()
+      const responseTime = Date.now() - startTime
       res.json({ data })
       setImmediate(async () => {
         try {

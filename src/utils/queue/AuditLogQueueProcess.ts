@@ -1,9 +1,8 @@
-import {  Pool, PoolClient } from "pg" // or whatever SQL client you choose
+import { Pool } from "pg" // or whatever SQL client you choose
 
 // Create connection pool for audit database
 const auditPool = new Pool({
-  // connectionString: process.env.AUDIT_DB_URL || process.env.DATABASE_URL,
-  connectionString: "postgresql://postgres:root@localhost:5432/audit_logs",
+  connectionString: process.env.postgresDB,
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
@@ -11,11 +10,11 @@ const auditPool = new Pool({
 
 auditPool
   .connect()
-  .then((client:PoolClient) => {
+  .then((client) => {
     console.log("Connected to the audit database")
     client.release()
   })
-  .catch((err:any) => {
+  .catch((err: any) => {
     console.error("Error connecting to the audit database", err)
   })
 
@@ -23,7 +22,6 @@ export async function AuditLogQueueProcess(job: any): Promise<void> {
   try {
     const data = job.data
 
-    // Insert audit log entry into SQL database
     await auditPool.query(
       `
       INSERT INTO audit_logs 

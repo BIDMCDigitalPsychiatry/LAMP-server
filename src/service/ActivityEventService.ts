@@ -110,7 +110,7 @@ ActivityEventService.Router.post(
         Array.isArray(req.body) ? req.body : [req.body]
       )
 
-      const responseTime = startTime - Date.now()
+      const responseTime = Date.now() - startTime
       res.json({ data })
       setImmediate(async () => {
         try {
@@ -204,7 +204,7 @@ ActivityEventService.Router.get(
         ),
       }
       output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
-      const responseTime = startTime - Date.now()
+      const responseTime = Date.now() - startTime
       res.json(output)
       setImmediate(async () => {
         try {

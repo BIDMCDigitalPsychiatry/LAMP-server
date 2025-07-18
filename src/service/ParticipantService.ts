@@ -132,7 +132,7 @@ ParticipantService.Router.post(
     res.header(ApiResponseHeaders)
     try {
       const data = await ParticipantService.create(req.get("Authorization"), req.params.study_id, req.body)
-      const responseTime = startTime - Date.now()
+      const responseTime = Date.now() - startTime
       res.json({ data })
       setImmediate(async () => {
         try {
