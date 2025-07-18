@@ -1,4 +1,4 @@
-import { Pool } from "pg" // or whatever SQL client you choose
+import {  Pool, PoolClient } from "pg" // or whatever SQL client you choose
 
 // Create connection pool for audit database
 const auditPool = new Pool({
@@ -11,11 +11,11 @@ const auditPool = new Pool({
 
 auditPool
   .connect()
-  .then((client) => {
+  .then((client:PoolClient) => {
     console.log("Connected to the audit database")
     client.release()
   })
-  .catch((err) => {
+  .catch((err:any) => {
     console.error("Error connecting to the audit database", err)
   })
 
