@@ -1,16 +1,15 @@
-import crypto from "crypto"
 import { Encrypt, Decrypt } from "../Bootstrap"
 import { CredentialInterface } from "../interface/RepositoryInterface"
-import { MongoClientDB } from "../Bootstrap"
+import { MongoClientDB, uuid } from "../Bootstrap"
 import { ObjectId } from "mongodb"
 import { jwtVerify, SignJWT } from "jose"
-const path = require('path');
+const path = require("path")
 
 const { isLocked, recordFailedAttempts, clearAttempts } = require("../../utils/accountLockout")
 
 export class CredentialRepository implements CredentialInterface {
   // if used with secret_key, will throw error if mismatch, else, will return confirmation of existence
-  public async _find(access_key: string, secret_key?: string): Promise<string> {
+  public async _find(access_key: string, secret_key?: string): Promise<any> {
     if (isLocked(access_key)) {
       throw new Error("Account is temporarily locked. Try again later.")
     }
@@ -22,7 +21,7 @@ export class CredentialRepository implements CredentialInterface {
         .toArray()
     ).filter((x: any) => (!!secret_key ? Decrypt(x.secret_key, "AES256") === secret_key : true))
 
-    if (res.length !== 0) return (res[0] as any).origin
+    if (res.length !== 0) return res[0] as any
     else {
       throw new Error("403.no-such-credentials")
     }
@@ -40,7 +39,15 @@ export class CredentialRepository implements CredentialInterface {
       _deleted: undefined,
     }))
   }
-  public async _insert(type_id: string | null, credential: any): Promise<{}> {
+  public async _insert(type_id: string | null, credential: any): Promise<string> {
+    const _id = uuid()
+    // const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/
+    // if (!strongPasswordRegex.test(credential.secret_key)) {
+    //   throw new Error(
+    //     "Password must be at least 8 characters long and include uppercase, lowercase, number, and special character."
+    //   )
+    // }
+
     if (credential.origin === "me" || credential.origin === null) {
       // FIXME: context substitution doesn't actually work within the object here, so do it manually.
       credential.origin = type_id
@@ -63,7 +70,7 @@ export class CredentialRepository implements CredentialInterface {
       description: credential.description,
       _deleted: false,
     } as any)
-    return {}
+    return _id
   }
   public async _update(type_id: string | null, access_key: string, credential: any): Promise<{}> {
     const res: any = await MongoClientDB.collection("credential").findOne({ origin: type_id, access_key: access_key })
@@ -96,9 +103,12 @@ export class CredentialRepository implements CredentialInterface {
 
     const { privateDecrypt, constants } = require("crypto")
     const fs = require("fs")
+    // const privateKey = fs.readFileSync("./src/utils/private_key.pem", "utf8")
+    // const publicKey = fs.readFileSync('./src/utils/public_key.pem', 'utf8');
 
-    const privateKeyPath = path.resolve(process.cwd(), 'private_key.pem');
-    const privateKey = fs.readFileSync(privateKeyPath, 'utf8');
+    const privateKeyPath = path.resolve(process.cwd(), "private_key.pem")
+    const privateKey = fs.readFileSync(privateKeyPath, "utf8")
+
     const encryptedPassword = secretKey
     let decrypted
     try {
@@ -111,7 +121,7 @@ export class CredentialRepository implements CredentialInterface {
         Buffer.from(encryptedPassword, "base64")
       ).toString("utf8")
     } catch (error) {
-      console.error("Decryption error:", error)
+      console.log("error")
     }
 
     if (isLocked(decrypted)) {
@@ -124,6 +134,12 @@ export class CredentialRepository implements CredentialInterface {
       if (decrypted === secretKeyDecrypted) {
         // Generating jwt access token
         try {
+          // res.access_token = await new SignJWT({ access_key: res.access_key, secret_key: res.secret_key })
+          //   .setProtectedHeader({ alg: "HS256" })
+          //   .setIssuedAt()
+          //   .setExpirationTime("1h")
+          //   .sign(secret_key)
+
           res.access_token = await new SignJWT({ user_id: res._id, origin: res.origin })
             .setProtectedHeader({ alg: "HS256" })
             .setIssuedAt()
@@ -146,28 +162,34 @@ export class CredentialRepository implements CredentialInterface {
 
         return res as any
       } else {
+        // await handleFailedLogin();
         recordFailedAttempts(decrypted)
         throw new Error("403.no-such-credentials")
+        // return res.status(401).json({ error: "Invalid credentials" })
       }
+      // throw new Error("403.no-such-credentials")
     } else {
       recordFailedAttempts(decrypted)
       throw new Error("403.no-such-credentials")
     }
   }
 
-  public async _logout(token: string | undefined): Promise<any> {
+  public async _logout(token: string | undefined): Promise<string> {
+    const _id = uuid()
     await MongoClientDB.collection("tokens").insertOne({
       _id: new ObjectId(),
       token: token,
     } as any)
-    return {}
+    return _id
   }
 
   public async _renewToken(refreshToken: string): Promise<any> {
+    const _id = uuid()
     const JWT_SECRET = process.env.SECRET_KEY as string
     const jwtSecretKey = new TextEncoder().encode(JWT_SECRET)
     try {
       const { payload }: any = await jwtVerify(refreshToken, jwtSecretKey)
+
       const accessKey = payload?.access_key
       const secretKey = payload?.secret_key
       const user_id = payload?.user_id
@@ -178,13 +200,19 @@ export class CredentialRepository implements CredentialInterface {
       })
 
       if (res?.length !== 0) {
-        // Generating new tokens
         try {
           res.access_token = await new SignJWT({ user_id: res._id, origin: res.origin })
             .setProtectedHeader({ alg: "HS256" })
             .setIssuedAt()
             .setExpirationTime("30m")
             .sign(jwtSecretKey)
+
+          // Refresh token
+          // res.refresh_token = await new SignJWT({ access_key: accessKey, secret_key: secretKey })
+          //   .setProtectedHeader({ alg: "HS256" })
+          //   .setIssuedAt()
+          //   .setExpirationTime("5m")
+          //   .sign(jwtSecretKey)
 
           res.refresh_token = await new SignJWT({ user_id: res._id, origin: res.origin })
             .setProtectedHeader({ alg: "HS256" })
@@ -197,9 +225,12 @@ export class CredentialRepository implements CredentialInterface {
         } catch (err) {
           console.log(err)
         }
+        // }
       }
     } catch (error) {
       throw new Error("401.invalid-token")
     }
+
+    // throw new Error("403.no-such-credentials")
   }
 }

@@ -12,8 +12,13 @@ app.use(express.text())
 
 app.use(
   cors({
-    origin: ["https://lamp-dashboard.zcodemo.com/", "http://localhost:3000","https://dashboard-staging.lamp.digital", "https://dashboard.lamp.digital"],
-    credentials: true,
+    origin: [
+      "https://dashboard-staging.lamp.digital",
+      "https://dashboard.lamp.digital",
+      "https://lamp-dashboard.zcodemo.com",
+      "https://lamp-secdash.zcodemo.com",
+      "http://localhost:3000",
+    ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allowedHeaders: [
       "Accept",
@@ -37,6 +42,7 @@ app.use(
     preflightContinue: false,
     optionsSuccessStatus: 204,
     maxAge: 86400, // Access-Control-Max-Age is 24 hours
+    credentials: true,
   }),
 )
 app.use(morgan(":method :url :status - :response-time ms"))

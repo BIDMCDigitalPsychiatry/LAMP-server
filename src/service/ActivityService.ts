@@ -2,10 +2,13 @@ import { Request, Response, Router } from "express"
 import { _verify } from "./Security"
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
-import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
+import { Repository, ApiResponseHeaders, MongoClientDB } from "../repository/Bootstrap"
+import { ObjectId } from "bson"
 import { authenticateToken } from "../middlewares/authenticateToken"
 const { activityValidationRules } = require("../validator/validationRules")
 const { validateRequest } = require("../middlewares/validateRequest")
+import { logAuditEvent, extractAuditContext } from "../utils/AuditLogger"
+import { recordStartTime } from "../middlewares/recordStartTime"
 
 export class ActivityService {
   public static _name = "Activity"
@@ -103,20 +106,20 @@ export class ActivityService {
       const data = await ActivityRepository._update(activity_id, activity)
       //publishing data for activity update api (Token will be created in PubSubAPIListenerQueue consumer, as study for this activity need to fetched to create token)
       if (PubSubAPIListenerQueue) {
-        PubSubAPIListenerQueue.on("waiting", (jobId) => {
-          console.log(`[Queue waiting] Job ID: ${jobId}`)
+        PubSubAPIListenerQueue.on("waiting", () => {
+          console.log(`[Queue waiting] Job ID}`)
         })
 
-        PubSubAPIListenerQueue.on("active", (job) => {
-          console.log(`[Queue active] Processing job:`, job.data)
+        PubSubAPIListenerQueue.on("active", () => {
+          console.log(`[Queue active] Processing job:`)
         })
 
-        PubSubAPIListenerQueue.on("completed", (job, result) => {
-          console.log(`[Queue completed] Job ID: ${job.id}, result:`, result)
+        PubSubAPIListenerQueue.on("completed", () => {
+          console.log(`[Queue completed] Job `)
         })
 
-        PubSubAPIListenerQueue.on("failed", (job, err) => {
-          console.error(`[Queue failed] Job ID: ${job.id}, error:`, err)
+        PubSubAPIListenerQueue.on("failed", () => {
+          console.error(`[Queue failed] Job ID`)
         })
       }
       activity.activity_id = activity_id
@@ -137,14 +140,80 @@ export class ActivityService {
 
 ActivityService.Router.post(
   "/study/:study_id/activity",
+  recordStartTime,
   authenticateToken,
   activityValidationRules(),
   validateRequest,
   async (req: Request, res: Response) => {
+    const startTime = (req as any).startTime
     res.header(ApiResponseHeaders)
     try {
-      res.json({ data: await ActivityService.create(req.get("Authorization"), req.params.study_id, req.body) })
+      const data = await ActivityService.create(req.get("Authorization"), req.params.study_id, req.body)
+      const responseTime = Date.now() - startTime
+      res.json({ data })
+      setImmediate(async () => {
+        try {
+          const authSubject = await _verify(
+            req.get("Authorization"),
+            ["self", "sibling", "parent"],
+            req.params.study_id
+          )
+
+          const credential = await MongoClientDB.collection("credential").findOne({
+            _id: new ObjectId(authSubject._id),
+          })
+
+          logAuditEvent({
+            timestamp: new Date(),
+            object_type: "activity",
+            object_id: data,
+            read_only: false,
+            fields_changed: req.body,
+            access_by: credential.access_key, // The authenticated user's access key
+            response_status: 200, // Success status
+            response_time_ms: responseTime,
+            ...extractAuditContext(req),
+          })
+        } catch (auditError) {
+          console.error("Audit logging failed:", auditError)
+        }
+      })
     } catch (e: any) {
+      const responseTime = Date.now() - startTime
+      const statusCode = parseInt(e.message.split(".")[0]) || 500
+
+      setImmediate(async () => {
+        try {
+          let authSubject
+          try {
+            authSubject = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], req.params.study_id)
+          } catch (err) {
+            authSubject = { _id: "" }
+          }
+
+          let credential
+          try {
+            const id = new ObjectId(authSubject._id)
+            credential = await MongoClientDB.collection("credential").findOne({ _id: id })
+          } catch (e) {
+            credential = { access_key: "anonymous" }
+          }
+
+          logAuditEvent({
+            timestamp: new Date(),
+            object_type: "activity",
+            object_id: "req.params.study_id",
+            read_only: false,
+            fields_changed: req.body,
+            access_by: credential.access_key,
+            response_status: statusCode,
+            response_time_ms: responseTime,
+            ...extractAuditContext(req),
+          })
+        } catch (auditError) {
+          console.error("Audit logging failed:", auditError)
+        }
+      })
       if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
       res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
     }
@@ -152,42 +221,248 @@ ActivityService.Router.post(
 )
 ActivityService.Router.put(
   "/activity/:activity_id",
+  recordStartTime,
   authenticateToken,
+  // activityValidationRules(),
   validateRequest,
   async (req: Request, res: Response) => {
+    const startTime = (req as any).startTime
     res.header(ApiResponseHeaders)
     try {
-      res.json({ data: await ActivityService.set(req.get("Authorization"), req.params.activity_id, req.body) })
+      const data = await ActivityService.set(req.get("Authorization"), req.params.activity_id, req.body)
+      const responseTime = Date.now() - startTime
+      res.json({ data })
+      setImmediate(async () => {
+        try {
+          const authSubject = await _verify(
+            req.get("Authorization"),
+            ["self", "sibling", "parent"],
+            req.params.activity_id
+          )
+
+          const credential = await MongoClientDB.collection("credential").findOne({
+            _id: new ObjectId(authSubject._id),
+          })
+
+          logAuditEvent({
+            timestamp: new Date(),
+            object_type: "activity",
+            object_id: req.params.activity_id,
+            read_only: false,
+            fields_changed: req.body,
+            access_by: credential.access_key, // The authenticated user's access key
+            response_status: 200, // Success status
+            response_time_ms: responseTime,
+            ...extractAuditContext(req),
+          })
+        } catch (auditError) {
+          console.error("Audit logging failed:", auditError)
+        }
+      })
     } catch (e: any) {
+      const responseTime = Date.now() - startTime
+      const statusCode = parseInt(e.message.split(".")[0]) || 500
+
+      setImmediate(async () => {
+        try {
+          let authSubject
+          try {
+            authSubject = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], req.params.activity_id)
+          } catch (err) {
+            authSubject = { _id: "" }
+          }
+
+          let credential
+          try {
+            const id = new ObjectId(authSubject._id)
+            credential = await MongoClientDB.collection("credential").findOne({ _id: id })
+          } catch (e) {
+            credential = { access_key: "anonymous" }
+          }
+
+          logAuditEvent({
+            timestamp: new Date(),
+            object_type: "activity",
+            object_id: req.params.activity_id,
+            read_only: false,
+            fields_changed: req.body,
+            access_by: credential.access_key,
+            response_status: statusCode,
+            response_time_ms: responseTime,
+            ...extractAuditContext(req),
+          })
+        } catch (auditError) {
+          console.error("Audit logging failed:", auditError)
+        }
+      })
       if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
       res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
     }
   }
 )
-ActivityService.Router.delete("/activity/:activity_id", authenticateToken, async (req: Request, res: Response) => {
-  res.header(ApiResponseHeaders)
-  try {
-    res.json({ data: await ActivityService.set(req.get("Authorization"), req.params.activity_id, null) })
-  } catch (e: any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
-    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
-  }
-})
-ActivityService.Router.get("/activity/:activity_id", async (req: Request, res: Response) => {
-  res.header(ApiResponseHeaders)
-  try {
-    let output = { data: await ActivityService.get(req.get("Authorization"), req.params.activity_id) }
-    output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
-    res.json(output)
-  } catch (e: any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
-    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
-  }
-})
-ActivityService.Router.get(
-  "/participant/:participant_id/activity",
+ActivityService.Router.delete(
+  "/activity/:activity_id",
+  recordStartTime,
   authenticateToken,
   async (req: Request, res: Response) => {
+    const startTime = (req as any).startTime
+    res.header(ApiResponseHeaders)
+    try {
+      const data = await ActivityService.set(req.get("Authorization"), req.params.activity_id, null)
+      const responseTime = Date.now() - startTime
+      res.json({ data })
+      setImmediate(async () => {
+        try {
+          const authSubject = await _verify(
+            req.get("Authorization"),
+            ["self", "sibling", "parent"],
+            req.params.activity_id
+          )
+
+          const credential = await MongoClientDB.collection("credential").findOne({
+            _id: new ObjectId(authSubject._id),
+          })
+
+          logAuditEvent({
+            timestamp: new Date(),
+            object_type: "activity",
+            object_id: req.params.activity_id,
+            read_only: false,
+            fields_changed: { deleted: true },
+            access_by: credential.access_key, // The authenticated user's access key
+            response_status: 200, // Success status
+            response_time_ms: responseTime,
+            ...extractAuditContext(req),
+          })
+        } catch (auditError) {
+          console.error("Audit logging failed:", auditError)
+        }
+      })
+    } catch (e: any) {
+      const responseTime = Date.now() - startTime
+      const statusCode = parseInt(e.message.split(".")[0]) || 500
+
+      setImmediate(async () => {
+        try {
+          let authSubject
+          try {
+            authSubject = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], req.params.activity_id)
+          } catch (err) {
+            authSubject = { _id: "" }
+          }
+
+          let credential
+          try {
+            const id = new ObjectId(authSubject._id)
+            credential = await MongoClientDB.collection("credential").findOne({ _id: id })
+          } catch (e) {
+            credential = { access_key: "anonymous" }
+          }
+
+          logAuditEvent({
+            timestamp: new Date(),
+            object_type: "activity",
+            object_id: req.params.activity_id,
+            read_only: false,
+            fields_changed: { deleted: true },
+            access_by: credential.access_key,
+            response_status: statusCode,
+            response_time_ms: responseTime,
+            ...extractAuditContext(req),
+          })
+        } catch (auditError) {
+          console.error("Audit logging failed:", auditError)
+        }
+      })
+      if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
+      res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
+    }
+  }
+)
+ActivityService.Router.get(
+  "/activity/:activity_id",
+  recordStartTime,
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    const startTime = (req as any).startTime
+    res.header(ApiResponseHeaders)
+    try {
+      let output = { data: await ActivityService.get(req.get("Authorization"), req.params.activity_id) }
+      output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
+      const responseTime = Date.now() - startTime
+      res.json(output)
+      setImmediate(async () => {
+        try {
+          const authSubject = await _verify(
+            req.get("Authorization"),
+            ["self", "sibling", "parent"],
+            req.params.activity_id
+          )
+          const credential = await MongoClientDB.collection("credential").findOne({
+            _id: new ObjectId(authSubject._id),
+          })
+          logAuditEvent({
+            timestamp: new Date(),
+            object_type: "activity",
+            object_id: req.params.activity_id,
+            read_only: true,
+            fields_changed: null,
+            access_by: credential.access_key,
+            response_status: 200,
+            response_time_ms: responseTime,
+            ...extractAuditContext(req),
+          })
+        } catch (auditError) {
+          console.error("Audit logging failed:", auditError)
+        }
+      })
+    } catch (e: any) {
+      const responseTime = Date.now() - startTime
+      const statusCode = parseInt(e.message.split(".")[0]) || 500
+
+      setImmediate(async () => {
+        try {
+          let authSubject
+          try {
+            authSubject = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], req.params.activity_id)
+          } catch (err) {
+            authSubject = { _id: "" }
+          }
+
+          let credential
+          try {
+            const id = new ObjectId(authSubject._id)
+            credential = await MongoClientDB.collection("credential").findOne({ _id: id })
+          } catch (e) {
+            credential = { access_key: "anonymous" }
+          }
+
+          logAuditEvent({
+            timestamp: new Date(),
+            object_type: "activity",
+            object_id: req.params.activity_id,
+            read_only: true,
+            fields_changed: null,
+            access_by: credential.access_key,
+            response_status: statusCode,
+            response_time_ms: responseTime,
+            ...extractAuditContext(req),
+          })
+        } catch (auditError) {
+          console.error("Audit logging failed:", auditError)
+        }
+      })
+      if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
+      res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
+    }
+  }
+)
+ActivityService.Router.get(
+  "/participant/:participant_id/activity",
+  recordStartTime,
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    const startTime = (req as any).startTime
     res.header(ApiResponseHeaders)
     try {
       let output = {
@@ -199,27 +474,159 @@ ActivityService.Router.get(
         ),
       }
       output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
+      const responseTime = Date.now() - startTime
       res.json(output)
+      setImmediate(async () => {
+        try {
+          const authSubject = await _verify(
+            req.get("Authorization"),
+            ["self", "sibling", "parent"],
+            req.params.participant_id
+          )
+          const credential = await MongoClientDB.collection("credential").findOne({
+            _id: new ObjectId(authSubject._id),
+          })
+          logAuditEvent({
+            timestamp: new Date(),
+            object_type: "activity",
+            object_id: req.params.participant_id,
+            read_only: true,
+            fields_changed: null,
+            access_by: credential.access_key,
+            response_status: 200,
+            response_time_ms: responseTime,
+            ...extractAuditContext(req),
+          })
+        } catch (auditError) {
+          console.error("Audit logging failed:", auditError)
+        }
+      })
     } catch (e: any) {
+      const responseTime = Date.now() - startTime
+      const statusCode = parseInt(e.message.split(".")[0]) || 500
+
+      setImmediate(async () => {
+        try {
+          let authSubject
+          try {
+            authSubject = await _verify(
+              req.get("Authorization"),
+              ["self", "sibling", "parent"],
+              req.params.participant_id
+            )
+          } catch (err) {
+            authSubject = { _id: "" }
+          }
+
+          let credential
+          try {
+            const id = new ObjectId(authSubject._id)
+            credential = await MongoClientDB.collection("credential").findOne({ _id: id })
+          } catch (e) {
+            credential = { access_key: "anonymous" }
+          }
+
+          logAuditEvent({
+            timestamp: new Date(),
+            object_type: "activity",
+            object_id: req.params.participant_id,
+            read_only: true,
+            fields_changed: null,
+            access_by: credential.access_key,
+            response_status: statusCode,
+            response_time_ms: responseTime,
+            ...extractAuditContext(req),
+          })
+        } catch (auditError) {
+          console.error("Audit logging failed:", auditError)
+        }
+      })
       if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
       res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
     }
   }
 )
-ActivityService.Router.get("/study/:study_id/activity", authenticateToken, async (req: Request, res: Response) => {
-  res.header(ApiResponseHeaders)
-  try {
-    let output = {
-      data: await ActivityService.list(
-        req.get("Authorization"),
-        req.params.study_id,
-        req.query.ignore_binary === "true"
-      ),
+ActivityService.Router.get(
+  "/study/:study_id/activity",
+  recordStartTime,
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    const startTime = (req as any).startTime
+    res.header(ApiResponseHeaders)
+    try {
+      let output = {
+        data: await ActivityService.list(
+          req.get("Authorization"),
+          req.params.study_id,
+          req.query.ignore_binary === "true"
+        ),
+      }
+      output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
+      const responseTime = Date.now() - startTime
+      res.json(output)
+      setImmediate(async () => {
+        try {
+          const authSubject = await _verify(
+            req.get("Authorization"),
+            ["self", "sibling", "parent"],
+            req.params.study_id
+          )
+          const credential = await MongoClientDB.collection("credential").findOne({
+            _id: new ObjectId(authSubject._id),
+          })
+          logAuditEvent({
+            timestamp: new Date(),
+            object_type: "activity",
+            object_id: req.params.study_id,
+            read_only: true,
+            fields_changed: null,
+            access_by: credential.access_key,
+            response_status: 200,
+            response_time_ms: responseTime,
+            ...extractAuditContext(req),
+          })
+        } catch (auditError) {
+          console.error("Audit logging failed:", auditError)
+        }
+      })
+    } catch (e: any) {
+      const responseTime = Date.now() - startTime
+      const statusCode = parseInt(e.message.split(".")[0]) || 500
+
+      setImmediate(async () => {
+        try {
+          let authSubject
+          try {
+            authSubject = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], req.params.study_id)
+          } catch (err) {
+            authSubject = { _id: "" }
+          }
+
+          let credential
+          try {
+            const id = new ObjectId(authSubject._id)
+            credential = await MongoClientDB.collection("credential").findOne({ _id: id })
+          } catch (e) {
+            credential = { access_key: "anonymous" }
+          }
+
+          logAuditEvent({
+            timestamp: new Date(),
+            object_type: "activity",
+            object_id: req.params.study_id,
+            read_only: true,
+            fields_changed: null,
+            access_by: credential.access_key,
+            response_status: statusCode,
+            response_time_ms: responseTime,
+            ...extractAuditContext(req),
+          })
+        } catch (auditError) {
+          console.error("Audit logging failed:", auditError)
+        }
+      })
+      if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
+      res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
     }
-    output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
-    res.json(output)
-  } catch (e: any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
-    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
-})
+)

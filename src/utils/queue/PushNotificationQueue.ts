@@ -16,7 +16,6 @@ export async function PushNotificationQueueProcess(job: Bull.Job<any>): Promise<
  * @param payload
  */
 export function sendNotification(device_token: string, device_type: string, payload: any): void {
-  console.dir({ device_token, device_type, payload })
   // Send this specific page URL to the device to show the actual activity.
   // eslint-disable-next-line prettier/prettier
   const url = payload.url
@@ -27,7 +26,6 @@ export function sendNotification(device_token: string, device_type: string, payl
   const gatewayApiKey: any = !!process.env.PUSH_API_KEY
     ? `${process.env.PUSH_API_KEY}`
     : `${process.env.PUSH_GATEWAY_APIKEY}`
-  console.log(url)
   try {
     if ("undefined" === gatewayURL) {
       throw new Error("Push gateway address is not defined")
@@ -106,7 +104,6 @@ export function sendNotification(device_token: string, device_type: string, payl
             headers: { "Content-Type": "application/json" },
           })
             .then((res) => {
-              console.log("response", res)
               if (!res.ok) {
                 throw new Error(`HTTP error!`)
               }
@@ -150,7 +147,6 @@ export function sendNotification(device_token: string, device_type: string, payl
             headers: { "Content-Type": "application/json" },
           })
             .then((res) => {
-              console.log("response", res)
               if (!res.ok) {
                 throw new Error(`HTTP error!`)
               }
