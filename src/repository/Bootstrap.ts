@@ -1058,17 +1058,12 @@ export class RedisFactory {
    */
   public static getInstance(): ioredis.Redis {
     if (this.instance === undefined) {
-      this.instance = new ioredis(
-        parseInt(`${(process.env.REDIS_PORT as any).match(/([0-9]+)/g)?.[0]}`),
-        process.env.REDIS_HOST as any,
-        {
-          reconnectOnError() {
-            return 1
-          },
-
-          enableReadyCheck: true,
-        }
-      )
+      this.instance = new ioredis(process.env.REDIS_HOST as string, {
+        reconnectOnError() {
+          return 1
+        },
+        enableReadyCheck: true,
+      })
     }
     return this.instance
   }
