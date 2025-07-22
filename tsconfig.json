@@ -4,15 +4,12 @@
     "module": "commonjs",
     "allowJs": true,
     "checkJs": true,
-    "rootDirs": [
-        "./src",
-        "./test"
-    ],
+    "rootDirs": ["./src", "./test"],
     "outDir": "./build",
     "esModuleInterop": true,
     "strict": true,
     "resolveJsonModule": true,
     "inlineSourceMap": true,
-    "allowSyntheticDefaultImports": true,
+    "allowSyntheticDefaultImports": true
   }
 }

@@ -13,12 +13,11 @@ export async function BulkDataWriteQueueProcess(job: Bull.Job<any>): Promise<voi
     case "sensor_event":
       //wait for same participant with same timestamp
       const release = await clientLock.acquire()
-      let write = false      
-      const Cache_Size = Number(process.env.CACHE_SIZE)      
+      let write = false
+      const Cache_Size = Number(process.env.CACHE_SIZE)
       const Store_Size = (await RedisClient?.llen("se_Q")) as number
       let Store_Data = new Array()
       if (Store_Size > Cache_Size) {
-        console.log("Store_Size", `${Store_Size}`)
         let Size_ = !!process.env.CACHE_FLUSH_ALL
           ? process.env.CACHE_FLUSH_ALL === "true"
             ? Store_Size

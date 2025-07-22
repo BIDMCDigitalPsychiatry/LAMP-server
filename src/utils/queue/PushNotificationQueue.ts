@@ -27,7 +27,7 @@ export function sendNotification(device_token: string, device_type: string, payl
   const gatewayApiKey: any = !!process.env.PUSH_API_KEY
     ? `${process.env.PUSH_API_KEY}`
     : `${process.env.PUSH_GATEWAY_APIKEY}`
-  console.log(url)
+
   try {
     if ("undefined" === gatewayURL) {
       throw new Error("Push gateway address is not defined")
@@ -106,7 +106,6 @@ export function sendNotification(device_token: string, device_type: string, payl
             headers: { "Content-Type": "application/json" },
           })
             .then((res) => {
-              console.log("response", res)
               if (!res.ok) {
                 throw new Error(`HTTP error!`)
               }
@@ -150,7 +149,6 @@ export function sendNotification(device_token: string, device_type: string, payl
             headers: { "Content-Type": "application/json" },
           })
             .then((res) => {
-              console.log("response", res)
               if (!res.ok) {
                 throw new Error(`HTTP error!`)
               }
@@ -165,7 +163,7 @@ export function sendNotification(device_token: string, device_type: string, payl
       default:
         break
     }
-  } catch (error:any) {
+  } catch (error: any) {
     console.log(error.message)
   }
 }
