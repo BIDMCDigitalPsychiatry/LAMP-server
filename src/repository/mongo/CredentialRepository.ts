@@ -4,7 +4,6 @@ import { CredentialInterface } from "../interface/RepositoryInterface"
 import { MongoClientDB } from "../Bootstrap"
 import { ObjectId } from "mongodb"
 import { jwtVerify, SignJWT } from "jose"
-const path = require('path');
 
 const { isLocked, recordFailedAttempts, clearAttempts } = require("../../utils/accountLockout")
 
@@ -94,34 +93,14 @@ export class CredentialRepository implements CredentialInterface {
     const JWT_SECRET = process.env.SECRET_KEY as string
     const secret_key = new TextEncoder().encode(JWT_SECRET)
 
-    const { privateDecrypt, constants } = require("crypto")
-    const fs = require("fs")
-
-    const privateKeyPath = path.resolve(process.cwd(), 'private_key.pem');
-    const privateKey = fs.readFileSync(privateKeyPath, 'utf8');
-    const encryptedPassword = secretKey
-    let decrypted
-    try {
-      decrypted = privateDecrypt(
-        {
-          key: privateKey,
-          padding: constants.RSA_PKCS1_OAEP_PADDING,
-          oaepHash: "sha256",
-        },
-        Buffer.from(encryptedPassword, "base64")
-      ).toString("utf8")
-    } catch (error) {
-      console.error("Decryption error:", error)
-    }
-
-    if (isLocked(decrypted)) {
+    if (isLocked(secretKey)) {
       throw new Error("403.Account has been logged out, please try again later")
     }
     const res = await MongoClientDB.collection("credential").findOne({ _deleted: false, access_key: accessKey })
 
     if (res?.length !== 0 && res !== null) {
       const secretKeyDecrypted = Decrypt(res?.secret_key, "AES256")
-      if (decrypted === secretKeyDecrypted) {
+      if (secretKey === secretKeyDecrypted) {
         // Generating jwt access token
         try {
           res.access_token = await new SignJWT({ user_id: res._id, origin: res.origin })
@@ -137,20 +116,18 @@ export class CredentialRepository implements CredentialInterface {
             .sign(secret_key)
 
           const { payload, protectedHeader } = await jwtVerify(res.refresh_token, secret_key)
-          clearAttempts(decrypted)
+          clearAttempts(secretKey)
         } catch (err) {
           console.log(err)
         }
-
         res.typeId = res?.id
-
         return res as any
       } else {
-        recordFailedAttempts(decrypted)
+        recordFailedAttempts(secretKey)
         throw new Error("403.no-such-credentials")
       }
     } else {
-      recordFailedAttempts(decrypted)
+      recordFailedAttempts(secretKey)
       throw new Error("403.no-such-credentials")
     }
   }
