@@ -78,11 +78,6 @@ export class CredentialService {
     }
   }
 
-  public static async publicKey() {
-    const fs = require("fs")
-    const publicKey = fs.readFileSync("./public_key.pem", "utf8")
-    return publicKey
-  }
 }
 
 CredentialService.Router.get(
@@ -210,13 +205,3 @@ CredentialService.Router.post(`/renewToken`, authenticateToken, async (req: Requ
   }
 })
 
-CredentialService.Router.get("/publicKey", async (req: Request, res: Response) => {
-  res.header(ApiResponseHeaders)
-  try {
-    const publicKey = await CredentialService.publicKey()
-    res.json(publicKey)
-  } catch (e: any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
-    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
-  }
-})
