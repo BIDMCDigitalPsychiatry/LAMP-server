@@ -16,7 +16,7 @@ app.use(
       "https://dashboard-staging.lamp.digital",
       "https://dashboard.lamp.digital",
       "https://lamp-dashboard.zcodemo.com",
-      "https://lamp-secdash.zcodemo.com"
+      "https://lamp-secdash.zcodemo.com",
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allowedHeaders: [
@@ -42,7 +42,7 @@ app.use(
     optionsSuccessStatus: 204,
     maxAge: 86400, // Access-Control-Max-Age is 24 hours
     credentials: true,
-  }),
+  })
 )
 app.use(morgan(":method :url :status - :response-time ms"))
 app.use(express.urlencoded({ extended: true }))

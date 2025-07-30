@@ -41,12 +41,6 @@ export class CredentialRepository implements CredentialInterface {
   }
   public async _insert(type_id: string | null, credential: any): Promise<string> {
     const _id = uuid()
-    // const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/
-    // if (!strongPasswordRegex.test(credential.secret_key)) {
-    //   throw new Error(
-    //     "Password must be at least 8 characters long and include uppercase, lowercase, number, and special character."
-    //   )
-    // }
 
     if (credential.origin === "me" || credential.origin === null) {
       // FIXME: context substitution doesn't actually work within the object here, so do it manually.
@@ -111,12 +105,6 @@ export class CredentialRepository implements CredentialInterface {
       if (secretKey === secretKeyDecrypted) {
         // Generating jwt access token
         try {
-          // res.access_token = await new SignJWT({ access_key: res.access_key, secret_key: res.secret_key })
-          //   .setProtectedHeader({ alg: "HS256" })
-          //   .setIssuedAt()
-          //   .setExpirationTime("1h")
-          //   .sign(secret_key)
-
           res.access_token = await new SignJWT({ user_id: res._id, origin: res.origin })
             .setProtectedHeader({ alg: "HS256" })
             .setIssuedAt()
@@ -139,12 +127,9 @@ export class CredentialRepository implements CredentialInterface {
 
         return res as any
       } else {
-        // await handleFailedLogin();
         recordFailedAttempts(secretKey)
         throw new Error("403.no-such-credentials")
-        // return res.status(401).json({ error: "Invalid credentials" })
       }
-      // throw new Error("403.no-such-credentials")
     } else {
       recordFailedAttempts(secretKey)
       throw new Error("403.no-such-credentials")
@@ -184,13 +169,6 @@ export class CredentialRepository implements CredentialInterface {
             .setExpirationTime("30m")
             .sign(jwtSecretKey)
 
-          // Refresh token
-          // res.refresh_token = await new SignJWT({ access_key: accessKey, secret_key: secretKey })
-          //   .setProtectedHeader({ alg: "HS256" })
-          //   .setIssuedAt()
-          //   .setExpirationTime("5m")
-          //   .sign(jwtSecretKey)
-
           res.refresh_token = await new SignJWT({ user_id: res._id, origin: res.origin })
             .setProtectedHeader({ alg: "HS256" })
             .setIssuedAt()
@@ -207,7 +185,5 @@ export class CredentialRepository implements CredentialInterface {
     } catch (error) {
       throw new Error("401.invalid-token")
     }
-
-    // throw new Error("403.no-such-credentials")
   }
 }
