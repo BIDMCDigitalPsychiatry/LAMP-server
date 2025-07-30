@@ -958,8 +958,6 @@ export async function Bootstrap(): Promise<void> {
         }
       }
       console.log("Credential database online.")
-
-      console.groupEnd()
       console.groupEnd()
       console.log("Database verification complete.")
     } else {
@@ -1065,6 +1063,7 @@ export class RedisFactory {
         enableReadyCheck: true,
       })
     }
+
     return this.instance
   }
 }

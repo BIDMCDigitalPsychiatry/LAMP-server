@@ -1,6 +1,6 @@
 import { SensorEvent } from "../../model/SensorEvent"
 import { SensorEventInterface } from "../interface/RepositoryInterface"
-import { MongoClientDB } from "../Bootstrap"
+import { MongoClientDB, uuid } from "../Bootstrap"
 // FIXME: does not support filtering by Sensor yet.
 
 export class SensorEventRepository implements SensorEventInterface {
@@ -35,33 +35,34 @@ export class SensorEventRepository implements SensorEventInterface {
       .maxTimeMS(60000)
       .toArray()
     return (all_res as any).map((x: any) => {
-      if(!!ignore_binary) {        
+      if (!!ignore_binary) {
         delete x.data
       }
-      return({
+      return {
         ...x,
         _id: undefined,
         __v: undefined,
         _parent: undefined,
         _deleted: undefined,
-      })
+      }
     })
   }
 
-  public async _insert(participant_id: string, objects: SensorEvent[]): Promise<{}> {
+  public async _insert(participant_id: string, objects: SensorEvent[]): Promise<string> {
+    const _id = uuid()
     const data: any[] = []
     //save activity event
-    for (const object of objects) {      
+    for (const object of objects) {
       await data.push({
         ...object,
         _parent: participant_id,
         timestamp: Number.parse(object.timestamp),
         sensor: String(object.sensor),
         data: object.data ?? {},
-      })               
-    }    
+      })
+    }
     await MongoClientDB.collection("sensor_event").insertMany(data)
-    return {}
+    return _id
   }
 
   /** write to db in bulk (argument does not contain participant_id, as participant_id will be present in the array objects given as argument)

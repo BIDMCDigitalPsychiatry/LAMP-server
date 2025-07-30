@@ -1,51 +1,53 @@
-import { Database } from "../Bootstrap"
+import { Database, uuid } from "../Bootstrap"
 import { SensorSpec } from "../../model/SensorSpec"
 import { SensorSpecInterface } from "../interface/RepositoryInterface"
 
 export class SensorSpecRepository implements SensorSpecInterface {
   public async _select(id?: string, ignore_binary?: boolean): Promise<SensorSpec[]> {
     const data = await Database.use("sensor_spec").list({ include_docs: true, start_key: id, end_key: id })
-    return (data.rows as any).map((x: any) => {       
-      if(!!ignore_binary) {        
-          delete x.settings_schema
+    return (data.rows as any).map((x: any) => {
+      if (!!ignore_binary) {
+        delete x.settings_schema
       }
-      return({
+      return {
         id: x.doc._id,
         ...x.doc,
         _id: undefined,
         _rev: undefined,
-      })
+      }
     })
   }
-  public async _insert(object: SensorSpec): Promise<{}> {
+  public async _insert(object: SensorSpec): Promise<string> {
+    const _id = uuid()
     try {
       const res: any = await Database.use("sensor_spec").find({
         selector: { _id: object.name, _deleted: false },
         limit: 1,
       })
-      if(res.length > 0) {
+      if (res.length > 0) {
         throw new Error("500.SensorSpec-already-exists")
       } else {
-          const orig: any = await Database.use("sensor_spec").find({
-            selector: { _id: object.name, _deleted: true },
-            limit: 1,
+        const orig: any = await Database.use("sensor_spec").find({
+          selector: { _id: object.name, _deleted: true },
+          limit: 1,
+        })
+        if (orig.length > 0) {
+          await Database.use("sensor_spec").bulk({
+            docs: [
+              {
+                ...orig,
+                _deleted: false,
+              },
+            ],
           })
-          if(orig.length > 0) {
-            await Database.use("sensor_spec").bulk({
-              docs: [
-                {
-                  ...orig,
-                  _deleted: false
-                }
-              ]})
-          } else {
+        } else {
           await Database.use("sensor_spec").insert({
             _id: object.name,
-            settings_schema: object.settings_schema ?? {}
+            settings_schema: object.settings_schema ?? {},
           } as any)
         }
       }
-      return {}
+      return _id
     } catch (error) {
       throw new Error("500.sensorspec-creation-failed")
     }
@@ -56,7 +58,7 @@ export class SensorSpecRepository implements SensorSpecInterface {
       docs: [
         {
           ...orig,
-          settings_schema: object.settings_schema ?? orig.settings_schema
+          settings_schema: object.settings_schema ?? orig.settings_schema,
         },
       ],
     })

@@ -3,12 +3,14 @@ import { PushNotificationQueueProcess } from "./PushNotificationQueue"
 import { PubSubAPIListenerQueueProcess } from "./PubSubAPIListenerQueue"
 import { BulkDataWriteQueueProcess } from "./BulkDataWriteQueue"
 import { BulkDataWriteSlaveQueueProcess } from "./BulkDataWriteSlaveQueue"
+import { AuditLogQueueProcess } from "./AuditLogQueueProcess"
 
 export let PushNotificationQueue: Bull.Queue<any> | undefined
 export let PubSubAPIListenerQueue: Bull.Queue<any> | undefined
 export let CacheDataQueue: Bull.Queue<any> | undefined
 export let BulkDataWriteQueue: Bull.Queue<any> | undefined
 export let BulkDataWriteSlaveQueue: Bull.Queue<any> | undefined
+export let AuditLogQueue: Bull.Queue<any> | undefined
 
 /**Initialize queues and its process
  *
@@ -16,6 +18,7 @@ export let BulkDataWriteSlaveQueue: Bull.Queue<any> | undefined
 export async function initializeQueues(): Promise<void> {
   try {
     const redisUrl = new URL(process.env.REDIS_HOST as string)
+
     PushNotificationQueue = new Bull("PushNotification", {
       redis: {
         host: redisUrl.hostname,
@@ -58,6 +61,16 @@ export async function initializeQueues(): Promise<void> {
         maxRetriesPerRequest: null,
       },
     })
+    AuditLogQueue = new Bull("AuditLog", {
+      redis: {
+        host: redisUrl.hostname,
+        port: parseInt(redisUrl.port) || 6379,
+        password: redisUrl.password || undefined,
+        db: parseInt(redisUrl.pathname.slice(1)) || 0,
+        enableReadyCheck: true,
+        maxRetriesPerRequest: null,
+      },
+    })
     PushNotificationQueue.process((job) => {
       PushNotificationQueueProcess(job)
     })
@@ -69,6 +82,9 @@ export async function initializeQueues(): Promise<void> {
     })
     BulkDataWriteSlaveQueue.process((job) => {
       BulkDataWriteSlaveQueueProcess(job)
+    })
+    AuditLogQueue.process((job) => {
+      AuditLogQueueProcess(job)
     })
   } catch (error) {
     console.log(error)

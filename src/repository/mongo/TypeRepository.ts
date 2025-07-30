@@ -12,8 +12,12 @@ export class TypeRepository implements TypeInterface {
     const result: any = {} // obj['_parent'] === [null, undefined] -> top-level object
     const repo = new Repository()
     const TypeRepository = repo.getTypeRepository()
-    for (const parent_type of await TypeRepository._parent_type(type_id))
+
+    for (const parent_type of await TypeRepository._parent_type(type_id)) {
       result[parent_type] = await TypeRepository._parent_id(type_id, parent_type)
+      // return result[parent_type]
+    }
+
     return result
   }
   public async _cordinator(type_id: string): Promise<any | undefined> {
@@ -40,32 +44,12 @@ export class TypeRepository implements TypeInterface {
                 return key
               }
             }
-          } catch (e) {
-            // Ignore non-JSON values
-          }
+          } catch (e) {}
           return []
         })
 
         return coordinatorValues
       }
-      //   let cordarr: string[] = []
-
-      //   for (const doc of candidates) {
-      //     try {
-      //       const obj = JSON.parse(doc.value)
-
-      //       for (let key in obj) {
-      //         if (obj[key].role === "message_coordinator") {
-      //           cordarr.push(key)
-      //         }
-      //       }
-      //     } catch (e) {
-      //       console.log("error parsing value:", e)
-      //     }
-      //   }
-      //   return cordarr
-
-      //   // return undefined
     } catch (e) {
       console.log("error", e)
     }
@@ -127,6 +111,7 @@ export class TypeRepository implements TypeInterface {
     }
     const repo = new Repository()
     const TypeRepository = repo.getTypeRepository()
+
     return parent_types[await TypeRepository._self_type(type_id)]
   }
 
@@ -140,6 +125,7 @@ export class TypeRepository implements TypeInterface {
     }
     const repo = new Repository()
     const TypeRepository = repo.getTypeRepository()
+
     return await (self_type[await TypeRepository._self_type(type_id)] as any)(type_id, type)
   }
 

@@ -18,7 +18,6 @@ app.use(
       "https://lamp-dashboard.zcodemo.com",
       "https://lamp-secdash.zcodemo.com",
     ],
-    credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allowedHeaders: [
       "Accept",
@@ -42,6 +41,7 @@ app.use(
     preflightContinue: false,
     optionsSuccessStatus: 204,
     maxAge: 86400, // Access-Control-Max-Age is 24 hours
+    credentials: true,
   })
 )
 app.use(morgan(":method :url :status - :response-time ms"))

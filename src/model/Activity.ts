@@ -8,4 +8,5 @@ export class Activity {
   public schedule?: DurationIntervalLegacy
   public settings?: any
   public category?: Tab[] | null
+  public notificationMessage ? : string
 }

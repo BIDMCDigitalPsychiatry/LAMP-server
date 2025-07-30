@@ -74,14 +74,14 @@ export interface SensorEventInterface {
     to_date?: number,
     limit?: number
   ): Promise<SensorEvent[]>
-  _insert(participant_id: string, objects: SensorEvent[]): Promise<{}>
+  _insert(participant_id: string, objects: SensorEvent[]): Promise<string>
   _bulkWrite(objects: SensorEvent[]): Promise<{}>
 }
 
 //Interface for ActivitySpec Repository
 export interface ActivitySpecInterface {
   _select(id?: any, ignore_binary?: boolean): Promise<ActivitySpec[]>
-  _insert(object: {}): Promise<{}>
+  _insert(object: {}): Promise<string>
   _update(id: string, object: {}): Promise<{}>
   _delete(id: string): Promise<{}>
 }
@@ -89,7 +89,7 @@ export interface ActivitySpecInterface {
 //Interface for SensorSpec Repository
 export interface SensorSpecInterface {
   _select(id?: any, ignore_binary?: boolean): Promise<SensorSpec[]>
-  _insert(object: SensorSpec): Promise<{}>
+  _insert(object: SensorSpec): Promise<string>
   _update(id: string, object: SensorSpec): Promise<{}>
   _delete(id: string): Promise<{}>
 }
@@ -109,12 +109,12 @@ export interface TypeInterface {
 
 //Interface for Credential Repository
 export interface CredentialInterface {
-  _find(access_key: string, secret_key?: string): Promise<string>
+  _find(access_key: string, secret_key?: string): Promise<any>
   _select(type_id: string | null): Promise<any[]>
-  _insert(type_id: string | null, credential: any): Promise<{}>
+  _insert(type_id: string | null, credential: any): Promise<string>
   _update(type_id: string | null, access_key: string, credential: any): Promise<{}>
   _delete(type_id: string | null, access_key: string): Promise<{}>
   _login(accessKey: string | null, secretKey: string): Promise<any>
   _renewToken(refreshToken: string | null): Promise<any>
-  _logout(token: string | undefined): Promise<any>
+  _logout(token: string | undefined): Promise<string>
 }
