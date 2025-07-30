@@ -16,8 +16,7 @@ app.use(
       "https://dashboard-staging.lamp.digital",
       "https://dashboard.lamp.digital",
       "https://lamp-dashboard.zcodemo.com",
-      "https://lamp-secdash.zcodemo.com",
-      "http://localhost:3000",
+      "https://lamp-secdash.zcodemo.com"
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allowedHeaders: [
