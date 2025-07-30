@@ -173,8 +173,6 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
         } catch (error) {
           release()
           publishStatus = false
-          console.log("sensor_event_payload_size", Buffer.byteLength(JSON.stringify(payload)))
-          console.log("sensor_event_payload", payload)
           console.log(error)
         }
       }

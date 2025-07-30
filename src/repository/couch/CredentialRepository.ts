@@ -1,4 +1,4 @@
-import { Database, Encrypt, Decrypt } from "../Bootstrap"
+import { Database, Encrypt, Decrypt, uuid } from "../Bootstrap"
 import { CredentialInterface } from "../interface/RepositoryInterface"
 
 export class CredentialRepository implements CredentialInterface {
@@ -25,7 +25,7 @@ export class CredentialRepository implements CredentialInterface {
       _rev: undefined,
     }))
   }
-  public async _insert(type_id: string | null, credential: any): Promise<{}> {
+  public async _insert(type_id: string | null, credential: any): Promise<string> {
     if (credential.origin === "me" || credential.origin === null) {
       // FIXME: context substitution doesn't actually work within the object here, so do it manually.
       credential.origin = type_id
@@ -44,7 +44,8 @@ export class CredentialRepository implements CredentialInterface {
       secret_key: Encrypt(credential.secret_key, "AES256"),
       description: credential.description,
     } as any)
-    return {}
+    const _id = uuid()
+    return _id
   }
   public async _update(type_id: string | null, access_key: string, credential: any): Promise<{}> {
     const res = await Database.use("credential").find({
@@ -83,10 +84,16 @@ export class CredentialRepository implements CredentialInterface {
   }
 
   public async _login(accessKey: string | null, secretKey: any): Promise<any> {
-
+    // const res = await Database.use("credential").find({
+    //   selector: { origin: type_id },
+    // })
+    // return res
   }
 
-  public async _renewToken(refreshToken: string): Promise<any> {
+  public async _renewToken(refreshToken: string): Promise<string> {
+    const _id = uuid()
+
+    return _id
   }
   public async _logout(token: string | undefined): Promise<any> {}
 }

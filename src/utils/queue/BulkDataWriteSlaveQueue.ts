@@ -8,7 +8,6 @@ import { Repository } from "../../repository/Bootstrap"
 export async function BulkDataWriteSlaveQueueProcess(job: Bull.Job<any>): Promise<void> {
   switch (job.data.key) {
     case "sensor_event":
-      console.log("write started timestamp", `${job.id}-${Date.now()}`)
       const repo = new Repository()
       const SensorEventRepository = repo.getSensorEventRepository()
       const datas = job.data.payload
@@ -25,7 +24,6 @@ export async function BulkDataWriteSlaveQueueProcess(job: Bull.Job<any>): Promis
       }
       try {
         await SensorEventRepository._bulkWrite(sensor_events)
-        console.log("write finished timestamp", `${job.id}-${Date.now()}`)
       } catch (error) {
         console.log("db write error", error)
       }

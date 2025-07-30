@@ -13,8 +13,8 @@ export async function BulkDataWriteQueueProcess(job: Bull.Job<any>): Promise<voi
     case "sensor_event":
       //wait for same participant with same timestamp
       const release = await clientLock.acquire()
-      let write = false
-      const Cache_Size = Number(process.env.CACHE_SIZE)
+      let write = false      
+      const Cache_Size = Number(process.env.CACHE_SIZE)      
       const Store_Size = (await RedisClient?.llen("se_Q")) as number
       let Store_Data = new Array()
       if (Store_Size > Cache_Size) {
@@ -23,7 +23,6 @@ export async function BulkDataWriteQueueProcess(job: Bull.Job<any>): Promise<voi
             ? Store_Size
             : Cache_Size
           : Cache_Size
-        console.log("Size_ to be processed", `${Size_}`)
         try {
           Store_Data = (await RedisClient?.lrange("se_Q", 0, Size_ - 1)) as any
           write = true
@@ -33,7 +32,6 @@ export async function BulkDataWriteQueueProcess(job: Bull.Job<any>): Promise<voi
         }
       }
       release()
-      console.log("should write", write)
       if (write) {
         //delayed write
         SaveSensorEvent(Store_Data)
@@ -51,7 +49,6 @@ export async function BulkDataWriteQueueProcess(job: Bull.Job<any>): Promise<voi
  *
  */
 async function PushFromRedis(Q_Name: string, Store_Size: number) {
-  console.log("Store_Size to be processed for db write", `${Q_Name}--${Store_Size}`)
   for (let i = 0; i < Store_Size; i = i + 501) {
     try {
       const start = i === 0 ? i : i + 1
