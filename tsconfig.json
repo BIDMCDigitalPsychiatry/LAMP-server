@@ -8,11 +8,17 @@
         "./src",
         "./test"
     ],
-    "outDir": "./build",
+    "outDir": "./build/src",
     "esModuleInterop": true,
     "strict": true,
     "resolveJsonModule": true,
     "inlineSourceMap": true,
     "allowSyntheticDefaultImports": true,
-  }
+  },
+  "files": [
+    "src/app.ts",
+    "src/applySentry.ts",
+    "src/index.ts",
+    "src/utils/instrument.ts"
+  ]
 }

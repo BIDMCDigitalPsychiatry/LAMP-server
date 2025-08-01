@@ -17,4 +17,4 @@ jobs:
     uses: ./.github/workflows/callable-build-docker.yml
     secrets: inherit
     with:
-      push: false
+      push: true

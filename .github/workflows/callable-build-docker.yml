@@ -104,4 +104,4 @@ jobs:
         run: |
           wget https://github.com/reproducible-containers/diffoci/releases/download/v0.1.7/diffoci-v0.1.7.linux-amd64 -O diffoci
           chmod +x diffoci
-          ./diffoci diff --semantic ghcr.io/bidmcdigitalpsychiatry/lamp-server:2023.7.27 ${{ steps.config.outputs.TARGET_NAME }}
+          ./diffoci diff --semantic ghcr.io/bracketsoftware/lamp-server:pr-3 ghcr.io/bidmcdigitalpsychiatry/lamp-server:2023.7.27

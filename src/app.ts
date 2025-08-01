@@ -2,6 +2,7 @@ import express, { Application } from "express"
 import cors from "cors"
 import morgan from "morgan"
 import API from "./service"
+import { applySentry } from "./applySentry"
 
 const app: Application = express()
 app.set("json spaces", 2)
@@ -14,6 +15,11 @@ app.use(express.urlencoded({ extended: true }))
 // Establish the API router, as well as a few individual utility routes.
 app.use("/", API)
 app.get(["/favicon.ico", "/service-worker.js"], (req, res) => res.status(204))
+app.get("/debug-sentry", function mainHandler(req: any, res: any) {
+  throw new Error("My first Sentry error!");
+});
 app.all("*", (req, res) => res.status(404).json({ message: "404.api-endpoint-unimplemented" }))
+
+applySentry(app)
 
 export default app
