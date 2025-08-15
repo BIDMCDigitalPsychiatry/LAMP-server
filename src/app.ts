@@ -15,8 +15,8 @@ app.use(express.urlencoded({ extended: true }))
 // Establish the API router, as well as a few individual utility routes.
 app.use("/", API)
 app.get(["/favicon.ico", "/service-worker.js"], (req, res) => res.status(204))
-app.get("/debug-sentry", function mainHandler(req: any, res: any) {
-  throw new Error("My first Sentry error!");
+app.get("/debug-sentry-77be9c00-79f8-11f0-9595-1f183f5fde2a", function mainHandler(req: any, res: any) {
+  throw new Error("Demo Sentry Error!");
 });
 app.all("*", (req, res) => res.status(404).json({ message: "404.api-endpoint-unimplemented" }))
 
