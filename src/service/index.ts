@@ -14,6 +14,7 @@ import { ActivityEventService } from "./ActivityEventService"
 import { SensorService } from "./SensorService"
 import { SensorSpecService } from "./SensorSpecService"
 import { SensorEventService } from "./SensorEventService"
+import { SystemInfoAPI } from "../utils/SystemInfoAPI"
 
 export { TypeService } from "./TypeService"
 export { CredentialService } from "./CredentialService"
@@ -42,4 +43,6 @@ API.use(SensorEventService.Router)
 API.use(QueryAPI)
 API.use("/subscribe", ListenerAPI)
 API.use("/send", PushNotificationAPI)
+API.use("/system", SystemInfoAPI)
+
 export default API
