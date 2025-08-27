@@ -59,10 +59,7 @@
     "ts-jest": "^28.0.2",
     "ts-node": "^9.1.1"
   },
-  "overrides": {
-  },
   "scripts": {
-    "preinstall": "npx npm-force-resolutions",
     "build": "rimraf build && tsc",
     "coverage": "jest --coverage",
     "dev": "docker compose up -d && nodemon --exec ts-node ./src/index.ts --watch src",
