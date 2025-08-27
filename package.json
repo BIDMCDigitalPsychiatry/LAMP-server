@@ -60,7 +60,6 @@
     "ts-node": "^9.1.1"
   },
   "overrides": {
-    "simple-update-notifier": "2.0.0"
   },
   "scripts": {
     "preinstall": "npx npm-force-resolutions",
