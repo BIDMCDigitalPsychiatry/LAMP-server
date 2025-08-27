@@ -60,7 +60,6 @@
     "ts-node": "^9.1.1"
   },
   "overrides": {
-    "pkg": "5.8.1",
     "simple-update-notifier": "2.0.0"
   },
   "scripts": {
@@ -68,19 +67,11 @@
     "build": "rimraf build && tsc",
     "coverage": "jest --coverage",
     "dev": "docker compose up -d && nodemon --exec ts-node ./src/index.ts --watch src",
-    "deploy": "rimraf bin && pkg . -t node10-alpine-x64,node10-linux-x64,node10-macos-x64 --out-path bin/",
     "start-sw": "dotenv node build/src/index.js",
     "start": "npm run build && npm run start-sw",
     "test": "jest --watch",
     "lint": "eslint src/**/*.ts",
     "prepare": "husky install"
-  },
-  "pkg": {
-    "scripts": [
-      "build/**/*.js",
-      "node_modules/vm2/lib/*.js"
-    ],
-    "assets": "public/**/*"
   },
   "eslintConfig": {
     "extends": [
