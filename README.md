@@ -13,9 +13,8 @@
 | `DASHBOARD_URL`   | :heavy_check_mark:  |   |
 | `DB`  | :heavy_check_mark:  |   |
 | `DB_KEY`   |   |   |
-| `HTTPS`   |   |   |
 | `NATS_SERVER`   | :heavy_check_mark:  |   |
-| `PORT`   |   |   |
+| `PORT`   |   | The port number the server should listen on. Defaults to 3000.  |
 | `PUSH_API_KEY`   |   |   |
 | `PUSH_GATEWAY`   |   |   |
 | `PUSH_GATEWAY_APIKEY`   |   |   |

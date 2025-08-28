@@ -1,6 +1,4 @@
 import http from "http"
-import https from "https"
-import { HTTPS_CERT } from "./utils"
 import { Bootstrap } from "./repository/Bootstrap"
 import app from "./app"
 
@@ -17,18 +15,12 @@ async function main(): Promise<void> {
   console.groupEnd()
   console.log("Initialization complete.")
 
-  const port = process.env.PORT || 3000
+  const PORT: number = parseInt(process.env.PORT || "3000");
 
-  let _server: http.Server | https.Server
-  if (process.env.HTTPS && process.env.HTTPS !== "off") {
-    console.info("Starting HTTPS server on port ", port)
-    console.warn("Server is using default HTTPS certificates. Don't do this.")
-    _server = https.createServer(HTTPS_CERT, app)
-  } else {
-    console.info("Starting HTTP server on port ", port)
-    _server = http.createServer(app)
-  }
-  _server.listen(port)
+  const server = http.createServer(app)
+  server.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server listening on port ${PORT}`)
+  })
 
   /**
    * Shuts down the server and exists the process.
@@ -36,7 +28,7 @@ async function main(): Promise<void> {
    */
   function shutdown() {
     console.info("LAMP shutting down")
-    _server.close(() => {
+    server.close(() => {
       console.info("LAMP shut down")
       process.exit(0)
     })
