@@ -167,7 +167,7 @@ PushNotificationAPI.post("/notifications", async (req: Request, res: Response) =
  * @param Participants
  * @param schedule
  */
-async function sendToParticipants(Participants: any, schedule: any): Promise<void> {
+export async function sendToParticipants(Participants: any, schedule: any): Promise<void> {
   Participants = Array.isArray(Participants) ? Participants : [Participants]
   for (const participant of Participants) {
     try {
@@ -266,4 +266,95 @@ async function prepareParticipants(Participants: any, title: any, message: any, 
     newParticipants.push({ participant_id: ParticipantsData.id, title: title, message: message, activity_id: customId })
   }
   return newParticipants
+}
+
+/**
+ *
+ * @param Researchers
+ * @param schedule
+ */
+export async function sendToResearchers(Researchers: any, schedule: any): Promise<void> {
+  Researchers = Array.isArray(Researchers) ? Researchers : [Researchers]
+  for (const researcher of Researchers) {
+    try {
+      const repo = new Repository()
+      const SensorEventRepository = repo.getSensorEventRepository()
+      const event_data = await SensorEventRepository._select(
+        researcher.researcher_id,
+        false,
+        "lamp.analytics",
+        undefined,
+        undefined,
+        1000
+      )
+      if (event_data.length !== 0) {
+        const filteredArray: any = await event_data.filter(
+          (x: any) =>
+            x.data.type === undefined &&
+            x.data.action !== "notification" &&
+            x.data.device_type !== "Dashboard" &&
+            x.data.action !== "logout"
+        )
+        if (filteredArray.length !== 0) {
+          const events: any = filteredArray[0]
+          const device = undefined !== events && undefined !== events.data ? events.data : undefined
+          if (device !== undefined && (device.device_type || device.device_token || researcher.title)) {
+            //Schedule the notifications for the time given
+            if (schedule !== "" && schedule !== undefined) {
+              if (new Date(schedule) > new Date()) {
+                let jobId: any = ""
+                if (undefined !== researcher.activity_id) {
+                  jobId = `${researcher.researcher_id}|${researcher.activity_id}|${new Date(schedule).getTime()}`
+                } else {
+                  jobId = `${researcher.researcher_id}|${new Date(schedule).getTime()}`
+                }
+                //get job for given job id
+                const PushNotificationQueueJob = await PushNotificationQueue?.getJob(jobId)
+                //Remove the job, if one with same job id exists
+                if (null !== PushNotificationQueueJob) {
+                  await PushNotificationQueueJob?.remove()
+                }
+                //add to PushNotificationQueue with schedule
+                PushNotificationQueue?.add(
+                  {
+                    device_type: device.device_type.toLowerCase(),
+                    device_token: device.device_token,
+                    payload: {
+                      participant_id: researcher.researcher_id,
+                      title: researcher.title,
+                      message: researcher.message,
+                    },
+                  },
+                  {
+                    jobId: jobId,
+                    attempts: 3,
+                    backoff: 10,
+                    removeOnComplete: true,
+                    removeOnFail: true,
+                    delay: Math.floor(new Date(schedule).getTime() - new Date().getTime()),
+                  }
+                )
+              }
+            } else {
+              //add to PushNotificationQueue without schedule(immediate push would happen)
+              PushNotificationQueue?.add(
+                {
+                  device_type: device.device_type.toLowerCase(),
+                  device_token: device.device_token,
+                  payload: {
+                    researcher_id: researcher.researcher_id,
+                    title: researcher.title,
+                    message: researcher.message,
+                  },
+                },
+                { attempts: 3, backoff: 10, removeOnComplete: true, removeOnFail: true }
+              )
+            }
+          }
+        }
+      }
+    } catch (error:any) {
+      console.log(error)
+    }
+  }
 }

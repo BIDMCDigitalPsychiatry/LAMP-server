@@ -1,4 +1,4 @@
-import { Database } from "../Bootstrap"
+import { Database, uuid } from "../Bootstrap"
 import { ActivitySpec } from "../../model/ActivitySpec"
 import { ActivitySpecInterface } from "../interface/RepositoryInterface"
 
@@ -13,27 +13,29 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
       _rev: undefined,
     }))
   }
-  public async _insert(object: ActivitySpec): Promise<{}> {
+  public async _insert(object: ActivitySpec): Promise<string> {
     try {
+      const _id = uuid()
       const res: any = await Database.use("activity_spec").find({
         selector: { _id: object.name, _deleted: false },
         limit: 1,
       })
-      if(res.length > 0) {
+      if (res.length > 0) {
         throw new Error("500.ActivitySpec-already-exists")
       } else {
         const orig: any = await Database.use("activity_spec").find({
           selector: { _id: object.name, _deleted: true },
           limit: 1,
         })
-        if(orig.length > 0) {
+        if (orig.length > 0) {
           await Database.use("activity_spec").bulk({
             docs: [
               {
                 ...orig,
-                _deleted: false
-              }
-            ]})
+                _deleted: false,
+              },
+            ],
+          })
         } else {
           await Database.use("activity_spec").insert({
             _id: object.name,
@@ -44,9 +46,9 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
             settings: object.settings ?? {},
             category: object.category ?? null,
           } as any)
-        }      
+        }
       }
-      return {}
+      return _id
     } catch (error) {
       throw new Error("500.activityspec-creation-failed")
     }

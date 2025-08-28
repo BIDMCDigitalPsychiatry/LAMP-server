@@ -14,12 +14,13 @@ export async function _createAuthSubject(authHeader: string | undefined): Promis
   const authStr = authHeader.replace("Basic", "").trim()
   const auth = (authStr.indexOf(":") >= 0 ? authStr : Buffer.from(authStr, "base64").toString()).split(":", 2)
   if (auth.length !== 2 || !auth[1]) throw new Error("401.missing-credentials")
-  let origin = await CredentialRepository._find(auth[0], auth[1] || "*" /* FIXME: this forces password match */)
+  let res = await CredentialRepository._find(auth[0], auth[1] || "*" /* FIXME: this forces password match */)
+
   return {
-    origin: origin,
+    origin: res.origin,
     access_key: auth[0],
     secret_key: auth[1],
-    _id: auth[2],
+    _id: res._id,
   }
 }
 
@@ -33,7 +34,7 @@ export async function _verify(
   authSubject: AuthSubject | string | undefined,
   authType: Array<"self" | "sibling" | "parent"> /* 'root' = [] */,
   authObject?: string | null
-): Promise<string> {
+): Promise<AuthSubject> {
   const TypeRepository = new Repository().getTypeRepository()
   if (authSubject === undefined || typeof authSubject === "string") {
     if (authSubject?.toString()?.includes("Bearer")) {
@@ -53,18 +54,19 @@ export async function _verify(
   // Root credentials (origin is null) are not allowed to substitute the "me" value.
   if (authObject === "me" && !isRoot) {
     authObject = authSubject.origin
-    response.id = authSubject.origin
-    return response
+    // response.id = authSubject.origin
+    // return response
+    return authSubject
   } else if (authObject === "me" && isRoot) {
     throw new Error("400.context-substitution-failed")
   }
   // Check if `authSubject` is root for a root-only authType.
   if (isRoot) {
-    //const _owner = !!authObject ? await TypeRepository._owner(authObject ?? "") : undefined
-    response.id = authSubject.origin
-    response.access_key = authSubject.access_key
-    response.user_id = authSubject._id
-    return response
+    // response.id = authSubject.origin
+    // response.access_key = authSubject.access_key
+    // response.user_id = authSubject._id
+    // return response
+    return authSubject
   }
 
   // Check if `authObject` and `authSubject` are the same || authenticated for  resource *
@@ -72,8 +74,9 @@ export async function _verify(
     (!isRoot && authType.includes("self") && authSubject.origin === authObject) ||
     (JSON.stringify(authType) === JSON.stringify(["self", "sibling", "parent"]) && authObject === undefined)
   ) {
-    response.id = authSubject.origin
-    return response
+    // response.id = authSubject.origin
+    // return response
+    return authSubject
   }
   // Optimization.
   if (!isRoot && (authType.includes("parent") || authType.includes("sibling"))) {
@@ -81,15 +84,17 @@ export async function _verify(
 
     // Check if the immediate parent type of `authObject` is found in `authSubject`'s inheritance tree.
     if (authType.includes("sibling") && _owner === (await TypeRepository._owner(authSubject.origin))) {
-      response.id = authSubject.origin
-      return response
+      // response.id = authSubject.origin
+      // return response
+      return authSubject
     } else {
       // Check if `authSubject` is actually the parent ID of `authObject` matching the same type as `authSubject`.
       // Do the "parent" check before the "sibling" check since it's more likely to be the case, so short circuit here.
       while (_owner !== null) {
         if (_owner === authSubject.origin) {
-          response.id = authSubject.origin
-          return response
+          // response.id = authSubject.origin
+          // return response
+          return authSubject
         }
         _owner = await TypeRepository._owner(_owner)
       }

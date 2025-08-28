@@ -1,15 +1,15 @@
-import crypto from "crypto"
 import { Encrypt, Decrypt } from "../Bootstrap"
 import { CredentialInterface } from "../interface/RepositoryInterface"
-import { MongoClientDB } from "../Bootstrap"
+import { MongoClientDB, uuid } from "../Bootstrap"
 import { ObjectId } from "mongodb"
 import { jwtVerify, SignJWT } from "jose"
+const path = require("path")
 
 const { isLocked, recordFailedAttempts, clearAttempts } = require("../../utils/accountLockout")
 
 export class CredentialRepository implements CredentialInterface {
   // if used with secret_key, will throw error if mismatch, else, will return confirmation of existence
-  public async _find(access_key: string, secret_key?: string): Promise<string> {
+  public async _find(access_key: string, secret_key?: string): Promise<any> {
     if (isLocked(access_key)) {
       throw new Error("Account is temporarily locked. Try again later.")
     }
@@ -21,7 +21,7 @@ export class CredentialRepository implements CredentialInterface {
         .toArray()
     ).filter((x: any) => (!!secret_key ? Decrypt(x.secret_key, "AES256") === secret_key : true))
 
-    if (res.length !== 0) return (res[0] as any).origin
+    if (res.length !== 0) return res[0] as any
     else {
       throw new Error("403.no-such-credentials")
     }
@@ -39,7 +39,9 @@ export class CredentialRepository implements CredentialInterface {
       _deleted: undefined,
     }))
   }
-  public async _insert(type_id: string | null, credential: any): Promise<{}> {
+  public async _insert(type_id: string | null, credential: any): Promise<string> {
+    const _id = uuid()
+
     if (credential.origin === "me" || credential.origin === null) {
       // FIXME: context substitution doesn't actually work within the object here, so do it manually.
       credential.origin = type_id
@@ -62,7 +64,7 @@ export class CredentialRepository implements CredentialInterface {
       description: credential.description,
       _deleted: false,
     } as any)
-    return {}
+    return _id
   }
   public async _update(type_id: string | null, access_key: string, credential: any): Promise<{}> {
     const res: any = await MongoClientDB.collection("credential").findOne({ origin: type_id, access_key: access_key })
@@ -120,7 +122,9 @@ export class CredentialRepository implements CredentialInterface {
         } catch (err) {
           console.log(err)
         }
+
         res.typeId = res?.id
+
         return res as any
       } else {
         recordFailedAttempts(secretKey)
@@ -132,19 +136,22 @@ export class CredentialRepository implements CredentialInterface {
     }
   }
 
-  public async _logout(token: string | undefined): Promise<any> {
+  public async _logout(token: string | undefined): Promise<string> {
+    const _id = uuid()
     await MongoClientDB.collection("tokens").insertOne({
       _id: new ObjectId(),
       token: token,
     } as any)
-    return {}
+    return _id
   }
 
   public async _renewToken(refreshToken: string): Promise<any> {
+    const _id = uuid()
     const JWT_SECRET = process.env.SECRET_KEY as string
     const jwtSecretKey = new TextEncoder().encode(JWT_SECRET)
     try {
       const { payload }: any = await jwtVerify(refreshToken, jwtSecretKey)
+
       const accessKey = payload?.access_key
       const secretKey = payload?.secret_key
       const user_id = payload?.user_id
@@ -155,7 +162,6 @@ export class CredentialRepository implements CredentialInterface {
       })
 
       if (res?.length !== 0) {
-        // Generating new tokens
         try {
           res.access_token = await new SignJWT({ user_id: res._id, origin: res.origin })
             .setProtectedHeader({ alg: "HS256" })
@@ -174,6 +180,7 @@ export class CredentialRepository implements CredentialInterface {
         } catch (err) {
           console.log(err)
         }
+        // }
       }
     } catch (error) {
       throw new Error("401.invalid-token")
