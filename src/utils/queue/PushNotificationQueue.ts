@@ -1,5 +1,4 @@
 import Bull from "bull"
-import fetch from "node-fetch"
 /** Queue Process
  *
  * @param job

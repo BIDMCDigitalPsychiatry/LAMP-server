@@ -1,4 +1,3 @@
-//require("dotenv").config()
 import http from "http"
 import https from "https"
 import { HTTPS_CERT } from "./utils"
