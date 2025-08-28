@@ -13,6 +13,7 @@ app.use(express.text())
 app.use(
   cors({
     origin: [
+      "https://dashboard.dev.lamp.digital",
       "https://dashboard-staging.lamp.digital",
       "https://dashboard.lamp.digital",
       "https://lamp-dashboard.zcodemo.com",
