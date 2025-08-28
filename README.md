@@ -20,6 +20,7 @@
 | `PUSH_GATEWAY_APIKEY`   |   |   |
 | `REDIS_HOST`  | :heavy_check_mark:  |   |
 | `ROOT_KEY`   | :heavy_check_mark:  |   |
+| `SHUTDOWN_GRACEPERIOD_MS`   | | The number of milliseconds after the process receives a termination signal before forcibly closing connections.  |
 | `SYSTEM_STATUS_API_KEY`   |   | If set, some of the system info endpoints (such as `/system/metrics` or `/system/version`) will require a `key` query parameter equal to this env var in order to access.  |
 | `secret_key`   |   |   |
 

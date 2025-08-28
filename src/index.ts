@@ -1,6 +1,20 @@
-import http from "http"
-import { Bootstrap } from "./repository/Bootstrap"
-import app from "./app"
+import http from "http";
+import { Bootstrap } from "./repository/Bootstrap";
+import app from "./app";
+
+// ---------------------
+// Shutdown Grace Period
+//
+// Definition: the time between when the server stops accepting new requests and
+//   when in-flight requests are forcibly terminated.
+//
+// Default: 1s Note: In our ECS environments we set this as close as is
+// reasonable to the ECS grace period (30s).
+const SHUTDOWN_GRACEPERIOD_MS: number = parseInt(
+  process.env.SHUTDOWN_GRACEPERIOD_MS || "1000"
+);
+
+const PORT: number = parseInt(process.env.PORT || "3000");
 
 // NodeJS v15+ do not log unhandled promise rejections anymore.
 process.on("unhandledRejection", (error) => {
@@ -15,36 +29,31 @@ async function main(): Promise<void> {
   console.groupEnd()
   console.log("Initialization complete.")
 
-  const PORT: number = parseInt(process.env.PORT || "3000");
-
   const server = http.createServer(app)
   server.listen(PORT, "0.0.0.0", () => {
     console.log(`Server listening on port ${PORT}`)
   })
 
-  /**
-   * Shuts down the server and exists the process.
-   * NB: it does not ensure any clients are cleaned up correctly.
-   */
-  function shutdown() {
-    console.info("LAMP shutting down")
-    server.close(() => {
-      console.info("LAMP shut down")
-      process.exit(0)
-    })
+  async function shutdown(signal: string): Promise<void> {
+    console.log(`${signal} received`);
+    console.log("Shutting down...");
+    server.close((err) => {
+      if (err) {
+        console.error("Server was not open when 'close' was called", err);
+        process.exit(1);
+      } else {
+        console.log("Server exited successfully.");
+        process.exit(0);
+      }
+    });
+    setTimeout(() => {
+      console.info("Forcibly terminating long-lived, in-flight connections");
+      server.closeAllConnections();
+    }, SHUTDOWN_GRACEPERIOD_MS);
   }
 
-  // Add shutdown hook for SIGTERM
-  process.on("SIGTERM", () => {
-    console.debug("SIGTERM received")
-    shutdown()
-  })
-
-  // Add shutdown hook for SIGINT (Ctrl+C)
-  process.on("SIGINT", () => {
-    console.debug("SIGINT received")
-    shutdown()
-  })
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
 }
 
 main()
