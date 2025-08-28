@@ -47,7 +47,7 @@
   "scripts": {
     "build": "rimraf build && tsc",
     "coverage": "jest --coverage",
-    "dev": "docker compose up -d && nodemon --exec ts-node ./src/index.ts --watch src",
+    "dev": "docker compose up -d && dotenv -- nodemon --exec ts-node ./src/index.ts --watch src",
     "start-sw": "dotenv node build/src/index.js",
     "start": "npm run build && npm run start-sw",
     "test": "jest --watch",
