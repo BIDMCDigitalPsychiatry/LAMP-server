@@ -1,4 +1,4 @@
-import { Router, Request, Response } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 
 const {
   ORG_OPENCONTAINERS_IMAGE_VERSION,
@@ -9,13 +9,13 @@ const {
 
 export const SystemInfoAPI = Router()
 
-SystemInfoAPI.use((req, resp, next) => {
+function systemInfoAuthGuard(req: Request, resp: Response, next: NextFunction) {
   if (req.query.key == process.env.SYSTEM_STATUS_API_KEY) {
     return next();
   } else {
     return resp.status(404).json({ message: "404.api-endpoint-unimplemented" })
   }
-})
+}
 
 async function fetchGatewayVersionDetails() {
   if (! PUSH_GATEWAY) return {}
@@ -31,24 +31,40 @@ async function fetchGatewayVersionDetails() {
   return {}
 }
 
-SystemInfoAPI.get("/version", async (_: Request, resp: Response) => {
-  const gatewayVersionInfo = await fetchGatewayVersionDetails();
+SystemInfoAPI.get(
+  "/version",
+  [
+    systemInfoAuthGuard,
+    async (_: Request, resp: Response) => {
+      const gatewayVersionInfo = await fetchGatewayVersionDetails();
 
-  const versionInfo = {
-    this: {
-      version: ORG_OPENCONTAINERS_IMAGE_VERSION,
-      revision: ORG_OPENCONTAINERS_IMAGE_REVISION,
-      created: {
-        utc: ORG_OPENCONTAINERS_IMAGE_CREATED,
+      const versionInfo = {
+        this: {
+          version: ORG_OPENCONTAINERS_IMAGE_VERSION,
+          revision: ORG_OPENCONTAINERS_IMAGE_REVISION,
+          created: {
+            utc: ORG_OPENCONTAINERS_IMAGE_CREATED,
+          }
+        },
+        upstream: {
+          gateway: gatewayVersionInfo
+        }
       }
-    },
-    upstream: {
-      gateway: gatewayVersionInfo
-    }
-  }
 
-  return resp.status(200).json(versionInfo)
-})
+      return resp.status(200).json(versionInfo)
+    }
+  ]
+)
+
+SystemInfoAPI.get(
+  "/metrics",
+  [
+    systemInfoAuthGuard,
+    (req: Request, resp: Response) => {
+      return resp.status(200).send("")
+    }
+  ]
+)
 
 SystemInfoAPI.get("/healthz", (req: Request, resp: Response) => {
   return resp.status(200).send("ok")
@@ -56,8 +72,4 @@ SystemInfoAPI.get("/healthz", (req: Request, resp: Response) => {
 
 SystemInfoAPI.get("/readyz", (req: Request, resp: Response) => {
   return resp.status(200).send("ok")
-})
-
-SystemInfoAPI.get("/metrics", (req: Request, resp: Response) => {
-  return resp.status(200).send("")
 })
