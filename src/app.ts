@@ -2,7 +2,7 @@ import express, { Application } from "express"
 import cors from "cors"
 import morgan from "morgan"
 import API from "./service"
-import rateLimit from "express-rate-limit"
+import { applySentryForExpress } from "./utils/sentry"
 var cookieParser = require("cookie-parser")
 
 const app: Application = express()
@@ -53,5 +53,7 @@ app.use(express.urlencoded({ extended: true }))
 app.use("/", API)
 app.get(["/favicon.ico", "/service-worker.js"], (req, res) => res.status(204))
 app.all("*", (req, res) => res.status(404).json({ message: "404.api-endpoint-unimplemented" }))
+
+applySentryForExpress(app)
 
 export default app

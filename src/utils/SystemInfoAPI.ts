@@ -86,3 +86,13 @@ SystemInfoAPI.get("/healthz", (req: Request, resp: Response) => {
 SystemInfoAPI.get("/readyz", (req: Request, resp: Response) => {
   return resp.status(200).send("ok")
 })
+
+SystemInfoAPI.get(
+  "/sentry/throw-demo-error",
+  [
+    systemInfoAuthGuard,
+    (req: Request, resp: Response) => {
+      throw new Error("Demo Sentry Error!");
+    }
+  ]
+)
