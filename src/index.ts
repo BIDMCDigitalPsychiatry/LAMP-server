@@ -1,3 +1,18 @@
+// -- { CRITICAL LOADING - START } --------------------------------------------
+//
+// Important: Ordering is important here. Sentry's node instrumentation portion
+// should be the first thing to run in order to capture any errors that might
+// occur loading our dependencies or wiring up the app.
+// ----------------------------------------------------------------------------
+
+import "./utils/sentry";
+
+// ----------------------------------------------------------------------------
+// Now we can proceed loading all the rest of the world...
+//
+// -- { CRITICAL LOADING - END } ----------------------------------------------
+
+
 import http from "http";
 import { Bootstrap } from "./repository/Bootstrap";
 import app from "./app";
