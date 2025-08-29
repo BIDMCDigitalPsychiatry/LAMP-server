@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "bin": "build/index.js",
   "dependencies": {
+    "@sentry/node": "^10.8.0",
     "async-mutex": "^0.2.4",
     "bson": "^6.10.4",
     "bull": "^3.29.3",
