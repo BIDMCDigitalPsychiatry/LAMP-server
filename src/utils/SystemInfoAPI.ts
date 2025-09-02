@@ -4,7 +4,8 @@ const {
   ORG_OPENCONTAINERS_IMAGE_VERSION,
   ORG_OPENCONTAINERS_IMAGE_REVISION,
   ORG_OPENCONTAINERS_IMAGE_CREATED,
-  PUSH_GATEWAY
+  NOTIFICATION_SERVICE_URL,
+  NOTIFICATION_SERVICE_API_KEY
 } = process.env
 
 export const SystemInfoAPI = Router()
@@ -17,13 +18,22 @@ function systemInfoAuthGuard(req: Request, resp: Response, next: NextFunction) {
   }
 }
 
-async function fetchGatewayVersionDetails() {
-  if (! PUSH_GATEWAY) return {}
+async function fetchNotificationServiceVersionDetails() {
+  if (! NOTIFICATION_SERVICE_URL) return {}
 
   try {
-    const url = new URL(PUSH_GATEWAY)
+    const url = new URL(NOTIFICATION_SERVICE_URL)
     url.pathname = "/system/version"
-    return (await fetch(url, { signal: AbortSignal.timeout(5000) })).json()
+    
+    const headers: Record<string, string> = {}
+    if (NOTIFICATION_SERVICE_API_KEY) {
+      headers['Authorization'] = `Bearer ${NOTIFICATION_SERVICE_API_KEY}`
+    }
+    
+    return (await fetch(url, { 
+      headers,
+      signal: AbortSignal.timeout(5000) 
+    })).json()
   } catch(e) {
     console.warn(`Could not fetch gateway version info`, e)
   }
@@ -36,7 +46,7 @@ SystemInfoAPI.get(
   [
     systemInfoAuthGuard,
     async (_: Request, resp: Response) => {
-      const gatewayVersionInfo = await fetchGatewayVersionDetails();
+      const notificationServiceVersionInfo = await fetchNotificationServiceVersionDetails();
 
       const versionInfo = {
         this: {
@@ -47,7 +57,10 @@ SystemInfoAPI.get(
           }
         },
         upstream: {
-          gateway: gatewayVersionInfo
+          notifications: {
+            ...notificationServiceVersionInfo,
+            url: NOTIFICATION_SERVICE_URL
+          }
         }
       }
 
