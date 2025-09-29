@@ -10,15 +10,20 @@ app.set("json spaces", 2)
 app.use(express.json({ limit: "50mb", strict: false }))
 app.use(express.text())
 
-app.use(
-  cors({
-    origin: [
+const allowedOrigins = [
       "https://dashboard.dev.lamp.digital",
       "https://dashboard-staging.lamp.digital",
       "https://dashboard.lamp.digital",
       "https://lamp-dashboard.zcodemo.com",
       "https://lamp-secdash.zcodemo.com",
-    ],
+]
+if (process.env.DASHBOARD_URL) {
+  allowedOrigins.push(process.env.DASHBOARD_URL)
+}
+
+app.use(
+  cors({
+    origin: allowedOrigins,
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allowedHeaders: [
