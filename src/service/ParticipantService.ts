@@ -1,18 +1,19 @@
 import { Request, Response, Router } from "express"
-import { _verify } from "./Security"
+import { _authorize } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
-import { authenticateToken } from "../middlewares/authenticateToken"
+import { authenticateSession } from "../middlewares/authenticateSession"
+import { Session } from "../utils/auth"
 
 export class ParticipantService {
   public static _name = "Participant"
   public static Router = Router()
 
-  public static async list(auth: any, study_id: string, sibling = false) {
+  public static async list(actingUser: Session["user"], study_id: string, sibling = false) {
     const ParticipantRepository = new Repository().getParticipantRepository()
     const TypeRepository = new Repository().getTypeRepository()
-    const response: any = await _verify(auth, ["self", "sibling", "parent"], study_id)
+    const response: any = await _authorize(actingUser, ["self", "sibling", "parent"], study_id)
     if (sibling) {
       const parent_id = await TypeRepository._owner(study_id)
       if (parent_id === null) throw new Error("403.invalid-sibling-ownership")
@@ -22,9 +23,9 @@ export class ParticipantService {
   }
 
   // TODO: activity/* and sensor/* entry
-  public static async create(auth: any, study_id: string, participant: any) {
+  public static async create(actingUser: Session["user"], study_id: string, participant: any) {
     const ParticipantRepository = new Repository().getParticipantRepository()
-    const response: any = await _verify(auth, ["self", "sibling", "parent"], study_id)
+    const response: any = await _authorize(actingUser, ["self", "sibling", "parent"], study_id)
     const data = await ParticipantRepository._insert(study_id, participant)
 
     //publishing data for participant add api with token = study.{study_id}.participant.{_id}
@@ -50,9 +51,9 @@ export class ParticipantService {
     return data
   }
 
-  public static async get(auth: any, participant_id: string) {
+  public static async get(actingUser: Session["user"], participant_id: string) {
     const ParticipantRepository = new Repository().getParticipantRepository()
-    const response: any = await _verify(auth, ["self", "sibling", "parent"], participant_id)
+    const response: any = await _authorize(actingUser, ["self", "sibling", "parent"], participant_id)
 
     if (participant_id !== "me") {
       return await ParticipantRepository._select(participant_id)
@@ -60,10 +61,10 @@ export class ParticipantService {
     return await ParticipantRepository._select(response.id)
   }
 
-  public static async set(auth: any, participant_id: string, participant: any | null) {
+  public static async set(actingUser: Session["user"], participant_id: string, participant: any | null) {
     const ParticipantRepository = new Repository().getParticipantRepository()
     const TypeRepository = new Repository().getTypeRepository()
-    const response: any = await _verify(auth, ["self", "sibling", "parent"], participant_id)
+    const response: any = await _authorize(actingUser, ["self", "sibling", "parent"], participant_id)
     if (participant === null) {
       //find the study id before delete, as it cannot be fetched after delete
       const parent = (await TypeRepository._parent(participant_id)) as any
@@ -122,11 +123,11 @@ export class ParticipantService {
 
 ParticipantService.Router.post(
   "/study/:study_id/participant",
-  authenticateToken,
+  authenticateSession,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
     try {
-      res.json({ data: await ParticipantService.create(req.get("Authorization"), req.params.study_id, req.body) })
+      res.json({ data: await ParticipantService.create(res.locals.user, req.params.study_id, req.body) })
     } catch (e: any) {
       if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
       res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
@@ -135,11 +136,11 @@ ParticipantService.Router.post(
 )
 ParticipantService.Router.put(
   "/participant/:participant_id",
-  authenticateToken,
+  authenticateSession,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
     try {
-      res.json({ data: await ParticipantService.set(req.get("Authorization"), req.params.participant_id, req.body) })
+      res.json({ data: await ParticipantService.set(res.locals.user, req.params.participant_id, req.body) })
     } catch (e: any) {
       if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
       res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
@@ -148,11 +149,11 @@ ParticipantService.Router.put(
 )
 ParticipantService.Router.delete(
   "/participant/:participant_id",
-  authenticateToken,
+  authenticateSession,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
     try {
-      res.json({ data: await ParticipantService.set(req.get("Authorization"), req.params.participant_id, null) })
+      res.json({ data: await ParticipantService.set(res.locals.user, req.params.participant_id, null) })
     } catch (e: any) {
       if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
       res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
@@ -161,11 +162,11 @@ ParticipantService.Router.delete(
 )
 ParticipantService.Router.get(
   "/participant/:participant_id",
-  authenticateToken,
+  authenticateSession,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
     try {
-      let output = { data: await ParticipantService.get(req.get("Authorization"), req.params.participant_id) }
+      let output = { data: await ParticipantService.get(res.locals.user, req.params.participant_id) }
 
       output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
       res.json(output)
@@ -177,11 +178,11 @@ ParticipantService.Router.get(
 )
 ParticipantService.Router.get(
   "/activity/:activity_id/participant",
-  authenticateToken,
+  authenticateSession,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
     try {
-      let output = { data: await ParticipantService.list(req.get("Authorization"), req.params.activity_id, true) }
+      let output = { data: await ParticipantService.list(res.locals.user, req.params.activity_id, true) }
       output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
       res.json(output)
     } catch (e: any) {
@@ -192,11 +193,11 @@ ParticipantService.Router.get(
 )
 ParticipantService.Router.get(
   "/sensor/:sensor_id/participant",
-  authenticateToken,
+  authenticateSession,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
     try {
-      let output = { data: await ParticipantService.list(req.get("Authorization"), req.params.sensor_id, true) }
+      let output = { data: await ParticipantService.list(res.locals.user, req.params.sensor_id, true) }
       output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
       res.json(output)
     } catch (e: any) {
@@ -207,11 +208,11 @@ ParticipantService.Router.get(
 )
 ParticipantService.Router.get(
   "/study/:study_id/participant",
-  authenticateToken,
+  authenticateSession,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
     try {
-      let output = { data: await ParticipantService.list(req.get("Authorization"), req.params.study_id) }
+      let output = { data: await ParticipantService.list(res.locals.user, req.params.study_id) }
       output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
       res.json(output)
     } catch (e: any) {

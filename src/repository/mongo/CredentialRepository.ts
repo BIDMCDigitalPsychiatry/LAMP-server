@@ -4,6 +4,7 @@ import { CredentialInterface } from "../interface/RepositoryInterface"
 import { MongoClientDB } from "../Bootstrap"
 import { ObjectId } from "mongodb"
 import { jwtVerify, SignJWT } from "jose"
+import { auth } from "../../utils/auth"
 
 const { isLocked, recordFailedAttempts, clearAttempts } = require("../../utils/accountLockout")
 
@@ -26,6 +27,7 @@ export class CredentialRepository implements CredentialInterface {
       throw new Error("403.no-such-credentials")
     }
   }
+
   public async _select(type_id: string | null): Promise<any[]> {
     const res = await MongoClientDB.collection("credential")
       .find({ _deleted: false, origin: type_id })
@@ -39,105 +41,101 @@ export class CredentialRepository implements CredentialInterface {
       _deleted: undefined,
     }))
   }
+
   public async _insert(type_id: string | null, credential: any): Promise<{}> {
     if (credential.origin === "me" || credential.origin === null) {
       // FIXME: context substitution doesn't actually work within the object here, so do it manually.
       credential.origin = type_id
     }
     // Verify this is "our" credential correctly
-    if (credential.origin !== type_id || !credential.access_key || !credential.secret_key)
+    if (credential.origin !== type_id || !credential.access_key || !credential.secret_key) {
       throw new Error("400.malformed-credential-object")
+    }
     const res = await MongoClientDB.collection("credential").findOne({
       _deleted: false,
       access_key: credential.access_key,
     })
-
-    if (res !== null) throw new Error("403.access-key-already-in-use")
+    if (res !== null) { throw new Error("403.access-key-already-in-use") }
+    console.log("checked existance")
     //save Credential via Credential model
-    await MongoClientDB.collection("credential").insertOne({
-      _id: new ObjectId(),
+    await auth.api.signUpEmail({body: { // TODO: error handling!!!
+      email: credential.access_key,
+      password: credential.secret_key,
       origin: credential.origin,
-      access_key: credential.access_key,
-      secret_key: Encrypt(credential.secret_key, "AES256"),
+      name: credential.access_key,
       description: credential.description,
-      _deleted: false,
-    } as any)
+   }})
+    console.log(">>> returning")
     return {}
   }
+
   public async _update(type_id: string | null, access_key: string, credential: any): Promise<{}> {
     const res: any = await MongoClientDB.collection("credential").findOne({ origin: type_id, access_key: access_key })
-    if (res === null) throw new Error("404.no-such-credentials")
+    if (res === null) { throw new Error("404.no-such-credentials") }
+    
+    const authContext = await auth.$context
+    // Update the user's description
     const oldCred = res._id as any
-    await MongoClientDB.collection("credential").findOneAndUpdate(
-      { _id: oldCred },
-      {
-        $set: {
-          secret_key: !!credential.secret_key ? Encrypt(credential.secret_key, "AES256") : res.secret_key,
-          description: !!credential.description ? credential.description : res.description,
-        },
+    if (!!credential.description) {
+      const updateResult = await authContext.internalAdapter.updateUser("oldCred", {description: credential.description})
+      if (updateResult === null) {
+        throw new Error("Something went wrong TODO: fix this error")
       }
-    )
+    }
+
+    // Update the user's password
+    if (!!credential.secret_key) {
+      const hashedPassword = await authContext.password.hash(credential.secret_key)
+      await authContext.internalAdapter.updatePassword(oldCred as string, hashedPassword)  // TODO: Make sure the password shape is being validated!!!
+    }
 
     return {}
   }
+
   public async _delete(type_id: string | null, access_key: string): Promise<{}> {
     const res = await MongoClientDB.collection("credential").findOne({ origin: type_id, access_key: access_key })
     if (res === null) throw new Error("404.no-such-credentials")
     const oldCred = res._id as any
     await MongoClientDB.collection("credential").findOneAndUpdate({ _id: oldCred }, { $set: { _deleted: true } })
-    // await CredentialModel.deleteOne({ _id: oldCred })
 
     return {}
   }
+
   public async _login(accessKey: string | null, secretKey: string): Promise<any> {
-    const JWT_SECRET = process.env.SECRET_KEY as string
-    const secret_key = new TextEncoder().encode(JWT_SECRET)
-
-    if (isLocked(secretKey)) {
-      throw new Error("403.Account has been logged out, please try again later")
+    if (accessKey === null || accessKey === undefined ) {
+      throw new Error("404.no-such-credentials")
     }
-    const res = await MongoClientDB.collection("credential").findOne({ _deleted: false, access_key: accessKey })
+    if (secretKey === null || secretKey === undefined) {
+      throw new Error("404.no-such-credentials")
+    }
 
-    if (res?.length !== 0 && res !== null) {
-      const secretKeyDecrypted = Decrypt(res?.secret_key, "AES256")
-      if (secretKey === secretKeyDecrypted) {
-        // Generating jwt access token
-        try {
-          res.access_token = await new SignJWT({ user_id: res._id, origin: res.origin })
-            .setProtectedHeader({ alg: "HS256" })
-            .setIssuedAt()
-            .setExpirationTime("30m")
-            .sign(secret_key)
+    try {
+      const res = await auth.api.signInEmail({returnHeaders: true, body: {email: accessKey, password: secretKey}})
 
-          res.refresh_token = await new SignJWT({ user_id: res._id, origin: res.origin })
-            .setProtectedHeader({ alg: "HS256" })
-            .setIssuedAt()
-            .setExpirationTime("7d")
-            .sign(secret_key)
-
-          const { payload, protectedHeader } = await jwtVerify(res.refresh_token, secret_key)
-          clearAttempts(secretKey)
-        } catch (err) {
-          console.log(err)
+      // Do not allow deleted users to log in
+      if (!!res.response?.user?.id) {
+        const user = await MongoClientDB.collection("credential").findOne({access_key: accessKey})
+        if (user._deleted) {
+          await this._logout(res.response.token)
+          throw new Error("404.no-such-credentials")
         }
-        res.typeId = res?.id
-        return res as any
-      } else {
-        recordFailedAttempts(secretKey)
-        throw new Error("403.no-such-credentials")
       }
-    } else {
-      recordFailedAttempts(secretKey)
-      throw new Error("403.no-such-credentials")
+
+      // If the login attempt in successful, clear the failed login attempt count
+      clearAttempts(accessKey)
+      return res as any
+    }
+    catch(err) {
+      recordFailedAttempts(accessKey)
+      throw new Error("404.no-such-credentials")
     }
   }
 
   public async _logout(token: string | undefined): Promise<any> {
-    await MongoClientDB.collection("tokens").insertOne({
-      _id: new ObjectId(),
-      token: token,
-    } as any)
-    return {}
+    if (token) {
+      const result = await MongoClientDB.collection("session").deleteOne({token: token})  // TODO: Replace with betterauth internal adapter 
+    }
+    return {"message": "Logged out"}
   }
 
   public async _renewToken(refreshToken: string): Promise<any> {

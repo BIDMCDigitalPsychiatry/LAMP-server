@@ -44,6 +44,8 @@ import {
 } from "./interface/RepositoryInterface"
 import ioredis from "ioredis"
 import { initializeQueues } from "../utils/queue/Queue"
+import { auth } from "../utils/auth"
+// import { auth } from "../utils/auth"
 export let RedisClient: ioredis.Redis
 export let nc: Client
 export let MongoClientDB: any
@@ -825,8 +827,9 @@ export async function Bootstrap(): Promise<void> {
       //   console.log("Database connection failed.")
       // }
 
-      const db = process.env.DB?.split("/").reverse()[0]?.split("?")[0]
-      MongoClientDB = await client?.db("LampV2")
+      // const db = process.env.DB?.split("/").reverse()[0]?.split("?")[0]
+      const db = process.env.DB_NAME
+      MongoClientDB = await client?.db(db)
       console.log("MongoDB is connected and responding")
     } catch (error) {
       console.log("Database connection failed.")
@@ -943,21 +946,41 @@ export async function Bootstrap(): Promise<void> {
         console.dir(`An initial administrator password was generated and saved for this installation.`)
         try {
           // Create a new password and emit it to the console while saving it (to share it with the sysadmin).
-          const p = crypto.randomBytes(32).toString("hex")
+          // const p = crypto.randomBytes(32).toString("hex")
+          const p = "Welcome1!" // TODO: Use actual generated password
           console.table({ "Administrator Password": p })
-          await database.insertOne({
-            _id: new ObjectId(),
-            origin: null,
-            access_key: "admin",
-            secret_key: Encrypt(p, "AES256"),
-            description: "System Administrator Credential",
-            _deleted: false,
-          } as any)
+          console.log(">>>", await auth.api.signUpEmail({
+            body: {
+              email: "admin@example.com",
+              password: p, 
+              name: "admin",
+              description: "System Administrator Credential",
+              origin: null,
+            }
+          }))
+          // await database.insertOne({
+          //   _id: new ObjectId(),
+          //   origin: null,
+          //   access_key: "admin",
+          //   secret_key: Encrypt(p, "AES256"),
+          //   description: "System Administrator Credential",
+          //   _deleted: false,
+          // } as any)
         } catch (error) {
           console.log(error)
         }
       }
       console.log("Credential database online.")
+
+      if (!dbs.includes("account")) {
+        await MongoClientDB.createCollection("account")
+      }
+      if (!dbs.includes("session")) {
+        await MongoClientDB.createCollection("session")
+      }
+      if (!dbs.includes("verification")) {
+        await MongoClientDB.createCollection("verification")
+      }
 
       console.groupEnd()
       console.groupEnd()

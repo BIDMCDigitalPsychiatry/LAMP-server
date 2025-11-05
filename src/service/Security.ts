@@ -1,7 +1,9 @@
 import { Repository, Decrypt } from "../repository/Bootstrap"
 import { jwtVerify } from "jose"
 import { MongoClientDB } from "../repository/Bootstrap"
-
+import {Session} from "../utils/auth"
+import { boolean } from "better-auth"
+import { TypeRepository } from "../repository/couch"
 // The AuthSubject type represents an already-validated authorization that can be reused.
 type AuthSubject = { origin: string; access_key: string; secret_key: string; _id: string }
 const JWT_SECRET = process.env.SECRET_KEY as string
@@ -21,6 +23,75 @@ export async function _createAuthSubject(authHeader: string | undefined): Promis
     secret_key: auth[1],
     _id: auth[2],
   }
+}
+
+
+// TODO: Fix documentation and do more extensive testing
+// Assume that authSubject has already been authenticated
+// _autorize only checks that the acting user is allowed to perform whatever operation they are attempting
+// Returns the authObject for which the specified action has been verified
+export async function _authorize(
+  authSubject: Session["user"], 
+  authType: Array<"self" | "sibling" | "parent"> /* 'root' = [] */, 
+  authObject?: string | null
+):Promise<string|null|undefined> {
+  console.log("Top of authorize")
+  const TypeRepository = new Repository().getTypeRepository()
+  // Returns true if the the provided authType matches the one passed into the function and false otherwise
+  function authMatches(testAuthType: Array<"self" | "sibling" | "parent">): boolean {
+    if (testAuthType.length !== authType.length) {
+      return false
+    }
+    for (let permission of testAuthType) {
+      if (!authType.includes(permission)) {
+        return false
+      }
+    }
+    return true
+  }
+  function authContains(permission: "self" | "sibling" | "parent"): boolean {
+    return authType.includes(permission)
+  }
+  
+  const isRoot = authSubject.origin === null;
+  // Non root user's may substitute "me" with their origin
+  if (authObject === "me" && !isRoot) {
+    authObject = authSubject.origin 
+  } else if (authObject === "me" && isRoot) {
+    throw new Error("400.context-substitution-failed")
+  }
+
+  // Root users can do anything
+  if (isRoot) {
+    return authObject
+  }
+
+  // Check if self permissions apply
+  if (authType.includes("self") && authSubject.origin === authObject || 
+  authMatches(["self", "sibling", "parent"]) && authObject === undefined) {
+    return authSubject.origin
+  }
+  
+  if (authContains("parent") || authContains("sibling")) {
+    let objectOwner = await TypeRepository._owner(authObject ?? "")
+    let subjectOwner = await TypeRepository._owner(authSubject.origin ?? "") // Todo: remedy this type issue
+    
+    // Check if sibling permissions apply 
+    if (authContains("sibling") && objectOwner === subjectOwner) {
+      return authObject
+    }
+    
+    let currentOwner = objectOwner
+    // Check if parent or sibling permissions apply
+    while (currentOwner !== null) {
+      if (currentOwner === authSubject.origin) {
+        return authObject
+      }
+      currentOwner = await TypeRepository._owner(currentOwner)
+    }
+  }
+
+  throw new Error("403.security-context-out-of-scope")
 }
 
 // Simple Role-Based-Access-Control (RBAC) to answer: Can (subject) (verb) (object)?
@@ -131,6 +202,7 @@ export async function _createAuthSubjectFromToken(authHeader: string | undefined
   }
 }
 
+// TODO: REMOVE OR REPLACE THIS
 //function to get role of authorized user
 export async function findPermission(accessKey: any) {
   const users = await MongoClientDB.collection("tag").findOne({ key: "lamp.dashboard.admin_permissions" })

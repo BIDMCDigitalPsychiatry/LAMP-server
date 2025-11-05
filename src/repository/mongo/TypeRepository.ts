@@ -3,7 +3,6 @@ import { DynamicAttachment } from "../../model"
 import { Repository } from "../../repository/Bootstrap"
 import { TypeInterface } from "../interface/RepositoryInterface"
 import { MongoClientDB } from "../Bootstrap"
-import { isArray } from "util"
 
 // FIXME: Support application/json;indent=:spaces format mime type!
 
