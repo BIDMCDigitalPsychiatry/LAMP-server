@@ -35,7 +35,6 @@ export async function _authorize(
   authType: Array<"self" | "sibling" | "parent"> /* 'root' = [] */, 
   authObject?: string | null
 ):Promise<string|null|undefined> {
-  console.log("Top of authorize")
   const TypeRepository = new Repository().getTypeRepository()
   // Returns true if the the provided authType matches the one passed into the function and false otherwise
   function authMatches(testAuthType: Array<"self" | "sibling" | "parent">): boolean {
@@ -53,6 +52,7 @@ export async function _authorize(
     return authType.includes(permission)
   }
   
+
   const isRoot = authSubject.origin === null;
   // Non root user's may substitute "me" with their origin
   if (authObject === "me" && !isRoot) {
@@ -63,7 +63,7 @@ export async function _authorize(
 
   // Root users can do anything
   if (isRoot) {
-    return authObject
+    return authSubject.origin
   }
 
   // Check if self permissions apply
@@ -78,14 +78,14 @@ export async function _authorize(
     
     // Check if sibling permissions apply 
     if (authContains("sibling") && objectOwner === subjectOwner) {
-      return authObject
+      return authSubject.origin
     }
     
     let currentOwner = objectOwner
     // Check if parent or sibling permissions apply
     while (currentOwner !== null) {
       if (currentOwner === authSubject.origin) {
-        return authObject
+        return authSubject.origin
       }
       currentOwner = await TypeRepository._owner(currentOwner)
     }

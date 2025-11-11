@@ -946,10 +946,9 @@ export async function Bootstrap(): Promise<void> {
         console.dir(`An initial administrator password was generated and saved for this installation.`)
         try {
           // Create a new password and emit it to the console while saving it (to share it with the sysadmin).
-          // const p = crypto.randomBytes(32).toString("hex")
           const p = "Welcome1!" // TODO: Use actual generated password
           console.table({ "Administrator Password": p })
-          console.log(">>>", await auth.api.signUpEmail({
+          await auth.api.signUpEmail({
             body: {
               email: "admin@example.com",
               password: p, 
@@ -957,15 +956,7 @@ export async function Bootstrap(): Promise<void> {
               description: "System Administrator Credential",
               origin: null,
             }
-          }))
-          // await database.insertOne({
-          //   _id: new ObjectId(),
-          //   origin: null,
-          //   access_key: "admin",
-          //   secret_key: Encrypt(p, "AES256"),
-          //   description: "System Administrator Credential",
-          //   _deleted: false,
-          // } as any)
+          })
         } catch (error) {
           console.log(error)
         }

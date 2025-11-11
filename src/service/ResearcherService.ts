@@ -41,10 +41,10 @@ export class ResearcherService {
   public static async get(actingUser: Session["user"], researcher_id: string) {
     const ResearcherRepository = new Repository().getResearcherRepository()
     const response: any = await _authorize(actingUser, ["self", "parent"], researcher_id)
-    if (response.id === null) {
+    if (response === null) {
       return await ResearcherRepository._select(researcher_id)
     }
-    return await ResearcherRepository._select(response.id)
+    return await ResearcherRepository._select(response)
   }
 
   public static async set(actingUser: Session["user"], researcher_id: string, researcher: any | null) {

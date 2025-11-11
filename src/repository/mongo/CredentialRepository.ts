@@ -65,7 +65,6 @@ export class CredentialRepository implements CredentialInterface {
       name: credential.access_key,
       description: credential.description,
    }})
-    console.log(">>> returning")
     return {}
   }
 
