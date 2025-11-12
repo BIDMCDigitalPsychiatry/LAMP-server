@@ -3,7 +3,6 @@ import app from "./app"; // This import is unused but is required for Bootstrap 
 
 const RESEARCHER_COUNT = 3
 const PER_STUDY_PARTICIPANT_COUNT = 3
-const TEST_PASSWORD = "M1ndLamp"
 
 const ACTIVITY_SPECS = [
     {
@@ -252,11 +251,16 @@ const SENSORS = [
 ]
 
 async function loadTestData() {
+    const TEST_PASSWORD = process.env.TEST_DATA_PASSWORD
+    const TEST_EMAIL_DOMAIN = process.env.TEST_DATA_EMAIL_DOMAIN
+    
+    if ((!TEST_PASSWORD) || (!TEST_EMAIL_DOMAIN)) {
+        throw new Error("You must define TEST_DATA_PASSWORD and TEST_DATA_EMAIL_DOMAIN in your .env file to create test data")
+    }
+
     await Bootstrap()
     
-    const TEST_PASSWORD = "testpassword1!"
-    const encoded_password = Encrypt(TEST_PASSWORD, "AES256");
-    const TEST_EMAIL_DOMAIN = "example.com"
+    
 
     const repository = new Repository()
 
