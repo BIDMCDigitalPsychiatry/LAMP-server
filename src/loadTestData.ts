@@ -3,6 +3,7 @@ import app from "./app"; // This import is unused but is required for Bootstrap 
 
 const RESEARCHER_COUNT = 3
 const PER_STUDY_PARTICIPANT_COUNT = 3
+const TEST_PASSWORD = "M1ndLamp"
 
 const ACTIVITY_SPECS = [
     {
@@ -89,11 +90,6 @@ const ACTIVITIES = [
                         "More than Half the Time",
                         "Several Times"
                     ],
-                    "required": true
-                },
-                {
-                    "text": "Matrix: Today I feel unable to cope and have difficulty with everyday tasks",
-                    "type": "matrix",
                     "required": true
                 },
                 {
@@ -269,6 +265,8 @@ async function loadTestData() {
     const ActivityRepository = repository.getActivityRepository()
     const SensorRepository = repository.getSensorRepository()
     const ParticipantRepository = repository.getParticipantRepository()
+    const TypeRepository = repository.getTypeRepository()
+    const CredentialRepository = repository.getCredentialRepository()
 
     // Add activity specs
     const ActivitySpecRepository = repository.getActivitySpecRepository()
@@ -294,6 +292,14 @@ async function loadTestData() {
             }
         )
 
+        // Create Researcher Credential
+        CredentialRepository._insert(researcherId, {
+            origin: researcherId,
+            access_key: `researcher_${i}@${TEST_EMAIL_DOMAIN}`,
+            secret_key: TEST_PASSWORD,
+            description: `Researcher ${i} Test Credential`
+        })
+
         // Create sensors and activities
         const activityIds = await Promise.all(ACTIVITIES.map((activity) => ActivityRepository._insert(studyId, activity)))
         const sensorIds = await Promise.all(SENSORS.map((sensor) => SensorRepository._insert(studyId, sensor)))
@@ -301,8 +307,25 @@ async function loadTestData() {
         // Create participants
         for (let j=1; j <= PER_STUDY_PARTICIPANT_COUNT; j++) {
             const participantId = await ParticipantRepository._insert(studyId, {})
+
+            CredentialRepository._insert(participantId.id, {
+                origin: participantId.id, 
+                access_key: `participant_${i}_${j}@${TEST_EMAIL_DOMAIN}`,
+                secret_key: TEST_PASSWORD,
+                description: `Participant ${j} Test Credential`
+            })
         }
     }
+
+    // Add Miscellaneous Tags
+    await TypeRepository._set(
+        undefined,
+        "*",
+        '', // type_id => How is it set to null?
+        'lamp.dashboard.security_preferences',
+        '{"password_rule":"^.*(?=.{8,})(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).*$"}'
+    )
+
 }
 
 console.log("=== START ===")
