@@ -11,3 +11,4 @@ coverage/
 *.sublime-project
 *.sublime-workspace
 .ipynb_checkpoints
+.idea/
