@@ -1,5 +1,5 @@
 import { Request, Response, Router } from "express"
-import { _authorize, _verify } from "./Security"
+import { _authorize } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
 import { Repository, ApiResponseHeaders, MongoClientDB } from "../repository/Bootstrap"

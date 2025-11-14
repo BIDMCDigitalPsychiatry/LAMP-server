@@ -300,8 +300,8 @@ StudyService.Router.post(
         const participant = await ParticipantRepository._insert(output["data"], {})
         await CredentialRepository._insert(participant.id, {
           origin: participant.id,
-          access_key: `${participant.id}@lamp.com`,
-          secret_key: participant.id,
+          access_key: `${participant.id}@digitalpsych.org`,
+          secret_key: participant.id,         // TODO: Verify that setting the password to the userId is corrent
           description: "Temporary Login",
         })
       }

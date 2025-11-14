@@ -1,7 +1,6 @@
 import { Router } from "express"
 import { OpenAPISchema } from "../utils"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
-import { _verify, _createAuthSubject, _createAuthSubjectFromToken } from "../service/Security"
 import {
   ActivityEventService,
   SensorEventService,
@@ -134,10 +133,6 @@ const METHOD_LIST = (user: Session["user"], session: Session["session"]) => ({
         const _start = Date.now()
         const x = await CredentialService.verify(access_key, secret_key)
         console.log(` -- LAMP.Credential.login: ${(Date.now() - _start).toFixed(2)} ms`)
-        return x
-      },
-      renewToken: async (refreshToken: string) => {
-        const x = await CredentialService.renewToken(refreshToken)
         return x
       },
     },

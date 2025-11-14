@@ -25,13 +25,14 @@ export async function authenticateSession(req: Request, res: Response, next: Nex
             throw Error("403.no-such-credentials")
         }
         
+        // TODO: Handle session freshness here
 
         // Add session and user to the current response's context
         res.locals.session = session
         res.locals.user = user
         next()
     }
-    catch (err) { // TODO: handle elegantly!
+    catch (err) {
         res.status(403)
         res.json({message: "403.no-such-credentials"})
     }

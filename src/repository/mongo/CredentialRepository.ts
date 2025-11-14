@@ -1,5 +1,5 @@
 import crypto from "crypto"
-import { Encrypt, Decrypt } from "../Bootstrap"
+import { Encrypt, Decrypt } from "../../utils/auth"
 import { CredentialInterface } from "../interface/RepositoryInterface"
 import { MongoClientDB } from "../Bootstrap"
 import { ObjectId } from "mongodb"
@@ -56,7 +56,7 @@ export class CredentialRepository implements CredentialInterface {
       access_key: credential.access_key,
     })
     if (res !== null) { throw new Error("403.access-key-already-in-use") }
-    console.log("checked existance")
+
     //save Credential via Credential model
     await auth.api.signUpEmail({body: { // TODO: error handling!!!
       email: credential.access_key,
@@ -76,7 +76,7 @@ export class CredentialRepository implements CredentialInterface {
     // Update the user's description
     const oldCred = res._id as any
     if (!!credential.description) {
-      const updateResult = await authContext.internalAdapter.updateUser("oldCred", {description: credential.description})
+      const updateResult = await authContext.internalAdapter.updateUser(oldCred, {description: credential.description})
       if (updateResult === null) {
         throw new Error("Something went wrong TODO: fix this error")
       }
@@ -85,7 +85,7 @@ export class CredentialRepository implements CredentialInterface {
     // Update the user's password
     if (!!credential.secret_key) {
       const hashedPassword = await authContext.password.hash(credential.secret_key)
-      await authContext.internalAdapter.updatePassword(oldCred as string, hashedPassword)  // TODO: Make sure the password shape is being validated!!!
+      await authContext.internalAdapter.updatePassword(oldCred as string, hashedPassword)
     }
 
     return {}
@@ -132,48 +132,8 @@ export class CredentialRepository implements CredentialInterface {
 
   public async _logout(token: string | undefined): Promise<any> {
     if (token) {
-      const result = await MongoClientDB.collection("session").deleteOne({token: token})  // TODO: Replace with betterauth internal adapter 
+      const result = await MongoClientDB.collection("session").deleteOne({token: token})
     }
     return {"message": "Logged out"}
-  }
-
-  public async _renewToken(refreshToken: string): Promise<any> {
-    const JWT_SECRET = process.env.SECRET_KEY as string
-    const jwtSecretKey = new TextEncoder().encode(JWT_SECRET)
-    try {
-      const { payload }: any = await jwtVerify(refreshToken, jwtSecretKey)
-      const accessKey = payload?.access_key
-      const secretKey = payload?.secret_key
-      const user_id = payload?.user_id
-
-      const res = await MongoClientDB.collection("credential").findOne({
-        _deleted: false,
-        _id: new ObjectId(payload.user_id),
-      })
-
-      if (res?.length !== 0) {
-        // Generating new tokens
-        try {
-          res.access_token = await new SignJWT({ user_id: res._id, origin: res.origin })
-            .setProtectedHeader({ alg: "HS256" })
-            .setIssuedAt()
-            .setExpirationTime("30m")
-            .sign(jwtSecretKey)
-
-          res.refresh_token = await new SignJWT({ user_id: res._id, origin: res.origin })
-            .setProtectedHeader({ alg: "HS256" })
-            .setIssuedAt()
-            .setExpirationTime("7d")
-            .sign(jwtSecretKey)
-          res.typeId = res.id
-
-          return res as any
-        } catch (err) {
-          console.log(err)
-        }
-      }
-    } catch (error) {
-      throw new Error("401.invalid-token")
-    }
   }
 }

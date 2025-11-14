@@ -174,7 +174,8 @@ ActivityService.Router.delete("/activity/:activity_id", authenticateSession, asy
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ActivityService.Router.get("/activity/:activity_id", authenticateSession, async (req: Request, res: Response) => { // TODO: This did not originally have authenticateToken, double check that this should actually be authenticated
+ActivityService.Router.get("/activity/:activity_id", authenticateSession, async (req: Request, res: Response) => { 
+  // TODO: This did not originally have authenticateToken, double check that this should actually be authenticated
   res.header(ApiResponseHeaders)
   try {
     let output = { data: await ActivityService.get(res.locals.user, req.params.activity_id) }

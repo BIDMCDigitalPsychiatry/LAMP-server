@@ -1,12 +1,11 @@
 import { Request, Response, Router } from "express"
-import { _authorize, _verify } from "./Security"
+import { _authorize } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 const { credentialValidationRules } = require("../validator/validationRules")
 const { validateRequest } = require("../middlewares/validateRequest")
-import { authenticateToken } from "../middlewares/authenticateToken"
 import { authenticateSession } from "../middlewares/authenticateSession"
-import { auth, Session } from "../utils/auth"
+import { Session } from "../utils/auth"
 
 export class CredentialService {
   public static _name = "Credential"
@@ -24,9 +23,9 @@ export class CredentialService {
     return await CredentialRepository._insert(type_id, credential)
   }
 
-  public static async get(auth: any, type_id: string | null, access_key: string) { // TODO : Finish updating with new auth when doing query api
+  public static async get(actingUser: Session["user"], type_id: string | null, access_key: string) {
     const CredentialRepository = new Repository().getCredentialRepository()
-    const response: any = await _verify(auth, ["self", "parent"], type_id)
+    const response: any = await _authorize(actingUser, ["self", "parent"], type_id)
     let all = await CredentialRepository._select(type_id)
     return all.filter((x) => x.access_key === access_key)
   }
@@ -49,31 +48,15 @@ export class CredentialService {
     return res
   }
 
-  public static async renewToken(refreshToken: string | null) {
-    const CredentialRepository = new Repository().getCredentialRepository()
-    const res = await CredentialRepository._renewToken(refreshToken)
-    return res
-  }
   public static async logOut(session: Session["session"] | null) {
     if (session) {
       const CredentialRepository = new Repository().getCredentialRepository()
       const res = await CredentialRepository._logout(session.token)
     } else {
-      throw new Error("please provide authorization") // TODO: Fix this error message
+      throw new Error("403.no-session-provided") 
     }
   }
 }
-
-CredentialService.Router.get("/testVerify", authenticateSession, async (req, res) => {
-  try {
-    await _authorize(res.locals.user, [])
-    res.json({message: "Am authorized"})
-  } catch (err:any) {
-    console.log(err.message)
-    res.json({message: err.message})
-  }
-  const ResearcherRepository = new Repository().getResearcherRepository()
-})
 
 CredentialService.Router.get(
   ["researcher", "study", "participant", "activity", "sensor", "type"].map((type) => `/${type}/:type_id/credential`),
@@ -181,17 +164,6 @@ CredentialService.Router.post(`/login`, async (req: Request, res: Response) => {
   }
 })
 
-CredentialService.Router.get(
-  "/testAuth",
-  authenticateSession,
-  async (req, res) => {
-    console.log("passed authenticate session")
-    console.log("res.locals: ", res.locals)
-    res.json({text: "nice work!", session: res.locals.session, user: res.locals.user})
-  }
-)
-
-
 CredentialService.Router.post("/logout", authenticateSession, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
@@ -203,16 +175,3 @@ CredentialService.Router.post("/logout", authenticateSession, async (req: Reques
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-
-CredentialService.Router.post(`/renewToken`, authenticateToken, async (req: Request, res: Response) => {  // TODO: Remove this - will need to be added back to support mobile app
-  res.header(ApiResponseHeaders)
-  try {
-    res.json({
-      data: await CredentialService.renewToken(req.body.refreshToken),
-    })
-  } catch (e: any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
-    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
-  }
-})
-

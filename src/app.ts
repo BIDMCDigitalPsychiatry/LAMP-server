@@ -3,8 +3,6 @@ import cors from "cors"
 import morgan from "morgan"
 import API from "./service"
 import { applySentryForExpress } from "./utils/sentry"
-import { auth } from "./utils/auth"
-import { toNodeHandler } from "better-auth/node"
 import { authenticateSession } from "./middlewares/authenticateSession"
 
 var cookieParser = require("cookie-parser")
@@ -12,7 +10,6 @@ var cookieParser = require("cookie-parser")
 const app: Application = express()
 
 app.use(cookieParser())
-app.use("/api/auth/*", toNodeHandler(auth))
 
 app.set("json spaces", 2)
 app.use(express.json({ limit: "50mb", strict: false }))
@@ -61,6 +58,14 @@ app.use(
 app.use(morgan(":method :url :status - :response-time ms"))
 app.use(express.urlencoded({ extended: true }))
 
+// Auth utility routes
+app.get("/is-authenticated", authenticateSession, (req, res) => {res.json({message: "ok"})})
+app.get("/server-info", (req, res) => {
+  // Returns information about the server that should be available to unauthenticated users
+  res.json({
+    authScheme: "session"
+  })
+})
 app.get("/supported-auth-type", (req, res) => {res.json({authType: "session"})})
 
 // Establish the API router, as well as a few individual utility routes.
