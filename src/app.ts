@@ -3,7 +3,6 @@ import cors from "cors"
 import morgan from "morgan"
 import API from "./service"
 import { applySentryForExpress } from "./utils/sentry"
-var cookieParser = require("cookie-parser")
 
 const app: Application = express()
 app.set("json spaces", 2)
@@ -17,7 +16,7 @@ app.use(
       "https://dashboard-staging.lamp.digital",
       "https://dashboard.lamp.digital",
       "https://lamp-dashboard.zcodemo.com",
-      "https://lamp-secdash.zcodemo.com",
+      "https://lamp-secdash.zcodemo.com"
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
@@ -47,7 +46,6 @@ app.use(
 )
 app.use(morgan(":method :url :status - :response-time ms"))
 app.use(express.urlencoded({ extended: true }))
-// app.use(cookieParser())
 
 // Establish the API router, as well as a few individual utility routes.
 app.use("/", API)

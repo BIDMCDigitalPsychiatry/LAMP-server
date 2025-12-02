@@ -4,28 +4,38 @@ import { MongoClientDB } from "../Bootstrap"
 
 export class ActivitySpecRepository implements ActivitySpecInterface {
   public async _select(id?: string, ignore_binary?: boolean): Promise<ActivitySpec[]> {
-    const parents = []    
     const data = !!id
-      ? await MongoClientDB.collection("activity_spec").find({$or: [ { _deleted: false, _id: id }, { _deleted: undefined, _id: id } ]}).maxTimeMS(60000).toArray()
-      : await MongoClientDB.collection("activity_spec").find({$or: [ { _deleted: false }, { _deleted: undefined } ]}).maxTimeMS(60000).toArray()
+      ? await MongoClientDB.collection("activity_spec")
+          .find({
+            $or: [
+              { _deleted: false, _id: id },
+              { _deleted: undefined, _id: id },
+            ],
+          })
+          .maxTimeMS(60000)
+          .toArray()
+      : await MongoClientDB.collection("activity_spec")
+          .find({ $or: [{ _deleted: false }, { _deleted: undefined }] })
+          .maxTimeMS(60000)
+          .toArray()
     return (data as any).map((x: any) => ({
-      id: x._id,       
+      id: x._id,
       ...x,
       _id: undefined,
       __v: undefined,
-      executable: !!id && !ignore_binary? x.executable : undefined,
+      executable: !!id && !ignore_binary ? x.executable : undefined,
       _deleted: undefined,
     }))
   }
   public async _insert(object: ActivitySpec): Promise<{}> {
     //save ActivitySpec via ActivitySpec model
     try {
-      let res: any = await MongoClientDB.collection("activity_spec").findOne({ _id: object.name, _deleted:false })
-      if(res !== null) {
+      const res: any = await MongoClientDB.collection("activity_spec").findOne({ _id: object.name, _deleted: false })
+      if (res !== null) {
         throw new Error("500.ActivitySpec-already-exists")
       } else {
-        const res: any = await MongoClientDB.collection("activity_spec").findOne({ _id: object.name, _deleted:true })
-        if (res === null) { 
+        const res: any = await MongoClientDB.collection("activity_spec").findOne({ _id: object.name, _deleted: true })
+        if (res === null) {
           await MongoClientDB.collection("activity_spec").insertOne({
             _id: object.name,
             description: object.description ?? null,
@@ -41,7 +51,7 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
             { _id: object.name },
             {
               $set: {
-                _deleted: false
+                _deleted: false,
               },
             }
           )
@@ -59,7 +69,7 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
       {
         $set: {
           description: object.description ?? orig.description,
-          executable: object.executable ?? orig.executable,          
+          executable: object.executable ?? orig.executable,
           static_data: object.static_data ?? orig.static_data,
           temporal_slices: object.temporal_slices ?? orig.temporal_slices,
           settings: object.settings ?? orig.settings,

@@ -6,7 +6,7 @@ import { Repository, ApiResponseHeaders, MongoClientDB } from "../repository/Boo
 import { ObjectId } from "bson"
 const { credentialValidationRules } = require("../validator/validationRules")
 const { validateRequest } = require("../middlewares/validateRequest")
-import { authenticateToken } from "../middlewares/authenticateToken"
+// import { authenticateToken } from "../middlewares/authenticateToken"
 
 export class CredentialService {
   public static _name = "Credential"
@@ -14,40 +14,39 @@ export class CredentialService {
 
   public static async list(auth: any, type_id: string | null) {
     const CredentialRepository = new Repository().getCredentialRepository()
-    const response: any = await _verify(auth, ["self", "parent"], type_id)
+    await _verify(auth, ["self", "parent"], type_id)
     return await CredentialRepository._select(type_id)
   }
 
   public static async create(auth: any, type_id: string | null, credential: any) {
     const CredentialRepository = new Repository().getCredentialRepository()
-    const response: any = await _verify(auth, ["self", "parent"], type_id)
+    await _verify(auth, ["self", "parent"], type_id)
     return await CredentialRepository._insert(type_id, credential)
   }
 
   public static async get(auth: any, type_id: string | null, access_key: string) {
     const CredentialRepository = new Repository().getCredentialRepository()
-    const response: any = await _verify(auth, ["self", "parent"], type_id)
-    let all = await CredentialRepository._select(type_id)
-    return all.filter((x) => x.access_key === access_key)
+    await _verify(auth, ["self", "parent"], type_id)
+    const all = await CredentialRepository._select(type_id)
+    return all.filter((x: any) => x.access_key === access_key)
   }
 
   public static async set(auth: any, type_id: string | null, access_key: string, credential: any | null) {
     const CredentialRepository = new Repository().getCredentialRepository()
     const response: any = await _verify(auth, ["self", "parent"], type_id)
 
-    const credentialData = await MongoClientDB.collection("credential").findOne({
-      _deleted: false,
-      _id: new ObjectId(response.user_id),
-    })
+    let credentialData
+    if (response.user_id) {
+      credentialData = await MongoClientDB.collection("credential").findOne({
+        _deleted: false,
+        _id: new ObjectId(response.user_id),
+      })
+    }
 
-    const permissionValue = await findPermission(credentialData.access_key)
+    const permissionValue = await findPermission(credentialData?.access_key)
 
-    if (
-      permissionValue === "admin" ||
-      credentialData.access_key === access_key ||
-      credentialData.access_key === "admin"
-    ) {
-      if (credential === null) {
+    if (permissionValue === "admin" || credentialData?.access_key === access_key || response.access_key === "admin") {
+      if (response.user_id === undefined) {
         return await CredentialRepository._delete(type_id, access_key)
       } else {
         return await CredentialRepository._update(type_id, access_key, credential)
@@ -72,17 +71,16 @@ export class CredentialService {
   public static async logOut(token: string | undefined) {
     if (token) {
       const CredentialRepository = new Repository().getCredentialRepository()
-      const res = await CredentialRepository._logout(token.split(" ")[1])
+      await CredentialRepository._logout(token.split(" ")[1])
     } else {
       throw new Error("please provide authorization")
     }
   }
-
 }
 
 CredentialService.Router.get(
   ["researcher", "study", "participant", "activity", "sensor", "type"].map((type) => `/${type}/:type_id/credential`),
-  authenticateToken,
+
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
     try {
@@ -103,7 +101,7 @@ CredentialService.Router.get(
 )
 CredentialService.Router.post(
   ["researcher", "study", "participant", "activity", "sensor", "type"].map((type) => `/${type}/:type_id/credential/`),
-  authenticateToken,
+
   credentialValidationRules(),
   validateRequest,
   async (req: Request, res: Response) => {
@@ -127,7 +125,7 @@ CredentialService.Router.put(
   ["researcher", "study", "participant", "activity", "sensor", "type"].map(
     (type) => `/${type}/:type_id/credential/:access_key`
   ),
-  authenticateToken,
+
   credentialValidationRules(),
   validateRequest,
   async (req: Request, res: Response) => {
@@ -151,7 +149,7 @@ CredentialService.Router.delete(
   ["researcher", "study", "participant", "activity", "sensor", "type"].map(
     (type) => `/${type}/:type_id/credential/:access_key`
   ),
-  authenticateToken,
+
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
     try {
@@ -181,7 +179,7 @@ CredentialService.Router.post(`/login`, async (req: Request, res: Response) => {
   }
 })
 
-CredentialService.Router.post("/logout", authenticateToken, async (req: Request, res: Response) => {
+CredentialService.Router.post("/logout", async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     res.json({
@@ -193,7 +191,7 @@ CredentialService.Router.post("/logout", authenticateToken, async (req: Request,
   }
 })
 
-CredentialService.Router.post(`/renewToken`, authenticateToken, async (req: Request, res: Response) => {
+CredentialService.Router.post(`/renewToken`, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     res.json({
@@ -204,4 +202,3 @@ CredentialService.Router.post(`/renewToken`, authenticateToken, async (req: Requ
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-

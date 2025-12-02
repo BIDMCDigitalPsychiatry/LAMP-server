@@ -5,7 +5,7 @@
     "allowJs": true,
     "checkJs": true,
     "rootDirs": ["./src", "./test"],
-    "outDir": "./build",
+    "outDir": "build",
     "esModuleInterop": true,
     "strict": true,
     "resolveJsonModule": true,

@@ -13,6 +13,7 @@ export class CredentialRepository implements CredentialInterface {
     if (isLocked(access_key)) {
       throw new Error("Account is temporarily locked. Try again later.")
     }
+
     const res = (
       await MongoClientDB.collection("credential")
         .find({ _deleted: false, access_key: access_key })
@@ -145,9 +146,6 @@ export class CredentialRepository implements CredentialInterface {
     const jwtSecretKey = new TextEncoder().encode(JWT_SECRET)
     try {
       const { payload }: any = await jwtVerify(refreshToken, jwtSecretKey)
-      const accessKey = payload?.access_key
-      const secretKey = payload?.secret_key
-      const user_id = payload?.user_id
 
       const res = await MongoClientDB.collection("credential").findOne({
         _deleted: false,

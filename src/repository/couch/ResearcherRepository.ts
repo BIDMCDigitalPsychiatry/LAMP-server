@@ -60,4 +60,37 @@ export class ResearcherRepository implements ResearcherInterface {
 
     return {}
   }
+
+  public async _listUsers(
+    id: string,
+    studies: string[],
+    search: string,
+    sort: string,
+    page: string,
+    limit: string
+  ): Promise<{}> {
+    return {}
+  }
+
+  public async _listActivities(
+    id: string,
+    studies: string[],
+    search: string,
+    sort: string,
+    page: string,
+    limit: string
+  ): Promise<{}> {
+    return {}
+  }
+
+  public async _listSensors(
+    id: string,
+    studies: string[],
+    search: string,
+    sort: string,
+    page: string,
+    limit: string
+  ): Promise<{}> {
+    return {}
+  }
 }
