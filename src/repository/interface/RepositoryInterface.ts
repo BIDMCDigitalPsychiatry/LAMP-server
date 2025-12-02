@@ -14,6 +14,9 @@ export interface ResearcherInterface {
   _insert(object: {}): Promise<string>
   _update(id: string, object: {}): Promise<{}>
   _delete(id: string): Promise<{}>
+  _listUsers(id: string, studies: string[], search: string, sort: string, page: string, limit: string): Promise<{}>
+  _listActivities(id: string, studies: string[], search: string, sort: string, page: string, limit: string): Promise<{}>
+  _listSensors(id: string, studies: string[], search: string, sort: string, page: string, limit: string): Promise<{}>
 }
 
 //Interface for Study Repository
@@ -31,15 +34,27 @@ export interface ParticipantInterface {
   _update(participant_id: string, object: {}): Promise<{}>
   _delete(participant_id: string): Promise<{}>
   _lookup(id: string | null, parent?: boolean): Promise<Participant[]>
+  _rank?(study_id: string): Promise<any>
 }
 
 //Interface for Activity Repository
 export interface ActivityInterface {
-  _select(id: string | null, parent?: boolean, ignore_binary?: boolean): Promise<Activity[]>
+  _select(
+    study_id: string,
+    parent?: boolean,
+    ignore_binary?: boolean,
+    limit?: number,
+    offset?: number,
+    participantId?: string
+  ): Promise<{ data: any[]; total: number } | any[]>
+  _list(id?: string, tab?: string, limit?: number, offset?: number): Promise<{ data: any; total: number }>
   _insert(study_id: string, object: {}): Promise<string>
   _update(activity_id: string, object: {}): Promise<{}>
   _delete(activity_id: string): Promise<{}>
   _lookup(id: string | null, parent?: boolean): Promise<Activity[]>
+  _listModule(module_id: string, participant_id: string): Promise<any[]>
+  _getFeedDetails(participantId: string, dateMs: string, tzOffsetMinutes?: number): Promise<any>
+  _deleteActivities(activities: string[]): Promise<{}>
 }
 
 //Interface for Sensor Repository
@@ -62,6 +77,7 @@ export interface ActivityEventInterface {
     limit?: number
   ): Promise<ActivityEvent[]>
   _insert(participant_id: string, objects: ActivityEvent[]): Promise<{}>
+  _rank?(participantIds: any, fromDate: any): Promise<any>
 }
 
 //Interface for SensorEvent Repository
@@ -110,11 +126,17 @@ export interface TypeInterface {
 //Interface for Credential Repository
 export interface CredentialInterface {
   _find(access_key: string, secret_key?: string): Promise<string>
-  _select(type_id: string | null): Promise<any[]>
+  _select(type_id: string | null): Promise<any>
   _insert(type_id: string | null, credential: any): Promise<{}>
   _update(type_id: string | null, access_key: string, credential: any): Promise<{}>
   _delete(type_id: string | null, access_key: string): Promise<{}>
   _login(accessKey: string | null, secretKey: string): Promise<any>
   _renewToken(refreshToken: string | null): Promise<any>
   _logout(token: string | undefined): Promise<any>
+}
+
+export interface ResearcherSettingsInterface {
+  _select(type: string, id: string): Promise<{}>
+  _insert(id: string, object: {}, choice?: string): Promise<string>
+  _get(id: string): Promise<{}>
 }

@@ -28,6 +28,7 @@ import {
   SensorSpecRepository as SensorSpecRepositoryMongo,
   CredentialRepository as CredentialRepositoryMongo,
   TypeRepository as TypeRepositoryMongo,
+  ResearcherSettingsRepository as ResearcherSettingsRepositoryMongo,
 } from "./mongo"
 import {
   ResearcherInterface,
@@ -41,9 +42,11 @@ import {
   SensorSpecInterface,
   CredentialInterface,
   TypeInterface,
+  ResearcherSettingsInterface,
 } from "./interface/RepositoryInterface"
 import ioredis from "ioredis"
 import { initializeQueues } from "../utils/queue/Queue"
+import { ResearcherSettingsRepository } from "./mongo/ResearcherSettingsRepository"
 export let RedisClient: ioredis.Redis
 export let nc: Client
 export let MongoClientDB: any
@@ -1043,6 +1046,9 @@ export class Repository {
   public getTypeRepository(): TypeInterface {
     return DB_DRIVER === "couchdb" ? new TypeRepository() : new TypeRepositoryMongo()
     // return new TypeRepositoryMongo()
+  }
+  public getResearcherSettingRepository(): ResearcherSettingsInterface {
+    return DB_DRIVER === "couchdb" ? new ResearcherSettingsRepository() : new ResearcherSettingsRepositoryMongo()
   }
 }
 

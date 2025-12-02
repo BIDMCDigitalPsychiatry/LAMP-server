@@ -54,7 +54,7 @@ const METHOD_LIST = (auth: any) => ({
     Activity: {
       list: async (study_id: string, ignore_binary: boolean = false, sibling: boolean = false) => {
         const _start = Date.now()
-        const x = await ActivityService.list(auth, study_id, ignore_binary, sibling)
+        const x = await ActivityService.select(auth, study_id, ignore_binary, sibling)
         console.log(` -- LAMP.Activity.list: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
@@ -343,10 +343,8 @@ export const QueryAPI = Router()
 QueryAPI.get("/", async (req, res) => res.json(OpenAPISchema))
 QueryAPI.post("/", async (req, res) => {
   try {
-    const _start = Date.now()
-
     // Make sure to cache the AuthSubject so we don't keep calling into CredentialRepository._find().
-    const cachedAuth = await _createAuthSubjectFromToken(req.get("Authorization"))
+    const cachedAuth = await _createAuthSubject(req.get("Authorization"))
 
     const data = await jsonata(req.body ?? "null").evaluate({}, METHOD_LIST(cachedAuth))
 

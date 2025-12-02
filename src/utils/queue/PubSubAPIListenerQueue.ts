@@ -97,7 +97,10 @@ export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>, done: Bu
           payload.participant_id = job.data.participant_id
           payload.action = job.data.action
 
-          const activity_detail = await ActivityRepository._select(payload.activity, false, true)
+          const activity_detail_result = await ActivityRepository._select(payload.activity, false, true)
+          const activity_detail = Array.isArray(activity_detail_result)
+            ? activity_detail_result
+            : activity_detail_result.data
           if (activity_detail.length !== 0) {
             payload.static_data =
               !!activity_detail[0].spec && activity_detail[0].spec === "lamp.recording"

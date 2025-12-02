@@ -12,7 +12,7 @@ export class SensorEventRepository implements SensorEventInterface {
     to_date?: number,
     limit?: number
   ): Promise<SensorEvent[]> {
-    let filteredQuery: any = {}
+    const filteredQuery: any = {}
     if (!!id) {
       filteredQuery._parent = id
     }
@@ -35,31 +35,31 @@ export class SensorEventRepository implements SensorEventInterface {
       .maxTimeMS(60000)
       .toArray()
     return (all_res as any).map((x: any) => {
-      if(!!ignore_binary) {        
+      if (!!ignore_binary) {
         delete x.data
       }
-      return({
+      return {
         ...x,
         _id: undefined,
         __v: undefined,
         _parent: undefined,
         _deleted: undefined,
-      })
+      }
     })
   }
 
   public async _insert(participant_id: string, objects: SensorEvent[]): Promise<{}> {
     const data: any[] = []
     //save activity event
-    for (const object of objects) {      
+    for (const object of objects) {
       await data.push({
         ...object,
         _parent: participant_id,
         timestamp: Number.parse(object.timestamp),
         sensor: String(object.sensor),
         data: object.data ?? {},
-      })               
-    }    
+      })
+    }
     await MongoClientDB.collection("sensor_event").insertMany(data)
     return {}
   }

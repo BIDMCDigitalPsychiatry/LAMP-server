@@ -16,7 +16,7 @@ ListenerAPI.get("/researcher", async (req: Request, res: Response) => {
   const ResearcherRepository = repo.getResearcherRepository()
 
   if (undefined !== req.query.researcher_id) {
-    let researcher_id = req.query.researcher_id
+    const researcher_id = req.query.researcher_id
     ;(await nc).subscribe(`researcher.*`, async (err, msg) => {
       if (err) {
         console.log("error while subscribing", msg)
@@ -49,7 +49,7 @@ ListenerAPI.get("/researcher", async (req: Request, res: Response) => {
                 if (researcher_id === ID) {
                   //generate event id
                   const _id = new Date().toLocaleTimeString()
-                  let Data: any = {}
+                  const Data: any = {}
                   //APPENDING DATA
                   Data.data = msg.data.data
                   //APPENDING TOKEN
@@ -67,7 +67,7 @@ ListenerAPI.get("/researcher", async (req: Request, res: Response) => {
             //generate event id
             const _id = new Date().toLocaleTimeString()
             //APPENDING DATA
-            let Data: any = {}
+            const Data: any = {}
             Data.data = msg.data.data
             // //APPENDING TOKEN
             Data.token = msg.data.token
@@ -97,7 +97,7 @@ ListenerAPI.get("/researcher", async (req: Request, res: Response) => {
                   let data_: any = {}
                   data_ = JSON.parse(msg.data.data)
                   data_ = { ...data_, name: data[0].name, researcher_id: ID, topic: "researcher" }
-                  let Data: any = {}
+                  const Data: any = {}
                   //APPENDING DATA
                   Data.data = JSON.stringify(data_)
                   //APPENDING TOKEN
@@ -109,7 +109,7 @@ ListenerAPI.get("/researcher", async (req: Request, res: Response) => {
               }
             } else {
               const _id = new Date().toLocaleTimeString()
-              let Data: any = {}
+              const Data: any = {}
               //APPENDING DATA
               Data.data = msg.data.data
               //APPENDING TOKEN
@@ -124,7 +124,7 @@ ListenerAPI.get("/researcher", async (req: Request, res: Response) => {
           //generate event id
           const _id = new Date().toLocaleTimeString()
           //APPENDING DATA
-          let Data: any = {}
+          const Data: any = {}
           Data.data = msg.data.data
           // //APPENDING TOKEN
           Data.token = msg.data.token
@@ -151,7 +151,7 @@ ListenerAPI.get("/researcher/study", async (req: Request, res: Response) => {
   const TypeRepository = repo.getTypeRepository()
 
   if (undefined !== req.query.researcher_id) {
-    let researcher_id = req.query.researcher_id
+    const researcher_id = req.query.researcher_id
     ;(await nc).subscribe(`researcher.*.study`, async (err, msg) => {
       if (err) {
         console.log("error while subscribing", msg)
@@ -183,7 +183,7 @@ ListenerAPI.get("/researcher/study", async (req: Request, res: Response) => {
                       study_id: ID,
                       topic: "researcher.*.study",
                     }
-                    let Data: any = {}
+                    const Data: any = {}
                     //APPENDING DATA
                     Data.data = JSON.stringify(data_)
                     //APPENDING TOKEN
@@ -198,7 +198,7 @@ ListenerAPI.get("/researcher/study", async (req: Request, res: Response) => {
               const researcherID: any = JSON.parse(msg.data.data).researcherID ?? ""
               if (researcher_id === researcherID) {
                 const _id = new Date().toLocaleTimeString()
-                let Data: any = {}
+                const Data: any = {}
                 Data.data = msg.data.data
                 // //APPENDING TOKEN
                 Data.token = `researcher.${researcherID}.study.${ID}`
@@ -213,7 +213,7 @@ ListenerAPI.get("/researcher/study", async (req: Request, res: Response) => {
             //generate event id
             const _id = new Date().toLocaleTimeString()
             //APPENDING DATA
-            let Data: any = {}
+            const Data: any = {}
             Data.data = msg.data.data
             // //APPENDING TOKEN
             Data.token = msg.data.token
@@ -226,7 +226,7 @@ ListenerAPI.get("/researcher/study", async (req: Request, res: Response) => {
     })
   }
   if (undefined !== req.query.study_id) {
-    let study_id = req.query.study_id
+    const study_id = req.query.study_id
     ;(await nc).subscribe(`study.*`, async (err, msg) => {
       if (err) {
         console.log("error while subscribing", msg)
@@ -258,7 +258,7 @@ ListenerAPI.get("/researcher/study", async (req: Request, res: Response) => {
                       study_id: ID,
                       topic: "study.*",
                     }
-                    let Data: any = {}
+                    const Data: any = {}
                     //APPENDING DATA
                     Data.data = JSON.stringify(data_)
                     //APPENDING TOKEN
@@ -273,7 +273,7 @@ ListenerAPI.get("/researcher/study", async (req: Request, res: Response) => {
               if (study_id === ID) {
                 const researcherID: any = JSON.parse(msg.data.data).researcher_id ?? ""
                 const _id = new Date().toLocaleTimeString()
-                let Data: any = {}
+                const Data: any = {}
                 Data.data = msg.data.data
                 // //APPENDING TOKEN
                 Data.token = `researcher.${researcherID}.study.${ID}`
@@ -288,7 +288,7 @@ ListenerAPI.get("/researcher/study", async (req: Request, res: Response) => {
             //generate event id
             const _id = new Date().toLocaleTimeString()
             //APPENDING DATA
-            let Data: any = {}
+            const Data: any = {}
             Data.data = msg.data.data
             // //APPENDING TOKEN
             Data.token = msg.data.token
@@ -332,7 +332,7 @@ ListenerAPI.get("/researcher/study", async (req: Request, res: Response) => {
                     researcher_id: researcherID,
                     topic: "study",
                   }
-                  let Data: any = {}
+                  const Data: any = {}
                   //APPENDING DATA
                   Data.data = JSON.stringify(data_)
                   //APPENDING TOKEN
@@ -345,7 +345,7 @@ ListenerAPI.get("/researcher/study", async (req: Request, res: Response) => {
             } else {
               const _id = new Date().toLocaleTimeString()
               const researcherID = JSON.parse(msg.data.data).researcher_id
-              let Data: any = {}
+              const Data: any = {}
               Data.data = msg.data.data
               // //APPENDING TOKEN
               Data.token = `researcher.${researcherID}.study.${ID}`
@@ -358,7 +358,7 @@ ListenerAPI.get("/researcher/study", async (req: Request, res: Response) => {
           //generate event id
           const _id = new Date().toLocaleTimeString()
           //APPENDING DATA
-          let Data: any = {}
+          const Data: any = {}
           Data.data = msg.data.data
           // //APPENDING TOKEN
           Data.token = msg.data.token
@@ -380,12 +380,16 @@ ListenerAPI.get("/study/activity", async (req: Request, res: Response) => {
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
   })
+  // if (!nc) {
+  //   res.write("data: " + JSON.stringify({ error: "NATS client not initialized" }) + "\n\n")
+  //   return
+  // }
   const repo = new Repository()
   const ActivityRepository = repo.getActivityRepository()
   const TypeRepository = repo.getTypeRepository()
 
   if (undefined !== req.query.activity_id) {
-    let activity_id = req.query.activity_id
+    const activity_id = req.query.activity_id
     ;(await nc).subscribe(`activity.*`, async (err, msg) => {
       if (err) {
         console.log("error while subscribing", msg)
@@ -398,7 +402,8 @@ ListenerAPI.get("/study/activity", async (req: Request, res: Response) => {
               if (!!ID) {
                 let data: any[] = []
                 try {
-                  data = await ActivityRepository._select(ID)
+                  const result = await ActivityRepository._select(ID)
+                  data = Array.isArray(result) ? result : result.data
                 } catch (err) {}
                 //IF DATA EXISTS
                 if (!!data[0]) {
@@ -417,7 +422,7 @@ ListenerAPI.get("/study/activity", async (req: Request, res: Response) => {
                       activity_id: ID,
                       topic: "activity.*",
                     }
-                    let Data: any = {}
+                    const Data: any = {}
                     //APPENDING DATA
                     Data.data = JSON.stringify(data_)
                     //APPENDING TOKEN
@@ -432,7 +437,7 @@ ListenerAPI.get("/study/activity", async (req: Request, res: Response) => {
               if (activity_id === ID) {
                 const _id = new Date().toLocaleTimeString()
                 const studyID = JSON.parse(msg.data.data).study_id
-                let Data: any = {}
+                const Data: any = {}
                 Data.data = msg.data.data
                 // //APPENDING TOKEN
                 Data.token = `study.${studyID}.activity.${ID}`
@@ -447,7 +452,7 @@ ListenerAPI.get("/study/activity", async (req: Request, res: Response) => {
             //generate event id
             const _id = new Date().toLocaleTimeString()
             //APPENDING DATA
-            let Data: any = {}
+            const Data: any = {}
             Data.data = msg.data.data
             // //APPENDING TOKEN
             Data.token = msg.data.token
@@ -460,7 +465,7 @@ ListenerAPI.get("/study/activity", async (req: Request, res: Response) => {
     })
   }
   if (undefined !== req.query.study_id) {
-    let study_id = req.query.study_id
+    const study_id = req.query.study_id
     ;(await nc).subscribe(`study.*.activity`, async (err, msg) => {
       if (err) {
         console.log("error while subscribing", msg)
@@ -473,7 +478,8 @@ ListenerAPI.get("/study/activity", async (req: Request, res: Response) => {
               if (!!ID) {
                 let data: any[] = []
                 try {
-                  data = await ActivityRepository._select(ID)
+                  const result = await ActivityRepository._select(ID)
+                  data = Array.isArray(result) ? result : result.data
                 } catch (err) {}
                 //IF DATA EXISTS
                 if (!!data[0]) {
@@ -492,7 +498,7 @@ ListenerAPI.get("/study/activity", async (req: Request, res: Response) => {
                       activity_id: ID,
                       topic: "study.*.activity",
                     }
-                    let Data: any = {}
+                    const Data: any = {}
                     //APPENDING DATA
                     Data.data = JSON.stringify(data_)
                     //APPENDING TOKEN
@@ -508,7 +514,7 @@ ListenerAPI.get("/study/activity", async (req: Request, res: Response) => {
               if (study_id === studyID) {
                 const _id = new Date().toLocaleTimeString()
 
-                let Data: any = {}
+                const Data: any = {}
                 Data.data = msg.data.data
                 // //APPENDING TOKEN
                 Data.token = `study.${studyID}.activity.${ID}`
@@ -523,7 +529,7 @@ ListenerAPI.get("/study/activity", async (req: Request, res: Response) => {
             //generate event id
             const _id = new Date().toLocaleTimeString()
             //APPENDING DATA
-            let Data: any = {}
+            const Data: any = {}
             Data.data = msg.data.data
             // //APPENDING TOKEN
             Data.token = msg.data.token
@@ -548,7 +554,8 @@ ListenerAPI.get("/study/activity", async (req: Request, res: Response) => {
               if (!!ID) {
                 let data: any[] = []
                 try {
-                  data = await ActivityRepository._select(ID)
+                  const result = await ActivityRepository._select(ID)
+                  data = Array.isArray(result) ? result : result.data
                 } catch (error) {}
                 //IF DATA EXISTS
                 if (!!data[0]) {
@@ -567,7 +574,7 @@ ListenerAPI.get("/study/activity", async (req: Request, res: Response) => {
                     study_id: studyID,
                     topic: "activity",
                   }
-                  let Data: any = {}
+                  const Data: any = {}
                   //APPENDING DATA
                   Data.data = JSON.stringify(data_)
                   //APPENDING TOKEN
@@ -580,7 +587,7 @@ ListenerAPI.get("/study/activity", async (req: Request, res: Response) => {
             } else {
               const _id = new Date().toLocaleTimeString()
               const studyID = JSON.parse(msg.data.data).study_id
-              let Data: any = {}
+              const Data: any = {}
               Data.data = msg.data.data
               // //APPENDING TOKEN
               Data.token = `study.${studyID}.activity.${ID}`
@@ -593,7 +600,7 @@ ListenerAPI.get("/study/activity", async (req: Request, res: Response) => {
           //generate event id
           const _id = new Date().toLocaleTimeString()
           //APPENDING DATA
-          let Data: any = {}
+          const Data: any = {}
           Data.data = msg.data.data
           // //APPENDING TOKEN
           Data.token = msg.data.token
@@ -620,7 +627,7 @@ ListenerAPI.get("/study/sensor", async (req: Request, res: Response) => {
   const TypeRepository = repo.getTypeRepository()
 
   if (undefined !== req.query.sensor_id) {
-    let sensor_id = req.query.sensor_id
+    const sensor_id = req.query.sensor_id
     ;(await nc).subscribe(`sensor.*`, async (err, msg) => {
       if (err) {
         console.log("error while subscribing", msg)
@@ -652,7 +659,7 @@ ListenerAPI.get("/study/sensor", async (req: Request, res: Response) => {
                       sensor_id: ID,
                       topic: "sensor.*",
                     }
-                    let Data: any = {}
+                    const Data: any = {}
                     //APPENDING DATA
                     Data.data = JSON.stringify(data_)
                     //APPENDING TOKEN
@@ -667,7 +674,7 @@ ListenerAPI.get("/study/sensor", async (req: Request, res: Response) => {
               if (sensor_id === ID) {
                 const _id = new Date().toLocaleTimeString()
                 const studyID = JSON.parse(msg.data.data).study_id
-                let Data: any = {}
+                const Data: any = {}
                 Data.data = msg.data.data
                 // //APPENDING TOKEN
                 Data.token = `study.${studyID}.sensor.${ID}`
@@ -682,7 +689,7 @@ ListenerAPI.get("/study/sensor", async (req: Request, res: Response) => {
             //generate event id
             const _id = new Date().toLocaleTimeString()
             //APPENDING DATA
-            let Data: any = {}
+            const Data: any = {}
             Data.data = msg.data.data
             // //APPENDING TOKEN
             Data.token = msg.data.token
@@ -695,7 +702,7 @@ ListenerAPI.get("/study/sensor", async (req: Request, res: Response) => {
     })
   }
   if (undefined !== req.query.study_id) {
-    let study_id = req.query.study_id
+    const study_id = req.query.study_id
     ;(await nc).subscribe(`study.*.sensor`, async (err, msg) => {
       if (err) {
         console.log("error while subscribing", msg)
@@ -727,7 +734,7 @@ ListenerAPI.get("/study/sensor", async (req: Request, res: Response) => {
                       sensor_id: ID,
                       topic: "study.*.sensor",
                     }
-                    let Data: any = {}
+                    const Data: any = {}
                     //APPENDING DATA
                     Data.data = JSON.stringify(data_)
                     //APPENDING TOKEN
@@ -743,7 +750,7 @@ ListenerAPI.get("/study/sensor", async (req: Request, res: Response) => {
               if (study_id === studyID) {
                 const _id = new Date().toLocaleTimeString()
                 //APPENDING DATA
-                let Data: any = {}
+                const Data: any = {}
                 Data.data = msg.data.data
                 // //APPENDING TOKEN
                 Data.token = `study.${studyID}.sensor.${ID}`
@@ -758,7 +765,7 @@ ListenerAPI.get("/study/sensor", async (req: Request, res: Response) => {
             //generate event id
             const _id = new Date().toLocaleTimeString()
             //APPENDING DATA
-            let Data: any = {}
+            const Data: any = {}
             Data.data = msg.data.data
             // //APPENDING TOKEN
             Data.token = msg.data.token
@@ -802,7 +809,7 @@ ListenerAPI.get("/study/sensor", async (req: Request, res: Response) => {
                     study_id: studyID,
                     topic: "sensor",
                   }
-                  let Data: any = {}
+                  const Data: any = {}
                   //APPENDING DATA
                   Data.data = JSON.stringify(data_)
                   //APPENDING TOKEN
@@ -816,7 +823,7 @@ ListenerAPI.get("/study/sensor", async (req: Request, res: Response) => {
               const _id = new Date().toLocaleTimeString()
               const studyID = JSON.parse(msg.data.data).study_id
               //APPENDING DATA
-              let Data: any = {}
+              const Data: any = {}
               Data.data = msg.data.data
               // //APPENDING TOKEN
               Data.token = `study.${studyID}.sensor.${ID}`
@@ -829,7 +836,7 @@ ListenerAPI.get("/study/sensor", async (req: Request, res: Response) => {
           //generate event id
           const _id = new Date().toLocaleTimeString()
           //APPENDING DATA
-          let Data: any = {}
+          const Data: any = {}
           Data.data = msg.data.data
           // //APPENDING TOKEN
           Data.token = msg.data.token
@@ -888,7 +895,7 @@ ListenerAPI.get("/study/participant", async (req: Request, res: Response) => {
                       participant_id: ID,
                       topic: "participant.*",
                     }
-                    let Data: any = {}
+                    const Data: any = {}
                     //APPENDING DATA
                     Data.data = JSON.stringify(data_)
                     //APPENDING TOKEN
@@ -904,7 +911,7 @@ ListenerAPI.get("/study/participant", async (req: Request, res: Response) => {
                 const _id = new Date().toLocaleTimeString()
                 const studyID = JSON.parse(msg.data.data).participant_id
                 //APPENDING DATA
-                let Data: any = {}
+                const Data: any = {}
                 Data.data = msg.data.data
                 // //APPENDING TOKEN
                 Data.token = `study.${studyID}.participant.${ID}`
@@ -920,7 +927,7 @@ ListenerAPI.get("/study/participant", async (req: Request, res: Response) => {
             const _id = new Date().toLocaleTimeString()
 
             //APPENDING DATA
-            let Data: any = {}
+            const Data: any = {}
             Data.data = msg.data.data
             // //APPENDING TOKEN
             Data.token = msg.data.token
@@ -933,7 +940,7 @@ ListenerAPI.get("/study/participant", async (req: Request, res: Response) => {
     })
   }
   if (undefined !== req.query.study_id) {
-    let study_id = req.query.study_id
+    const study_id = req.query.study_id
     ;(await nc).subscribe(`study.*.participant`, async (err, msg) => {
       if (err) {
         console.log("error while subscribing", msg)
@@ -967,7 +974,7 @@ ListenerAPI.get("/study/participant", async (req: Request, res: Response) => {
                       topic: "study.*.participant",
                     }
 
-                    let Data: any = {}
+                    const Data: any = {}
                     //APPENDING DATA
                     Data.data = JSON.stringify(data_)
                     //APPENDING TOKEN
@@ -982,7 +989,7 @@ ListenerAPI.get("/study/participant", async (req: Request, res: Response) => {
               const studyID: any = JSON.parse(msg.data.data).study_id ?? ""
               if (study_id === studyID) {
                 const _id = new Date().toLocaleTimeString()
-                let Data: any = {}
+                const Data: any = {}
                 Data.data = msg.data.data
                 // //APPENDING TOKEN
                 Data.token = `study.${studyID}.participant.${ID}`
@@ -997,7 +1004,7 @@ ListenerAPI.get("/study/participant", async (req: Request, res: Response) => {
             //generate event id
             const _id = new Date().toLocaleTimeString()
             //APPENDING DATA
-            let Data: any = {}
+            const Data: any = {}
             Data.data = msg.data.data
             // //APPENDING TOKEN
             Data.token = msg.data.token
@@ -1041,7 +1048,7 @@ ListenerAPI.get("/study/participant", async (req: Request, res: Response) => {
                     study_id: studyID,
                     topic: "participant",
                   }
-                  let Data: any = {}
+                  const Data: any = {}
                   //APPENDING DATA
                   Data.data = JSON.stringify(data_)
                   //APPENDING TOKEN
@@ -1055,7 +1062,7 @@ ListenerAPI.get("/study/participant", async (req: Request, res: Response) => {
               //generate event id
               const _id = new Date().toLocaleTimeString()
               const studyID: any = JSON.parse(msg.data.data).study_id ?? ""
-              let Data: any = {}
+              const Data: any = {}
               Data.data = msg.data.data
               // //APPENDING TOKEN
               Data.token = `study.${studyID}.participant.${ID}`
@@ -1068,7 +1075,7 @@ ListenerAPI.get("/study/participant", async (req: Request, res: Response) => {
           //generate event id
           const _id = new Date().toLocaleTimeString()
           //APPENDING DATA
-          let Data: any = {}
+          const Data: any = {}
           Data.data = msg.data.data
           // //APPENDING TOKEN
           Data.token = msg.data.token
@@ -1093,7 +1100,7 @@ ListenerAPI.get("/participant/activity_event", async (req: Request, res: Respons
   const ActivityEventRepository = repo.getActivityEventRepository()
 
   if (undefined !== req.query.participant_id) {
-    let participant_id = req.query.participant_id
+    const participant_id = req.query.participant_id
     ;(await nc).subscribe(`participant.*.activity_event`, async (err, msg) => {
       if (err) {
         console.log("error while subscribing", msg)
@@ -1121,7 +1128,7 @@ ListenerAPI.get("/participant/activity_event", async (req: Request, res: Respons
                         static_data: payload.static_data,
                         topic: "participant.*.activity_event",
                       }
-                      let Data: any = {}
+                      const Data: any = {}
                       //APPENDING DATA
                       Data.data = JSON.stringify(data_)
                       //APPENDING TOKEN
@@ -1140,7 +1147,7 @@ ListenerAPI.get("/participant/activity_event", async (req: Request, res: Respons
             //generate event id
             const _id = new Date().toLocaleTimeString()
             //APPENDING DATA
-            let Data: any = {}
+            const Data: any = {}
             Data.data = msg.data.data
             // //APPENDING TOKEN
             Data.token = msg.data.token
@@ -1153,7 +1160,7 @@ ListenerAPI.get("/participant/activity_event", async (req: Request, res: Respons
     })
   }
   if (undefined !== req.query.activity_id) {
-    let activity_id = req.query.activity_id
+    const activity_id = req.query.activity_id
     ;(await nc).subscribe(`activity.*.activity_event`, async (err, msg) => {
       if (err) {
         console.log("error while subscribing", msg)
@@ -1181,7 +1188,7 @@ ListenerAPI.get("/participant/activity_event", async (req: Request, res: Respons
                         static_data: payload.static_data,
                         topic: "activity.*.activity_event",
                       }
-                      let Data: any = {}
+                      const Data: any = {}
                       //APPENDING DATA
                       Data.data = JSON.stringify(data_)
                       //APPENDING TOKEN
@@ -1200,7 +1207,7 @@ ListenerAPI.get("/participant/activity_event", async (req: Request, res: Respons
             //generate event id
             const _id = new Date().toLocaleTimeString()
             //APPENDING DATA
-            let Data: any = {}
+            const Data: any = {}
             Data.data = msg.data.data
             // //APPENDING TOKEN
             Data.token = msg.data.token
@@ -1213,8 +1220,8 @@ ListenerAPI.get("/participant/activity_event", async (req: Request, res: Respons
     })
   }
   if (undefined !== req.query.activity_id && undefined !== req.query.participant_id) {
-    let activity_id = req.query.activity_id
-    let participant_id = req.query.participant_id
+    const activity_id = req.query.activity_id
+    const participant_id = req.query.participant_id
     ;(await nc).subscribe(`participant.*.activity.*.activity_event`, async (err, msg) => {
       if (err) {
         console.log("error while subscribing", msg)
@@ -1242,7 +1249,7 @@ ListenerAPI.get("/participant/activity_event", async (req: Request, res: Respons
                         static_data: payload.static_data,
                         topic: "participant.*.activity.*.activity_event",
                       }
-                      let Data: any = {}
+                      const Data: any = {}
                       //APPENDING DATA
                       Data.data = JSON.stringify(data_)
                       //APPENDING TOKEN
@@ -1264,7 +1271,7 @@ ListenerAPI.get("/participant/activity_event", async (req: Request, res: Respons
             //generate event id
             const _id = new Date().toLocaleTimeString()
             //APPENDING DATA
-            let Data: any = {}
+            const Data: any = {}
             Data.data = msg.data.data
             // //APPENDING TOKEN
             Data.token = msg.data.token
@@ -1303,7 +1310,7 @@ ListenerAPI.get("/participant/activity_event", async (req: Request, res: Respons
                       static_data: payload.static_data,
                       topic: "activity_event",
                     }
-                    let Data: any = {}
+                    const Data: any = {}
                     //APPENDING DATA
                     Data.data = JSON.stringify(data_)
                     //APPENDING TOKEN
@@ -1320,7 +1327,7 @@ ListenerAPI.get("/participant/activity_event", async (req: Request, res: Respons
           //generate event id
           const _id = new Date().toLocaleTimeString()
           //APPENDING DATA
-          let Data: any = {}
+          const Data: any = {}
           Data.data = msg.data.data
           // //APPENDING TOKEN
           Data.token = msg.data.token
@@ -1344,7 +1351,7 @@ ListenerAPI.get("/participant/sensor_event", async (req: Request, res: Response)
   const repo = new Repository()
   const SensorEventRepository = repo.getSensorEventRepository()
   if (undefined !== req.query.participant_id) {
-    let participant_id = req.query.participant_id
+    const participant_id = req.query.participant_id
     ;(await nc).subscribe(`participant.*.sensor_event`, async (err, msg) => {
       if (err) {
         console.log("error while subscribing", msg)
@@ -1373,7 +1380,7 @@ ListenerAPI.get("/participant/sensor_event", async (req: Request, res: Response)
                         data: payload.data,
                         topic: "participant.*.sensor_event",
                       }
-                      let Data: any = {}
+                      const Data: any = {}
                       //APPENDING DATA
                       Data.data = JSON.stringify(data_)
                       //APPENDING TOKEN
@@ -1392,7 +1399,7 @@ ListenerAPI.get("/participant/sensor_event", async (req: Request, res: Response)
             //generate event id
             const _id = new Date().toLocaleTimeString()
             //APPENDING DATA
-            let Data: any = {}
+            const Data: any = {}
             Data.data = msg.data.data
             // //APPENDING TOKEN
             Data.token = msg.data.token
@@ -1405,7 +1412,7 @@ ListenerAPI.get("/participant/sensor_event", async (req: Request, res: Response)
     })
   }
   if (undefined !== req.query.sensor) {
-    let sensor: string = req.query.sensor as string
+    const sensor: string = req.query.sensor as string
     ;(await nc).subscribe(`sensor.*.sensor_event`, async (err, msg) => {
       if (err) {
         console.log("error while subscribing", msg)
@@ -1434,7 +1441,7 @@ ListenerAPI.get("/participant/sensor_event", async (req: Request, res: Response)
                         data: payload.data,
                         topic: "sensor.*.sensor_event",
                       }
-                      let Data: any = {}
+                      const Data: any = {}
                       //APPENDING DATA
                       Data.data = JSON.stringify(data_)
                       //APPENDING TOKEN
@@ -1453,7 +1460,7 @@ ListenerAPI.get("/participant/sensor_event", async (req: Request, res: Response)
             //generate event id
             const _id = new Date().toLocaleTimeString()
             //APPENDING DATA
-            let Data: any = {}
+            const Data: any = {}
             Data.data = msg.data.data
             // //APPENDING TOKEN
             Data.token = msg.data.token
@@ -1466,8 +1473,8 @@ ListenerAPI.get("/participant/sensor_event", async (req: Request, res: Response)
     })
   }
   if (undefined !== req.query.sensor && undefined !== req.query.participant_id) {
-    let participant_id = req.query.participant_id
-    let sensor: string = req.query.sensor as string 
+    const participant_id = req.query.participant_id
+    const sensor: string = req.query.sensor as string
     ;(await nc).subscribe(`participant.*.sensor.*.sensor_event`, async (err, msg) => {
       if (err) {
         console.log("error while subscribing", msg)
@@ -1496,7 +1503,7 @@ ListenerAPI.get("/participant/sensor_event", async (req: Request, res: Response)
                         data: payload.data,
                         topic: "participant.*.sensor.*.sensor_event",
                       }
-                      let Data: any = {}
+                      const Data: any = {}
                       //APPENDING DATA
                       Data.data = JSON.stringify(data_)
                       //APPENDING TOKEN
@@ -1518,7 +1525,7 @@ ListenerAPI.get("/participant/sensor_event", async (req: Request, res: Response)
             //generate event id
             const _id = new Date().toLocaleTimeString()
             //APPENDING DATA
-            let Data: any = {}
+            const Data: any = {}
             Data.data = msg.data.data
             // //APPENDING TOKEN
             Data.token = msg.data.token
@@ -1557,7 +1564,7 @@ ListenerAPI.get("/participant/sensor_event", async (req: Request, res: Response)
                       data: payload.data,
                       topic: "sensor_event",
                     }
-                    let Data: any = {}
+                    const Data: any = {}
                     //APPENDING DATA
                     Data.data = JSON.stringify(data_)
                     //APPENDING TOKEN
@@ -1574,7 +1581,7 @@ ListenerAPI.get("/participant/sensor_event", async (req: Request, res: Response)
           //generate event id
           const _id = new Date().toLocaleTimeString()
           //APPENDING DATA
-          let Data: any = {}
+          const Data: any = {}
           Data.data = msg.data.data
           // //APPENDING TOKEN
           Data.token = msg.data.token

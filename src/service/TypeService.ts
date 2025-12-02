@@ -14,8 +14,14 @@ export class TypeService {
   public static async parent(auth: any, type_id: string | null) {
     const TypeRepository = new Repository().getTypeRepository()
     const response: any = await _verify(auth, ["self", "sibling", "parent"], type_id)
+    let data
+    const isResearcher = response.id === response.origin;
 
-    const data = await TypeRepository._parent(response.id as any)
+    if ((response.id && !isResearcher) || type_id === "me") {
+      data = await TypeRepository._parent(response.id || type_id);
+    } else {
+      data = await TypeRepository._parent(String(type_id));
+    }
 
     // FIXME: THIS WILL TRIGGER A DELETE EVERY TIME A RESOURCE'S PARENT IS REQUESTED!
     /*

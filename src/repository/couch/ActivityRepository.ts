@@ -3,10 +3,15 @@ import { Activity } from "../../model/Activity"
 import { ActivityInterface } from "../interface/RepositoryInterface"
 
 export class ActivityRepository implements ActivityInterface {
-  public async _select(id: string | null, parent = false, ignore_binary = false): Promise<Activity[]> {
+  public async _select(
+    study_id: string | null,
+
+    parent = false,
+    ignore_binary = false
+  ): Promise<Activity[]> {
     return (
       await Database.use("activity").find({
-        selector: id === null ? {} : { [parent ? "#parent" : "_id"]: id },
+        selector: study_id === null ? {} : { [parent ? "#parent" : "_id"]: study_id },
         sort: [{ timestamp: "asc" }],
         limit: 2_147_483_647 /* 32-bit INT_MAX */,
       })
@@ -20,6 +25,19 @@ export class ActivityRepository implements ActivityInterface {
       timestamp: undefined,
     }))
   }
+  public async _list(
+    id?: string,
+    tab?: string,
+    limit?: number,
+    offset?: number
+  ): Promise<{ data: any; total: number }> {
+    return {
+      data: {
+        otherActivities: [],
+      },
+      total: 0,
+    }
+  }
   public async _insert(study_id: string, object: Activity): Promise<string> {
     const _id = uuid()
     await Database.use("activity").insert({
@@ -30,14 +48,14 @@ export class ActivityRepository implements ActivityInterface {
       name: object.name ?? "",
       settings: object.settings ?? {},
       schedule: object.schedule ?? [],
-      category:object.category ?? null
+      category: object.category ?? null,
     } as any)
     return _id
   }
   public async _update(activity_id: string, object: Activity): Promise<{}> {
     const orig: any = await Database.use("activity").get(activity_id)
     const schedules: any = object.schedule ?? undefined
-    let newSchedules: object[] = []
+    const newSchedules: object[] = []
     if (!!schedules) {
       //find notification id for schedules
       for (let schedule of schedules) {
@@ -49,7 +67,7 @@ export class ActivityRepository implements ActivityInterface {
         } else {
           //if  custom, multiple notification ids would be there
           if (!!schedule.custom_time) {
-            let custNotids: number[] = []
+            const custNotids: number[] = []
             //find notification id for multiple custom times
             for (const customTimes of schedule.custom_time) {
               const notificationId: number = Math.floor(Math.random() * 1000000) + 1
@@ -87,19 +105,23 @@ export class ActivityRepository implements ActivityInterface {
     }
     return {}
   }
-  
+
+  public async _deleteActivities(activities: string[]): Promise<{}> {
+    return {}
+  }
+
   /** get activities.There would be a need for pagination of the data without settings. So, its seperately written
-   * 
-   * @param id 
-   * @param parent 
+   *
+   * @param id
+   * @param parent
    * @returns Array Activity[]
    */
-   public async _lookup(id: string | null, parent = false): Promise<Activity[]> {
+  public async _lookup(id: string | null, parent = false): Promise<Activity[]> {
     return (
       await Database.use("activity").find({
         selector: id === null ? {} : { [parent ? "#parent" : "_id"]: id },
         sort: [{ timestamp: "asc" }],
-        fields:["_id","name","spec","schedule","#parent","category"],
+        fields: ["_id", "name", "spec", "schedule", "#parent", "category"],
         limit: 2_147_483_647 /* 32-bit INT_MAX */,
       })
     ).docs.map((x: any) => ({
@@ -108,9 +130,22 @@ export class ActivityRepository implements ActivityInterface {
       _id: undefined,
       _rev: undefined,
       "#parent": undefined,
-       settings: undefined,
+      settings: undefined,
       study_id: x["#parent"],
-      timestamp: undefined      
+      timestamp: undefined,
     }))
+  }
+  public async _listModule(
+    module_id: string | null,
+    participant_id: string | null,
+    depth?: any,
+    maxDepth?: any
+  ): Promise<any[]> {
+    return []
+  }
+
+  public async _getFeedDetails(participantId: string, dateMs: string, tzOffsetMinutes?: number): Promise<any> {
+    // Not implemented for CouchDB driver; return empty object to satisfy interface
+    return { items: [], distinctDays: [] }
   }
 }

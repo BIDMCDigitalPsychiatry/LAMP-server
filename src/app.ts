@@ -2,8 +2,7 @@ import express, { Application } from "express"
 import cors from "cors"
 import morgan from "morgan"
 import API from "./service"
-import rateLimit from "express-rate-limit"
-var cookieParser = require("cookie-parser")
+import { applySentryForExpress } from "./utils/sentry"
 
 const app: Application = express()
 app.set("json spaces", 2)
@@ -13,10 +12,12 @@ app.use(express.text())
 app.use(
   cors({
     origin: [
+      "https://dashboard.dev.lamp.digital",
       "https://dashboard-staging.lamp.digital",
       "https://dashboard.lamp.digital",
       "https://lamp-dashboard.zcodemo.com",
       "https://lamp-secdash.zcodemo.com",
+      "http://localhost:3000",
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
@@ -46,11 +47,12 @@ app.use(
 )
 app.use(morgan(":method :url :status - :response-time ms"))
 app.use(express.urlencoded({ extended: true }))
-// app.use(cookieParser())
 
 // Establish the API router, as well as a few individual utility routes.
 app.use("/", API)
 app.get(["/favicon.ico", "/service-worker.js"], (req, res) => res.status(204))
 app.all("*", (req, res) => res.status(404).json({ message: "404.api-endpoint-unimplemented" }))
+
+applySentryForExpress(app)
 
 export default app

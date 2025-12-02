@@ -41,8 +41,6 @@ const sensorValidationRules = () => [
     .withMessage("Name must be less than 50 characters")
     .matches(/^[A-Za-z0-9\s\_]+$/)
     .withMessage("Name can only contain letters, numbers, and spaces"),
-  body("spec").trim().isLength({ max: 50 }).withMessage("spec must be less than 50 characters"),
-  body("id").trim().isLength({ max: 50 }).withMessage("Id must be less than 50 characters"),
 ]
 
 const activityValidationRules = () => [
