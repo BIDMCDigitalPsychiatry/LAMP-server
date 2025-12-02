@@ -91,6 +91,10 @@ jobs:
           platforms: "linux/amd64"
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            ORG_OPENCONTAINERS_IMAGE_CREATED=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+            ORG_OPENCONTAINERS_IMAGE_VERSION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
+            ORG_OPENCONTAINERS_IMAGE_REVISION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.revision'] }}
   
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v2
