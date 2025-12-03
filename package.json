@@ -54,7 +54,8 @@
     "start": "npm run build && npm run start-sw",
     "test": "jest --watch",
     "lint": "eslint src/**/*.ts",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "migrateBasicAuthServer": "docker compose up -d && dotenv ts-node ./src/migrateBasicAuthServer.ts"
   },
   "eslintConfig": {
     "extends": [
