@@ -1,9 +1,6 @@
-import crypto from "crypto"
 import { Encrypt, Decrypt } from "../../utils/auth"
 import { CredentialInterface } from "../interface/RepositoryInterface"
 import { MongoClientDB } from "../Bootstrap"
-import { ObjectId } from "mongodb"
-import { jwtVerify, SignJWT } from "jose"
 import { auth } from "../../utils/auth"
 
 const { isLocked, recordFailedAttempts, clearAttempts } = require("../../utils/accountLockout")

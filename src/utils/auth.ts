@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
+import { parseSetCookie, stringifyCookie } from "cookie";
 import crypto from "crypto";
 import { MongoClient } from "mongodb";
 
@@ -33,6 +34,11 @@ export const auth = betterAuth({
     emailAndPassword: {
         enabled: true
     },
+    account: {
+      fields: {
+        accountId: "_id",
+      }
+    },
     user: {
         modelName: "credential",
         fields: {
@@ -63,7 +69,14 @@ export const auth = betterAuth({
 
 export type Session = typeof auth.$Infer.Session
 
-
+export function convertSetCookieToCookie(headers:Headers) {
+  // Extract all set-cookie headers from headers and return the cookie header string
+  // This is used when we need to call an authenticated better-auth api end point immediately after
+  // logging in
+  const allSetCookies = (headers as any).getSetCookie().map((setCookie: string) => parseSetCookie(setCookie))
+  const cookieDict = Object.fromEntries(allSetCookies.map((setCookie:any) => ([setCookie.name, setCookie.value])))
+  return stringifyCookie(cookieDict)
+}
 
 // The Encrypt and Decrypt functions are used to support servers upgraded from basic auth servers
 

@@ -5,7 +5,8 @@ import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 const { credentialValidationRules } = require("../validator/validationRules")
 const { validateRequest } = require("../middlewares/validateRequest")
 import { authenticateSession } from "../middlewares/authenticateSession"
-import { Session } from "../utils/auth"
+import { auth, convertSetCookieToCookie, Session } from "../utils/auth"
+import { userInfo } from "os"
 
 export class CredentialService {
   public static _name = "Credential"
@@ -43,9 +44,45 @@ export class CredentialService {
 
   public static async verify(accessKey: string | null, secretKey: string) {
     const CredentialRepository = new Repository().getCredentialRepository()
+    const TypeRepository = new Repository().getTypeRepository()
+    const ResearcherRepository = new Repository().getResearcherRepository()
+    const ParticipantRepository = new Repository().getParticipantRepository()
 
-    const res = await CredentialRepository._login(accessKey, secretKey)
-    return res
+    // Log user in
+    // Failure to log in throws an error
+    const {headers, response} = await CredentialRepository._login(accessKey, secretKey)
+
+    // Get session data for newly logged in user
+    const getSessionHeaders = new Headers()
+    getSessionHeaders.set("cookie", convertSetCookieToCookie(headers))
+    const session = await auth.api.getSession({headers: getSessionHeaders})
+
+    // Retrieve the user type, and their origin object if it exists
+    let userType
+    if (!session?.user.origin) {
+      userType = "admin"
+    } else {
+      userType = (await TypeRepository._self_type(session?.user.origin)).toLowerCase()
+    }
+
+    let meObject
+    if (!session?.user.origin) {
+      meObject = null
+    } else if (userType === "researcher") {
+      meObject = await ResearcherRepository._select(session?.user.origin)
+    } else if (userType === "participant") {
+      meObject = await ParticipantRepository._select(session?.user.origin)
+    } else {
+      throw new Error("403.no-session-data")
+    }
+    
+    
+    const responseBody = {
+      userType: userType,
+      me: meObject?.length ? meObject[0] : null
+    }
+
+    return {headers: headers, response: responseBody}
   }
 
   public static async logOut(session: Session["session"] | null) {
