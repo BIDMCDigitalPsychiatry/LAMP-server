@@ -2,7 +2,7 @@ import nano from "nano"
 import crypto from "crypto"
 import { customAlphabet } from "nanoid"
 import { connect, Payload, Client } from "ts-nats"
-import { MongoClient, ObjectId } from "mongodb"
+import { MongoClient } from "mongodb"
 import {
   ResearcherRepository,
   StudyRepository,
@@ -45,6 +45,7 @@ import {
 import ioredis from "ioredis"
 import { initializeQueues } from "../utils/queue/Queue"
 import { auth, Encrypt } from "../utils/auth"
+import { BackfillAccountCollection } from "./mongo/migrations/2025-12-08-backfill-account-collection"
 // import { auth } from "../utils/auth"
 export let RedisClient: ioredis.Redis
 export let nc: Client
@@ -921,6 +922,7 @@ export async function Bootstrap(): Promise<void> {
 
       if (!dbs.includes("account")) {
         await MongoClientDB.createCollection("account")
+        await BackfillAccountCollection(MongoClientDB)
       }
       if (!dbs.includes("session")) {
         await MongoClientDB.createCollection("session")
