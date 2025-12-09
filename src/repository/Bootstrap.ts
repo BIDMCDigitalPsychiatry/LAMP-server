@@ -920,14 +920,21 @@ export async function Bootstrap(): Promise<void> {
       console.log("Credential database online.")
 
       if (!dbs.includes("account")) {
+        console.log("Initializing account database...")
         await MongoClientDB.createCollection("account")
       }
+      console.log("Account database online.")
       if (!dbs.includes("session")) {
+        console.log("Initializing session database...")
         await MongoClientDB.createCollection("session")
       }
+      console.log("Session database online.")
+      
       if (!dbs.includes("verification")) {
+        console.log("Initializing verification database...")
         await MongoClientDB.createCollection("verification")
       }
+      console.log("Verification database online.")
 
       console.groupEnd()
       console.groupEnd()
@@ -935,6 +942,40 @@ export async function Bootstrap(): Promise<void> {
     } else {
       console.groupEnd()
       console.log("Database verification failed.")
+    }
+
+    // Attempt data migration
+    if (process.env.DO_UPGRADE_FROM_BASIC_AUTH) {
+      console.group("Running server upgrade migration...")
+      // Get Credential objects that are missing associated accounts
+      const credentials = await MongoClientDB.collection("credential").aggregate([
+          {$lookup: {from: "account", localField: "_id", foreignField: "userId", as: "accounts"}},
+          {$addFields: {numAccounts: {$size: "$accounts"}}},
+          {$match: {numAccounts: 0}},
+          {$project: {secret_key: true, numAccounts: true}}
+        ]).toArray()
+        
+        // Prepare accounts for creation
+        const accountObjects = []
+        for (let credential of credentials) {
+          accountObjects.push({
+            providerId: "credential",
+            userId: credential._id,
+            password: credential.secret_key,
+            updatedAt: new Date(),
+            createdAt: new Date(),
+          })
+        }
+
+        // Create accounts
+        if (accountObjects.length) {
+          const createAccountResult = await MongoClientDB.collection("account").insertMany(accountObjects)
+          console.log(`Created ${createAccountResult.insertedCount} account documents`)
+        } else {
+          console.log("All user's have an associated account")
+        }
+      console.groupEnd()
+      console.log("Server upgrade migration complete.")
     }
   }
 }
