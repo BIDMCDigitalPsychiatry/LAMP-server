@@ -4,8 +4,8 @@ import { parseSetCookie, stringifyCookie } from "cookie";
 import crypto from "crypto";
 import { MongoClient } from "mongodb";
 
-const client = new MongoClient(`${process.env.DB}`)
-const db = client.db("LampV2")
+export const mongoClientInstance = new MongoClient(`${process.env.DB}`)
+const db = mongoClientInstance.db("LampV2")
 
 const emailAndPasswordOptions:any = {
     enabled: true
@@ -29,7 +29,7 @@ if (process.env.USE_LEGACY_PASSWORD_HASHING) {
 
 
 export const auth = betterAuth({
-    database: mongodbAdapter(db, {client}),
+    database: mongodbAdapter(db, {client: mongoClientInstance}),
     basePath: "/api/auth",
     emailAndPassword: {
         enabled: true

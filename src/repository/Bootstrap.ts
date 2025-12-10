@@ -2,7 +2,6 @@ import nano from "nano"
 import crypto from "crypto"
 import { customAlphabet } from "nanoid"
 import { connect, Payload, Client } from "ts-nats"
-import { MongoClient, ObjectId } from "mongodb"
 import {
   ResearcherRepository,
   StudyRepository,
@@ -44,7 +43,7 @@ import {
 } from "./interface/RepositoryInterface"
 import ioredis from "ioredis"
 import { initializeQueues } from "../utils/queue/Queue"
-import { auth, Encrypt } from "../utils/auth"
+import { auth, Encrypt, mongoClientInstance } from "../utils/auth"
 // import { auth } from "../utils/auth"
 export let RedisClient: ioredis.Redis
 export let nc: Client
@@ -766,7 +765,7 @@ export async function Bootstrap(): Promise<void> {
     //   useNewUrlParser: true,
     //   useUnifiedTopology: true,
     // })
-    const client = new MongoClient(`${process.env.DB}`)
+    const client = mongoClientInstance
     try {
       await client.connect()
     } catch (error) {
