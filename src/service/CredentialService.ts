@@ -7,6 +7,9 @@ const { validateRequest } = require("../middlewares/validateRequest")
 import { authenticateSession } from "../middlewares/authenticateSession"
 import { auth, convertSetCookieToCookie, Session } from "../utils/auth"
 import { userInfo } from "os"
+import { ParamsDictionary } from "express-serve-static-core"
+import { ParsedQs } from "qs"
+import { fromNodeHeaders } from "better-auth/node"
 
 export class CredentialService {
   public static _name = "Credential"
@@ -55,15 +58,12 @@ export class CredentialService {
     // Get session data for newly logged in user
     const getSessionHeaders = new Headers()
     getSessionHeaders.set("cookie", convertSetCookieToCookie(headers))
+    // We can safely call the wrap auth.api.getSession function because 
+    // we have just created the session
     const session = await auth.api.getSession({headers: getSessionHeaders})
 
     // Retrieve the user type, and their origin object if it exists
-    let userType
-    if (!session?.user.origin) {
-      userType = "admin"
-    } else {
-      userType = (await TypeRepository._self_type(session?.user.origin)).toLowerCase()
-    }
+    const userType = session?.session.userType
 
     let meObject
     if (!session?.user.origin) {

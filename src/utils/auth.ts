@@ -1,8 +1,11 @@
-import { betterAuth } from "better-auth";
+import { betterAuth, BetterAuthPlugin } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
+import { createAuthEndpoint, createAuthMiddleware, sessionMiddleware } from "better-auth/api"
+import { setSessionCookie } from "better-auth/cookies"
 import { parseSetCookie, stringifyCookie } from "cookie";
 import crypto from "crypto";
 import { MongoClient } from "mongodb";
+import { Repository } from "../repository/Bootstrap";
 
 export const mongoClientInstance = new MongoClient(`${process.env.DB}`)
 const db = mongoClientInstance.db("LampV2")
@@ -26,6 +29,125 @@ const legacyPasswordVerification = {
 if (process.env.USE_LEGACY_PASSWORD_HASHING) {
     emailAndPasswordOptions.password = legacyPasswordVerification
 }
+
+// Interval in seconds between rotations of participant sessions
+const PARTICIPANT_SESSION_ROTATION_INTERVAL = process.env.PARTICIPANT_SESSION_ROTATION_INTERVAL ? parseInt(process.env.PARTICIPANT_SESSION_ROTATION_INTERVAL) : 5 * 24 * 60 * 60
+const PARTICIPANT_SESSION_UPDATE_AGE = process.env.PARTICIPANT_SESSION_UPDATE_AGE ? parseInt(process.env.PARTICIPANT_SESSION_UPDATE_AGE) : 1 * 24 * 60 * 60
+const PARTICIPANT_SESSION_EXPIRE_IN = process.env.PARTICIPANT_SESSION_EXPIRE_IN ? parseInt(process.env.PARTICIPANT_SESSION_EXPIRE_IN) : 365 * 24 * 60 * 60
+
+const STAFF_SESSION_EXPIRES_IN = process.env.STAFF_SESSION_EXPIRES_IN ? parseInt(process.env.STAFF_SESSION_EXPIRES_IN) : 5 * 24 * 60 * 60
+const STAFF_SESSION_UPDATE_AGE = process.env.STAFF_SESSION_UPDATE_AGE ? parseInt(process.env.STAFF_SESSION_UPDATE_AGE) : 1 * 24 * 60 * 60
+
+const customSessionLengthPlugin = () => {
+  return {
+    id: "participant-session-plugin",
+    endpoints: {
+      tryRotateSession: createAuthEndpoint(
+        "participant-session-plugin",
+        {
+          method: "POST",
+          use: [sessionMiddleware]
+        },
+        async (ctx) => {
+          const internalAdapter = ctx.context.internalAdapter
+          const currentSession = ctx.context.session
+
+          // Check that this is a participant session
+          // Check that the session is elligable to be rotated
+          const sessionAge = (Date.now() - currentSession.session.createdAt.getTime()) / 1000
+          if (currentSession.session.userType !== "participant" || sessionAge <= PARTICIPANT_SESSION_ROTATION_INTERVAL) {
+            return ctx.json({sessionRotated: false})
+          }
+
+          // Create the new session
+          const newSession = {
+            user: currentSession.user,
+            session: await internalAdapter.createSession(currentSession.user.id)
+          }
+          
+          // Set the auth cookie
+          ctx.context.setNewSession(newSession)
+          await setSessionCookie(ctx, newSession)
+
+          // Delete the old session
+          await internalAdapter.deleteSession(currentSession.session.token)
+
+          // Return the new session
+          return ctx.json({ sessionRotated: true })
+        }
+      )
+    },
+    hooks: {
+      after: [
+        {
+          // ON NEW SESSION
+          // Add the authType to the new session (admin, participant, researcher...)
+          matcher: (ctx) => {
+            return !ctx.context.newSession?.session.userType
+          },
+          handler: createAuthMiddleware(async (ctx) => {
+            const session = ctx.context.newSession
+            if (!session) { return }
+            const internalAdapter = ctx.context.internalAdapter
+            const TypeRepository = new Repository().getTypeRepository()
+
+            let userType
+            if (!session?.user.origin) {
+              userType = "admin"
+            } else {
+              userType = (await TypeRepository._self_type(session?.user.origin)).toLowerCase()
+            }
+
+            // Set Staff expires at time
+            let expiresAt = undefined
+            if (userType !== "participant") {
+              expiresAt = new Date(session.session.createdAt.getTime() + (STAFF_SESSION_EXPIRES_IN * 1000))
+            }
+
+            const sessionUpdates = {
+              userType: userType,
+              expiresAt: expiresAt
+                  
+            }
+            await internalAdapter.updateSession(session?.session.token, sessionUpdates)
+          })
+        },
+        {
+          // Refresh session expires in age based on the current session's userRole
+          // In order for the update to affect the cookie in the brower, the caller
+          // of the auth.api method must add the set-cookie header to the express
+          // response.
+          matcher: (ctx) => {
+            return !!ctx.context.session
+          },
+          handler: createAuthMiddleware(async (ctx) => {
+            const internalAdapter = ctx.context.internalAdapter
+            const currentSession = ctx.context.session
+            if (!currentSession?.session.userType) {return}
+            const sessionAge = (Date.now() - currentSession.session.createdAt.getTime()) / 1000
+            
+            let expiresAt
+            if (currentSession.session.userType === "participant") {
+              if (sessionAge > PARTICIPANT_SESSION_UPDATE_AGE) {
+                expiresAt = new Date(Date.now() + (PARTICIPANT_SESSION_EXPIRE_IN * 1000))
+              }
+            } else {
+              if (sessionAge > STAFF_SESSION_UPDATE_AGE) {
+                expiresAt = new Date(Date.now() + (STAFF_SESSION_EXPIRES_IN * 1000))
+              }
+            }
+            if (expiresAt) {
+              const updatedSession = await internalAdapter.updateSession(currentSession.session.token, {expiresAt: expiresAt})
+              if (updatedSession) {
+                setSessionCookie(ctx, {user: currentSession.user, session: updatedSession})
+              }
+            }
+          })
+        }
+      ], 
+    }
+  } satisfies BetterAuthPlugin
+} 
 
 
 export const auth = betterAuth({
@@ -62,8 +184,21 @@ export const auth = betterAuth({
                 returned: true,
                 input: false,
             }
+        },
+    },
+    session: {
+      disableSessionRefresh: true,  // Handle session refresh manually
+      additionalFields: {
+        userType: {
+          type: "string",
+          required: false,
+          returned: true
         }
-    }
+      }
+    },
+    plugins:[
+      customSessionLengthPlugin()
+    ],
 })
 
 
