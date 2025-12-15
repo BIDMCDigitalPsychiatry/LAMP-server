@@ -906,6 +906,7 @@ export async function Bootstrap(): Promise<void> {
           await auth.api.signUpEmail({
             body: {
               email: `admin@digitalpsych.org`,
+              username: "admin",
               password: p, 
               name: "admin",
               description: "System Administrator Credential",
@@ -941,40 +942,6 @@ export async function Bootstrap(): Promise<void> {
     } else {
       console.groupEnd()
       console.log("Database verification failed.")
-    }
-
-    // Attempt data migration
-    if (process.env.DO_UPGRADE_FROM_BASIC_AUTH) {
-      console.group("Running server upgrade migration...")
-      // Get Credential objects that are missing associated accounts
-      const credentials = await MongoClientDB.collection("credential").aggregate([
-          {$lookup: {from: "account", localField: "_id", foreignField: "userId", as: "accounts"}},
-          {$addFields: {numAccounts: {$size: "$accounts"}}},
-          {$match: {numAccounts: 0}},
-          {$project: {secret_key: true, numAccounts: true}}
-        ]).toArray()
-        
-        // Prepare accounts for creation
-        const accountObjects = []
-        for (let credential of credentials) {
-          accountObjects.push({
-            providerId: "credential",
-            userId: credential._id,
-            password: credential.secret_key,
-            updatedAt: new Date(),
-            createdAt: new Date(),
-          })
-        }
-
-        // Create accounts
-        if (accountObjects.length) {
-          const createAccountResult = await MongoClientDB.collection("account").insertMany(accountObjects)
-          console.log(`Created ${createAccountResult.insertedCount} account documents`)
-        } else {
-          console.log("All user's have an associated account")
-        }
-      console.groupEnd()
-      console.log("Server upgrade migration complete.")
     }
   }
 }

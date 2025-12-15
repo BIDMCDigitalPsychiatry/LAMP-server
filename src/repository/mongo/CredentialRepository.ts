@@ -55,12 +55,13 @@ export class CredentialRepository implements CredentialInterface {
     if (res !== null) { throw new Error("403.access-key-already-in-use") }
 
     //save Credential via Credential model
-    await auth.api.signUpEmail({body: { // TODO: error handling!!!
+    await auth.api.signUpEmail({body: {
       email: credential.access_key,
       password: credential.secret_key,
       origin: credential.origin,
       name: credential.access_key,
       description: credential.description,
+      username: credential.username
    }})
     return {}
   }
@@ -106,11 +107,19 @@ export class CredentialRepository implements CredentialInterface {
     }
 
     try {
-      const res = await auth.api.signInEmail({returnHeaders: true, body: {email: accessKey, password: secretKey}})
-
+      // Sign in user allowing for either username sign in, or email sign in
+      let res
+      try {
+        res = await auth.api.signInEmail({returnHeaders: true, body: {email: accessKey, password: secretKey}})
+      } catch(e) {
+        // Also allow people to log in using a username
+        res = await auth.api.signInUsername({returnHeaders: true, body: {username: accessKey, password: secretKey}})
+      }
+      
       // Do not allow deleted users to log in
       if (!!res.response?.user?.id) {
-        const user = await MongoClientDB.collection("credential").findOne({access_key: accessKey})
+        const userEmail = res.response.user.email
+        const user = await MongoClientDB.collection("credential").findOne({access_key: userEmail})
         if (user._deleted) {
           await this._logout(res.response.token)
           throw new Error("404.no-such-credentials")

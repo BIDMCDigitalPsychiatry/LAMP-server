@@ -16,6 +16,7 @@ import "./utils/sentry";
 import http from "http";
 import { Bootstrap } from "./repository/Bootstrap";
 import app from "./app";
+import { runBasicAuthServerMigration } from "./utils/dataMigrations/basicAuthServerMigration";
 
 // ---------------------
 // Shutdown Grace Period
@@ -43,6 +44,10 @@ async function main(): Promise<void> {
   console.log("Server routing initialized.")
   console.groupEnd()
   console.log("Initialization complete.")
+
+  if(process.env.DO_UPGRADE_FROM_BASIC_AUTH) {
+    await runBasicAuthServerMigration()
+  }
 
   const server = http.createServer(app)
   server.listen(PORT, "0.0.0.0", () => {

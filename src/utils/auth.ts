@@ -2,10 +2,13 @@ import { betterAuth, BetterAuthPlugin } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { createAuthEndpoint, createAuthMiddleware, sessionMiddleware } from "better-auth/api"
 import { setSessionCookie } from "better-auth/cookies"
+import { username } from "better-auth/plugins"
 import { parseSetCookie, stringifyCookie } from "cookie";
 import crypto from "crypto";
 import { MongoClient } from "mongodb";
 import { Repository } from "../repository/Bootstrap";
+import * as z from "zod/v4/core"; 
+import { body, oneOf } from "express-validator";
 
 export const mongoClientInstance = new MongoClient(`${process.env.DB}`)
 const db = mongoClientInstance.db("LampV2")
@@ -197,7 +200,20 @@ export const auth = betterAuth({
       }
     },
     plugins:[
-      customSessionLengthPlugin()
+      customSessionLengthPlugin(),
+      username({
+        usernameValidator: async (username) => {
+          // Allow usernames to be either emails, or strings with alphanumeric characters, underscores and dashes
+          // Validation is currently a slightly hacky use of express-validator
+          const req = {
+            body: {
+              username: username
+            }
+          }
+          const emailValidationResult = await oneOf([body("username").isEmail(), body("username").matches(/^[\w\-]+$/)]).run(req)
+          return emailValidationResult.isEmpty()
+        }
+      }),
     ],
 })
 
