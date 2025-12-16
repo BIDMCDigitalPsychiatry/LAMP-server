@@ -54,11 +54,10 @@ export class ParticipantService {
   public static async get(actingUser: Session["user"], participant_id: string) {
     const ParticipantRepository = new Repository().getParticipantRepository()
     const response: any = await _authorize(actingUser, ["self", "sibling", "parent"], participant_id)
-
     if (participant_id !== "me") {
       return await ParticipantRepository._select(participant_id)
     }
-    return await ParticipantRepository._select(response.id)
+    return await ParticipantRepository._select(response)
   }
 
   public static async set(actingUser: Session["user"], participant_id: string, participant: any | null) {

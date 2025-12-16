@@ -41,20 +41,35 @@ export async function runBasicAuthServerMigration() {
         ]).toArray()
         if (!participantCredentials.length) {
             console.log("No users require usernames")
+        } else {
+          const credentialUpdatePromises = []
+          for (let credential of participantCredentials) {
+              credentialUpdatePromises.push(
+                  MongoClientDB.collection("credential").updateOne(
+                      {_id: credential._id},
+                      {$set: {
+                          username: credential.access_key,
+                          displayUsername: credential.access_key.toLowerCase()
+                      }}
+                  )
+              )
+          }
+          const updateResult = await Promise.all(credentialUpdatePromises)
+          console.log(`Added usernames to ${updateResult.length} participants`)
         }
-        const credentialUpdatePromises = []
-        for (let credential of participantCredentials) {
-            credentialUpdatePromises.push(
-                MongoClientDB.collection("credential").updateOne(
-                    {_id: credential._id},
-                    {$set: {
-                        username: credential.access_key,
-                        displayUsername: credential.access_key.toLowerCase()
-                    }}
-                )
-            )
+
+        const adminUpdateResult = await MongoClientDB.collection("credential")
+            .updateOne({
+              access_key: "admin",
+              username: {$exists: false}
+            }, 
+            {
+              $set: {username: "admin", 
+                displayUsername: "admin"}
+            });
+        if (adminUpdateResult.modifiedCount) {
+          console.log("Added admin username to admin credential.")
         }
-        await Promise.all(credentialUpdatePromises)
         console.groupEnd()
       console.log("Server upgrade migration complete.")
 

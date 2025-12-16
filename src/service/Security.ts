@@ -73,7 +73,6 @@ export async function _authorize(
       currentOwner = await TypeRepository._owner(currentOwner)
     }
   }
-
   throw new Error("403.security-context-out-of-scope")
 }
 

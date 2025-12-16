@@ -30,7 +30,6 @@ export class SensorEventService {
 
   public static async create(actingUser: Session["user"], id: string, sensor_events: any[]) {
     const SensorEventRepository = new Repository().getSensorEventRepository()
-
     const response: any = await _authorize(actingUser, ["self", "sibling", "parent"], id)
     let data = {}
     //check for the existance of cache size and redis host
@@ -67,7 +66,7 @@ SensorEventService.Router.post(
     } catch (e: any) {
       console.log("Failure Msg On sensor events post", e.message)
       if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
-      res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
+        res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
     }
   }
 )

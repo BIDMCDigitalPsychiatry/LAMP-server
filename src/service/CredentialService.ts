@@ -81,7 +81,6 @@ export class CredentialService {
       userType: userType,
       me: meObject?.length ? meObject[0] : null
     }
-
     return {headers: headers, response: responseBody}
   }
 
