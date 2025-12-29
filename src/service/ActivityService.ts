@@ -236,7 +236,8 @@ ActivityService.Router.delete("/activity/:activity_id", authenticateToken, async
 ActivityService.Router.delete("/activities", authenticateToken, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
-    const { activities } = req.body.activities
+    const { activities } = req.body
+
     res.json({ data: await ActivityService.delete(req.get("Authorization"), activities) })
   } catch (e: any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
