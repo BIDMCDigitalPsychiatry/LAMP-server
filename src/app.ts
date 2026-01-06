@@ -1,9 +1,10 @@
-import express, { Application } from "express"
+import express, { Application, response } from "express"
 import cors from "cors"
 import morgan from "morgan"
 import API from "./service"
 import { applySentryForExpress } from "./utils/sentry"
 import { authenticateSession } from "./middlewares/authenticateSession"
+import { getConfiguredOAuthOptions } from "./utils/oauthConfiguration"
 
 var cookieParser = require("cookie-parser")
 
@@ -60,13 +61,18 @@ app.use(express.urlencoded({ extended: true }))
 
 // Auth utility routes
 app.get("/is-authenticated", authenticateSession, (req, res) => {res.json({message: "ok"})})
+
 app.get("/server-info", (req, res) => {
   // Returns information about the server that should be available to unauthenticated users
-  res.json({
-    authScheme: "session"
-  })
+  const configuredOAuth = getConfiguredOAuthOptions()
+  const configuredProviders = Object.keys(configuredOAuth)
+  const responseBody = {
+    authScheme: "session",
+    configuredProviders: configuredProviders
+  }
+
+  res.json(responseBody)
 })
-app.get("/supported-auth-type", (req, res) => {res.json({authType: "session"})})
 
 // Establish the API router, as well as a few individual utility routes.
 app.use("/", API)
