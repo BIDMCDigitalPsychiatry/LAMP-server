@@ -4,6 +4,15 @@ import { fromNodeHeaders } from "better-auth/node";
 import { MongoClientDB } from "../repository/Bootstrap";
 import { parseSetCookie } from "cookie";
 
+
+// By default authentication fails if the account is not fully set up
+// To enable an end point for accounts with incomplete set up add skipFullSetupCheck
+// to the middleware chain right before authenticateSession
+export function skipFullSetupCheck(req: Request, res: Response, next: NextFunction) {
+    res.locals.skipFullSetupCheck = true
+    next()
+}
+
 // Session authentication middleware
 // If the request comes from an authenticated user add the session to the request context
 // If the request does not come from an authenticated user, return an unauthenticated response instead
@@ -40,6 +49,10 @@ export async function authenticateSession(req: Request, res: Response, next: Nex
             const deleteResult = await MongoClientDB.collection("session").deleteOne({token: session.token})
             throw Error("403.no-such-credentials")
         }
+
+        if (!res.locals.skipFullSetupCheck && !session.isSetupComplete) {
+            throw Error("403.no-such-credentials")
+        }
         
         // Add session and user to the current response's context
         res.locals.session = session
@@ -52,4 +65,3 @@ export async function authenticateSession(req: Request, res: Response, next: Nex
         res.json({message: "403.no-such-credentials"})
     }
 }
-

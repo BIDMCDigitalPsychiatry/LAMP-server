@@ -2,13 +2,13 @@ import { betterAuth, BetterAuthPlugin } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { createAuthEndpoint, createAuthMiddleware, sessionMiddleware } from "better-auth/api"
 import { setSessionCookie } from "better-auth/cookies"
-import { username } from "better-auth/plugins"
+import { oneTimeToken, username } from "better-auth/plugins"
 import { parseSetCookie, stringifyCookie } from "cookie";
 import crypto from "crypto";
-import { MongoClient } from "mongodb";
-import { Repository } from "../repository/Bootstrap";
-import * as z from "zod/v4/core"; 
+import { MongoClient, ObjectId } from "mongodb";
+import { MongoClientDB, Repository } from "../repository/Bootstrap";
 import { body, oneOf } from "express-validator";
+import { getConfiguredOAuthOptions } from "./oauthConfiguration";
 
 export const mongoClientInstance = new MongoClient(`${process.env.DB}`)
 const db = mongoClientInstance.db("LampV2")
@@ -107,10 +107,27 @@ const customSessionLengthPlugin = () => {
               expiresAt = new Date(session.session.createdAt.getTime() + (STAFF_SESSION_EXPIRES_IN * 1000))
             }
 
+            // Set isSetupComplete flag based on usertype
+            let isSetupComplete
+            if (process.env.DISABLE_REQUIRE_OAUTH_OR_2FA) {
+              isSetupComplete = true
+            } else if (userType === "participant") {
+              isSetupComplete = true
+            } else {
+              // Account set up for staff users is incomplete if they do not have oAuth or 2FA configured
+              // TODO: Add check for 2FA setup
+              const oAuthAccounts = await MongoClientDB.collection("account")
+                                                       .find({
+                                                          providerId: {$ne: "credential"}, 
+                                                          userId: new ObjectId(session.user.id)})
+                                                        .toArray() 
+              isSetupComplete = !!oAuthAccounts.length
+            }
+
             const sessionUpdates = {
               userType: userType,
-              expiresAt: expiresAt
-                  
+              expiresAt: expiresAt,
+              isSetupComplete: isSetupComplete
             }
             await internalAdapter.updateSession(session?.session.token, sessionUpdates)
           })
@@ -156,6 +173,7 @@ const customSessionLengthPlugin = () => {
 export const auth = betterAuth({
     database: mongodbAdapter(db, {client: mongoClientInstance}),
     basePath: "/api/auth",
+    secret: process.env.BETTER_AUTH_SECRET,
     emailAndPassword: {
         enabled: true
     },
@@ -196,11 +214,30 @@ export const auth = betterAuth({
           type: "string",
           required: false,
           returned: true
+        },
+        isSetupComplete: {
+          type: "boolean",
+          required: false,
+          returned: true
         }
       }
     },
+    hooks: {
+      after: createAuthMiddleware({}, async (ctx) => {
+        // Include the sessionCookie in the response after verifying a one-time-token
+        if (ctx.path === "/one-time-token/verify") {
+          const returned = ctx.context.returned as any
+          if (returned?.session) {
+            await setSessionCookie(ctx, returned)
+          }
+        }
+      })
+    },
     plugins:[
       customSessionLengthPlugin(),
+      oneTimeToken({
+        disableClientRequest: true
+      }),
       username({
         usernameValidator: async (username) => {
           // Allow usernames to be either emails, or strings with alphanumeric characters, underscores and dashes
@@ -212,9 +249,10 @@ export const auth = betterAuth({
           }
           const emailValidationResult = await oneOf([body("username").isEmail(), body("username").matches(/^[\w\-]+$/)]).run(req)
           return emailValidationResult.isEmpty()
-        }
+        } 
       }),
     ],
+    socialProviders: getConfiguredOAuthOptions()
 })
 
 

@@ -4,12 +4,11 @@ const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN TH
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 const { credentialValidationRules } = require("../validator/validationRules")
 const { validateRequest } = require("../middlewares/validateRequest")
-import { authenticateSession } from "../middlewares/authenticateSession"
+import { authenticateSession, skipFullSetupCheck } from "../middlewares/authenticateSession"
 import { auth, convertSetCookieToCookie, Session } from "../utils/auth"
-import { userInfo } from "os"
-import { ParamsDictionary } from "express-serve-static-core"
-import { ParsedQs } from "qs"
 import { fromNodeHeaders } from "better-auth/node"
+import { ResearcherRepository } from "../repository/couch"
+import { url } from "inspector"
 
 export class CredentialService {
   public static _name = "Credential"
@@ -62,6 +61,23 @@ export class CredentialService {
     // we have just created the session
     const session = await auth.api.getSession({headers: getSessionHeaders})
 
+    const responseBody = session ? await this.getLoginResponse(session) : {}
+    return {headers: headers, response: responseBody}
+  }
+
+  public static async logOut(session: Session["session"] | null) {
+    if (session) {
+      const CredentialRepository = new Repository().getCredentialRepository()
+      const res = await CredentialRepository._logout(session.token)
+    } else {
+      throw new Error("403.no-session-provided") 
+    }
+  }
+
+  public static async getLoginResponse(session:Session) {
+    const ResearcherRepository = new Repository().getResearcherRepository()
+    const ParticipantRepository = new Repository().getParticipantRepository()
+
     // Retrieve the user type, and their origin object if it exists
     const userType = session?.session.userType
 
@@ -76,20 +92,10 @@ export class CredentialService {
       throw new Error("403.no-session-data")
     }
     
-    
-    const responseBody = {
+    return {
       userType: userType,
-      me: meObject?.length ? meObject[0] : null
-    }
-    return {headers: headers, response: responseBody}
-  }
-
-  public static async logOut(session: Session["session"] | null) {
-    if (session) {
-      const CredentialRepository = new Repository().getCredentialRepository()
-      const res = await CredentialRepository._logout(session.token)
-    } else {
-      throw new Error("403.no-session-provided") 
+      me: meObject?.length ? meObject[0] : null,
+      isSetupComplete: !!session.session.isSetupComplete
     }
   }
 }
@@ -184,6 +190,7 @@ CredentialService.Router.delete(
     }
   }
 )
+
 CredentialService.Router.post(`/login`, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
@@ -200,7 +207,11 @@ CredentialService.Router.post(`/login`, async (req: Request, res: Response) => {
   }
 })
 
-CredentialService.Router.post("/logout", authenticateSession, async (req: Request, res: Response) => {
+CredentialService.Router.post(
+  "/logout", 
+  skipFullSetupCheck,
+  authenticateSession,
+  async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     res.json({
@@ -211,3 +222,134 @@ CredentialService.Router.post("/logout", authenticateSession, async (req: Reques
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
+
+
+
+// OAuth Login
+CredentialService.Router.post(
+  "/login/:socialProvider", 
+  async (req, res) => {
+    // TODO: Check that this socialProvider is configured
+    const loginResult = await auth.api.signInSocial({
+      method: "POST",
+      body: {
+        provider: req.params.socialProvider
+      },
+      asResponse: true
+    })
+    const resultBody = await loginResult.json()
+    res.setHeader("set-cookie", loginResult.headers.get("set-cookie") as string)
+    res.json({redirectUrl: resultBody.url})
+  }
+)
+
+CredentialService.Router.get(
+  "/login/:socialProvider/callback",
+  async (req, res) => {
+    const callbackResult = await auth.api.callbackOAuth({
+      method: "GET",
+      query: req.query,
+      params: {id: req.params.socialProvider},
+      headers: fromNodeHeaders(req.headers),
+      asResponse: true
+    })
+    const redirectUrl = new URL(process.env.DASHBOARD_URL as string)
+
+    if (callbackResult.status === 302) {
+      // Check for error message in the returned redirect URL
+      let locationUrlString = callbackResult.headers.get("location")
+      if (!!locationUrlString) {
+        const locationUrl = new URL(locationUrlString)
+        const error = locationUrl.searchParams.get("error")
+        if (error) {
+          let errorMessage = ""
+          if (error === "email_doesn't_match") {
+            errorMessage = "Unable to link account to authentication provider. Make sure the emails on both of your accounts match."
+          } else {
+            errorMessage = "Unable to link account to authentication provider."
+          }
+          redirectUrl.searchParams.append("error", errorMessage)
+          res.redirect(redirectUrl.toString())
+          return
+        }
+      }
+
+      // If there were no errors create a one time token and send it to the client
+      if (callbackResult.headers.getSetCookie().length) {
+        const newHeaders = new Headers()
+        newHeaders.set("cookie", convertSetCookieToCookie(callbackResult.headers))
+        const finishLoginToken = await auth.api.generateOneTimeToken({
+          method: "GET",
+          headers: newHeaders,
+          asResponse: true
+        })
+        if (finishLoginToken.status === 200) {
+          const finishLoginTokenBody = await finishLoginToken.json()
+          redirectUrl.searchParams.append("finishLoginToken", finishLoginTokenBody.token)
+        }
+      } 
+    }
+    res.redirect(redirectUrl.toString())
+  }
+)
+
+// OAuth Link Account
+CredentialService.Router.post(
+  "/link-social/:socialProvider", 
+  authenticateSession,
+  async (req, res) => {
+    const result = await auth.api.linkSocialAccount({
+      method: "POST",
+      body: {
+        provider: req.params.socialProvider
+      },
+      headers: fromNodeHeaders(req.headers),
+      asResponse: true
+    })
+    if (result.status === 200) {
+      const resultBody = await result.json()
+      console.log("Link account result: ", resultBody)
+      res.setHeader("Set-Cookie", result.headers.get("set-cookie") || "")
+      res.json({redirectUrl: resultBody.url})
+    } else {
+      res.status(500)
+      res.json({error: "500.could-not-link-account"})
+    }
+  }
+)
+
+CredentialService.Router.get(
+  "/login/one-time-token/:token",
+  async (req, res) => {
+    // Validates a one time token, and returns the associated session
+    // information, and session login cookies
+    // Should be called by the frontend after a successful o-auth login
+    const validateResult = await auth.api.verifyOneTimeToken({
+      method: "POST",
+      body: {
+        token: req.params.token
+      },
+      asResponse: true
+    })
+    if (validateResult.status === 200) {
+      const session = await validateResult.json()
+      res.setHeader("set-cookie", validateResult.headers.get("set-cookie") || "")
+      res.json(await CredentialService.getLoginResponse(session))
+      return
+    }
+    res.status(404)
+    res.json({error: "404.no-such-credentials"})
+  }
+)
+
+CredentialService.Router.get(
+  "/session-info",
+  skipFullSetupCheck,
+  authenticateSession,
+  async (req, res) => {
+      res.json(await CredentialService.getLoginResponse({
+        session: res.locals.session,
+        user: res.locals.user
+      }))
+  }
+)
