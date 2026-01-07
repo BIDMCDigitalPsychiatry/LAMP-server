@@ -11,7 +11,7 @@ import { body, oneOf } from "express-validator";
 import { getConfiguredOAuthOptions } from "./oauthConfiguration";
 
 export const mongoClientInstance = new MongoClient(`${process.env.DB}`)
-const db = mongoClientInstance.db("LampV2")
+const db = mongoClientInstance.db(process.env.DB_NAME)
 
 const emailAndPasswordOptions:any = {
     enabled: true
