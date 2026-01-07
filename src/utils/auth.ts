@@ -29,8 +29,8 @@ const legacyPasswordVerification = {
         return Decrypt(hash, "AES256") === password;
     }
 }
-if (process.env.USE_LEGACY_PASSWORD_HASHING) {
-    emailAndPasswordOptions.password = legacyPasswordVerification
+if (process.env.USE_LEGACY_PASSWORD_HASHING === "true") {
+  emailAndPasswordOptions.password = legacyPasswordVerification
 }
 
 // Interval in seconds between rotations of participant sessions
@@ -174,9 +174,7 @@ export const auth = betterAuth({
     database: mongodbAdapter(db, {client: mongoClientInstance}),
     basePath: "/api/auth",
     secret: process.env.BETTER_AUTH_SECRET,
-    emailAndPassword: {
-        enabled: true
-    },
+    emailAndPassword: emailAndPasswordOptions,
     account: {
       fields: {
         accountId: "_id",
