@@ -267,6 +267,7 @@ CredentialService.Router.get(
             errorMessage = "Unable to link account to authentication provider. Make sure the emails on both of your accounts match."
           } else {
             errorMessage = "Unable to link account to authentication provider."
+            errorMessage = error
           }
           redirectUrl.searchParams.append("error", errorMessage)
           res.redirect(redirectUrl.toString())
@@ -287,7 +288,7 @@ CredentialService.Router.get(
           const finishLoginTokenBody = await finishLoginToken.json()
           redirectUrl.searchParams.append("finishLoginToken", finishLoginTokenBody.token)
         }
-      } 
+      }
     }
     res.redirect(redirectUrl.toString())
   }
@@ -295,7 +296,8 @@ CredentialService.Router.get(
 
 // OAuth Link Account
 CredentialService.Router.post(
-  "/link-social/:socialProvider", 
+  "/link-social/:socialProvider",
+  skipFullSetupCheck,
   authenticateSession,
   async (req, res) => {
     const result = await auth.api.linkSocialAccount({
@@ -308,7 +310,6 @@ CredentialService.Router.post(
     })
     if (result.status === 200) {
       const resultBody = await result.json()
-      console.log("Link account result: ", resultBody)
       res.setHeader("Set-Cookie", result.headers.get("set-cookie") || "")
       res.json({redirectUrl: resultBody.url})
     } else {
