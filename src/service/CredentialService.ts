@@ -7,8 +7,6 @@ const { validateRequest } = require("../middlewares/validateRequest")
 import { authenticateSession, skipFullSetupCheck } from "../middlewares/authenticateSession"
 import { auth, convertSetCookieToCookie, Session } from "../utils/auth"
 import { fromNodeHeaders } from "better-auth/node"
-import { ResearcherRepository } from "../repository/couch"
-import { url } from "inspector"
 
 export class CredentialService {
   public static _name = "Credential"
