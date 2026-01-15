@@ -93,7 +93,8 @@ export class CredentialService {
     return {
       userType: userType,
       me: meObject?.length ? meObject[0] : null,
-      isSetupComplete: !!session.session.isSetupComplete
+      isSetupComplete: !!session.session.isSetupComplete,
+      require2FAVerification: session.session.require2FAVerification
     }
   }
 }
@@ -350,5 +351,67 @@ CredentialService.Router.get(
         session: res.locals.session,
         user: res.locals.user
       }))
+  }
+)
+
+CredentialService.Router.post(
+  "/setup-2fa",
+  skipFullSetupCheck,
+  authenticateSession,
+  async (req, res) => {
+    const r = await auth.api.configure2FA({
+      headers: fromNodeHeaders(req.headers),
+      body: {
+        email: req.body.email,
+        phone: req.body.phone
+      },
+      asResponse: true
+    })
+    if (r.status === 200) {
+      res.json({message: "ok"})
+    } else {
+      res.status(500)
+      res.json({error: "500.failed-two-factor-configuration"})
+    }
+  }
+)
+
+CredentialService.Router.post(
+  "/send-2fa",
+  skipFullSetupCheck,
+  authenticateSession,
+  async (req, res) => {
+    const r = await auth.api.send2FACode({
+      headers: fromNodeHeaders(req.headers),
+      asResponse: true
+    })
+    if (r.status === 200) {
+      res.json({message: "ok"})
+    } else {
+      res.status(500)
+      res.json({error: "500.send-two-factor-code-failed"})
+    }
+  }
+)
+
+CredentialService.Router.post(
+  "/verify-2fa",
+  skipFullSetupCheck,
+  authenticateSession,
+  async (req, res) => {
+    console.log(req.body)
+    const r = await auth.api.verify2FACode({
+      headers: fromNodeHeaders(req.headers),
+      body: {
+        code: req.body.code
+      },
+      asResponse: true
+    })
+    if (r.status === 200) {
+      res.json({message: "ok"})
+    } else {
+      res.status(500)
+      res.json({error: "500.verify-two-factor-code-failed"})
+    }
   }
 )

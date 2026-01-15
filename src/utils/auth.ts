@@ -1,4 +1,4 @@
-import { betterAuth, BetterAuthPlugin } from "better-auth";
+import { betterAuth, BetterAuthPlugin, boolean } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { createAuthEndpoint, createAuthMiddleware, sessionMiddleware } from "better-auth/api"
 import { setSessionCookie } from "better-auth/cookies"
@@ -9,6 +9,7 @@ import { MongoClient, ObjectId } from "mongodb";
 import { MongoClientDB, Repository } from "../repository/Bootstrap";
 import { body, oneOf } from "express-validator";
 import { getConfiguredOAuthOptions } from "./oauthConfiguration";
+import z4 from "zod/v4";
 
 export const mongoClientInstance = new MongoClient(`${process.env.DB}`)
 const db = mongoClientInstance.db(process.env.DB_NAME)
@@ -41,10 +42,29 @@ const PARTICIPANT_SESSION_EXPIRE_IN = process.env.PARTICIPANT_SESSION_EXPIRE_IN 
 const STAFF_SESSION_EXPIRES_IN = process.env.STAFF_SESSION_EXPIRES_IN ? parseInt(process.env.STAFF_SESSION_EXPIRES_IN) : 5 * 24 * 60 * 60
 const STAFF_SESSION_UPDATE_AGE = process.env.STAFF_SESSION_UPDATE_AGE ? parseInt(process.env.STAFF_SESSION_UPDATE_AGE) : 1 * 24 * 60 * 60
 
-// Returns true if the user's setup is complete, and false otherwise
-async function checkIsSetupComplete(user:Session["user"], userType:string) {
 
+
+function formatPrimaryKey(primaryKey:string|number|ObjectId) {
+  if (primaryKey instanceof ObjectId || typeof primaryKey == 'number' ) {
+    return primaryKey
+  }
+  try {
+    const newPrimaryKey = new ObjectId(primaryKey)
+    return newPrimaryKey
+  }
+  catch (e) {
+    return primaryKey
+  }
 }
+
+enum SetupType {
+  TWO_FACTOR = "TWO_FACTOR",
+  TWO_FACTOR_UNVERIFIED = "TWO_FACTOR_UNVERIFIED",
+  OAUTH = "OAUTH",
+  NOT_REQUIRED = "NOT_REQUIRED",
+  INCOMPLETE = "INCOMPLETE"
+}
+
 
 const customSessionLengthPlugin = () => {
   return {
@@ -111,29 +131,15 @@ const customSessionLengthPlugin = () => {
               expiresAt = new Date(session.session.createdAt.getTime() + (STAFF_SESSION_EXPIRES_IN * 1000))
             }
 
-            // Set isSetupComplete flag based on usertype
-            let isSetupComplete
-            if (process.env.DISABLE_REQUIRE_OAUTH_OR_2FA) {
-              isSetupComplete = true
-            } else if (userType === "participant") {
-              isSetupComplete = true
-            } else {
-              // Account set up for staff users is incomplete if they do not have oAuth or 2FA configured
-              // TODO: Add check for 2FA setup
-              const oAuthAccounts = await MongoClientDB.collection("account")
-                                                       .find({
-                                                          providerId: {$ne: "credential"}, 
-                                                          userId: new ObjectId(session.user.id)})
-                                                        .toArray() 
-              isSetupComplete = !!oAuthAccounts.length
-            }
-
             const sessionUpdates = {
               userType: userType,
               expiresAt: expiresAt,
-              isSetupComplete: isSetupComplete
+              isSetupComplete: await checkIsSetupComplete(session.user as Session["user"], userType)
             }
-            await internalAdapter.updateSession(session?.session.token, sessionUpdates)
+            const updatedSession = await internalAdapter.updateSession(session?.session.token, sessionUpdates)
+            if (updatedSession) {
+              await ctx.context.setNewSession({session: updatedSession, user: session.user})
+            }
           })
         },
         {
@@ -145,27 +151,10 @@ const customSessionLengthPlugin = () => {
             const session = ctx.context.session
             if (!session) {return}
             const internalAdapter = ctx.context.internalAdapter
-            const userType = session.session.internalAdapter
+            const userType = session.session.userType
             
-            // Set isSetupComplete flag based on usertype
-            let isSetupComplete
-            if (process.env.DISABLE_REQUIRE_OAUTH_OR_2FA) {
-              isSetupComplete = true
-            } else if (userType === "participant") {
-              isSetupComplete = true
-            } else if (session.user.additionalSetupExempt) {
-              isSetupComplete = true
-            } else {
-              // Account set up for staff users is incomplete if they do not have oAuth or 2FA configured
-              // TODO: Add check for 2FA setup
-              const oAuthAccounts = await MongoClientDB.collection("account")
-                                                       .find({
-                                                          providerId: {$ne: "credential"}, 
-                                                          userId: new ObjectId(session.user.id)})
-                                                        .toArray() 
-              isSetupComplete = !!oAuthAccounts.length
-            }
-            await internalAdapter.updateSession(session?.session.token, {isSetupComplete: isSetupComplete})
+            const isSetupComplete = await checkIsSetupComplete(session.user as Session["user"], userType)
+            const updatedSession = await internalAdapter.updateSession(session?.session.token, {isSetupComplete: isSetupComplete})
           })
         },
         {
@@ -205,6 +194,250 @@ const customSessionLengthPlugin = () => {
   } satisfies BetterAuthPlugin
 } 
 
+
+const custom2FAPlugin = () => {
+  // This plugin must come after customSessionLengthPlugin
+  return {
+    id: "custom-2fa-plugin",
+    schema: {
+      session: {
+        fields: {
+          require2FAVerification: {
+            type: "boolean",
+            required: false,
+            returned: true
+          }
+        }
+      },
+      twoFactor: {
+        fields: {
+          userId: {
+            type: "string",
+            references: {
+              model: "user",
+              field: "id",
+            }
+          },
+          email: {
+            type: "string",
+            required: false,
+            returned: true
+          },
+          phone: {
+            type: "string",
+            required: false,
+            returned: true
+          },
+          lastVerified: {
+            type: "date",
+            required: false,
+            returned: true,
+          },
+          _deleted: {
+            type: "boolean",
+            required: true,
+            returned: false
+          },
+        }
+      },
+    },
+    endpoints: {
+      configure2FA: createAuthEndpoint(
+        "/custom-2fa/configure",
+        {
+          method: "POST",
+          body: z4.xor([
+            z4.object({email: z4.email(), phone: z4.undefined()}),
+            z4.object({email: z4.undefined(), phone: z4.string().nonempty()})
+          ]),
+          use: [sessionMiddleware]
+        },
+        async (ctx) => {
+          const {session, user} = ctx.context.session
+          if (!user || !session) {return}
+
+          // Only allow staff users who have not set up additional security (2fa or oauth) to configure
+          const setupState = await checkSetupType(user as Session["user"], session.userType)
+          if (!(setupState === SetupType.INCOMPLETE || setupState === SetupType.TWO_FACTOR_UNVERIFIED)) {
+            return ctx.error("INTERNAL_SERVER_ERROR", {message: "2FA is already configured for this account"})
+          }
+
+          // Set new password...
+
+          try {
+            // Delete unverified two factor contacts
+            if (setupState === SetupType.TWO_FACTOR_UNVERIFIED) {
+              await MongoClientDB.collection("twoFactor").updateMany(
+                {
+                  userId: formatPrimaryKey(user.id),
+                  _deleted: false
+                },
+                {$set: {_deleted: true}}
+              )
+            }
+
+            const insertResult = await MongoClientDB.collection("twoFactor").insertOne({
+              userId: formatPrimaryKey(user.id),
+              email: ctx.body.email,
+              phone: ctx.body.phone,
+              lastVerified: undefined,
+              _deleted: false
+            })
+          } catch (e) {
+            console.log("Failed to create new 2fa contact")
+            return ctx.error("INTERNAL_SERVER_ERROR", {message: "Failed to configure 2FA"})
+          }
+
+          // Send verification code
+          try {
+            if (ctx.body.email) {
+              console.log(`~~~ STUB: Send verification to email: ${ctx.body.email} ~~~`)
+            } else {
+              console.log(`~~~ STUB: Send verification to phone: ${ctx.body.phone} ~~~`)
+            }
+          } catch (e) {
+            return ctx.error("INTERNAL_SERVER_ERROR", {message: "Failed to send verification"})
+          }
+
+          return ctx.json({
+            message: "ok"
+          })
+        }
+      ),
+      send2FACode: createAuthEndpoint(
+        "/custom-2fa/send",
+        {
+          method: "POST",
+          use: [sessionMiddleware]
+        },
+        async (ctx) => {
+          const {user, session} = ctx.context.session
+          // Get active 2fa contact
+          const activeContacts = await MongoClientDB.collection("twoFactor").find({
+            userId: formatPrimaryKey(user.id),
+            _deleted: false
+          }).toArray()
+
+          if (activeContacts.length === 1) {
+            try {
+              const contact = activeContacts[0]
+              if (contact.email) {
+                console.log(`~~~ STUB: Sent code to email: ${contact.email} ~~~`)
+              } else {
+                console.log(`~~~ STUB: Sent code to phone: ${contact.phone} ~~~`)
+              }
+            } catch (e) {
+              return ctx.error("INTERNAL_SERVER_ERROR", {message: "Failed to send code"})
+            }
+          } else if (activeContacts.length > 1) {
+            return ctx.error("INTERNAL_SERVER_ERROR", {message: "Multiple 2FA contacts configured"})
+          } else {
+            return ctx.error("INTERNAL_SERVER_ERROR", {message: "2FA not configured"})
+          }
+
+          return ctx.json({
+            message: "ok"
+          })
+        }
+      ),
+      verify2FACode: createAuthEndpoint(
+        "/custom-2fa/verify",
+        {
+          method: "POST",
+          body: z4.object({
+            code: z4.string().nonempty()
+          }),
+          use: [sessionMiddleware]
+        },
+        async (ctx) => {
+          const {user, session} = ctx.context.session
+          // Get active 2fa contact
+          const activeContacts = await MongoClientDB.collection("twoFactor").find({
+            userId: formatPrimaryKey(user.id),
+            _deleted: false
+          }).toArray()
+          if (activeContacts.length === 1) {
+            try {
+              console.log(`~~~ STUB: Verify code ${ctx.body.code} with identified ${activeContacts[0].email || activeContacts[0].phone}`)
+              await MongoClientDB.collection("twoFactor").updateOne(
+                {_id: activeContacts[0]._id},
+                {$set: {lastVerified: new Date(Date.now())}}
+              )
+            } catch(e) {
+              return ctx.error("INTERNAL_SERVER_ERROR", {message: "Failed to verify 2FA code"})
+            }
+          } else if (activeContacts.length > 1) {
+            return ctx.error("INTERNAL_SERVER_ERROR", {message: "Multiple 2FA contacts configured"})
+          } else {
+            return ctx.error("INTERNAL_SERVER_ERROR", {message: "2FA not configured"})
+          }
+
+          // Send verification code
+          return ctx.json({
+            message: "ok"
+          })
+        }
+      ),
+      delete2FAConfiguration: createAuthEndpoint(
+        "/custom-2fa/delete-configuration",
+        {
+          method: "POST",
+          use: [sessionMiddleware]
+        },
+        async (ctx) => {
+          if (!ctx.context.session) {return}
+          const {session, user} = ctx.context.session
+          // Delete active 2fa contact
+          const activeContacts = await MongoClientDB.collection("twoFactor").updateMany({
+            userId: new ObjectId(user.id),
+            _deleted: false
+          },
+          {$set: {
+            _deleted: true
+          }}
+        )
+          return ctx.json({
+            message: "ok"
+          })
+        }
+      )
+    },
+    hooks: {
+      after: [
+        {
+          // On successful credential sign in check for configured 2FA
+          matcher: (ctx) => {
+            return (ctx.path === "/sign-in/username" || ctx.path === "/sign-in/email") && !!ctx.context.newSession
+          },
+          handler: createAuthMiddleware(async (ctx) => {
+            if (!ctx.context.newSession) { return }
+            const {session, user} = ctx.context.newSession
+            if (session.require2FAVerification !== undefined) { return }
+            const internalAdapter = ctx.context.internalAdapter
+            
+            let require2FAVerification
+            if (session.userType === "participant" || user.additionalSetupExempt || !session.isSetupComplete) {
+              require2FAVerification = false
+            } else {
+              const contacts = await MongoClientDB.collection("twoFactor").find({
+                userId: user.id,
+                _deleted: false
+              }).toArray()
+              require2FAVerification = contacts.length > 0
+            }
+            const updatedSession = await internalAdapter.updateSession(
+              session.token,
+              { require2FAVerification }
+            )
+            if (updatedSession) {
+              await ctx.context.setNewSession({session: updatedSession, user: user})
+            }
+          })
+        }
+      ]
+    }
+  } satisfies BetterAuthPlugin
+}
 
 export const auth = betterAuth({
     database: mongodbAdapter(db, {client: mongoClientInstance}),
@@ -260,7 +493,7 @@ export const auth = betterAuth({
           type: "boolean",
           required: false,
           returned: true
-        }
+        },
       }
     },
     hooks: {
@@ -276,6 +509,7 @@ export const auth = betterAuth({
     },
     plugins:[
       customSessionLengthPlugin(),
+      custom2FAPlugin(),
       oneTimeToken({
         disableClientRequest: true
       }),
@@ -291,13 +525,55 @@ export const auth = betterAuth({
           const emailValidationResult = await oneOf([body("username").isEmail(), body("username").matches(/^[\w\-]+$/)]).run(req)
           return emailValidationResult.isEmpty()
         } 
-      }),
+      })
     ],
-    socialProviders: getConfiguredOAuthOptions()
+    socialProviders: getConfiguredOAuthOptions(),
 })
 
 
 export type Session = typeof auth.$Infer.Session
+
+// Returns true if the user's setup is complete, and false otherwise
+async function checkIsSetupComplete(user:Session["user"], userType:string) {
+  return await checkSetupType(user, userType) !== SetupType.INCOMPLETE
+}
+
+async function checkSetupType(user:Session["user"], userType: string): Promise<SetupType> {
+  if (userType === "participant" || user.additionalSetupExempt || process.env.DISABLE_REQUIRE_OAUTH_OR_2FA === "true") {
+    return SetupType.NOT_REQUIRED
+  }
+  const countOAuthAccounts = await MongoClientDB.collection("account").countDocuments({
+    userId: formatPrimaryKey(user.id),
+    providerId: {$ne: "credential"}
+  })
+
+  if (countOAuthAccounts) {
+    return SetupType.OAUTH
+  }
+
+  const countActiveTwoFactor = await MongoClientDB.collection("twoFactor").countDocuments({
+    userId: formatPrimaryKey(user.id),
+    lastVerified: {$ne: undefined},
+    _deleted: false
+  })
+
+  if (countActiveTwoFactor) {
+    return SetupType.TWO_FACTOR
+  }
+
+  const countUnverifiedTwoFactor = await MongoClientDB.collection("twoFactor").countDocuments({
+    userId: formatPrimaryKey(user.id),
+    lastVerified: undefined,
+    _deleted: false
+  })
+
+  if (countUnverifiedTwoFactor) {
+    return SetupType.TWO_FACTOR_UNVERIFIED
+  }
+
+  return SetupType.INCOMPLETE
+}
+
 
 export function convertSetCookieToCookie(headers:Headers) {
   // Extract all set-cookie headers from headers and return the cookie header string
