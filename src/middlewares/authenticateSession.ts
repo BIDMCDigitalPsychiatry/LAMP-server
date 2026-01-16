@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import { auth, convertSetCookieToCookie } from "../utils/auth";
+import { AccountSetupState, auth, convertSetCookieToCookie, isAccountSetupComplete } from "../utils/auth";
 import { fromNodeHeaders } from "better-auth/node";
 import { MongoClientDB } from "../repository/Bootstrap";
 import { parseSetCookie } from "cookie";
@@ -49,11 +49,17 @@ export async function authenticateSession(req: Request, res: Response, next: Nex
             const deleteResult = await MongoClientDB.collection("session").deleteOne({token: session.token})
             throw Error("403.no-such-credentials")
         }
-
-        if (!res.locals.skipFullSetupCheck && !session.isSetupComplete) {
-            throw Error("403.no-such-credentials")
+        
+        // Default to disallowing requests from not fully set up accounts
+        if (!res.locals.skipFullSetupCheck && !isAccountSetupComplete(session.accountSetupState as AccountSetupState | undefined)) {
+            throw Error("403.require-account-setup")
         }
         
+        // Default to disallowing requests from unverified sessions
+        if (!res.locals.skipFullSetupCheck && session.require2FAVerification) {
+            throw Error("403.require-2fa-verification")
+        }
+
         // Add session and user to the current response's context
         res.locals.session = session
         res.locals.user = user
@@ -62,6 +68,6 @@ export async function authenticateSession(req: Request, res: Response, next: Nex
     }
     catch (err) {
         res.status(403)
-        res.json({message: "403.no-such-credentials"})
+        res.json({message: (err as Error)?.message || "403.no-such-credentials"})
     }
 }

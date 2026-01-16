@@ -93,8 +93,8 @@ export class CredentialService {
     return {
       userType: userType,
       me: meObject?.length ? meObject[0] : null,
-      isSetupComplete: !!session.session.isSetupComplete,
-      require2FAVerification: session.session.require2FAVerification
+      require2FAVerification: session.session.require2FAVerification,
+      accountSetupState: session.session.accountSetupState,
     }
   }
 }

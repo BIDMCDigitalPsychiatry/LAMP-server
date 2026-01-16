@@ -65,6 +65,13 @@ enum SetupType {
   INCOMPLETE = "INCOMPLETE"
 }
 
+export type AccountSetupState = "INCOMPLETE" | "NOT_REQUIRED" | "OAUTH" | "TWO_FACTOR" | "TWO_FACTOR_UNVERIFIED"
+function isAccountSetupStateAllowed(currentState:AccountSetupState|undefined, allowedStates:AccountSetupState[]):boolean {
+  return allowedStates.some((allowedState) => currentState === allowedState)
+}
+export function isAccountSetupComplete(currentState:AccountSetupState|undefined) {
+  return isAccountSetupStateAllowed(currentState, ["NOT_REQUIRED", "OAUTH", "TWO_FACTOR"])
+}
 
 const customSessionLengthPlugin = () => {
   return {
@@ -107,9 +114,9 @@ const customSessionLengthPlugin = () => {
     },
     hooks: {
       after: [
-        {
-          // ON NEW SESSION
-          // Add the authType to the new session (admin, participant, researcher...)
+        { // ON SUCCESSFUL LOGIN:
+          //  -  Add authType (admin, participant, researcher) to the new session
+          //  - Update expires at time 
           matcher: (ctx) => {
             return !ctx.context.newSession?.session.userType
           },
@@ -126,6 +133,7 @@ const customSessionLengthPlugin = () => {
             }
 
             // Set Staff expires at time
+            // (Participant expires in is the default set in auth config)
             let expiresAt = undefined
             if (userType !== "participant") {
               expiresAt = new Date(session.session.createdAt.getTime() + (STAFF_SESSION_EXPIRES_IN * 1000))
@@ -134,7 +142,6 @@ const customSessionLengthPlugin = () => {
             const sessionUpdates = {
               userType: userType,
               expiresAt: expiresAt,
-              isSetupComplete: await checkIsSetupComplete(session.user as Session["user"], userType)
             }
             const updatedSession = await internalAdapter.updateSession(session?.session.token, sessionUpdates)
             if (updatedSession) {
@@ -142,26 +149,10 @@ const customSessionLengthPlugin = () => {
             }
           })
         },
-        {
-          // Update the isSetupComplete flag if it is not defined or if it is currently false
-          matcher: (ctx) => {
-            return !ctx.context.session?.session.isSetupComplete
-          },
-          handler: createAuthMiddleware(async (ctx) => {
-            const session = ctx.context.session
-            if (!session) {return}
-            const internalAdapter = ctx.context.internalAdapter
-            const userType = session.session.userType
-            
-            const isSetupComplete = await checkIsSetupComplete(session.user as Session["user"], userType)
-            const updatedSession = await internalAdapter.updateSession(session?.session.token, {isSetupComplete: isSetupComplete})
-          })
-        },
-        {
-          // Refresh session expires in age based on the current session's userRole
-          // In order for the update to affect the cookie in the brower, the caller
-          // of the auth.api method must add the set-cookie header to the express
-          // response.
+        { // WHEN LOGGED IN: Refresh session expires in age based on the current session's userType
+          // CAUTION: In order for the update to affect the cookie in the browser, the caller
+          //          of the auth.api method must add the set-cookie header to the express
+          //          response.
           matcher: (ctx) => {
             return !!ctx.context.session
           },
@@ -195,15 +186,20 @@ const customSessionLengthPlugin = () => {
 } 
 
 
-const custom2FAPlugin = () => {
+const accountSetupPlugin = () => {
   // This plugin must come after customSessionLengthPlugin
   return {
-    id: "custom-2fa-plugin",
+    id: "account-setup-plugin",
     schema: {
       session: {
         fields: {
           require2FAVerification: {
             type: "boolean",
+            required: false,
+            returned: true
+          },
+          accountSetupState: {
+            type: "string",
             required: false,
             returned: true
           }
@@ -257,8 +253,8 @@ const custom2FAPlugin = () => {
           if (!user || !session) {return}
 
           // Only allow staff users who have not set up additional security (2fa or oauth) to configure
-          const setupState = await checkSetupType(user as Session["user"], session.userType)
-          if (!(setupState === SetupType.INCOMPLETE || setupState === SetupType.TWO_FACTOR_UNVERIFIED)) {
+          const setupState = session.accountSetupState as AccountSetupState | undefined
+          if (isAccountSetupStateAllowed(setupState, ["OAUTH", "TWO_FACTOR", "NOT_REQUIRED"])) {
             return ctx.error("INTERNAL_SERVER_ERROR", {message: "2FA is already configured for this account"})
           }
 
@@ -359,9 +355,17 @@ const custom2FAPlugin = () => {
           if (activeContacts.length === 1) {
             try {
               console.log(`~~~ STUB: Verify code ${ctx.body.code} with identified ${activeContacts[0].email || activeContacts[0].phone}`)
+              if (ctx.body.code?.startsWith("3")) {
+                console.log(`\t Failing because code starts with 3`)
+                throw new Error("Test failure")
+              }
               await MongoClientDB.collection("twoFactor").updateOne(
                 {_id: activeContacts[0]._id},
                 {$set: {lastVerified: new Date(Date.now())}}
+              )
+              await ctx.context.internalAdapter.updateSession(
+                session.token,
+                {require2FAVerification: false}
               )
             } catch(e) {
               return ctx.error("INTERNAL_SERVER_ERROR", {message: "Failed to verify 2FA code"})
@@ -404,23 +408,45 @@ const custom2FAPlugin = () => {
     },
     hooks: {
       after: [
-        {
-          // On successful credential sign in check for configured 2FA
+        { // ON SUCCESSFUL LOGIN: 
+          matcher: (ctx) => {
+            return !!ctx.context.newSession
+          },
+          handler: createAuthMiddleware(async (ctx) => {
+              if (!ctx.context.newSession) {return}
+              const {session, user} = ctx.context.newSession
+              const internalAdapter = ctx.context.internalAdapter
+
+              const updatedSession = await internalAdapter.updateSession(
+                session.token,
+                {accountSetupState: await checkSetupType(user as Session["user"], session.userType)}
+              )
+              if (updatedSession) {
+                ctx.context.setNewSession({session: updatedSession, user: user})
+              }
+          })
+        },
+        { // ON CREDENTIAL BASED LOGIN: Set require validation flag
           matcher: (ctx) => {
             return (ctx.path === "/sign-in/username" || ctx.path === "/sign-in/email") && !!ctx.context.newSession
           },
           handler: createAuthMiddleware(async (ctx) => {
             if (!ctx.context.newSession) { return }
             const {session, user} = ctx.context.newSession
+            console.log(session)
             if (session.require2FAVerification !== undefined) { return }
             const internalAdapter = ctx.context.internalAdapter
             
             let require2FAVerification
-            if (session.userType === "participant" || user.additionalSetupExempt || !session.isSetupComplete) {
+            if (session.userType === "participant" || user.additionalSetupExempt) {
+              // These userTypes do not use 2FA
+              require2FAVerification = false
+            } else if (!isAccountSetupStateAllowed(session.accountSetupState, ["TWO_FACTOR"])) {
+              // The account is not setup for 2FA
               require2FAVerification = false
             } else {
               const contacts = await MongoClientDB.collection("twoFactor").find({
-                userId: user.id,
+                userId: formatPrimaryKey(user.id),
                 _deleted: false
               }).toArray()
               require2FAVerification = contacts.length > 0
@@ -430,10 +456,25 @@ const custom2FAPlugin = () => {
               { require2FAVerification }
             )
             if (updatedSession) {
-              await ctx.context.setNewSession({session: updatedSession, user: user})
+              ctx.context.setNewSession({session: updatedSession, user: user})
             }
           })
-        }
+        },
+        { // WHEN ACCOUNT SETUP IS INCOMPLETE: Check the accountSetupStage and update it if nessecary
+          matcher: (ctx) => {
+            const accountSetupState = ctx.context.session?.session.accountSetupState as AccountSetupState | undefined
+            return isAccountSetupStateAllowed(accountSetupState, ["INCOMPLETE", "TWO_FACTOR_UNVERIFIED"])
+          },
+          handler: createAuthMiddleware(async (ctx) => {
+            const session = ctx.context.session
+            if (!session) {return}
+            const internalAdapter = ctx.context.internalAdapter
+            const userType = session.session.userType
+            
+            const accountSetupState = await checkSetupType(session.user as Session["user"], userType)
+            await internalAdapter.updateSession(session?.session.token, {accountSetupState})
+          })
+        },
       ]
     }
   } satisfies BetterAuthPlugin
@@ -509,7 +550,7 @@ export const auth = betterAuth({
     },
     plugins:[
       customSessionLengthPlugin(),
-      custom2FAPlugin(),
+      accountSetupPlugin(),
       oneTimeToken({
         disableClientRequest: true
       }),
@@ -535,7 +576,8 @@ export type Session = typeof auth.$Infer.Session
 
 // Returns true if the user's setup is complete, and false otherwise
 async function checkIsSetupComplete(user:Session["user"], userType:string) {
-  return await checkSetupType(user, userType) !== SetupType.INCOMPLETE
+  const setupState = await checkSetupType(user, userType)
+  return !(setupState === SetupType.INCOMPLETE || setupState === SetupType.TWO_FACTOR_UNVERIFIED)
 }
 
 async function checkSetupType(user:Session["user"], userType: string): Promise<SetupType> {
