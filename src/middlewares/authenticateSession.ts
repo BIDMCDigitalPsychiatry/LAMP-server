@@ -1,5 +1,7 @@
 import { NextFunction, Request, Response } from "express";
-import { AccountSetupState, auth, convertSetCookieToCookie, isAccountSetupComplete } from "../utils/auth";
+import { auth, convertSetCookieToCookie } from "../utils/auth";
+import { isAccountSetupStateComplete } from "../utils/accountSecurityUtilities";
+import { AccountSetupState } from "../utils/accountSecurityUtilities";
 import { fromNodeHeaders } from "better-auth/node";
 import { MongoClientDB } from "../repository/Bootstrap";
 import { parseSetCookie } from "cookie";
@@ -51,7 +53,7 @@ export async function authenticateSession(req: Request, res: Response, next: Nex
         }
         
         // Default to disallowing requests from not fully set up accounts
-        if (!res.locals.skipFullSetupCheck && !isAccountSetupComplete(session.accountSetupState as AccountSetupState | undefined)) {
+        if (!res.locals.skipFullSetupCheck && !isAccountSetupStateComplete(session.accountSetupState as AccountSetupState | undefined)) {
             throw Error("403.require-account-setup")
         }
         

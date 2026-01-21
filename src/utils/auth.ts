@@ -5,13 +5,14 @@ import { setSessionCookie } from "better-auth/cookies"
 import { oneTimeToken, username } from "better-auth/plugins"
 import { parseSetCookie, stringifyCookie } from "cookie";
 import crypto from "crypto";
-import { MongoClient, ObjectId } from "mongodb";
+import { ObjectId } from "mongodb";
 import { MongoClientDB, Repository } from "../repository/Bootstrap";
 import { body, oneOf } from "express-validator";
 import { getConfiguredOAuthOptions } from "./oauthConfiguration";
 import z4 from "zod/v4";
+import { mongoClientInstance } from "./mongoClient";
+import { AccountSetupState, checkSetupType, COMPLETED_STATES, isAccountSetupStateAllowed, sendCodeToEmail, sendCodeToPhone, SetupStates, verifyCode } from "./accountSecurityUtilities";
 
-export const mongoClientInstance = new MongoClient(`${process.env.DB}`)
 const db = mongoClientInstance.db(process.env.DB_NAME)
 
 const emailAndPasswordOptions:any = {
@@ -44,7 +45,7 @@ const STAFF_SESSION_UPDATE_AGE = process.env.STAFF_SESSION_UPDATE_AGE ? parseInt
 
 
 
-function formatPrimaryKey(primaryKey:string|number|ObjectId) {
+export function formatPrimaryKey(primaryKey:string|number|ObjectId) {
   if (primaryKey instanceof ObjectId || typeof primaryKey == 'number' ) {
     return primaryKey
   }
@@ -55,22 +56,6 @@ function formatPrimaryKey(primaryKey:string|number|ObjectId) {
   catch (e) {
     return primaryKey
   }
-}
-
-enum SetupType {
-  TWO_FACTOR = "TWO_FACTOR",
-  TWO_FACTOR_UNVERIFIED = "TWO_FACTOR_UNVERIFIED",
-  OAUTH = "OAUTH",
-  NOT_REQUIRED = "NOT_REQUIRED",
-  INCOMPLETE = "INCOMPLETE"
-}
-
-export type AccountSetupState = "INCOMPLETE" | "NOT_REQUIRED" | "OAUTH" | "TWO_FACTOR" | "TWO_FACTOR_UNVERIFIED"
-function isAccountSetupStateAllowed(currentState:AccountSetupState|undefined, allowedStates:AccountSetupState[]):boolean {
-  return allowedStates.some((allowedState) => currentState === allowedState)
-}
-export function isAccountSetupComplete(currentState:AccountSetupState|undefined) {
-  return isAccountSetupStateAllowed(currentState, ["NOT_REQUIRED", "OAUTH", "TWO_FACTOR"])
 }
 
 const customSessionLengthPlugin = () => {
@@ -254,15 +239,13 @@ const accountSetupPlugin = () => {
 
           // Only allow staff users who have not set up additional security (2fa or oauth) to configure
           const setupState = session.accountSetupState as AccountSetupState | undefined
-          if (isAccountSetupStateAllowed(setupState, ["OAUTH", "TWO_FACTOR", "NOT_REQUIRED"])) {
+          if (isAccountSetupStateAllowed(setupState, COMPLETED_STATES)) {
             return ctx.error("INTERNAL_SERVER_ERROR", {message: "2FA is already configured for this account"})
           }
 
-          // Set new password...
-
           try {
             // Delete unverified two factor contacts
-            if (setupState === SetupType.TWO_FACTOR_UNVERIFIED) {
+            if (setupState === SetupStates.TWO_FACTOR_UNVERIFIED) {
               await MongoClientDB.collection("twoFactor").updateMany(
                 {
                   userId: formatPrimaryKey(user.id),
@@ -286,10 +269,14 @@ const accountSetupPlugin = () => {
 
           // Send verification code
           try {
+            let sendResult
             if (ctx.body.email) {
-              console.log(`~~~ STUB: Send verification to email: ${ctx.body.email} ~~~`)
+              sendResult = await sendCodeToEmail(ctx.body.email)
             } else {
-              console.log(`~~~ STUB: Send verification to phone: ${ctx.body.phone} ~~~`)
+              sendResult = await sendCodeToPhone(ctx.body.phone as string)
+            }
+            if (sendResult !== "ok") {
+              throw new Error("500.failed-to-send")
             }
           } catch (e) {
             return ctx.error("INTERNAL_SERVER_ERROR", {message: "Failed to send verification"})
@@ -317,10 +304,14 @@ const accountSetupPlugin = () => {
           if (activeContacts.length === 1) {
             try {
               const contact = activeContacts[0]
+              let sendResult
               if (contact.email) {
-                console.log(`~~~ STUB: Sent code to email: ${contact.email} ~~~`)
+                sendResult = await sendCodeToEmail(contact.email)
               } else {
-                console.log(`~~~ STUB: Sent code to phone: ${contact.phone} ~~~`)
+                sendResult = await sendCodeToPhone(contact.phone as string)
+              }
+              if (sendResult !== "ok") {
+                throw new Error("500.failed-to-send")
               }
             } catch (e) {
               return ctx.error("INTERNAL_SERVER_ERROR", {message: "Failed to send code"})
@@ -354,10 +345,9 @@ const accountSetupPlugin = () => {
           }).toArray()
           if (activeContacts.length === 1) {
             try {
-              console.log(`~~~ STUB: Verify code ${ctx.body.code} with identified ${activeContacts[0].email || activeContacts[0].phone}`)
-              if (ctx.body.code?.startsWith("3")) {
-                console.log(`\t Failing because code starts with 3`)
-                throw new Error("Test failure")
+              const sendResult = await verifyCode(ctx.body.code, activeContacts[0].email || activeContacts[0].phone)
+              if (sendResult !== "ok") {
+                throw new Error("400.failed-to-verify")
               }
               await MongoClientDB.collection("twoFactor").updateOne(
                 {_id: activeContacts[0]._id},
@@ -441,7 +431,7 @@ const accountSetupPlugin = () => {
             if (session.userType === "participant" || user.additionalSetupExempt) {
               // These userTypes do not use 2FA
               require2FAVerification = false
-            } else if (!isAccountSetupStateAllowed(session.accountSetupState, ["TWO_FACTOR"])) {
+            } else if (!isAccountSetupStateAllowed(session.accountSetupState, [SetupStates.TWO_FACTOR])) {
               // The account is not setup for 2FA
               require2FAVerification = false
             } else {
@@ -463,7 +453,7 @@ const accountSetupPlugin = () => {
         { // WHEN ACCOUNT SETUP IS INCOMPLETE: Check the accountSetupStage and update it if nessecary
           matcher: (ctx) => {
             const accountSetupState = ctx.context.session?.session.accountSetupState as AccountSetupState | undefined
-            return isAccountSetupStateAllowed(accountSetupState, ["INCOMPLETE", "TWO_FACTOR_UNVERIFIED"])
+            return isAccountSetupStateAllowed(accountSetupState, [SetupStates.INCOMPLETE, SetupStates.TWO_FACTOR_UNVERIFIED])
           },
           handler: createAuthMiddleware(async (ctx) => {
             const session = ctx.context.session
@@ -573,49 +563,6 @@ export const auth = betterAuth({
 
 
 export type Session = typeof auth.$Infer.Session
-
-// Returns true if the user's setup is complete, and false otherwise
-async function checkIsSetupComplete(user:Session["user"], userType:string) {
-  const setupState = await checkSetupType(user, userType)
-  return !(setupState === SetupType.INCOMPLETE || setupState === SetupType.TWO_FACTOR_UNVERIFIED)
-}
-
-async function checkSetupType(user:Session["user"], userType: string): Promise<SetupType> {
-  if (userType === "participant" || user.additionalSetupExempt || process.env.DISABLE_REQUIRE_OAUTH_OR_2FA === "true") {
-    return SetupType.NOT_REQUIRED
-  }
-  const countOAuthAccounts = await MongoClientDB.collection("account").countDocuments({
-    userId: formatPrimaryKey(user.id),
-    providerId: {$ne: "credential"}
-  })
-
-  if (countOAuthAccounts) {
-    return SetupType.OAUTH
-  }
-
-  const countActiveTwoFactor = await MongoClientDB.collection("twoFactor").countDocuments({
-    userId: formatPrimaryKey(user.id),
-    lastVerified: {$ne: undefined},
-    _deleted: false
-  })
-
-  if (countActiveTwoFactor) {
-    return SetupType.TWO_FACTOR
-  }
-
-  const countUnverifiedTwoFactor = await MongoClientDB.collection("twoFactor").countDocuments({
-    userId: formatPrimaryKey(user.id),
-    lastVerified: undefined,
-    _deleted: false
-  })
-
-  if (countUnverifiedTwoFactor) {
-    return SetupType.TWO_FACTOR_UNVERIFIED
-  }
-
-  return SetupType.INCOMPLETE
-}
-
 
 export function convertSetCookieToCookie(headers:Headers) {
   // Extract all set-cookie headers from headers and return the cookie header string

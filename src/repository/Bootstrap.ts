@@ -43,8 +43,8 @@ import {
 } from "./interface/RepositoryInterface"
 import ioredis from "ioredis"
 import { initializeQueues } from "../utils/queue/Queue"
-import { auth, Encrypt, mongoClientInstance } from "../utils/auth"
-// import { auth } from "../utils/auth"
+import { auth, Encrypt } from "../utils/auth"
+import { mongoClientInstance } from "../utils/mongoClient"
 export let RedisClient: ioredis.Redis
 export let nc: Client
 export let MongoClientDB: any

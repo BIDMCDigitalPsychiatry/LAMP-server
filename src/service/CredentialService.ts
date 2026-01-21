@@ -6,6 +6,8 @@ const { credentialValidationRules } = require("../validator/validationRules")
 const { validateRequest } = require("../middlewares/validateRequest")
 import { authenticateSession, skipFullSetupCheck } from "../middlewares/authenticateSession"
 import { auth, convertSetCookieToCookie, Session } from "../utils/auth"
+import { checkSetupType } from "../utils/accountSecurityUtilities"
+import { isAccountSetupStateComplete } from "../utils/accountSecurityUtilities"
 import { fromNodeHeaders } from "better-auth/node"
 
 export class CredentialService {
@@ -91,14 +93,44 @@ export class CredentialService {
     }
     
     return {
+      accessKey: session?.user.displayUsername || session?.user.email,
       userType: userType,
       me: meObject?.length ? meObject[0] : null,
       require2FAVerification: session.session.require2FAVerification,
       accountSetupState: session.session.accountSetupState,
     }
   }
-}
 
+  public static async checkAccountSetupState(session:Session, origin:string, access_key: string) {
+    const response = await _authorize(session.user, ["self", "parent"], origin)
+    const CredentialRepository = new Repository().getCredentialRepository()
+    const TypeRepository = new Repository().getTypeRepository()
+
+    let selected = (await CredentialRepository._select(origin)).filter(credential => credential.access_key === access_key)
+    if (selected.length !== 1) {
+      throw new Error("404.no-such-credential")
+    }
+    const userType = (await TypeRepository._self_type(origin))?.toLowerCase()
+    const setupType = await checkSetupType(selected[0] as Session["user"], userType) // TODO THIS ISN'T RIGHT FOR ADMINS
+
+    return setupType
+  }
+}
+CredentialService.Router.get(
+  "/test/:type_id/:access_key",
+  authenticateSession,
+  async (req, res) => {
+    try {
+      const result = await CredentialService.checkAccountSetupState(
+        {user: res.locals.user, session: res.locals.session}, 
+        req.params.type_id, req.params.access_key)
+      console.log("RESULT: ", result)
+    } catch(e) {
+      console.log(e)
+    }
+    res.json({message: "check console..."})
+  }
+)
 CredentialService.Router.get(
   ["researcher", "study", "participant", "activity", "sensor", "type"].map((type) => `/${type}/:type_id/credential`),
   authenticateSession,
