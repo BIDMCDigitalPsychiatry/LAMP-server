@@ -465,6 +465,21 @@ const accountSetupPlugin = () => {
             await internalAdapter.updateSession(session?.session.token, {accountSetupState})
           })
         },
+        { // BLOCK OAUTH SETUP FOR 2FA USERS
+          matcher: (ctx) => {
+            return ctx.path.startsWith("/link-social") && !!ctx.context.session
+          },
+          handler: createAuthMiddleware(async (ctx) => {
+            if (!ctx.context.session) {return}
+            const {session} = ctx.context.session
+            const bannedStates = [SetupStates.INCOMPLETE, 
+                                             SetupStates.TWO_FACTOR_UNVERIFIED]
+            if (!isAccountSetupStateAllowed(session.accountSetupState, bannedStates)
+                ) {
+              return ctx.error("FORBIDDEN", {message: "403.oauth-setup-forbbiden"})
+            }
+          })
+        }
       ]
     }
   } satisfies BetterAuthPlugin

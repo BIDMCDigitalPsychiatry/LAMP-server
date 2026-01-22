@@ -17,7 +17,7 @@ export const SetupStates:{[index: string]: AccountSetupState} = {
 export const COMPLETED_STATES = [
     SetupStates.TWO_FACTOR,
     SetupStates.OAUTH,
-    SetupStates.INCOMPLETE
+    SetupStates.NOT_REQUIRED
 ]
 
 /** Returns true if the current state is in the allowed list of states */
