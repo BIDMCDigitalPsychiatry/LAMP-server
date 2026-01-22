@@ -78,7 +78,7 @@ async function fetchTwoFactor(path:"email"|"phone"|"verify", body:{[key:string]:
     {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.NOTIFICATION_API_KEY}`,
+        "Authorization": `Bearer ${process.env.NOTIFICATION_SERVICE_API_KEY}`,
          "Content-Type": "application/json",
       },
       body: JSON.stringify(body)
