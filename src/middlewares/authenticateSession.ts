@@ -24,7 +24,7 @@ export async function authenticateSession(req: Request, res: Response, next: Nex
         const rotateSessionResult = await auth.api.tryRotateSession(
             {headers: fromNodeHeaders(req.headers), returnHeaders: true}
         )
-
+       
         if (rotateSessionResult.response.sessionRotated) {
             const allSetCookies = rotateSessionResult.headers.getSetCookie().map((setCookie: string) => parseSetCookie(setCookie))
             for (let {name, value, ...options} of allSetCookies) {
@@ -35,11 +35,11 @@ export async function authenticateSession(req: Request, res: Response, next: Nex
         } else {
             res.locals.headersForBetterAuth = fromNodeHeaders(req.headers)
         }
-
+        
         const getSessionResult = await auth.api.getSession({
             headers: res.locals.headersForBetterAuth
         })
-        
+
         if (getSessionResult === null) {
             throw Error("403.no-such-credentials")
         }
@@ -56,7 +56,7 @@ export async function authenticateSession(req: Request, res: Response, next: Nex
         if (!res.locals.skipFullSetupCheck && !isAccountSetupStateComplete(session.accountSetupState as AccountSetupState | undefined)) {
             throw Error("403.require-account-setup")
         }
-        
+
         // Default to disallowing requests from unverified sessions
         if (!res.locals.skipFullSetupCheck && session.require2FAVerification) {
             throw Error("403.require-2fa-verification")

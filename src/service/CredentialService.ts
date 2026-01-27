@@ -113,11 +113,11 @@ export class CredentialService {
     const userType = (await TypeRepository._self_type(origin))?.toLowerCase()
     const setupType = await checkSetupType(selected[0] as Session["user"], userType) // TODO THIS ISN'T RIGHT FOR ADMINS
 
-    return setupType
+    return {setupType, userType}
   }
 }
 CredentialService.Router.get(
-  "/test/:type_id/:access_key",
+  "/credential/account-setup-state/:type_id/:access_key",
   authenticateSession,
   async (req, res) => {
     try {
@@ -125,10 +125,12 @@ CredentialService.Router.get(
         {user: res.locals.user, session: res.locals.session}, 
         req.params.type_id, req.params.access_key)
       console.log("RESULT: ", result)
+      res.json(result)
     } catch(e) {
       console.log(e)
+      res.status(400)
+      res.json({error: e})
     }
-    res.json({message: "check console..."})
   }
 )
 CredentialService.Router.get(
@@ -264,7 +266,10 @@ CredentialService.Router.post(
     const loginResult = await auth.api.signInSocial({
       method: "POST",
       body: {
-        provider: req.params.socialProvider
+        provider: req.params.socialProvider,
+        additionalData: {
+          isSignUp: false
+        }
       },
       asResponse: true
     })
@@ -310,6 +315,7 @@ CredentialService.Router.get(
       if (callbackResult.headers.getSetCookie().length) {
         const newHeaders = new Headers()
         newHeaders.set("cookie", convertSetCookieToCookie(callbackResult.headers))
+
         const finishLoginToken = await auth.api.generateOneTimeToken({
           method: "GET",
           headers: newHeaders,
@@ -334,7 +340,10 @@ CredentialService.Router.post(
     const result = await auth.api.linkSocialAccount({
       method: "POST",
       body: {
-        provider: req.params.socialProvider
+        provider: req.params.socialProvider,
+        additionalData: {
+          isSignUp: true
+        }
       },
       headers: fromNodeHeaders(req.headers),
       asResponse: true
@@ -365,6 +374,18 @@ CredentialService.Router.get(
     })
     if (validateResult.status === 200) {
       const session = await validateResult.json()
+      
+      // Finalize oauth setup
+      // (Makes no changes if setup is already complete)
+      const newHeaders = new Headers()
+      newHeaders.set("cookie", convertSetCookieToCookie(validateResult.headers))
+      try {
+        const finalizeOauthSetupResult = await auth.api.finalizeOauthSetup({
+          headers: newHeaders,
+        })
+      } catch (e) {
+      }
+
       res.setHeader("set-cookie", validateResult.headers.get("set-cookie") || "")
       res.json(await CredentialService.getLoginResponse(session))
       return

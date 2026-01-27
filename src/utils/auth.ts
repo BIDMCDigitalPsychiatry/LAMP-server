@@ -1,4 +1,4 @@
-import { betterAuth, BetterAuthPlugin, boolean } from "better-auth";
+import { betterAuth, BetterAuthPlugin } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { createAuthEndpoint, createAuthMiddleware, sessionMiddleware } from "better-auth/api"
 import { setSessionCookie } from "better-auth/cookies"
@@ -382,17 +382,89 @@ const accountSetupPlugin = () => {
           if (!ctx.context.session) {return}
           const {session, user} = ctx.context.session
           // Delete active 2fa contact
-          const activeContacts = await MongoClientDB.collection("twoFactor").updateMany({
-            userId: new ObjectId(user.id),
-            _deleted: false
-          },
-          {$set: {
-            _deleted: true
-          }}
+          const activeContacts = await MongoClientDB.collection("twoFactor").updateMany(
+            {userId: new ObjectId(user.id), _deleted: false},
+            {$set: {_deleted: true}}
         )
           return ctx.json({
             message: "ok"
           })
+        }
+      ),
+      clearAccountConfiguration: createAuthEndpoint(
+        // Clears all account configuration and resets the users password
+        // NOTE: This function does NOT check the logged in user's permissions
+        //       only call this function if the current user should be allowed
+        //       to change the providered users set up!
+        "/account-setup/clear-all-setup",
+        {
+          method: "POST",
+          use: [sessionMiddleware],
+          body: z4.object({
+            userId: z4.any().optional(),
+          })
+        },
+        async (ctx) => {
+          if (!ctx.context.session) {return}
+          const internalAdapter = ctx.context.internalAdapter
+
+          // Get the user to reset
+          const userToReset = await internalAdapter.findUserById(ctx.body.userId)
+
+          // Delete all current accounts
+          await internalAdapter.deleteAccounts(ctx.body.userId)
+          
+          // Delete any 2FA configurations
+          const twoFactorContacts = await MongoClientDB.collection("twoFactor").updateMany(
+            {userId: formatPrimaryKey(ctx.body.userId)},
+            {$set: {_deleted: true}}
+          )
+
+          // Create a new credential account if nessecary
+          const newAccountId = new ObjectId()
+          const newPassword = crypto.randomBytes(32).toString("hex")
+          const newPasswordHashed = await ctx.context.password.hash(newPassword)
+          const newAccount = await internalAdapter.createAccount({
+            userId: ctx.body.userId,
+            providerId: "credential",
+            accountId: newAccountId.toString(),
+            password: newPasswordHashed
+          })
+
+          // Revoke any current sessions
+          await  internalAdapter.deleteSessions(ctx.body.userId)
+          
+          // Return the new temporary password
+          return ctx.json({newTemporaryPassword: newPassword})
+        }
+      ),
+      finalizeOauthSetup: createAuthEndpoint(
+        "account-setup/finalize-oauth-setup",
+        {
+          method: "POST",
+          use: [sessionMiddleware]
+        },
+        async (ctx) => {
+          if (!ctx.context.session) { return }
+          const {session, user} = ctx.context.session;
+          const internalAdapter = ctx.context.internalAdapter
+          const allUserAccounts = await internalAdapter.findAccountByUserId(user.id)
+          const oauthAccounts = allUserAccounts.filter((account) => account.providerId !== "credential")
+          const credentialAccounts = allUserAccounts.filter((account) => account.providerId === "credential")
+
+          if (!!oauthAccounts.length && !credentialAccounts.length) {
+            return ctx.json({message: "ok"})
+          } else if (!!oauthAccounts.length && credentialAccounts.length) {
+            for (let account of credentialAccounts) {
+              try {
+                const deleteResult = await internalAdapter.deleteAccount(account.accountId)
+              } catch (e) {
+              }
+            }
+          } else {
+            return ctx.error("BAD_REQUEST", {message: "400.oauth-not-configured"})
+          }
+          return ctx.json({message: "ok"})
         }
       )
     },
