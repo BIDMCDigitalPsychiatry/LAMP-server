@@ -230,7 +230,7 @@ const accountSetupPlugin = () => {
     },
     endpoints: {
       configure2FA: createAuthEndpoint(
-        "/custom-2fa/configure",
+        "/account-setup/configure",
         {
           method: "POST",
           body: z4.xor([
@@ -243,6 +243,11 @@ const accountSetupPlugin = () => {
           const {session, user} = ctx.context.session
           if (!user || !session) {return}
           const internalAdapter = ctx.context.internalAdapter
+
+          // Check if phone 2FA should be disabled
+          if ([true, "true"].includes(process.env.DISABLE_PHONE_2FA as any) && !!ctx.body.phone && !ctx.body.email) {
+            return ctx.error("BAD_REQUEST", {message: "401.phone-verification-disabled"})
+          }
 
           // Only allow staff users who have not set up additional security (2fa or oauth) to configure
           const setupState = user.accountSetupState as AccountSetupState | undefined
@@ -296,7 +301,7 @@ const accountSetupPlugin = () => {
         }
       ),
       send2FACode: createAuthEndpoint(
-        "/custom-2fa/send",
+        "/account-setup/send",
         {
           method: "POST",
           use: [sessionMiddleware]
@@ -337,7 +342,7 @@ const accountSetupPlugin = () => {
         }
       ),
       verify2FACode: createAuthEndpoint(
-        "/custom-2fa/verify",
+        "/account-setup/verify",
         {
           method: "POST",
           body: z4.object({
@@ -394,7 +399,7 @@ const accountSetupPlugin = () => {
         }
       ),
       delete2FAConfiguration: createAuthEndpoint(
-        "/custom-2fa/delete-configuration",
+        "/account-setup/delete-configuration",
         {
           method: "POST",
           use: [sessionMiddleware]
