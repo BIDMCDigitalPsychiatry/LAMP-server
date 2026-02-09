@@ -6,8 +6,7 @@ const { credentialValidationRules } = require("../validator/validationRules")
 const { validateRequest } = require("../middlewares/validateRequest")
 import { authenticateSession, skipFullSetupCheck } from "../middlewares/authenticateSession"
 import { auth, convertSetCookieToCookie, Session } from "../utils/auth"
-import { checkSetupType } from "../utils/accountSecurityUtilities"
-import { isAccountSetupStateComplete } from "../utils/accountSecurityUtilities"
+import { SetupStates } from "../utils/accountSecurityUtilities"
 import { fromNodeHeaders } from "better-auth/node"
 
 export class CredentialService {
@@ -22,8 +21,30 @@ export class CredentialService {
 
   public static async create(actingUser: Session["user"], type_id: string | null, credential: any) {
     const CredentialRepository = new Repository().getCredentialRepository()
+    const TypeRepository = new Repository().getTypeRepository()
+
     await _authorize(actingUser, ["self", "parent"], type_id)
-    return await CredentialRepository._insert(type_id, credential)
+    
+    let newUserType
+    if (credential.origin === null) {
+      newUserType = "admin"
+    } else {
+      const originType = await (await TypeRepository._self_type(credential.origin)).toLowerCase()
+      console.log("originType: ", originType)
+      if (originType === "researcher") {
+        newUserType = "researcher"
+      } else if (originType === "participant") {
+        newUserType = "participant"
+      } else {
+        throw new Error("400.invalid-origin")
+      }
+    }
+    let newAccountSetupState = newUserType === "participant" ? SetupStates.NOT_REQUIRED : SetupStates.INCOMPLETE
+
+    return await CredentialRepository._insert(
+      type_id, 
+      {...credential, user_type: newUserType,
+       account_setup_state: newAccountSetupState})
   }
 
   public static async get(actingUser: Session["user"], type_id: string | null, access_key: string) {
@@ -36,7 +57,6 @@ export class CredentialService {
   public static async set(actingUser: Session["user"], type_id: string | null, access_key: string, credential: any | null) {
     const CredentialRepository = new Repository().getCredentialRepository()
     const response = await _authorize(actingUser, ["self", "parent"], type_id)
-
     if (credential === null) {
       return await CredentialRepository._delete(type_id, access_key)
     } else {
@@ -79,7 +99,7 @@ export class CredentialService {
     const ParticipantRepository = new Repository().getParticipantRepository()
 
     // Retrieve the user type, and their origin object if it exists
-    const userType = session?.session.userType
+    const userType = session?.user.userType
 
     let meObject
     if (!session?.user.origin) {
@@ -94,45 +114,52 @@ export class CredentialService {
     
     return {
       accessKey: session?.user.displayUsername || session?.user.email,
-      userType: userType,
+      userType: session.user.userType,
       me: meObject?.length ? meObject[0] : null,
       require2FAVerification: session.session.require2FAVerification,
-      accountSetupState: session.session.accountSetupState,
+      accountSetupState: session.user.accountSetupState,
     }
-  }
-
-  public static async checkAccountSetupState(session:Session, origin:string, access_key: string) {
-    const response = await _authorize(session.user, ["self", "parent"], origin)
-    const CredentialRepository = new Repository().getCredentialRepository()
-    const TypeRepository = new Repository().getTypeRepository()
-
-    let selected = (await CredentialRepository._select(origin)).filter(credential => credential.access_key === access_key)
-    if (selected.length !== 1) {
-      throw new Error("404.no-such-credential")
-    }
-    const userType = (await TypeRepository._self_type(origin))?.toLowerCase()
-    const setupType = await checkSetupType(selected[0] as Session["user"], userType) // TODO THIS ISN'T RIGHT FOR ADMINS
-
-    return {setupType, userType}
   }
 }
-CredentialService.Router.get(
-  "/credential/account-setup-state/:type_id/:access_key",
+
+CredentialService.Router.post(
+  "/credential/clear-account-setup",
   authenticateSession,
   async (req, res) => {
     try {
-      const result = await CredentialService.checkAccountSetupState(
-        {user: res.locals.user, session: res.locals.session}, 
-        req.params.type_id, req.params.access_key)
-      console.log("RESULT: ", result)
-      res.json(result)
-    } catch(e) {
-      console.log(e)
-      res.status(400)
-      res.json({error: e})
+      const {type_id, access_key} = req.body
+      if (type_id === undefined || access_key === undefined) {
+        res.status(400)
+        res.json({error: "400.invalid-credential"})
+        return
+      }
+      const CredentialRepository = new Repository().getCredentialRepository()
+      await _authorize(res.locals.user, ["self", "parent"], req.body.type_id)
+      
+      const matchingCredentials = (await CredentialRepository._select(req.body.type_id)).filter((credential) => credential.access_key === req.body.access_key)
+      if (matchingCredentials.length !== 1) {
+        throw new Error("404.no-matching-credentials")
+      }
+      const credential = matchingCredentials[0]
+
+      const clearSetupResult = await auth.api.clearAccountConfiguration({
+        body: {accessKey: credential.access_key},
+        headers: fromNodeHeaders(req.headers),
+      })
+      console.log("clearsetupresult: ", clearSetupResult)
+      res.json(clearSetupResult)
+    } catch (e:any) {
+      const message = e?.message || "500.clear-account-setup-failed"
+      if (message) {
+        res.status(404)
+      } else {
+        res.status(500)
+      }
+      res.json({error: message})
     }
   }
 )
+
 CredentialService.Router.get(
   ["researcher", "study", "participant", "activity", "sensor", "type"].map((type) => `/${type}/:type_id/credential`),
   authenticateSession,
@@ -184,7 +211,6 @@ CredentialService.Router.put(
   credentialValidationRules(),
   validateRequest,
   async (req: Request, res: Response) => {
-
     res.header(ApiResponseHeaders)
     try {
       res.json({

@@ -73,9 +73,9 @@ const customSessionLengthPlugin = () => {
           const currentSession = ctx.context.session
 
           // Check that this is a participant session
-          // Check that the session is elligable to be rotated
+          // Check that the session is eligible to be rotated
           const sessionAge = (Date.now() - currentSession.session.createdAt.getTime()) / 1000
-          if (currentSession.session.userType !== "participant" || sessionAge <= PARTICIPANT_SESSION_ROTATION_INTERVAL) {
+          if (currentSession.user.userType !== "participant" || sessionAge <= PARTICIPANT_SESSION_ROTATION_INTERVAL) {
             return ctx.json({sessionRotated: false})
           }
 
@@ -99,33 +99,23 @@ const customSessionLengthPlugin = () => {
     },
     hooks: {
       after: [
-        { // ON SUCCESSFUL LOGIN:
-          //  -  Add authType (admin, participant, researcher) to the new session
-          //  - Update expires at time 
+        { // ON SUCCESSFUL LOGIN: Update expires at time based on the user's type
           matcher: (ctx) => {
-            return !ctx.context.newSession?.session.userType
+            return !!ctx.context.newSession && ["/sign-in/username", "/callback/:id"].includes(ctx.path)
           },
           handler: createAuthMiddleware(async (ctx) => {
             const session = ctx.context.newSession
             if (!session) { return }
             const internalAdapter = ctx.context.internalAdapter
-            const TypeRepository = new Repository().getTypeRepository()
-            let userType
-            if (!session?.user.origin) {
-              userType = "admin"
-            } else {
-              userType = (await TypeRepository._self_type(session?.user.origin)).toLowerCase()
-            }
 
             // Set Staff expires at time
             // (Participant expires in is the default set in auth config)
             let expiresAt = undefined
-            if (userType !== "participant") {
+            if (session.user.userType !== "participant") {
               expiresAt = new Date(session.session.createdAt.getTime() + (STAFF_SESSION_EXPIRES_IN * 1000))
             }
 
             const sessionUpdates = {
-              userType: userType,
               expiresAt: expiresAt,
             }
             const updatedSession = await internalAdapter.updateSession(session?.session.token, sessionUpdates)
@@ -144,11 +134,11 @@ const customSessionLengthPlugin = () => {
           handler: createAuthMiddleware(async (ctx) => {
             const internalAdapter = ctx.context.internalAdapter
             const currentSession = ctx.context.session
-            if (!currentSession?.session.userType) {return}
+            if (!currentSession?.user.userType) {return}
             const sessionAge = (Date.now() - currentSession.session.createdAt.getTime()) / 1000
             
             let expiresAt
-            if (currentSession.session.userType === "participant") {
+            if (currentSession.user.userType === "participant") {
               if (sessionAge > PARTICIPANT_SESSION_UPDATE_AGE) {
                 expiresAt = new Date(Date.now() + (PARTICIPANT_SESSION_EXPIRE_IN * 1000))
               }
@@ -187,6 +177,22 @@ const accountSetupPlugin = () => {
             type: "string",
             required: false,
             returned: true
+          }
+        }
+      },
+      user: {
+        fields: {
+          userType: {
+            fieldName: "user_type",
+            type: "string",
+            required: false,
+            returned: true,
+          },
+          accountSetupState: {
+            fieldName: "account_setup_state",
+            type: "string",
+            required: false,
+            returned: true,
           }
         }
       },
@@ -236,9 +242,10 @@ const accountSetupPlugin = () => {
         async (ctx) => {
           const {session, user} = ctx.context.session
           if (!user || !session) {return}
+          const internalAdapter = ctx.context.internalAdapter
 
           // Only allow staff users who have not set up additional security (2fa or oauth) to configure
-          const setupState = session.accountSetupState as AccountSetupState | undefined
+          const setupState = user.accountSetupState as AccountSetupState | undefined
           if (isAccountSetupStateAllowed(setupState, COMPLETED_STATES)) {
             return ctx.error("INTERNAL_SERVER_ERROR", {message: "2FA is already configured for this account"})
           }
@@ -262,8 +269,9 @@ const accountSetupPlugin = () => {
               lastVerified: undefined,
               _deleted: false
             })
+            
+            const updatedUser = await internalAdapter.updateUser(user.id, {accountSetupState: SetupStates.TWO_FACTOR_UNVERIFIED})
           } catch (e) {
-            console.log("Failed to create new 2fa contact")
             return ctx.error("INTERNAL_SERVER_ERROR", {message: "Failed to configure 2FA"})
           }
 
@@ -295,6 +303,7 @@ const accountSetupPlugin = () => {
         },
         async (ctx) => {
           const {user, session} = ctx.context.session
+
           // Get active 2fa contact
           const activeContacts = await MongoClientDB.collection("twoFactor").find({
             userId: formatPrimaryKey(user.id),
@@ -338,6 +347,7 @@ const accountSetupPlugin = () => {
         },
         async (ctx) => {
           const {user, session} = ctx.context.session
+          const internalAdapter = ctx.context.internalAdapter
           // Get active 2fa contact
           const activeContacts = await MongoClientDB.collection("twoFactor").find({
             userId: formatPrimaryKey(user.id),
@@ -345,19 +355,30 @@ const accountSetupPlugin = () => {
           }).toArray()
           if (activeContacts.length === 1) {
             try {
-              const sendResult = await verifyCode(ctx.body.code, activeContacts[0].email || activeContacts[0].phone)
-              if (sendResult !== "ok") {
+              // Verify the provided code
+              const verifyResult = await verifyCode(ctx.body.code, activeContacts[0].email || activeContacts[0].phone)
+              if (verifyResult !== "ok") {
                 throw new Error("400.failed-to-verify")
               }
+
+              // Update the last verified timestamp on the two factor contact
               await MongoClientDB.collection("twoFactor").updateOne(
                 {_id: activeContacts[0]._id},
                 {$set: {lastVerified: new Date(Date.now())}}
               )
+
+              // Mark the current session as verified
               await ctx.context.internalAdapter.updateSession(
                 session.token,
                 {require2FAVerification: false}
               )
+
+              // Update the user's accountSetupState
+              if (user.accountSetupState === SetupStates.TWO_FACTOR_UNVERIFIED) {
+                await internalAdapter.updateUser(user.id, {accountSetupState: SetupStates.TWO_FACTOR})
+              }
             } catch(e) {
+              console.log("e: ", e)
               return ctx.error("INTERNAL_SERVER_ERROR", {message: "Failed to verify 2FA code"})
             }
           } else if (activeContacts.length > 1) {
@@ -381,11 +402,14 @@ const accountSetupPlugin = () => {
         async (ctx) => {
           if (!ctx.context.session) {return}
           const {session, user} = ctx.context.session
+          const internalAdapter = ctx.context.internalAdapter
+
           // Delete active 2fa contact
           const activeContacts = await MongoClientDB.collection("twoFactor").updateMany(
             {userId: new ObjectId(user.id), _deleted: false},
             {$set: {_deleted: true}}
-        )
+          )
+          await internalAdapter.updateUser(user.id, {accountSetupState: SetupStates.INCOMPLETE})
           return ctx.json({
             message: "ok"
           })
@@ -400,23 +424,30 @@ const accountSetupPlugin = () => {
         {
           method: "POST",
           use: [sessionMiddleware],
-          body: z4.object({
-            userId: z4.any().optional(),
-          })
+          body: (z4.object({
+            // userId: z4.any().optional(),
+            accessKey: z4.string().nonempty()
+          }))
         },
         async (ctx) => {
           if (!ctx.context.session) {return}
           const internalAdapter = ctx.context.internalAdapter
-
           // Get the user to reset
-          const userToReset = await internalAdapter.findUserById(ctx.body.userId)
+          // const userToReset = await internalAdapter.findUserById(ctx.body.userId)
+          const userToReset = (await internalAdapter.findUserByEmail(ctx.body.accessKey))?.user
+          console.log("userToReset: ", userToReset)
+          console.log("currentSession: ", ctx.context.session)
+          
+          if (!userToReset) {
+            return ctx.error("BAD_REQUEST", {"message": "user does not exist"})
+          }
 
           // Delete all current accounts
-          await internalAdapter.deleteAccounts(ctx.body.userId)
+          await internalAdapter.deleteAccounts(userToReset.id)
           
           // Delete any 2FA configurations
           const twoFactorContacts = await MongoClientDB.collection("twoFactor").updateMany(
-            {userId: formatPrimaryKey(ctx.body.userId)},
+            {userId: formatPrimaryKey(userToReset.id)},
             {$set: {_deleted: true}}
           )
 
@@ -425,20 +456,26 @@ const accountSetupPlugin = () => {
           const newPassword = crypto.randomBytes(32).toString("hex")
           const newPasswordHashed = await ctx.context.password.hash(newPassword)
           const newAccount = await internalAdapter.createAccount({
-            userId: ctx.body.userId,
+            userId: userToReset.id,
             providerId: "credential",
             accountId: newAccountId.toString(),
             password: newPasswordHashed
           })
 
-          // Revoke any current sessions
-          await  internalAdapter.deleteSessions(ctx.body.userId)
+          // Revoke any current sessions as long as the active user is not resetting their own accoutn
+          if (userToReset.id !== ctx.context.session.user.id) {
+            await  internalAdapter.deleteSessions(userToReset.id)
+          }
           
+          // Update the setup state
+          await internalAdapter.updateUser(userToReset.id, {accountSetupState: SetupStates.INCOMPLETE})
+
           // Return the new temporary password
           return ctx.json({newTemporaryPassword: newPassword})
         }
       ),
       finalizeOauthSetup: createAuthEndpoint(
+        // Clears temporary credentials for oAuth users
         "account-setup/finalize-oauth-setup",
         {
           method: "POST",
@@ -447,18 +484,22 @@ const accountSetupPlugin = () => {
         async (ctx) => {
           if (!ctx.context.session) { return }
           const {session, user} = ctx.context.session;
+          if (user.usertype === "participant" || user.accountSetupState === SetupStates.TWO_FACTOR) {
+            return ctx.error("FORBIDDEN", {message: "403.oauth-setup-forbidden"})
+          }
           const internalAdapter = ctx.context.internalAdapter
           const allUserAccounts = await internalAdapter.findAccountByUserId(user.id)
           const oauthAccounts = allUserAccounts.filter((account) => account.providerId !== "credential")
           const credentialAccounts = allUserAccounts.filter((account) => account.providerId === "credential")
 
-          if (!!oauthAccounts.length && !credentialAccounts.length) {
-            return ctx.json({message: "ok"})
-          } else if (!!oauthAccounts.length && credentialAccounts.length) {
-            for (let account of credentialAccounts) {
-              try {
-                const deleteResult = await internalAdapter.deleteAccount(account.accountId)
-              } catch (e) {
+          if (!!oauthAccounts.length) {
+            // Update the setup state
+            await internalAdapter.updateUser(user.id, {accountSetupState: SetupStates.OAUTH})
+
+            // Delete outstanding credential accounts
+            if (!!credentialAccounts.length) {
+              for (let account of credentialAccounts) {
+                await internalAdapter.deleteAccount(account.accountId)
               }
             }
           } else {
@@ -470,6 +511,30 @@ const accountSetupPlugin = () => {
     },
     hooks: {
       after: [
+        { // ON O-AUTH LINK/LOGIN: Block participants and two factor users from using oauth
+          // Note: This must happen before the successful login hook otherwise accountSetupState may be erroneously updated
+          matcher: (ctx) => {
+            return ctx.path.startsWith("/callback") && !!ctx.context.newSession
+          },
+          handler: createAuthMiddleware(async (ctx) => {
+            if (!ctx.context.newSession) { return }
+            const {session, user} = ctx.context.newSession
+            const internalAdapter = ctx.context.internalAdapter
+
+            if (isAccountSetupStateAllowed(user.accountSetupState, [SetupStates.NOT_REQUIRED, SetupStates.TWO_FACTOR])) {
+              // Clear the newly created session
+              await internalAdapter.deleteSession(session.token)
+              ctx.context.setNewSession(null)
+              
+              // Delete any oauth accounts that were accidentaly created
+              const allUserAccounts = await internalAdapter.findAccountByUserId(user.id)
+              const oauthAccounts = allUserAccounts.filter((account) => account.providerId !== "credential")
+              await Promise.all(oauthAccounts.map(async (account) => await internalAdapter.deleteAccount(account.id)))
+
+              return ctx.error("FORBIDDEN", {message: "403.oauth-forbidden"})
+            }
+          })
+        },
         { // ON SUCCESSFUL LOGIN: 
           matcher: (ctx) => {
             return !!ctx.context.newSession
@@ -479,12 +544,13 @@ const accountSetupPlugin = () => {
               const {session, user} = ctx.context.newSession
               const internalAdapter = ctx.context.internalAdapter
 
-              const updatedSession = await internalAdapter.updateSession(
-                session.token,
-                {accountSetupState: await checkSetupType(user as Session["user"], session.userType)}
-              )
-              if (updatedSession) {
-                ctx.context.setNewSession({session: updatedSession, user: user})
+              const currentAccountSetup = await checkSetupType(user as Session["user"], user.userType)
+              if (currentAccountSetup !== user.accountSetupState) {
+                const updatedUser = await internalAdapter.updateUser(
+                  user.id,
+                  {accountSetupState: currentAccountSetup}
+                )
+                ctx.context.setNewSession({session: session, user: updatedUser})
               }
           })
         },
@@ -500,10 +566,10 @@ const accountSetupPlugin = () => {
             const internalAdapter = ctx.context.internalAdapter
             
             let require2FAVerification
-            if (session.userType === "participant" || user.additionalSetupExempt) {
+            if (user.userType === "participant" || user.additionalSetupExempt) {
               // These userTypes do not use 2FA
               require2FAVerification = false
-            } else if (!isAccountSetupStateAllowed(session.accountSetupState, [SetupStates.TWO_FACTOR])) {
+            } else if (!isAccountSetupStateAllowed(user.accountSetupState, [SetupStates.TWO_FACTOR])) {
               // The account is not setup for 2FA
               require2FAVerification = false
             } else {
@@ -524,17 +590,18 @@ const accountSetupPlugin = () => {
         },
         { // WHEN ACCOUNT SETUP IS INCOMPLETE: Check the accountSetupStage and update it if nessecary
           matcher: (ctx) => {
-            const accountSetupState = ctx.context.session?.session.accountSetupState as AccountSetupState | undefined
+            const accountSetupState = ctx.context.session?.user.accountSetupState as AccountSetupState | undefined
             return isAccountSetupStateAllowed(accountSetupState, [SetupStates.INCOMPLETE, SetupStates.TWO_FACTOR_UNVERIFIED])
           },
           handler: createAuthMiddleware(async (ctx) => {
             const session = ctx.context.session
             if (!session) {return}
             const internalAdapter = ctx.context.internalAdapter
-            const userType = session.session.userType
+            const userType = session.user.userType
             
             const accountSetupState = await checkSetupType(session.user as Session["user"], userType)
-            await internalAdapter.updateSession(session?.session.token, {accountSetupState})
+
+            await internalAdapter.updateUser(session.user.id, {accountSetupState})
           })
         },
         { // BLOCK OAUTH SETUP FOR 2FA USERS
@@ -543,15 +610,15 @@ const accountSetupPlugin = () => {
           },
           handler: createAuthMiddleware(async (ctx) => {
             if (!ctx.context.session) {return}
-            const {session} = ctx.context.session
+            const {user} = ctx.context.session
             const bannedStates = [SetupStates.INCOMPLETE, 
                                              SetupStates.TWO_FACTOR_UNVERIFIED]
-            if (!isAccountSetupStateAllowed(session.accountSetupState, bannedStates)
+            if (!isAccountSetupStateAllowed(user.accountSetupState, bannedStates)
                 ) {
               return ctx.error("FORBIDDEN", {message: "403.oauth-setup-forbbiden"})
             }
           })
-        }
+        },
       ]
     }
   } satisfies BetterAuthPlugin
@@ -591,6 +658,7 @@ export const auth = betterAuth({
                 input: false,
             },
             additionalSetupExempt: {
+              fieldName: "additional_setup_exempt",
               type: "boolean",
               defaultValue: false,
               required: false,

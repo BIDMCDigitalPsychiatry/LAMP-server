@@ -53,7 +53,7 @@ export async function authenticateSession(req: Request, res: Response, next: Nex
         }
         
         // Default to disallowing requests from not fully set up accounts
-        if (!res.locals.skipFullSetupCheck && !isAccountSetupStateComplete(session.accountSetupState as AccountSetupState | undefined)) {
+        if (!res.locals.skipFullSetupCheck && !isAccountSetupStateComplete(user.accountSetupState as AccountSetupState | undefined)) {
             throw Error("403.require-account-setup")
         }
 

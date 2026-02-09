@@ -45,6 +45,7 @@ import ioredis from "ioredis"
 import { initializeQueues } from "../utils/queue/Queue"
 import { auth, Encrypt } from "../utils/auth"
 import { mongoClientInstance } from "../utils/mongoClient"
+import { SetupStates } from "../utils/accountSecurityUtilities"
 export let RedisClient: ioredis.Redis
 export let nc: Client
 export let MongoClientDB: any
@@ -720,6 +721,9 @@ export async function Bootstrap(): Promise<void> {
           access_key: "admin",
           secret_key: Encrypt(p, "AES256"),
           description: "System Administrator Credential",
+          user_type: "admin",
+          account_setup_state: SetupStates.NOT_REQUIRED,
+          additional_setup_exempt: true
         } as any)
       } catch (e) {
         console.dir(e)
