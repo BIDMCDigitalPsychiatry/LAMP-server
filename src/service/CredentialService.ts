@@ -478,7 +478,6 @@ CredentialService.Router.post(
   skipFullSetupCheck,
   authenticateSession,
   async (req, res) => {
-    console.log(req.body)
     const r = await auth.api.verify2FACode({
       headers: fromNodeHeaders(req.headers),
       body: {

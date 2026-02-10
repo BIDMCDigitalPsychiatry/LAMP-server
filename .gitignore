@@ -1,5 +1,6 @@
 # !!!
 .env*
+mongoDevKeyfile.txt
 
 # !!
 node_modules/

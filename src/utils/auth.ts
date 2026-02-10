@@ -230,6 +230,7 @@ const accountSetupPlugin = () => {
     },
     endpoints: {
       configure2FA: createAuthEndpoint(
+          /** configure2FA - Configures a 2FA contact for the current user and sends an initial verification code */
         "/account-setup/configure",
         {
           method: "POST",
@@ -301,6 +302,7 @@ const accountSetupPlugin = () => {
         }
       ),
       send2FACode: createAuthEndpoint(
+          /** send2FACode - Send a 2FA code to the current user's configured 2FA contact */
         "/account-setup/send",
         {
           method: "POST",
@@ -328,12 +330,12 @@ const accountSetupPlugin = () => {
                 throw new Error("500.failed-to-send")
               }
             } catch (e) {
-              return ctx.error("INTERNAL_SERVER_ERROR", {message: "Failed to send code"})
+              return ctx.error("INTERNAL_SERVER_ERROR", {message: "500.failed-to-send"})
             }
           } else if (activeContacts.length > 1) {
-            return ctx.error("INTERNAL_SERVER_ERROR", {message: "Multiple 2FA contacts configured"})
+            return ctx.error("BAD_REQUEST", {message: "401.multiple-contacts-configured"})
           } else {
-            return ctx.error("INTERNAL_SERVER_ERROR", {message: "2FA not configured"})
+            return ctx.error("BAD_REQUEST", {message: "401.2fa-not-configured"})
           }
 
           return ctx.json({
@@ -342,6 +344,7 @@ const accountSetupPlugin = () => {
         }
       ),
       verify2FACode: createAuthEndpoint(
+        /** verify2FACode - Verify the provided code based on the current user's configured 2FA contact */
         "/account-setup/verify",
         {
           method: "POST",
@@ -384,37 +387,15 @@ const accountSetupPlugin = () => {
               }
             } catch(e) {
               console.log("e: ", e)
-              return ctx.error("INTERNAL_SERVER_ERROR", {message: "Failed to verify 2FA code"})
+              return ctx.error("INTERNAL_SERVER_ERROR", {message: "500.failed-to-verify"})
             }
           } else if (activeContacts.length > 1) {
-            return ctx.error("INTERNAL_SERVER_ERROR", {message: "Multiple 2FA contacts configured"})
+            return ctx.error("BAD_REQUEST", {message: "401.multiple-contacts-configured"})
           } else {
-            return ctx.error("INTERNAL_SERVER_ERROR", {message: "2FA not configured"})
+            return ctx.error("BAD_REQUEST", {message: "401.2fa-not-configured"})
           }
 
           // Send verification code
-          return ctx.json({
-            message: "ok"
-          })
-        }
-      ),
-      delete2FAConfiguration: createAuthEndpoint(
-        "/account-setup/delete-configuration",
-        {
-          method: "POST",
-          use: [sessionMiddleware]
-        },
-        async (ctx) => {
-          if (!ctx.context.session) {return}
-          const {session, user} = ctx.context.session
-          const internalAdapter = ctx.context.internalAdapter
-
-          // Delete active 2fa contact
-          const activeContacts = await MongoClientDB.collection("twoFactor").updateMany(
-            {userId: new ObjectId(user.id), _deleted: false},
-            {$set: {_deleted: true}}
-          )
-          await internalAdapter.updateUser(user.id, {accountSetupState: SetupStates.INCOMPLETE})
           return ctx.json({
             message: "ok"
           })
@@ -540,7 +521,7 @@ const accountSetupPlugin = () => {
             }
           })
         },
-        { // ON SUCCESSFUL LOGIN: 
+        { // ON SUCCESSFUL LOGIN: Verify account setup state
           matcher: (ctx) => {
             return !!ctx.context.newSession
           },
@@ -593,7 +574,7 @@ const accountSetupPlugin = () => {
             }
           })
         },
-        { // WHEN ACCOUNT SETUP IS INCOMPLETE: Check the accountSetupStage and update it if nessecary
+        { // WHEN ACCOUNT SETUP IS INCOMPLETE: Check the accountSetupState and update it if nessecary
           matcher: (ctx) => {
             const accountSetupState = ctx.context.session?.user.accountSetupState as AccountSetupState | undefined
             return isAccountSetupStateAllowed(accountSetupState, [SetupStates.INCOMPLETE, SetupStates.TWO_FACTOR_UNVERIFIED])
@@ -677,11 +658,6 @@ export const auth = betterAuth({
       additionalFields: {
         userType: {
           type: "string",
-          required: false,
-          returned: true
-        },
-        isSetupComplete: {
-          type: "boolean",
           required: false,
           returned: true
         },
