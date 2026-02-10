@@ -117,10 +117,6 @@ async function addUserType(originCollection:"participant"|"researcher", userType
       localField: "_id",
       foreignField: "origin",
       as: "credentials",
-      pipeline: [
-        {$match: {user_type: {$exists: false}}},
-        {$project: {"_id": true}}
-      ]
     }},
     {$match: {credentials: {$ne: []}}},
     {$project: {credentials: true}}
