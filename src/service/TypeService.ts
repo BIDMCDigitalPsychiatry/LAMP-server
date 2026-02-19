@@ -16,7 +16,7 @@ export class TypeService {
     const TypeRepository = new Repository().getTypeRepository()
     const response: any = await _authorize(actingUser, ["self", "sibling", "parent"], type_id)
 
-    const data = await TypeRepository._parent(response as any)
+    const data = await TypeRepository._parent(type_id as any)
 
     // FIXME: THIS WILL TRIGGER A DELETE EVERY TIME A RESOURCE'S PARENT IS REQUESTED!
     /*

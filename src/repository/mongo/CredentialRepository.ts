@@ -1,4 +1,4 @@
-import { Encrypt, Decrypt } from "../../utils/auth"
+import { Decrypt } from "../../utils/auth"
 import { CredentialInterface } from "../interface/RepositoryInterface"
 import { MongoClientDB } from "../Bootstrap"
 import { auth } from "../../utils/auth"
@@ -61,7 +61,9 @@ export class CredentialRepository implements CredentialInterface {
       origin: credential.origin,
       name: credential.access_key,
       description: credential.description,
-      username: credential.username
+      username: credential.username,
+      userType: credential.user_type,
+      accountSetupState: credential.account_setup_state,
    }})
     return {}
   }
@@ -111,17 +113,14 @@ export class CredentialRepository implements CredentialInterface {
       let res
       try {
         res = await auth.api.signInEmail({returnHeaders: true, body: {email: accessKey, password: secretKey}})
-        console.log("Email sign in result: ", res)
       } catch(e) {
         // Also allow people to log in using a username
         res = await auth.api.signInUsername({returnHeaders: true, body: {username: accessKey, password: secretKey}})
-        console.log("Username sign in result: ", res)
       }
       
       // Do not allow deleted users to log in
       if (!!res.response?.user?.id) {
         const userEmail = res.response.user.email
-        console.log("Check for deleted user with email: ", userEmail)
         const user = await MongoClientDB.collection("credential").findOne({access_key: userEmail})
         if (user._deleted) {
           await this._logout(res.response.token)
@@ -131,7 +130,6 @@ export class CredentialRepository implements CredentialInterface {
 
       // If the login attempt in successful, clear the failed login attempt count
       clearAttempts(accessKey)
-      console.log("Return success")
       return res as any
     }
     catch(err) {

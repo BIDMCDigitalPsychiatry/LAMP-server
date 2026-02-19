@@ -6,6 +6,7 @@ const { credentialValidationRules } = require("../validator/validationRules")
 const { validateRequest } = require("../middlewares/validateRequest")
 import { authenticateSession, skipFullSetupCheck } from "../middlewares/authenticateSession"
 import { auth, convertSetCookieToCookie, Session } from "../utils/auth"
+import { SetupStates } from "../utils/accountSecurityUtilities"
 import { fromNodeHeaders } from "better-auth/node"
 
 export class CredentialService {
@@ -20,8 +21,29 @@ export class CredentialService {
 
   public static async create(actingUser: Session["user"], type_id: string | null, credential: any) {
     const CredentialRepository = new Repository().getCredentialRepository()
+    const TypeRepository = new Repository().getTypeRepository()
+
     await _authorize(actingUser, ["self", "parent"], type_id)
-    return await CredentialRepository._insert(type_id, credential)
+    
+    let newUserType
+    if (credential.origin === null) {
+      newUserType = "admin"
+    } else {
+      const originType = await (await TypeRepository._self_type(credential.origin)).toLowerCase()
+      if (originType === "researcher") {
+        newUserType = "researcher"
+      } else if (originType === "participant") {
+        newUserType = "participant"
+      } else {
+        throw new Error("400.invalid-origin")
+      }
+    }
+    let newAccountSetupState = newUserType === "participant" ? SetupStates.NOT_REQUIRED : SetupStates.INCOMPLETE
+
+    return await CredentialRepository._insert(
+      type_id, 
+      {...credential, user_type: newUserType,
+       account_setup_state: newAccountSetupState})
   }
 
   public static async get(actingUser: Session["user"], type_id: string | null, access_key: string) {
@@ -34,7 +56,6 @@ export class CredentialService {
   public static async set(actingUser: Session["user"], type_id: string | null, access_key: string, credential: any | null) {
     const CredentialRepository = new Repository().getCredentialRepository()
     const response = await _authorize(actingUser, ["self", "parent"], type_id)
-
     if (credential === null) {
       return await CredentialRepository._delete(type_id, access_key)
     } else {
@@ -77,7 +98,7 @@ export class CredentialService {
     const ParticipantRepository = new Repository().getParticipantRepository()
 
     // Retrieve the user type, and their origin object if it exists
-    const userType = session?.session.userType
+    const userType = session?.user.userType
 
     let meObject
     if (!session?.user.origin) {
@@ -91,12 +112,51 @@ export class CredentialService {
     }
     
     return {
-      userType: userType,
+      accessKey: session?.user.displayUsername || session?.user.email,
+      userType: session.user.userType,
       me: meObject?.length ? meObject[0] : null,
-      isSetupComplete: !!session.session.isSetupComplete
+      require2FAVerification: session.session.require2FAVerification,
+      accountSetupState: session.user.accountSetupState,
     }
   }
 }
+
+CredentialService.Router.post(
+  "/credential/clear-account-setup",
+  authenticateSession,
+  async (req, res) => {
+    try {
+      const {type_id, access_key} = req.body
+      if (type_id === undefined || access_key === undefined) {
+        res.status(400)
+        res.json({error: "400.invalid-credential"})
+        return
+      }
+      const CredentialRepository = new Repository().getCredentialRepository()
+      await _authorize(res.locals.user, ["self", "parent"], req.body.type_id)
+      
+      const matchingCredentials = (await CredentialRepository._select(req.body.type_id)).filter((credential) => credential.access_key === req.body.access_key)
+      if (matchingCredentials.length !== 1) {
+        throw new Error("404.no-matching-credentials")
+      }
+      const credential = matchingCredentials[0]
+
+      const clearSetupResult = await auth.api.clearAccountConfiguration({
+        body: {accessKey: credential.access_key},
+        headers: fromNodeHeaders(req.headers),
+      })
+      res.json(clearSetupResult)
+    } catch (e:any) {
+      const message = e?.message || "500.clear-account-setup-failed"
+      if (message) {
+        res.status(404)
+      } else {
+        res.status(500)
+      }
+      res.json({error: message})
+    }
+  }
+)
 
 CredentialService.Router.get(
   ["researcher", "study", "participant", "activity", "sensor", "type"].map((type) => `/${type}/:type_id/credential`),
@@ -231,7 +291,10 @@ CredentialService.Router.post(
     const loginResult = await auth.api.signInSocial({
       method: "POST",
       body: {
-        provider: req.params.socialProvider
+        provider: req.params.socialProvider,
+        additionalData: {
+          isSignUp: false
+        }
       },
       asResponse: true
     })
@@ -301,7 +364,10 @@ CredentialService.Router.post(
     const result = await auth.api.linkSocialAccount({
       method: "POST",
       body: {
-        provider: req.params.socialProvider
+        provider: req.params.socialProvider,
+        additionalData: {
+          isSignUp: true
+        }
       },
       headers: fromNodeHeaders(req.headers),
       asResponse: true
@@ -332,6 +398,18 @@ CredentialService.Router.get(
     })
     if (validateResult.status === 200) {
       const session = await validateResult.json()
+      
+      // Finalize oauth setup
+      // (Makes no changes if setup is already complete)
+      const newHeaders = new Headers()
+      newHeaders.set("cookie", convertSetCookieToCookie(validateResult.headers))
+      try {
+        const finalizeOauthSetupResult = await auth.api.finalizeOauthSetup({
+          headers: newHeaders,
+        })
+      } catch (e) {
+      }
+
       res.setHeader("set-cookie", validateResult.headers.get("set-cookie") || "")
       res.json(await CredentialService.getLoginResponse(session))
       return
@@ -350,5 +428,66 @@ CredentialService.Router.get(
         session: res.locals.session,
         user: res.locals.user
       }))
+  }
+)
+
+CredentialService.Router.post(
+  "/setup-2fa",
+  skipFullSetupCheck,
+  authenticateSession,
+  async (req, res) => {
+    const r = await auth.api.configure2FA({
+      headers: fromNodeHeaders(req.headers),
+      body: {
+        email: req.body.email,
+        phone: req.body.phone
+      },
+      asResponse: true
+    })
+    if (r.status === 200) {
+      res.json({message: "ok"})
+    } else {
+      res.status(500)
+      res.json({error: "500.failed-two-factor-configuration"})
+    }
+  }
+)
+
+CredentialService.Router.post(
+  "/send-2fa",
+  skipFullSetupCheck,
+  authenticateSession,
+  async (req, res) => {
+    const r = await auth.api.send2FACode({
+      headers: fromNodeHeaders(req.headers),
+      asResponse: true
+    })
+    if (r.status === 200) {
+      res.json({message: "ok"})
+    } else {
+      res.status(500)
+      res.json({error: "500.send-two-factor-code-failed"})
+    }
+  }
+)
+
+CredentialService.Router.post(
+  "/verify-2fa",
+  skipFullSetupCheck,
+  authenticateSession,
+  async (req, res) => {
+    const r = await auth.api.verify2FACode({
+      headers: fromNodeHeaders(req.headers),
+      body: {
+        code: req.body.code
+      },
+      asResponse: true
+    })
+    if (r.status === 200) {
+      res.json({message: "ok"})
+    } else {
+      res.status(500)
+      res.json({error: "500.verify-two-factor-code-failed"})
+    }
   }
 )

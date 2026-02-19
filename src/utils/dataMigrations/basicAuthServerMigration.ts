@@ -1,4 +1,5 @@
 import { MongoClientDB } from "../../repository/Bootstrap";
+import { SetupStates } from "../accountSecurityUtilities";
 
 export async function runBasicAuthServerMigration() {
     console.group("Running server upgrade migration...")
@@ -70,8 +71,72 @@ export async function runBasicAuthServerMigration() {
         if (adminUpdateResult.modifiedCount) {
           console.log("Added admin username to admin credential.")
         }
+
+
+        // Add usertypes to credentials
+        await addUserType("participant", "participant")
+        await addUserType("researcher", "researcher")
+        const userTypeUpdateResult = await MongoClientDB.collection("credential").updateMany(
+          {origin: null, user_type: {$exists: false}},
+          {$set: {user_type: "admin"}}
+        )
+        console.log(`Updated user_type for ${userTypeUpdateResult.modifiedCount} admins`)
+        
+        // Add account set up states to admin/researcher credentials
+        let setupStateResult = await MongoClientDB.collection("credential").updateMany(
+          {user_type: {$in: ["admin", "researcher"]}, accountSetupState: {$exists: false}},
+          {$set: {account_setup_state: SetupStates.INCOMPLETE}}
+        )
+        if (!setupStateResult.modifiedCount) {
+          console.log("No staff users require an account_setup_state")
+        } else {
+          console.log(`Updated account_setup_state for ${setupStateResult.modifiedCount} staff users`)
+        }
+
+        // Add account setup states to participant credentials
+        setupStateResult = await MongoClientDB.collection("credential").updateMany(
+          {user_type: "participant", account_setup_state: {$exists: false}},
+          {$set: {account_setup_state: SetupStates.NOT_REQUIRED}}
+        )
+        if (!setupStateResult.modifiedCount) {
+          console.log("No participants require an account_setup_state")
+        } else {
+          console.log(`Updated account_setup_state for ${setupStateResult.modifiedCount} participants`)
+        }
+
         console.groupEnd()
       console.log("Server upgrade migration complete.")
 
+}
 
+async function addUserType(originCollection:"participant"|"researcher", userType:"participant"|"researcher") {
+  // Get a list of all credentials associated with an entry in the origin collection
+  let credentialsToUpdate = await MongoClientDB.collection(originCollection).aggregate([
+    {$lookup: {
+      from: "credential",
+      localField: "_id",
+      foreignField: "origin",
+      as: "credentials",
+    }},
+    {$match: {credentials: {$ne: []}}},
+    {$project: {credentials: true}}
+  ]).toArray()
+  credentialsToUpdate = credentialsToUpdate.map(({credentials}:{[k:string]:any}) => credentials)
+  credentialsToUpdate = credentialsToUpdate.reduce(
+    (accumulator:any, credList:any) => {
+      credList.forEach((credential: any) => {accumulator.push(credential._id)})
+      return accumulator
+    },
+    []
+  )
+  if (credentialsToUpdate.length) {
+    // Assign a userType to each credential
+    const updateResult = await MongoClientDB.collection("credential").updateMany(
+      {_id: {$in: credentialsToUpdate}},
+      {$set: {user_type: userType}}
+    )
+    console.log(`Updated user_type for ${updateResult.modifiedCount} ${originCollection}s`)
+  } else {
+    console.log(`No ${originCollection}s require user_types`)
+  }
 }
