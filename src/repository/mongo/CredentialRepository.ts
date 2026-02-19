@@ -111,28 +111,32 @@ export class CredentialRepository implements CredentialInterface {
       let res
       try {
         res = await auth.api.signInEmail({returnHeaders: true, body: {email: accessKey, password: secretKey}})
+        console.log("Email sign in result: ", res)
       } catch(e) {
         // Also allow people to log in using a username
         res = await auth.api.signInUsername({returnHeaders: true, body: {username: accessKey, password: secretKey}})
+        console.log("Username sign in result: ", res)
       }
       
       // Do not allow deleted users to log in
       if (!!res.response?.user?.id) {
         const userEmail = res.response.user.email
+        console.log("Check for deleted user with email: ", userEmail)
         const user = await MongoClientDB.collection("credential").findOne({access_key: userEmail})
         if (user._deleted) {
           await this._logout(res.response.token)
-          throw new Error("404.no-such-credentials")
+          throw new Error("404.no-such-credentials-deleted")
         }
       }
 
       // If the login attempt in successful, clear the failed login attempt count
       clearAttempts(accessKey)
+      console.log("Return success")
       return res as any
     }
     catch(err) {
       recordFailedAttempts(accessKey)
-      throw new Error("404.no-such-credentials")
+      throw new Error(`404.no-such-credentials: ${err}`)
     }
   }
 

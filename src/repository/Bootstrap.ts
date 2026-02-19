@@ -910,6 +910,7 @@ export async function Bootstrap(): Promise<void> {
               password: p, 
               name: "admin",
               description: "System Administrator Credential",
+              additionalSetupExempt: true,
               origin: null,
             }
           })

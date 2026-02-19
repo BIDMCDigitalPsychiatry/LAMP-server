@@ -2,16 +2,16 @@ import { betterAuth, BetterAuthPlugin } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { createAuthEndpoint, createAuthMiddleware, sessionMiddleware } from "better-auth/api"
 import { setSessionCookie } from "better-auth/cookies"
-import { username } from "better-auth/plugins"
+import { oneTimeToken, username } from "better-auth/plugins"
 import { parseSetCookie, stringifyCookie } from "cookie";
 import crypto from "crypto";
-import { MongoClient } from "mongodb";
-import { Repository } from "../repository/Bootstrap";
-import * as z from "zod/v4/core"; 
+import { MongoClient, ObjectId } from "mongodb";
+import { MongoClientDB, Repository } from "../repository/Bootstrap";
 import { body, oneOf } from "express-validator";
+import { getConfiguredOAuthOptions } from "./oauthConfiguration";
 
 export const mongoClientInstance = new MongoClient(`${process.env.DB}`)
-const db = mongoClientInstance.db("LampV2")
+const db = mongoClientInstance.db(process.env.DB_NAME)
 
 const emailAndPasswordOptions:any = {
     enabled: true
@@ -29,8 +29,8 @@ const legacyPasswordVerification = {
         return Decrypt(hash, "AES256") === password;
     }
 }
-if (process.env.USE_LEGACY_PASSWORD_HASHING) {
-    emailAndPasswordOptions.password = legacyPasswordVerification
+if (process.env.USE_LEGACY_PASSWORD_HASHING === "true") {
+  emailAndPasswordOptions.password = legacyPasswordVerification
 }
 
 // Interval in seconds between rotations of participant sessions
@@ -40,6 +40,11 @@ const PARTICIPANT_SESSION_EXPIRE_IN = process.env.PARTICIPANT_SESSION_EXPIRE_IN 
 
 const STAFF_SESSION_EXPIRES_IN = process.env.STAFF_SESSION_EXPIRES_IN ? parseInt(process.env.STAFF_SESSION_EXPIRES_IN) : 5 * 24 * 60 * 60
 const STAFF_SESSION_UPDATE_AGE = process.env.STAFF_SESSION_UPDATE_AGE ? parseInt(process.env.STAFF_SESSION_UPDATE_AGE) : 1 * 24 * 60 * 60
+
+// Returns true if the user's setup is complete, and false otherwise
+async function checkIsSetupComplete(user:Session["user"], userType:string) {
+
+}
 
 const customSessionLengthPlugin = () => {
   return {
@@ -93,7 +98,6 @@ const customSessionLengthPlugin = () => {
             if (!session) { return }
             const internalAdapter = ctx.context.internalAdapter
             const TypeRepository = new Repository().getTypeRepository()
-
             let userType
             if (!session?.user.origin) {
               userType = "admin"
@@ -107,12 +111,61 @@ const customSessionLengthPlugin = () => {
               expiresAt = new Date(session.session.createdAt.getTime() + (STAFF_SESSION_EXPIRES_IN * 1000))
             }
 
+            // Set isSetupComplete flag based on usertype
+            let isSetupComplete
+            if (process.env.DISABLE_REQUIRE_OAUTH_OR_2FA) {
+              isSetupComplete = true
+            } else if (userType === "participant") {
+              isSetupComplete = true
+            } else {
+              // Account set up for staff users is incomplete if they do not have oAuth or 2FA configured
+              // TODO: Add check for 2FA setup
+              const oAuthAccounts = await MongoClientDB.collection("account")
+                                                       .find({
+                                                          providerId: {$ne: "credential"}, 
+                                                          userId: new ObjectId(session.user.id)})
+                                                        .toArray() 
+              isSetupComplete = !!oAuthAccounts.length
+            }
+
             const sessionUpdates = {
               userType: userType,
-              expiresAt: expiresAt
-                  
+              expiresAt: expiresAt,
+              isSetupComplete: isSetupComplete
             }
             await internalAdapter.updateSession(session?.session.token, sessionUpdates)
+          })
+        },
+        {
+          // Update the isSetupComplete flag if it is not defined or if it is currently false
+          matcher: (ctx) => {
+            return !ctx.context.session?.session.isSetupComplete
+          },
+          handler: createAuthMiddleware(async (ctx) => {
+            const session = ctx.context.session
+            if (!session) {return}
+            const internalAdapter = ctx.context.internalAdapter
+            const userType = session.session.internalAdapter
+            
+            // Set isSetupComplete flag based on usertype
+            let isSetupComplete
+            if (process.env.DISABLE_REQUIRE_OAUTH_OR_2FA) {
+              isSetupComplete = true
+            } else if (userType === "participant") {
+              isSetupComplete = true
+            } else if (session.user.additionalSetupExempt) {
+              isSetupComplete = true
+            } else {
+              // Account set up for staff users is incomplete if they do not have oAuth or 2FA configured
+              // TODO: Add check for 2FA setup
+              const oAuthAccounts = await MongoClientDB.collection("account")
+                                                       .find({
+                                                          providerId: {$ne: "credential"}, 
+                                                          userId: new ObjectId(session.user.id)})
+                                                        .toArray() 
+              isSetupComplete = !!oAuthAccounts.length
+            }
+            await internalAdapter.updateSession(session?.session.token, {isSetupComplete: isSetupComplete})
           })
         },
         {
@@ -156,9 +209,8 @@ const customSessionLengthPlugin = () => {
 export const auth = betterAuth({
     database: mongodbAdapter(db, {client: mongoClientInstance}),
     basePath: "/api/auth",
-    emailAndPassword: {
-        enabled: true
-    },
+    secret: process.env.BETTER_AUTH_SECRET,
+    emailAndPassword: emailAndPasswordOptions,
     account: {
       fields: {
         accountId: "_id",
@@ -186,6 +238,13 @@ export const auth = betterAuth({
                 defaultValue: false,
                 returned: true,
                 input: false,
+            },
+            additionalSetupExempt: {
+              type: "boolean",
+              defaultValue: false,
+              required: false,
+              returned: true,
+              input: true
             }
         },
     },
@@ -196,11 +255,30 @@ export const auth = betterAuth({
           type: "string",
           required: false,
           returned: true
+        },
+        isSetupComplete: {
+          type: "boolean",
+          required: false,
+          returned: true
         }
       }
     },
+    hooks: {
+      after: createAuthMiddleware({}, async (ctx) => {
+        // Include the sessionCookie in the response after verifying a one-time-token
+        if (ctx.path === "/one-time-token/verify") {
+          const returned = ctx.context.returned as any
+          if (returned?.session) {
+            await setSessionCookie(ctx, returned)
+          }
+        }
+      })
+    },
     plugins:[
       customSessionLengthPlugin(),
+      oneTimeToken({
+        disableClientRequest: true
+      }),
       username({
         usernameValidator: async (username) => {
           // Allow usernames to be either emails, or strings with alphanumeric characters, underscores and dashes
@@ -212,9 +290,10 @@ export const auth = betterAuth({
           }
           const emailValidationResult = await oneOf([body("username").isEmail(), body("username").matches(/^[\w\-]+$/)]).run(req)
           return emailValidationResult.isEmpty()
-        }
+        } 
       }),
     ],
+    socialProviders: getConfiguredOAuthOptions()
 })
 
 
@@ -237,15 +316,11 @@ export function convertSetCookieToCookie(headers:Headers) {
 export function Encrypt(data: string, mode: "Rijndael" | "AES256" = "Rijndael"): string | undefined {
   try {
     if (mode === "Rijndael") {
-        console.log("mode Rijneal")
       const cipher = crypto.createCipheriv("aes-256-ecb", process.env.DB_KEY || "", "")
       return cipher.update(data, "utf8", "base64") + cipher.final("base64")
     } else if (mode === "AES256") {
-        console.log("mode aes256")
       const ivl = crypto.randomBytes(16)
-      console.log("about to use key")
       const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(process.env.ROOT_KEY || "", "hex"), ivl)
-      console.log("used key")
       return Buffer.concat([ivl, cipher.update(Buffer.from(data, "utf16le")), cipher.final()]).toString("base64")
     }
   } catch (error) {
