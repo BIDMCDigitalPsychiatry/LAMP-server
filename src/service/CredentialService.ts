@@ -30,7 +30,6 @@ export class CredentialService {
       newUserType = "admin"
     } else {
       const originType = await (await TypeRepository._self_type(credential.origin)).toLowerCase()
-      console.log("originType: ", originType)
       if (originType === "researcher") {
         newUserType = "researcher"
       } else if (originType === "participant") {
@@ -146,7 +145,6 @@ CredentialService.Router.post(
         body: {accessKey: credential.access_key},
         headers: fromNodeHeaders(req.headers),
       })
-      console.log("clearsetupresult: ", clearSetupResult)
       res.json(clearSetupResult)
     } catch (e:any) {
       const message = e?.message || "500.clear-account-setup-failed"

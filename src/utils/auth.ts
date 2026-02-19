@@ -386,7 +386,6 @@ const accountSetupPlugin = () => {
                 await internalAdapter.updateUser(user.id, {accountSetupState: SetupStates.TWO_FACTOR})
               }
             } catch(e) {
-              console.log("e: ", e)
               return ctx.error("INTERNAL_SERVER_ERROR", {message: "500.failed-to-verify"})
             }
           } else if (activeContacts.length > 1) {
@@ -419,10 +418,7 @@ const accountSetupPlugin = () => {
           if (!ctx.context.session) {return}
           const internalAdapter = ctx.context.internalAdapter
           // Get the user to reset
-          // const userToReset = await internalAdapter.findUserById(ctx.body.userId)
           const userToReset = (await internalAdapter.findUserByEmail(ctx.body.accessKey))?.user
-          console.log("userToReset: ", userToReset)
-          console.log("currentSession: ", ctx.context.session)
           
           if (!userToReset) {
             return ctx.error("BAD_REQUEST", {"message": "user does not exist"})
