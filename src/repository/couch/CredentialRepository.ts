@@ -1,4 +1,5 @@
-import { Database, Encrypt, Decrypt } from "../Bootstrap"
+import { Database } from "../Bootstrap"
+import { Encrypt, Decrypt } from "../../utils/auth"
 import { CredentialInterface } from "../interface/RepositoryInterface"
 
 export class CredentialRepository implements CredentialInterface {
@@ -84,9 +85,6 @@ export class CredentialRepository implements CredentialInterface {
 
   public async _login(accessKey: string | null, secretKey: any): Promise<any> {
 
-  }
-
-  public async _renewToken(refreshToken: string): Promise<any> {
   }
   public async _logout(token: string | undefined): Promise<any> {}
 }

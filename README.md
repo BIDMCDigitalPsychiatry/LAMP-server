@@ -26,6 +26,9 @@
 | `NATS_SERVER`   | :heavy_check_mark:  |                                                                                                                                                                           |
 | `NOTIFICATION_SERVICE_API_KEY`   |   | The api key to be used when addressing the designated notification service.                                                                                               |
 | `NOTIFICATION_SERVICE_URL`   |  | The protocol scheme, hostname, and optionally port that points to the desired notification service.                                                                       |
+| `PARTICIPANT_SESSION_EXPIRE_IN` | | Time in seconds after which to expires a participants's session
+| `PARTICIPANT_SESSION_ROTATION_INTERVAL` | | Time in seconds after which to rotate a participant's session
+|`PARTICIPANT_SESSION_UPDATE_AGE`|| Time in seconds after which to refresh a user's session
 | `PORT`   |   | The port number the server should listen on. Defaults to 3000.                                                                                                            |
 | `PUSH_API_KEY`   |   | **Deprecated**. Use `NOTIFICATION_SERVICE_API_KEY`.                                                                                                                       |
 | `PUSH_GATEWAY`   |   | **Deprecated**. Use `NOTIFICATION_SERVICE_URL`.                                                                                                                           |
@@ -33,5 +36,7 @@
 | `REDIS_HOST`  | :heavy_check_mark:  |                                                                                                                                                                           |
 | `ROOT_KEY`   | :heavy_check_mark:  | An key used to encrypt credentials.                                                                                                                                       |
 | `SHUTDOWN_GRACEPERIOD_MS`   | | The number of milliseconds after the process receives a termination signal before forcibly closing connections.                                                           |
+| `STAFF_SESSION_EXPIRES_IN` || Time in seconds after which to expire a staff user's session
+| `STAFF_SESSION_UPDATE_AGE` || Time in seconds after which to refresh a staff user's session
 | `SYSTEM_STATUS_API_KEY`   |   | If set, some of the system info endpoints (such as `/system/metrics` or `/system/version`) will require a `key` query parameter equal to this env var in order to access. |
 

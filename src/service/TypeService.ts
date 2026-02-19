@@ -1,21 +1,22 @@
 import { Request, Response, Router } from "express"
 import { DynamicAttachment } from "../model/Type"
-import { _verify } from "./Security"
+import { _authorize } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
-import { authenticateToken } from "../middlewares/authenticateToken"
 import { validateInput } from "./Security"
+import { authenticateSession } from "../middlewares/authenticateSession"
+import { Session } from "../utils/auth"
 
 export class TypeService {
   public static _name = "Type"
   public static Router = Router()
 
-  public static async parent(auth: any, type_id: string | null) {
+  public static async parent(actingUser: Session["user"], type_id: string | null) {
     const TypeRepository = new Repository().getTypeRepository()
-    const response: any = await _verify(auth, ["self", "sibling", "parent"], type_id)
+    const response: any = await _authorize(actingUser, ["self", "sibling", "parent"], type_id)
 
-    const data = await TypeRepository._parent(response.id as any)
+    const data = await TypeRepository._parent(response as any)
 
     // FIXME: THIS WILL TRIGGER A DELETE EVERY TIME A RESOURCE'S PARENT IS REQUESTED!
     /*
@@ -36,22 +37,22 @@ export class TypeService {
     return data
   }
 
-  public static async list(auth: any, type_id: string | null) {
+  public static async list(actingUser: Session["user"], type_id: string | null) {
     const TypeRepository = new Repository().getTypeRepository()
-    const response: any = await _verify(auth, ["self", "sibling", "parent"], type_id)
+    const response: any = await _authorize(actingUser, ["self", "sibling", "parent"], type_id)
     return await TypeRepository._list("a", <string>type_id)
   }
 
-  public static async get(auth: any, type_id: string | null, attachment_key: string, index?: string) {
+  public static async get(actingUser: Session["user"], type_id: string | null, attachment_key: string, index?: string) {
     const TypeRepository = new Repository().getTypeRepository()
 
-    const response: any = await _verify(auth, ["self", "sibling", "parent"], type_id)
+    const response: any = await _authorize(actingUser, ["self", "sibling", "parent"], type_id)
     let obj
 
     if (type_id !== undefined && type_id !== null && type_id !== "me") {
       obj = await TypeRepository._get("a", <string>type_id, attachment_key)
     } else {
-      obj = await TypeRepository._get("a", <string>response.id, attachment_key)
+      obj = await TypeRepository._get("a", <string>response, attachment_key)
     }
 
     // TODO: if obj undefined here, return null instead of throwing 404 error
@@ -67,14 +68,14 @@ export class TypeService {
   }
 
   public static async set(
-    auth: any,
+    actingUser: Session["user"],
     type_id: string | null,
     target: string,
     attachment_key: string,
     attachment_value: any
   ) {
     const TypeRepository = new Repository().getTypeRepository()
-    const response: any = await _verify(auth, ["self", "sibling", "parent"], type_id)
+    const response: any = await _authorize(actingUser, ["self", "sibling", "parent"], type_id)
     if (attachment_key === "lamp.automation") {
       PubSubAPIListenerQueue?.add(
         {
@@ -114,11 +115,11 @@ const _put_routes = (<string[]>[]).concat(
     (type) => `/${type}/:type_id/tag/:attachment_key/:target`
   )
 )
-TypeService.Router.get("/:type_id/cordinators", authenticateToken, async (req: Request, res: Response) => {
+TypeService.Router.get("/:type_id/cordinators", authenticateSession, async (req: Request, res: Response) => {
   try {
     let output = {
       data: (await TypeService.parent(
-        req.get("Authorization"),
+        res.locals.user,
         req.params.type_id === "null" ? null : req.params.type_id
       )) as any,
     }
@@ -133,12 +134,12 @@ TypeService.Router.get("/:type_id/cordinators", authenticateToken, async (req: R
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-TypeService.Router.get(_parent_routes, authenticateToken, async (req: Request, res: Response) => {
+TypeService.Router.get(_parent_routes, authenticateSession, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     let output = {
       data: await TypeService.parent(
-        req.get("Authorization"),
+        res.locals.user,
         req.params.type_id === "null" ? null : req.params.type_id
       ),
     }
@@ -149,20 +150,20 @@ TypeService.Router.get(_parent_routes, authenticateToken, async (req: Request, r
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-TypeService.Router.get(_get_routes, authenticateToken, async (req: Request, res: Response) => {
+TypeService.Router.get(_get_routes, authenticateSession, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     if (req.params.attachment_key === undefined) {
       res.json({
         data: await TypeService.list(
-          req.get("Authorization"),
+          res.locals.user,
           req.params.type_id === "null" ? null : req.params.type_id
         ),
       })
     } else {
       res.json({
         data: await TypeService.get(
-          req.get("Authorization"),
+          res.locals.user,
           req.params.type_id === "null" ? null : req.params.type_id,
           req.params.attachment_key,
           req.params.index
@@ -174,12 +175,12 @@ TypeService.Router.get(_get_routes, authenticateToken, async (req: Request, res:
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-TypeService.Router.put(_put_routes, authenticateToken, async (req: Request, res: Response) => {
+TypeService.Router.put(_put_routes, authenticateSession, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     res.json({
       data: (await TypeService.set(
-        req.get("Authorization"),
+        res.locals.user,
         req.params.type_id === "null" ? null : req.params.type_id,
         req.params.target,
         req.params.attachment_key,

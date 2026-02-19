@@ -1,94 +1,108 @@
 import { Request, Response, Router } from "express"
-import { _verify } from "./Security"
+import { _authorize } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
-import { findPermission } from "./Security"
-import { Repository, ApiResponseHeaders, MongoClientDB } from "../repository/Bootstrap"
-import { ObjectId } from "bson"
+import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 const { credentialValidationRules } = require("../validator/validationRules")
 const { validateRequest } = require("../middlewares/validateRequest")
-import { authenticateToken } from "../middlewares/authenticateToken"
+import { authenticateSession } from "../middlewares/authenticateSession"
+import { auth, convertSetCookieToCookie, Session } from "../utils/auth"
+import { userInfo } from "os"
+import { ParamsDictionary } from "express-serve-static-core"
+import { ParsedQs } from "qs"
+import { fromNodeHeaders } from "better-auth/node"
 
 export class CredentialService {
   public static _name = "Credential"
   public static Router = Router()
 
-  public static async list(auth: any, type_id: string | null) {
+  public static async list(actingUser: Session["user"], type_id: string | null) {
     const CredentialRepository = new Repository().getCredentialRepository()
-    const response: any = await _verify(auth, ["self", "parent"], type_id)
+    const response: any = await _authorize(actingUser, ["self", "parent"], type_id)
     return await CredentialRepository._select(type_id)
   }
 
-  public static async create(auth: any, type_id: string | null, credential: any) {
+  public static async create(actingUser: Session["user"], type_id: string | null, credential: any) {
     const CredentialRepository = new Repository().getCredentialRepository()
-    const response: any = await _verify(auth, ["self", "parent"], type_id)
+    await _authorize(actingUser, ["self", "parent"], type_id)
     return await CredentialRepository._insert(type_id, credential)
   }
 
-  public static async get(auth: any, type_id: string | null, access_key: string) {
+  public static async get(actingUser: Session["user"], type_id: string | null, access_key: string) {
     const CredentialRepository = new Repository().getCredentialRepository()
-    const response: any = await _verify(auth, ["self", "parent"], type_id)
+    const response: any = await _authorize(actingUser, ["self", "parent"], type_id)
     let all = await CredentialRepository._select(type_id)
     return all.filter((x) => x.access_key === access_key)
   }
 
-  public static async set(auth: any, type_id: string | null, access_key: string, credential: any | null) {
+  public static async set(actingUser: Session["user"], type_id: string | null, access_key: string, credential: any | null) {
     const CredentialRepository = new Repository().getCredentialRepository()
-    const response: any = await _verify(auth, ["self", "parent"], type_id)
+    const response = await _authorize(actingUser, ["self", "parent"], type_id)
 
-    const credentialData = await MongoClientDB.collection("credential").findOne({
-      _deleted: false,
-      _id: new ObjectId(response.user_id),
-    })
-
-    const permissionValue = await findPermission(credentialData.access_key)
-
-    if (
-      permissionValue === "admin" ||
-      credentialData.access_key === access_key ||
-      credentialData.access_key === "admin"
-    ) {
-      if (credential === null) {
-        return await CredentialRepository._delete(type_id, access_key)
-      } else {
-        return await CredentialRepository._update(type_id, access_key, credential)
-      }
+    if (credential === null) {
+      return await CredentialRepository._delete(type_id, access_key)
     } else {
-      throw new Error("403.security-context-out-of-scope")
+      return await CredentialRepository._update(type_id, access_key, credential)
     }
   }
 
   public static async verify(accessKey: string | null, secretKey: string) {
     const CredentialRepository = new Repository().getCredentialRepository()
+    const TypeRepository = new Repository().getTypeRepository()
+    const ResearcherRepository = new Repository().getResearcherRepository()
+    const ParticipantRepository = new Repository().getParticipantRepository()
 
-    const res = await CredentialRepository._login(accessKey, secretKey)
-    return res
-  }
+    // Log user in
+    // Failure to log in throws an error
+    const {headers, response} = await CredentialRepository._login(accessKey, secretKey)
 
-  public static async renewToken(refreshToken: string | null) {
-    const CredentialRepository = new Repository().getCredentialRepository()
-    const res = await CredentialRepository._renewToken(refreshToken)
-    return res
-  }
-  public static async logOut(token: string | undefined) {
-    if (token) {
-      const CredentialRepository = new Repository().getCredentialRepository()
-      const res = await CredentialRepository._logout(token.split(" ")[1])
+    // Get session data for newly logged in user
+    const getSessionHeaders = new Headers()
+    getSessionHeaders.set("cookie", convertSetCookieToCookie(headers))
+    // We can safely call the wrap auth.api.getSession function because 
+    // we have just created the session
+    const session = await auth.api.getSession({headers: getSessionHeaders})
+
+    // Retrieve the user type, and their origin object if it exists
+    const userType = session?.session.userType
+
+    let meObject
+    if (!session?.user.origin) {
+      meObject = null
+    } else if (userType === "researcher") {
+      meObject = await ResearcherRepository._select(session?.user.origin)
+    } else if (userType === "participant") {
+      meObject = await ParticipantRepository._select(session?.user.origin)
     } else {
-      throw new Error("please provide authorization")
+      throw new Error("403.no-session-data")
+    }
+    
+    
+    const responseBody = {
+      userType: userType,
+      me: meObject?.length ? meObject[0] : null
+    }
+    return {headers: headers, response: responseBody}
+  }
+
+  public static async logOut(session: Session["session"] | null) {
+    if (session) {
+      const CredentialRepository = new Repository().getCredentialRepository()
+      const res = await CredentialRepository._logout(session.token)
+    } else {
+      throw new Error("403.no-session-provided") 
     }
   }
-
 }
 
 CredentialService.Router.get(
   ["researcher", "study", "participant", "activity", "sensor", "type"].map((type) => `/${type}/:type_id/credential`),
-  authenticateToken,
+  authenticateSession,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
     try {
       let output = {
         data: await CredentialService.list(
-          req.get("Authorization"),
+          res.locals.user,
           req.params.type_id === "null" ? null : req.params.type_id
         ),
       }
@@ -103,7 +117,7 @@ CredentialService.Router.get(
 )
 CredentialService.Router.post(
   ["researcher", "study", "participant", "activity", "sensor", "type"].map((type) => `/${type}/:type_id/credential/`),
-  authenticateToken,
+  authenticateSession,
   credentialValidationRules(),
   validateRequest,
   async (req: Request, res: Response) => {
@@ -112,7 +126,7 @@ CredentialService.Router.post(
     try {
       res.json({
         data: await CredentialService.create(
-          req.get("Authorization"),
+          res.locals.user,
           req.params.type_id === "null" ? null : req.params.type_id,
           req.body
         ),
@@ -127,15 +141,16 @@ CredentialService.Router.put(
   ["researcher", "study", "participant", "activity", "sensor", "type"].map(
     (type) => `/${type}/:type_id/credential/:access_key`
   ),
-  authenticateToken,
+  authenticateSession,
   credentialValidationRules(),
   validateRequest,
   async (req: Request, res: Response) => {
+
     res.header(ApiResponseHeaders)
     try {
       res.json({
         data: await CredentialService.set(
-          req.get("Authorization"),
+          res.locals.user,
           req.params.type_id === "null" ? null : req.params.type_id,
           req.params.access_key,
           req.body
@@ -151,13 +166,13 @@ CredentialService.Router.delete(
   ["researcher", "study", "participant", "activity", "sensor", "type"].map(
     (type) => `/${type}/:type_id/credential/:access_key`
   ),
-  authenticateToken,
+  authenticateSession,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
     try {
       res.json({
         data: await CredentialService.set(
-          req.get("Authorization"),
+          res.locals.user,
           req.params.type_id === "null" ? null : req.params.type_id,
           req.params.access_key,
           null
@@ -172,36 +187,27 @@ CredentialService.Router.delete(
 CredentialService.Router.post(`/login`, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
-    const data = await CredentialService.verify(req.body.accessKey, req.body.secretKey)
+    const verifyResult = await CredentialService.verify(req.body.accessKey, req.body.secretKey)
 
-    res.json({ data })
+    // We must manually set the session cookie by copying the entire header value as the cookie is signed by better auth
+    // This must be the first cookie added to the response
+    res.setHeader("Set-Cookie", verifyResult.headers.get("set-cookie"));
+
+    return res.json(verifyResult.response)  // TODO: Fine tune the desired response from this
   } catch (e: any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
+    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)  // TODO: Pull out these basic auth things
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
 
-CredentialService.Router.post("/logout", authenticateToken, async (req: Request, res: Response) => {
+CredentialService.Router.post("/logout", authenticateSession, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     res.json({
-      data: await CredentialService.logOut(req.get("Authorization")),
+      data: await CredentialService.logOut(res.locals.session),
     })
   } catch (e: any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-
-CredentialService.Router.post(`/renewToken`, authenticateToken, async (req: Request, res: Response) => {
-  res.header(ApiResponseHeaders)
-  try {
-    res.json({
-      data: await CredentialService.renewToken(req.body.refreshToken),
-    })
-  } catch (e: any) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
-    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
-  }
-})
-
