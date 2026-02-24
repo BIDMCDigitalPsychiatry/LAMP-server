@@ -6,15 +6,16 @@ import { oneTimeToken, username } from "better-auth/plugins"
 import { parseSetCookie, stringifyCookie } from "cookie";
 import crypto from "crypto";
 import { ObjectId } from "mongodb";
-import { MongoClientDB, Repository } from "../repository/Bootstrap";
+import { MongoClientDB } from "../repository/Bootstrap";
 import { body, oneOf } from "express-validator";
 import { getConfiguredOAuthOptions } from "./oauthConfiguration";
 import z4 from "zod/v4";
 import { mongoClientInstance } from "./mongoClient";
-import { AccountSetupState, checkSetupType, COMPLETED_STATES, isAccountSetupStateAllowed, sendCodeToEmail, sendCodeToPhone, SetupStates, verifyCode } from "./accountSecurityUtilities";
+import { AccountSetupState, checkSetupType, COMPLETED_STATES, formatPrimaryKey, isAccountSetupStateAllowed, sendCodeToEmail, sendCodeToPhone, SetupStates, verifyCode } from "./accountSecurityUtilities";
 
 const db = mongoClientInstance.db(process.env.DB_NAME)
 
+// Configure email and password login options
 const emailAndPasswordOptions:any = {
     enabled: true
 }
@@ -44,19 +45,6 @@ const STAFF_SESSION_EXPIRES_IN = process.env.STAFF_SESSION_EXPIRES_IN ? parseInt
 const STAFF_SESSION_UPDATE_AGE = process.env.STAFF_SESSION_UPDATE_AGE ? parseInt(process.env.STAFF_SESSION_UPDATE_AGE) : 1 * 24 * 60 * 60
 
 
-
-export function formatPrimaryKey(primaryKey:string|number|ObjectId) {
-  if (primaryKey instanceof ObjectId || typeof primaryKey == 'number' ) {
-    return primaryKey
-  }
-  try {
-    const newPrimaryKey = new ObjectId(primaryKey)
-    return newPrimaryKey
-  }
-  catch (e) {
-    return primaryKey
-  }
-}
 
 const customSessionLengthPlugin = () => {
   return {
