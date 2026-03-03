@@ -2,6 +2,26 @@ import { Repository } from "../repository/Bootstrap"
 import { MongoClientDB } from "../repository/Bootstrap"
 import {Session} from "../utils/auth"
 
+export enum ApiKeyAccessLevels {
+  NONE = "NONE",                  // No one may use api keys for these endpoints
+  SYSTEM_ADMIN = "SYSTEM_ADMIN",  // Only system admins may use api keys for these endpoints
+  RESEARCHER = "RESEARCHER",      // Researchers and admins may use api keys for these endpoints
+  PARTICIPANT = "PARTICIPANT",    // Everyone may use api keys for these endpoints
+}
+
+async function checkApiKeyAccessLevel(user:Session["user"], accessLevel:ApiKeyAccessLevels) {
+  if (accessLevel === ApiKeyAccessLevels.NONE) {
+    return false
+  } 
+  if (accessLevel === ApiKeyAccessLevels.SYSTEM_ADMIN) {
+    return user.userType === "admin"
+  }
+  if (accessLevel === ApiKeyAccessLevels.RESEARCHER) {
+    return ["admin", "researcher"].includes(user.userType || "")
+  }
+  
+  return true
+}
 
 // Simple Role-Based-Access-Control (RBAC) to answer: Can (subject) (verb) (object)?
 // The (subject) is indicated as the Authorization header of the HTTP call and passed in here.
@@ -13,8 +33,13 @@ import {Session} from "../utils/auth"
 export async function _authorize(
   authSubject: Session["user"], 
   authType: Array<"self" | "sibling" | "parent"> /* 'root' = [] */, 
-  authObject?: string | null
+  authObject?: string | null,
+  apiKeyAccessLevel = ApiKeyAccessLevels.NONE,
 ):Promise<string|null|undefined> {
+  if (!(await checkApiKeyAccessLevel(authSubject, apiKeyAccessLevel))) {
+    throw new Error("403.security-context-out-of-scope")
+  }
+
   const TypeRepository = new Repository().getTypeRepository()
   
   function authMatches(testAuthType: Array<"self" | "sibling" | "parent">): boolean {

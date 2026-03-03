@@ -1,15 +1,15 @@
-import { betterAuth, BetterAuthPlugin } from "better-auth";
+import { betterAuth, BetterAuthPlugin, GenericEndpointContext } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { createAuthEndpoint, createAuthMiddleware, sessionMiddleware } from "better-auth/api"
 import { setSessionCookie } from "better-auth/cookies"
-import { oneTimeToken, username } from "better-auth/plugins"
+import { apiKey, oneTimeToken, username } from "better-auth/plugins"
 import { parseSetCookie, stringifyCookie } from "cookie";
 import crypto from "crypto";
 import { ObjectId } from "mongodb";
 import { MongoClientDB, Repository } from "../repository/Bootstrap";
 import { body, oneOf } from "express-validator";
 import { getConfiguredOAuthOptions } from "./oauthConfiguration";
-import z4 from "zod/v4";
+import z4, { z } from "zod/v4";
 import { mongoClientInstance } from "./mongoClient";
 import { AccountSetupState, checkSetupType, COMPLETED_STATES, isAccountSetupStateAllowed, sendCodeToEmail, sendCodeToPhone, SetupStates, verifyCode } from "./accountSecurityUtilities";
 
@@ -101,7 +101,7 @@ const customSessionLengthPlugin = () => {
       after: [
         { // ON SUCCESSFUL LOGIN: Update expires at time based on the user's type
           matcher: (ctx) => {
-            return !!ctx.context.newSession && ["/sign-in/username", "/callback/:id"].includes(ctx.path)
+            return !!ctx.context.newSession && ["/sign-in/username", "/callback/:id"].includes(ctx.path || "")
           },
           handler: createAuthMiddleware(async (ctx) => {
             const session = ctx.context.newSession
@@ -496,7 +496,7 @@ const accountSetupPlugin = () => {
         { // ON O-AUTH LINK/LOGIN: Block participants and two factor users from using oauth
           // Note: This must happen before the successful login hook otherwise accountSetupState may be erroneously updated
           matcher: (ctx) => {
-            return ctx.path.startsWith("/callback") && !!ctx.context.newSession
+            return !!ctx.path?.startsWith("/callback") && !!ctx.context.newSession
           },
           handler: createAuthMiddleware(async (ctx) => {
             if (!ctx.context.newSession) { return }
@@ -588,7 +588,7 @@ const accountSetupPlugin = () => {
         },
         { // BLOCK OAUTH SETUP FOR 2FA USERS
           matcher: (ctx) => {
-            return ctx.path.startsWith("/link-social") && !!ctx.context.session
+            return !!ctx.path?.startsWith("/link-social") && !!ctx.context.session
           },
           handler: createAuthMiddleware(async (ctx) => {
             if (!ctx.context.session) {return}
@@ -604,6 +604,37 @@ const accountSetupPlugin = () => {
       ]
     }
   } satisfies BetterAuthPlugin
+}
+
+const apiKeyImprovementsPlugin = () => {
+  return {
+    id: "api-key-improvements-plugin",
+    endpoints: {
+      getApiKeysByUser: createAuthEndpoint(
+        "/api-key/api-key-by-user",
+        {
+          method: "GET",
+          query: z4.object({userId: z.string().nonempty()}),
+          use: [sessionMiddleware]
+        },
+        async (ctx) => {
+          if (!ctx.context.session) {return}
+          const apiKeys = await ctx.context.adapter.findMany({model: "apikey", where: [{field: "userId", value: ctx.query.userId, operator: "eq"}]})
+          const result = apiKeys.map((key: any) => {
+            return {
+              id: key.id,
+              name: key.name,
+              expiresAt: key.expiresAt,
+              createdAt: key.createdAt,
+              metadata: key.metadata,
+              start: key.start,
+            }
+          })
+          return ctx.json(result)
+        }
+      )
+    }
+  }
 }
 
 export const auth = betterAuth({
@@ -670,6 +701,7 @@ export const auth = betterAuth({
         }
       })
     },
+
     plugins:[
       customSessionLengthPlugin(),
       accountSetupPlugin(),
@@ -688,7 +720,12 @@ export const auth = betterAuth({
           const emailValidationResult = await oneOf([body("username").isEmail(), body("username").matches(/^[\w\-]+$/)]).run(req)
           return emailValidationResult.isEmpty()
         } 
-      })
+      }),
+      apiKey({
+        enableSessionForAPIKeys: true,
+        enableMetadata: true,
+      }),
+      apiKeyImprovementsPlugin(),
     ],
     socialProviders: getConfiguredOAuthOptions(),
 })

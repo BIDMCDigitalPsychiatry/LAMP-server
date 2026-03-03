@@ -103,7 +103,7 @@ export async function sendCodeToEmail(email:string) {
 export async function verifyCode(code:string, identifier:string) {
   const result = await fetchTwoFactor(
     "verify",
-    {code, identifier}
+    {code, identifier},
   )
   return await result.text()
 }

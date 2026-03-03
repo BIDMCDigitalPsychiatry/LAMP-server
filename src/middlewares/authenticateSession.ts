@@ -19,6 +19,37 @@ export function skipFullSetupCheck(req: Request, res: Response, next: NextFuncti
 // If the request comes from an authenticated user add the session to the request context
 // If the request does not come from an authenticated user, return an unauthenticated response instead
 export async function authenticateSession(req: Request, res: Response, next: NextFunction) {
+    // If an api key is present in the request, use api key validation
+    const apiKey = req.headers["x-api-key"]
+    if (apiKey && typeof(apiKey) === "string") {
+        try {
+            const verifiedKey = await auth.api.verifyApiKey({
+                body: {
+                    key: apiKey
+                }
+            })
+
+            if (!verifiedKey.valid || verifiedKey.error !== null ) {
+                throw "403.no-such-credentials"
+            }
+
+            const session = await auth.api.getSession({headers: fromNodeHeaders(req.headers)})
+            if (!session) {
+                throw "403.no-such-credentials"
+            }
+
+            res.locals.user = session.user
+            res.locals.session = session.session
+            res.locals.apiKey = verifiedKey
+            next()
+
+        } catch(err) {
+            res.status(403)
+            res.json({message: (err as Error)?.message || "403.no-such-credentials"})
+        }
+        return
+    }
+
     try {
         // Rotate the session if nessecary
         const rotateSessionResult = await auth.api.tryRotateSession(
