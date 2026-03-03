@@ -1,4 +1,4 @@
-import { Repository } from "../repository/Bootstrap"
+import { Repository, Decrypt } from "../repository/Bootstrap"
 import { jwtVerify } from "jose"
 import { MongoClientDB } from "../repository/Bootstrap"
 
@@ -14,7 +14,7 @@ export async function _createAuthSubject(authHeader: string | undefined): Promis
   const authStr = authHeader.replace("Basic", "").trim()
   const auth = (authStr.indexOf(":") >= 0 ? authStr : Buffer.from(authStr, "base64").toString()).split(":", 2)
   if (auth.length !== 2 || !auth[1]) throw new Error("401.missing-credentials")
-  const origin = await CredentialRepository._find(auth[0], auth[1] || "*" /* FIXME: this forces password match */)
+  let origin = await CredentialRepository._find(auth[0], auth[1] || "*" /* FIXME: this forces password match */)
   return {
     origin: origin,
     access_key: auth[0],
@@ -35,9 +35,14 @@ export async function _verify(
   authObject?: string | null
 ): Promise<string> {
   const TypeRepository = new Repository().getTypeRepository()
+  if (authSubject === undefined || typeof authSubject === "string") {
+    if (authSubject?.toString()?.includes("Bearer")) {
+      authSubject = await _createAuthSubjectFromToken(authSubject)
+    } else {
+      authSubject = await _createAuthSubject(authSubject)
+    }
+  }
 
-  // If an actual AuthSubject was not provided, create one first.
-  if (authSubject === undefined || typeof authSubject === "string") authSubject = await _createAuthSubject(authSubject)
   const response: any = {}
   // If an actual AuthSubject was not provided, create one first.
 
@@ -96,6 +101,7 @@ export async function _verify(
 }
 
 export async function _createAuthSubjectFromToken(authHeader: string | undefined): Promise<AuthSubject> {
+  const CredentialRepository = new Repository().getCredentialRepository()
   if (authHeader === undefined) throw new Error("401.missing-credentials")
   // Ensure the Authorization header contains the Bearer token.
   const token = authHeader.replace("Bearer", "").trim()
@@ -114,6 +120,7 @@ export async function _createAuthSubjectFromToken(authHeader: string | undefined
   }
 
   if (!decoded.user_id) throw new Error("401.missing-credentials")
+  // const origin = await CredentialRepository._find(decoded.access_key, Decrypt(decoded.secret_key, "AES256"))
   const origin = decoded.origin
   //if (!origin) throw new Error("404. Not Found")
   return {
@@ -133,7 +140,7 @@ export async function findPermission(accessKey: any) {
   for (let i = 0; i < permissions.length; i++) {
     const item = permissions[i]
 
-    for (const key in item) {
+    for (let key in item) {
       if (key === accessKey) {
         return item[key]
       }
