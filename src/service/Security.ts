@@ -1,12 +1,16 @@
 import { Repository } from "../repository/Bootstrap"
 import { MongoClientDB } from "../repository/Bootstrap"
 import {Session} from "../utils/auth"
+import { ActingUserContext } from "../middlewares/authenticateSession"
 
+// Not all endpoints should be accessible using only an api key
+// For example: You should not be able to use an admin api key to make more admin api keys
+// ApiKeyAccessLevels restrict which types of user may access an endpoint using their api key 
 export enum ApiKeyAccessLevels {
   NONE = "NONE",                  // No one may use api keys for these endpoints
   SYSTEM_ADMIN = "SYSTEM_ADMIN",  // Only system admins may use api keys for these endpoints
   RESEARCHER = "RESEARCHER",      // Researchers and admins may use api keys for these endpoints
-  PARTICIPANT = "PARTICIPANT",    // Everyone may use api keys for these endpoints
+  STANDARD = "STANDARD",          // There are no additional restrictions for api key use
 }
 
 async function checkApiKeyAccessLevel(user:Session["user"], accessLevel:ApiKeyAccessLevels) {
@@ -14,6 +18,7 @@ async function checkApiKeyAccessLevel(user:Session["user"], accessLevel:ApiKeyAc
     return false
   } 
   if (accessLevel === ApiKeyAccessLevels.SYSTEM_ADMIN) {
+    // TODO: Check for actual system admin role permissions
     return user.userType === "admin"
   }
   if (accessLevel === ApiKeyAccessLevels.RESEARCHER) {
@@ -31,14 +36,20 @@ async function checkApiKeyAccessLevel(user:Session["user"], accessLevel:ApiKeyAc
 // - Additionally, the "type" array allows restricting hierarchical ownership of subject -> object.
 //   Use [] (empty array) to indicate that ONLY root credentials are allowed to (verb).
 export async function _authorize(
-  authSubject: Session["user"], 
+  authSubject: ActingUserContext, 
   authType: Array<"self" | "sibling" | "parent"> /* 'root' = [] */, 
   authObject?: string | null,
   apiKeyAccessLevel = ApiKeyAccessLevels.NONE,
 ):Promise<string|null|undefined> {
-  if (!(await checkApiKeyAccessLevel(authSubject, apiKeyAccessLevel))) {
+  const actingUser = authSubject.user
+  const authenticatedApiKey = authSubject.apiKey
+  console.log("> Checking api access level for: ", authSubject)
+  
+  if (!!authenticatedApiKey && !(await checkApiKeyAccessLevel(actingUser, apiKeyAccessLevel))) {
     throw new Error("403.security-context-out-of-scope")
   }
+  
+  console.log("> Checked api key access level")
 
   const TypeRepository = new Repository().getTypeRepository()
   
@@ -61,39 +72,39 @@ export async function _authorize(
   }
   
 
-  const isRoot = authSubject.origin === null;
+  const isRoot = actingUser.origin === null;
   // Non root user's may substitute "me" with their origin
   if (authObject === "me" && !isRoot) {
-    authObject = authSubject.origin 
+    authObject = actingUser.origin 
   } else if (authObject === "me" && isRoot) {
     throw new Error("400.context-substitution-failed")
   }
 
   // Root users can do anything
   if (isRoot) {
-    return authSubject.origin
+    return actingUser.origin
   }
 
   // Check if self permissions apply
-  if (authType.includes("self") && authSubject.origin === authObject || 
+  if (authType.includes("self") && actingUser.origin === authObject || 
   authMatches(["self", "sibling", "parent"]) && authObject === undefined) {
-    return authSubject.origin
+    return actingUser.origin
   }
   
   if (authContains("parent") || authContains("sibling")) {
     let objectOwner = await TypeRepository._owner(authObject ?? "")
-    let subjectOwner = await TypeRepository._owner(authSubject.origin ?? "")
+    let subjectOwner = await TypeRepository._owner(actingUser.origin ?? "")
     
     // Check if sibling permissions apply 
     if (authContains("sibling") && objectOwner === subjectOwner) {
-      return authSubject.origin
+      return actingUser.origin
     }
     
     let currentOwner = objectOwner
     // Check if parent or sibling permissions apply
     while (currentOwner !== null) {
-      if (currentOwner === authSubject.origin) {
-        return authSubject.origin
+      if (currentOwner === actingUser.origin) {
+        return actingUser.origin
       }
       currentOwner = await TypeRepository._owner(currentOwner)
     }
@@ -118,10 +129,4 @@ export async function findPermission(accessKey: any) {
   }
 
   return null
-}
-
-export async function validateInput(input: any) {
-  if (input.length < 50) {
-    return true
-  }
 }

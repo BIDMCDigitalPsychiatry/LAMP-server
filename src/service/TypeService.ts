@@ -1,20 +1,17 @@
 import { Request, Response, Router } from "express"
-import { DynamicAttachment } from "../model/Type"
 import { _authorize } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
-import { validateInput } from "./Security"
-import { authenticateSession } from "../middlewares/authenticateSession"
-import { Session } from "../utils/auth"
+import { ActingUserContext, authenticateSession } from "../middlewares/authenticateSession"
 
 export class TypeService {
   public static _name = "Type"
   public static Router = Router()
 
-  public static async parent(actingUser: Session["user"], type_id: string | null) {
+  public static async parent(actingUserContext: ActingUserContext, type_id: string | null) {
     const TypeRepository = new Repository().getTypeRepository()
-    const response: any = await _authorize(actingUser, ["self", "sibling", "parent"], type_id)
+    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], type_id)
 
     const data = await TypeRepository._parent(type_id as any)
 
@@ -37,16 +34,16 @@ export class TypeService {
     return data
   }
 
-  public static async list(actingUser: Session["user"], type_id: string | null) {
+  public static async list(actingUserContext: ActingUserContext, type_id: string | null) {
     const TypeRepository = new Repository().getTypeRepository()
-    const response: any = await _authorize(actingUser, ["self", "sibling", "parent"], type_id)
+    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], type_id)
     return await TypeRepository._list("a", <string>type_id)
   }
 
-  public static async get(actingUser: Session["user"], type_id: string | null, attachment_key: string, index?: string) {
+  public static async get(actingUserContext: ActingUserContext, type_id: string | null, attachment_key: string, index?: string) {
     const TypeRepository = new Repository().getTypeRepository()
 
-    const response: any = await _authorize(actingUser, ["self", "sibling", "parent"], type_id)
+    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], type_id)
     let obj
 
     if (type_id !== undefined && type_id !== null && type_id !== "me") {
@@ -68,14 +65,14 @@ export class TypeService {
   }
 
   public static async set(
-    actingUser: Session["user"],
+    actingUserContext: ActingUserContext,
     type_id: string | null,
     target: string,
     attachment_key: string,
     attachment_value: any
   ) {
     const TypeRepository = new Repository().getTypeRepository()
-    const response: any = await _authorize(actingUser, ["self", "sibling", "parent"], type_id)
+    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], type_id)
     if (attachment_key === "lamp.automation") {
       PubSubAPIListenerQueue?.add(
         {
@@ -119,7 +116,7 @@ TypeService.Router.get("/:type_id/cordinators", authenticateSession, async (req:
   try {
     let output = {
       data: (await TypeService.parent(
-        res.locals.user,
+        res.locals.actingUserContext,
         req.params.type_id === "null" ? null : req.params.type_id
       )) as any,
     }
@@ -139,7 +136,7 @@ TypeService.Router.get(_parent_routes, authenticateSession, async (req: Request,
   try {
     let output = {
       data: await TypeService.parent(
-        res.locals.user,
+        res.locals.actingUserContext,
         req.params.type_id === "null" ? null : req.params.type_id
       ),
     }
@@ -156,14 +153,14 @@ TypeService.Router.get(_get_routes, authenticateSession, async (req: Request, re
     if (req.params.attachment_key === undefined) {
       res.json({
         data: await TypeService.list(
-          res.locals.user,
+          res.locals.actingUserContext,
           req.params.type_id === "null" ? null : req.params.type_id
         ),
       })
     } else {
       res.json({
         data: await TypeService.get(
-          res.locals.user,
+          res.locals.actingUserContext,
           req.params.type_id === "null" ? null : req.params.type_id,
           req.params.attachment_key,
           req.params.index
@@ -180,7 +177,7 @@ TypeService.Router.put(_put_routes, authenticateSession, async (req: Request, re
   try {
     res.json({
       data: (await TypeService.set(
-        res.locals.user,
+        res.locals.actingUserContext,
         req.params.type_id === "null" ? null : req.params.type_id,
         req.params.target,
         req.params.attachment_key,

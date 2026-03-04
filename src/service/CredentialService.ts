@@ -4,7 +4,7 @@ const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN TH
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 const { credentialValidationRules } = require("../validator/validationRules")
 const { validateRequest } = require("../middlewares/validateRequest")
-import { authenticateSession, skipFullSetupCheck } from "../middlewares/authenticateSession"
+import { ActingUserContext, authenticateSession, skipFullSetupCheck } from "../middlewares/authenticateSession"
 import { auth, convertSetCookieToCookie, Session } from "../utils/auth"
 import { SetupStates } from "../utils/accountSecurityUtilities"
 import { fromNodeHeaders } from "better-auth/node"
@@ -13,17 +13,17 @@ export class CredentialService {
   public static _name = "Credential"
   public static Router = Router()
 
-  public static async list(actingUser: Session["user"], type_id: string | null) {
+  public static async list(actingUserContext: ActingUserContext, type_id: string | null) {
     const CredentialRepository = new Repository().getCredentialRepository()
-    const response: any = await _authorize(actingUser, ["self", "parent"], type_id)
+    const response: any = await _authorize(actingUserContext, ["self", "parent"], type_id)
     return await CredentialRepository._select(type_id)
   }
 
-  public static async create(actingUser: Session["user"], type_id: string | null, credential: any) {
+  public static async create(actingUserContext: ActingUserContext, type_id: string | null, credential: any) {
     const CredentialRepository = new Repository().getCredentialRepository()
     const TypeRepository = new Repository().getTypeRepository()
 
-    await _authorize(actingUser, ["self", "parent"], type_id)
+    await _authorize(actingUserContext, ["self", "parent"], type_id)
     
     let newUserType
     if (credential.origin === null) {
@@ -46,16 +46,16 @@ export class CredentialService {
        account_setup_state: newAccountSetupState})
   }
 
-  public static async get(actingUser: Session["user"], type_id: string | null, access_key: string) {
+  public static async get(actingUserContext: ActingUserContext, type_id: string | null, access_key: string) {
     const CredentialRepository = new Repository().getCredentialRepository()
-    const response: any = await _authorize(actingUser, ["self", "parent"], type_id)
+    const response: any = await _authorize(actingUserContext, ["self", "parent"], type_id)
     let all = await CredentialRepository._select(type_id)
     return all.filter((x) => x.access_key === access_key)
   }
 
-  public static async set(actingUser: Session["user"], type_id: string | null, access_key: string, credential: any | null) {
+  public static async set(actingUserContext: ActingUserContext, type_id: string | null, access_key: string, credential: any | null) {
     const CredentialRepository = new Repository().getCredentialRepository()
-    const response = await _authorize(actingUser, ["self", "parent"], type_id)
+    const response = await _authorize(actingUserContext, ["self", "parent"], type_id)
     if (credential === null) {
       return await CredentialRepository._delete(type_id, access_key)
     } else {
@@ -133,7 +133,7 @@ CredentialService.Router.post(
         return
       }
       const CredentialRepository = new Repository().getCredentialRepository()
-      await _authorize(res.locals.user, ["self", "parent"], req.body.type_id)
+      await _authorize(res.locals.actingUserContext, ["self", "parent"], req.body.type_id)
       
       const matchingCredentials = (await CredentialRepository._select(req.body.type_id)).filter((credential) => credential.access_key === req.body.access_key)
       if (matchingCredentials.length !== 1) {
@@ -166,7 +166,7 @@ CredentialService.Router.get(
     try {
       let output = {
         data: await CredentialService.list(
-          res.locals.user,
+          res.locals.actingUserContext,
           req.params.type_id === "null" ? null : req.params.type_id
         ),
       }
@@ -190,7 +190,7 @@ CredentialService.Router.post(
     try {
       res.json({
         data: await CredentialService.create(
-          res.locals.user,
+          res.locals.actingUserContext,
           req.params.type_id === "null" ? null : req.params.type_id,
           req.body
         ),
@@ -214,7 +214,7 @@ CredentialService.Router.put(
     try {
       res.json({
         data: await CredentialService.set(
-          res.locals.user,
+          res.locals.actingUserContext,
           req.params.type_id === "null" ? null : req.params.type_id,
           req.params.access_key,
           req.body
@@ -236,7 +236,7 @@ CredentialService.Router.delete(
     try {
       res.json({
         data: await CredentialService.set(
-          res.locals.user,
+          res.locals.actingUserContext,
           req.params.type_id === "null" ? null : req.params.type_id,
           req.params.access_key,
           null
@@ -273,7 +273,7 @@ CredentialService.Router.post(
   res.header(ApiResponseHeaders)
   try {
     res.json({
-      data: await CredentialService.logOut(res.locals.session),
+      data: await CredentialService.logOut(res.locals.actingUserContext.session),
     })
   } catch (e: any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -425,8 +425,8 @@ CredentialService.Router.get(
   authenticateSession,
   async (req, res) => {
       res.json(await CredentialService.getLoginResponse({
-        session: res.locals.session,
-        user: res.locals.user
+        session: res.locals.actingUserContext.session,
+        user: res.locals.actingUserContext.user
       }))
   }
 )

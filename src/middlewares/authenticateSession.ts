@@ -1,10 +1,17 @@
 import { NextFunction, Request, Response } from "express";
-import { auth, convertSetCookieToCookie } from "../utils/auth";
+import { auth, convertSetCookieToCookie, Session } from "../utils/auth";
 import { isAccountSetupStateComplete } from "../utils/accountSecurityUtilities";
 import { AccountSetupState } from "../utils/accountSecurityUtilities";
 import { fromNodeHeaders } from "better-auth/node";
 import { MongoClientDB } from "../repository/Bootstrap";
 import { parseSetCookie } from "cookie";
+
+export type ActingUserContext = {
+  user: Session["user"];
+  session: Session["session"];
+  apiKey?: any;
+  requestHeaders: any;
+};
 
 
 // By default authentication fails if the account is not fully set up
@@ -40,7 +47,15 @@ export async function authenticateSession(req: Request, res: Response, next: Nex
 
             res.locals.user = session.user
             res.locals.session = session.session
-            res.locals.apiKey = verifiedKey
+            res.locals.apiKey = verifiedKey.key
+
+            res.locals.actingUserContext = {
+                user: session.user,
+                session: session.session,
+                apiKey: verifiedKey.key,
+                requestHeaders: fromNodeHeaders(req.headers),
+            } as ActingUserContext
+
             next()
 
         } catch(err) {
@@ -96,6 +111,13 @@ export async function authenticateSession(req: Request, res: Response, next: Nex
         // Add session and user to the current response's context
         res.locals.session = session
         res.locals.user = user
+        res.locals.actingUserContext = {
+            user: user,
+            session: session,
+            apiKey: undefined,
+            requestHeaders: res.locals.headersForBetterAuth
+        } as ActingUserContext
+
         next()
 
     }

@@ -1,22 +1,48 @@
 import { Router } from "express"
 import { authenticateSession } from "../middlewares/authenticateSession"
 import { auth, formatPrimaryKey } from "../utils/auth"
-import { fromNodeHeaders } from "better-auth/node"
 import { _authorize, ApiKeyAccessLevels } from "./Security"
 
 export class ApiKeyService {
   public static _name = "ApiKey"
   public static Router = Router()
-}
 
-ApiKeyService.Router.get(
-    "/api-key/sample",
-    authenticateSession,
-    async (req, res) => {
-        console.log("res.locals: ", res.locals)
-        res.json({message: "/api/sample called"})
-    }
-)
+  public static async create(actingUserContext:any, credentialId:string, expiresOn:any, name: string) {
+    // TODO: Implement names and expiry dates...
+    await _authorize(actingUserContext, [], credentialId, ApiKeyAccessLevels.NONE)
+    const apiKey = await auth.api.createApiKey({
+        body: {
+            userId: formatPrimaryKey(credentialId),
+            rateLimitMax: 1000,
+        }
+    })
+    return apiKey
+  }
+
+  public static async listByCredential(actingUserContext:any, credentialId:string) {
+    await _authorize(actingUserContext, [], credentialId, ApiKeyAccessLevels.NONE)
+    const apiKeys = await auth.api.getApiKeysByUser({
+        query: {
+            userId: credentialId
+        },
+        headers: actingUserContext.requestHeaders
+    })
+    return apiKeys
+  }
+
+  public static async delete(actingUserContext:any, apiKeyId: string) {
+    // Todo: Pass the credential associated with apikeyId
+    await _authorize(actingUserContext, [], null, ApiKeyAccessLevels.NONE)
+    const data = await auth.api.deleteApiKey({
+        body: {
+            keyId: apiKeyId
+        },
+        headers: actingUserContext.requestHeaders,
+    })
+    return !!data?.success
+  }
+
+}
 
 /**
  * Create api key
@@ -33,14 +59,7 @@ ApiKeyService.Router.post(
          *    
          */
         try {
-            await _authorize(res.locals.user, [], req.params.credentialId, ApiKeyAccessLevels.NONE)
-            console.log("Authorized!")
-            const apiKey = await auth.api.createApiKey({
-                body: {
-                    userId: formatPrimaryKey(req.params.credentialId),
-                    rateLimitMax: 1000,
-                }
-            })
+            const apiKey = await ApiKeyService.create(res.locals.actingUserContext, req.params.credentialId, "", "")
             res.json({
                 key: apiKey.key
             })
@@ -61,13 +80,7 @@ ApiKeyService.Router.delete(
     async (req, res) => {
         try {
             // TODO: authObject should be owner of the api key
-            await _authorize(res.locals.user, [], null, ApiKeyAccessLevels.NONE)
-            const data = await auth.api.deleteApiKey({
-                body: {
-                    keyId: req.params.keyId
-                },
-                headers: fromNodeHeaders(req.headers)
-            })
+            const data = await ApiKeyService.delete(res.locals.actingUserContext, req.params.keyId)
             res.json({message: "ok"})
         } catch(e) {
             res.status(500)
@@ -82,14 +95,8 @@ ApiKeyService.Router.get(
     authenticateSession,
     async (req, res) => {
         try {
-            await _authorize(res.locals.user, [], req.params.credentialId, ApiKeyAccessLevels.NONE)
-            const data = await auth.api.getApiKeysByUser({
-                query: {
-                    userId: req.params.credentialId
-                },
-                headers: fromNodeHeaders(req.headers)
-            })
-            res.json(data)
+            const apiKeys = await ApiKeyService.listByCredential(res.locals.actingUserContext, req.params.credentialId)
+            res.json(apiKeys)
         } catch (e) {
             res.status(500)
             res.json({error: "500.not-implemented"})
