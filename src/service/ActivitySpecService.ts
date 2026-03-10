@@ -1,5 +1,5 @@
 import { Request, Response, Router } from "express"
-import { _authorize } from "./Security"
+import { _authorize, ApiKeyAccessLevels } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 import { ActingUserContext, authenticateSession } from "../middlewares/authenticateSession"
@@ -13,25 +13,25 @@ export class ActivitySpecService {
 
   public static async list(actingUserContext: ActingUserContext, parent_id: null, ignore_binary?: boolean) {
     const ActivitySpecRepository = new Repository().getActivitySpecRepository()
-    const _ = await _authorize(actingUserContext, ["self", "sibling", "parent"])
+    const _ = await _authorize(actingUserContext, ["self", "sibling", "parent"], null, ApiKeyAccessLevels.RESEARCHER)
     return await ActivitySpecRepository._select(parent_id, ignore_binary)
   }
 
   public static async create(actingUserContext: ActingUserContext, parent_id: null, activity_spec: any) {
     const ActivitySpecRepository = new Repository().getActivitySpecRepository()
-    const _ = await _authorize(actingUserContext, [])
+    const _ = await _authorize(actingUserContext, [], null, ApiKeyAccessLevels.SYSTEM_ADMIN)
     return await ActivitySpecRepository._insert(activity_spec)
   }
 
   public static async get(actingUserContext: ActingUserContext, activity_spec_id: string) {
     const ActivitySpecRepository = new Repository().getActivitySpecRepository()
-    const _ = await _authorize(actingUserContext, ["self", "sibling", "parent"])
+    const _ = await _authorize(actingUserContext, ["self", "sibling", "parent"], null, ApiKeyAccessLevels.RESEARCHER)
     return await ActivitySpecRepository._select(activity_spec_id)
   }
 
   public static async set(actingUserContext: ActingUserContext, activity_spec_id: string, activity_spec: any | null) {
     const ActivitySpecRepository = new Repository().getActivitySpecRepository()
-    const _ = await _authorize(actingUserContext, [])
+    const _ = await _authorize(actingUserContext, [], null, ApiKeyAccessLevels.SYSTEM_ADMIN)
     if (activity_spec === null) {
       return await ActivitySpecRepository._delete(activity_spec_id)
     } else {

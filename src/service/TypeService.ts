@@ -1,5 +1,5 @@
 import { Request, Response, Router } from "express"
-import { _authorize } from "./Security"
+import { _authorize, ApiKeyAccessLevels } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
@@ -11,7 +11,7 @@ export class TypeService {
 
   public static async parent(actingUserContext: ActingUserContext, type_id: string | null) {
     const TypeRepository = new Repository().getTypeRepository()
-    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], type_id)
+    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], type_id, ApiKeyAccessLevels.STANDARD)
 
     const data = await TypeRepository._parent(type_id as any)
 
@@ -36,14 +36,14 @@ export class TypeService {
 
   public static async list(actingUserContext: ActingUserContext, type_id: string | null) {
     const TypeRepository = new Repository().getTypeRepository()
-    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], type_id)
+    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], type_id, ApiKeyAccessLevels.STANDARD)
     return await TypeRepository._list("a", <string>type_id)
   }
 
   public static async get(actingUserContext: ActingUserContext, type_id: string | null, attachment_key: string, index?: string) {
     const TypeRepository = new Repository().getTypeRepository()
 
-    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], type_id)
+    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], type_id, ApiKeyAccessLevels.STANDARD)
     let obj
 
     if (type_id !== undefined && type_id !== null && type_id !== "me") {
@@ -72,7 +72,7 @@ export class TypeService {
     attachment_value: any
   ) {
     const TypeRepository = new Repository().getTypeRepository()
-    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], type_id)
+    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], type_id, ApiKeyAccessLevels.SYSTEM_ADMIN)
     if (attachment_key === "lamp.automation") {
       PubSubAPIListenerQueue?.add(
         {

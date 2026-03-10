@@ -1,5 +1,5 @@
 import { Request, Response, Router } from "express"
-import { _authorize } from "./Security"
+import { _authorize, ApiKeyAccessLevels } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 import { ActingUserContext, authenticateSession } from "../middlewares/authenticateSession"
@@ -14,25 +14,25 @@ export class SensorSpecService {
 
   public static async list(actingUserContext: ActingUserContext, parent_id: null, ignore_binary?: boolean) {
     const SensorSpecRepository = new Repository().getSensorSpecRepository()
-    const _ = await _authorize(actingUserContext, ["self", "sibling", "parent"])
+    const _ = await _authorize(actingUserContext, ["self", "sibling", "parent"], undefined, ApiKeyAccessLevels.RESEARCHER)
     return await SensorSpecRepository._select(parent_id, ignore_binary)
   }
 
   public static async create(actingUserContext: ActingUserContext, parent_id: null, sensor_spec: any) {
     const SensorSpecRepository = new Repository().getSensorSpecRepository()
-    const _ = await _authorize(actingUserContext, [])
+    const _ = await _authorize(actingUserContext, [], undefined, ApiKeyAccessLevels.SYSTEM_ADMIN)
     return await SensorSpecRepository._insert(sensor_spec)
   }
 
   public static async get(actingUserContext: ActingUserContext, sensor_spec_id: string) {
     const SensorSpecRepository = new Repository().getSensorSpecRepository()
-    const _ = await _authorize(actingUserContext, ["self", "sibling", "parent"])
+    const _ = await _authorize(actingUserContext, ["self", "sibling", "parent"], undefined, ApiKeyAccessLevels.RESEARCHER)
     return await SensorSpecRepository._select(sensor_spec_id)
   }
 
   public static async set(actingUserContext: ActingUserContext, sensor_spec_id: string, sensor_spec: any | null) {
     const SensorSpecRepository = new Repository().getSensorSpecRepository()
-    const _ = await _authorize(actingUserContext, [])
+    const _ = await _authorize(actingUserContext, [], undefined, ApiKeyAccessLevels.SYSTEM_ADMIN)
     if (sensor_spec === null) {
       return await SensorSpecRepository._delete(sensor_spec_id)
     } else {

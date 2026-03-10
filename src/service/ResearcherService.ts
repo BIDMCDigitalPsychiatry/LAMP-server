@@ -1,5 +1,5 @@
 import { Request, Response, Router } from "express"
-import { _authorize } from "./Security"
+import { _authorize, ApiKeyAccessLevels } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
 import { Repository, ApiResponseHeaders, MongoClientDB } from "../repository/Bootstrap"
@@ -13,13 +13,13 @@ export class ResearcherService {
 
   public static async list(actingUserContext: ActingUserContext, parent_id: null) {
     const ResearcherRepository = new Repository().getResearcherRepository()
-    const _ = await _authorize(actingUserContext, [])
+    const _ = await _authorize(actingUserContext, [], undefined, ApiKeyAccessLevels.STANDARD)
     return await ResearcherRepository._select()
   }
 
   public static async create(actingUserContext: ActingUserContext, parent_id: null, researcher: any) {
     const ResearcherRepository = new Repository().getResearcherRepository()
-    const _ = await _authorize(actingUserContext, [])
+    const _ = await _authorize(actingUserContext, [], undefined, ApiKeyAccessLevels.STANDARD)
     const data = await ResearcherRepository._insert(researcher)
 
     //publishing data for researcher add api with token = researcher.{_id}
@@ -37,7 +37,7 @@ export class ResearcherService {
 
   public static async get(actingUserContext: ActingUserContext, researcher_id: string) {
     const ResearcherRepository = new Repository().getResearcherRepository()
-    const response: any = await _authorize(actingUserContext, ["self", "parent"], researcher_id)
+    const response: any = await _authorize(actingUserContext, ["self", "parent"], researcher_id, ApiKeyAccessLevels.STANDARD)
     if (response === null) {
       return await ResearcherRepository._select(researcher_id)
     }
@@ -46,7 +46,7 @@ export class ResearcherService {
 
   public static async set(actingUserContext: ActingUserContext, researcher_id: string, researcher: any | null) {
     const ResearcherRepository = new Repository().getResearcherRepository()
-    const response: any = await _authorize(actingUserContext, ["self", "parent"], researcher_id)
+    const response: any = await _authorize(actingUserContext, ["self", "parent"], researcher_id, ApiKeyAccessLevels.STANDARD)
 
     if (researcher === null) {
       const data = await ResearcherRepository._delete(researcher_id)
@@ -178,7 +178,7 @@ ResearcherService.Router.get(
       const _lookup: string = req.params.lookup
       const studyID: string = (!!req.query.study_id ? req.query.study_id : undefined) as any
       let researcher_id: string = req.params.researcher_id
-      const _ = await _authorize(res.locals.actingUserContext, ["self", "parent"], researcher_id)
+      const _ = await _authorize(res.locals.actingUserContext, ["self", "parent"], researcher_id, ApiKeyAccessLevels.STANDARD)
       //PREPARE DATA FROM DATABASE
       let activities: object[] = []
       let sensors: object[] = []
@@ -265,7 +265,7 @@ ResearcherService.Router.get(
       const SensorEventRepository = repo.getSensorEventRepository()
       const ActivityEventRepository = repo.getActivityEventRepository()
       let studyID: string = req.params.study_id
-      const _ = await _authorize(res.locals.actingUserContext, ["self", "parent"], studyID)
+      const _ = await _authorize(res.locals.actingUserContext, ["self", "parent"], studyID, ApiKeyAccessLevels.STANDARD)
       let lookup: string = req.params.lookup
       let mode: number | undefined = Number.parse(req.params.mode)
       //IF THE LOOK UP IS PARTICIPANT

@@ -1,5 +1,5 @@
 import { Request, Response, Router } from "express"
-import { _authorize } from "./Security"
+import { _authorize, ApiKeyAccessLevels } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
@@ -15,7 +15,7 @@ export class SensorService {
   public static async list(actingUserContext: ActingUserContext, study_id: string, ignore_binary: boolean, sibling: boolean = false) {
     const SensorRepository = new Repository().getSensorRepository()
     const TypeRepository = new Repository().getTypeRepository()
-    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], study_id)
+    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], study_id, ApiKeyAccessLevels.RESEARCHER)
     if (sibling) {
       const parent_id = await TypeRepository._owner(study_id)
       if (parent_id === null) throw new Error("403.invalid-sibling-ownership")
@@ -26,7 +26,7 @@ export class SensorService {
 
   public static async create(actingUserContext: ActingUserContext, study_id: string, sensor: any) {
     const SensorRepository = new Repository().getSensorRepository()
-    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], study_id)
+    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], study_id, ApiKeyAccessLevels.SYSTEM_ADMIN)
     const data = await SensorRepository._insert(study_id, sensor)
 
     //publishing data for sensor add api with token = study.{study_id}.sensor.{_id}
@@ -61,14 +61,14 @@ export class SensorService {
 
   public static async get(actingUserContext: ActingUserContext, sensor_id: string) {
     const SensorRepository = new Repository().getSensorRepository()
-    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], sensor_id)
+    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], sensor_id, ApiKeyAccessLevels.RESEARCHER)
     return await SensorRepository._select(sensor_id, false)
   }
 
   public static async set(actingUserContext: ActingUserContext, sensor_id: string, sensor: any | null) {
     const SensorRepository = new Repository().getSensorRepository()
     const TypeRepository = new Repository().getTypeRepository()
-    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], sensor_id)
+    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], sensor_id, ApiKeyAccessLevels.SYSTEM_ADMIN)
     if (sensor === null) {
       //find the study id before delete, as it cannot be fetched after delete
       const parent = (await TypeRepository._parent(sensor_id)) as any

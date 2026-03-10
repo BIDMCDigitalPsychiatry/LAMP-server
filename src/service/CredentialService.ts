@@ -1,5 +1,5 @@
 import { Request, Response, Router } from "express"
-import { _authorize } from "./Security"
+import { _authorize, ApiKeyAccessLevels } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 const { credentialValidationRules } = require("../validator/validationRules")
@@ -15,7 +15,7 @@ export class CredentialService {
 
   public static async list(actingUserContext: ActingUserContext, type_id: string | null) {
     const CredentialRepository = new Repository().getCredentialRepository()
-    const response: any = await _authorize(actingUserContext, ["self", "parent"], type_id)
+    const response: any = await _authorize(actingUserContext, ["self", "parent"], type_id, ApiKeyAccessLevels.STANDARD)
     return await CredentialRepository._select(type_id)
   }
 
@@ -23,7 +23,7 @@ export class CredentialService {
     const CredentialRepository = new Repository().getCredentialRepository()
     const TypeRepository = new Repository().getTypeRepository()
 
-    await _authorize(actingUserContext, ["self", "parent"], type_id)
+    await _authorize(actingUserContext, ["self", "parent"], type_id, ApiKeyAccessLevels.SYSTEM_ADMIN)
     
     let newUserType
     if (credential.origin === null) {
@@ -48,14 +48,14 @@ export class CredentialService {
 
   public static async get(actingUserContext: ActingUserContext, type_id: string | null, access_key: string) {
     const CredentialRepository = new Repository().getCredentialRepository()
-    const response: any = await _authorize(actingUserContext, ["self", "parent"], type_id)
+    const response: any = await _authorize(actingUserContext, ["self", "parent"], type_id, ApiKeyAccessLevels.STANDARD)
     let all = await CredentialRepository._select(type_id)
     return all.filter((x) => x.access_key === access_key)
   }
 
   public static async set(actingUserContext: ActingUserContext, type_id: string | null, access_key: string, credential: any | null) {
     const CredentialRepository = new Repository().getCredentialRepository()
-    const response = await _authorize(actingUserContext, ["self", "parent"], type_id)
+    const response = await _authorize(actingUserContext, ["self", "parent"], type_id, ApiKeyAccessLevels.SYSTEM_ADMIN)
     if (credential === null) {
       return await CredentialRepository._delete(type_id, access_key)
     } else {
@@ -133,7 +133,7 @@ CredentialService.Router.post(
         return
       }
       const CredentialRepository = new Repository().getCredentialRepository()
-      await _authorize(res.locals.actingUserContext, ["self", "parent"], req.body.type_id)
+      await _authorize(res.locals.actingUserContext, ["self", "parent"], req.body.type_id, ApiKeyAccessLevels.NONE)
       
       const matchingCredentials = (await CredentialRepository._select(req.body.type_id)).filter((credential) => credential.access_key === req.body.access_key)
       if (matchingCredentials.length !== 1) {
