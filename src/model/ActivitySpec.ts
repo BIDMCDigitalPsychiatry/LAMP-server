@@ -1,6 +1,7 @@
 type JSONSchema = any
 type Tab = 'learn' | 'assess' | 'manage' | 'prevent'
 export class ActivitySpec {
+  public id?: string
   public name?: string
   public description?: string
   public executable?: string

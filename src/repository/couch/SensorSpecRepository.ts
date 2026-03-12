@@ -20,14 +20,14 @@ export class SensorSpecRepository implements SensorSpecInterface {
   public async _insert(object: SensorSpec): Promise<{}> {
     try {
       const res: any = await Database.use("sensor_spec").find({
-        selector: { _id: object.name, _deleted: false },
+        selector: { _id: object.id || object.name, _deleted: false },
         limit: 1,
       })
       if(res.length > 0) {
         throw new Error("500.SensorSpec-already-exists")
       } else {
           const orig: any = await Database.use("sensor_spec").find({
-            selector: { _id: object.name, _deleted: true },
+            selector: { _id: object.id || object.name, _deleted: true },
             limit: 1,
           })
           if(orig.length > 0) {
@@ -40,7 +40,7 @@ export class SensorSpecRepository implements SensorSpecInterface {
               ]})
           } else {
           await Database.use("sensor_spec").insert({
-            _id: object.name,
+            _id: object.id || object.name,
             settings_schema: object.settings_schema ?? {}
           } as any)
         }

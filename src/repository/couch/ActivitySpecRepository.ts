@@ -16,14 +16,14 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
   public async _insert(object: ActivitySpec): Promise<{}> {
     try {
       const res: any = await Database.use("activity_spec").find({
-        selector: { _id: object.name, _deleted: false },
+        selector: { _id: object.id || object.name, _deleted: false },
         limit: 1,
       })
       if(res.length > 0) {
         throw new Error("500.ActivitySpec-already-exists")
       } else {
         const orig: any = await Database.use("activity_spec").find({
-          selector: { _id: object.name, _deleted: true },
+          selector: { _id: object.id || object.name, _deleted: true },
           limit: 1,
         })
         if(orig.length > 0) {
@@ -36,7 +36,7 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
             ]})
         } else {
           await Database.use("activity_spec").insert({
-            _id: object.name,
+            _id: object.id || object.name,
             description: object.description ?? null,
             executable: object.executable ?? null,
             static_data: object.static_data ?? {},

@@ -20,14 +20,14 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
   public async _insert(object: ActivitySpec): Promise<{}> {
     //save ActivitySpec via ActivitySpec model
     try {
-      let res: any = await MongoClientDB.collection("activity_spec").findOne({ _id: object.name, _deleted:false })
+      let res: any = await MongoClientDB.collection("activity_spec").findOne({ _id: object.id || object.name, _deleted:false })
       if(res !== null) {
         throw new Error("500.ActivitySpec-already-exists")
       } else {
-        const res: any = await MongoClientDB.collection("activity_spec").findOne({ _id: object.name, _deleted:true })
+        const res: any = await MongoClientDB.collection("activity_spec").findOne({ _id: object.id || object.name, _deleted:true })
         if (res === null) { 
           await MongoClientDB.collection("activity_spec").insertOne({
-            _id: object.name,
+            _id: object.id || object.name,
             description: object.description ?? null,
             executable: object.executable ?? null,
             static_data: object.static_data ?? {},
@@ -38,7 +38,7 @@ export class ActivitySpecRepository implements ActivitySpecInterface {
           } as any)
         } else {
           await MongoClientDB.collection("activity_spec").findOneAndUpdate(
-            { _id: object.name },
+            { _id: object.id || object.name },
             {
               $set: {
                 _deleted: false
