@@ -57,6 +57,10 @@
     {
       "name": "Sensor",
       "description": "Operations related to the management of Sensors."
+    },
+    {
+      "name": "ApiKey",
+      "description": "Operations related to the management of API keys."
     }
   ],
   "paths": {
@@ -6374,6 +6378,159 @@
             "lang": "go",
             "label": "R Script",
             "source": "library(LAMP)\nLAMP.connect(\"api.lamp.digital\", \"email@address.com\", \"password\")\n# function-specific sample code here\n"
+          }
+        ]
+      }
+    },
+    "/api-key/{credentialId}": {
+      "post": {
+        "operationId": "ApiKey.create",
+        "summary": "Create an API key for a credential.",
+        "description": "Generate a new API key for the specified credential. Returns the key value (only shown once).",
+        "tags": [
+          "ApiKey"
+        ],
+        "parameters": [
+          {
+            "name": "credentialId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The API key value. Only returned at creation time."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "ApiKey.list",
+        "summary": "List API keys for a credential.",
+        "description": "Get metadata for all API keys associated with the specified credential. Does not return key values.",
+        "tags": [
+          "ApiKey"
+        ],
+        "parameters": [
+          {
+            "name": "credentialId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/api-key/{keyId}": {
+      "delete": {
+        "operationId": "ApiKey.delete",
+        "summary": "Delete an API key.",
+        "description": "Revoke and delete the specified API key.",
+        "tags": [
+          "ApiKey"
+        ],
+        "parameters": [
+          {
+            "name": "keyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
           }
         ]
       }
