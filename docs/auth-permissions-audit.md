@@ -130,9 +130,9 @@ All SDK auth goes through `LAMP.connect()` — no session/login/OAuth routes sho
 | `GET /{type}/{id}/tag` | Permission Level Access | List tag keys |
 | `GET /{type}/{id}/tag/{key}` | Permission Level Access | Get tag value |
 | `PUT /{type}/{id}/tag/{key}/{target}` | Researcher+ | Set/delete tag |
-| `GET /{type}/{id}/attachment` | Researcher+ | List attachments |
-| `GET /{type}/{id}/attachment/{key}` | Researcher+ | Get attachment |
-| `PUT /{type}/{id}/attachment/{key}/{target}` | Researcher+ | Set attachment |
+| `GET /{type}/{id}/attachment` | Permission Level Access | Participants need to read their own attachments (lamp.name, dashboard configs) |
+| `GET /{type}/{id}/attachment/{key}` | Permission Level Access | Same — mindLAMP app reads attachment data |
+| `PUT /{type}/{id}/attachment/{key}/{target}` | Researcher+ | Only researchers set attachments |
 
 *Note: `{type}` expands to researcher, study, participant, activity, sensor in the OpenAPI spec. Tags and attachments currently share the same TypeService methods — see "shared methods" note above.*
 
@@ -150,7 +150,7 @@ All SDK auth goes through `LAMP.connect()` — no session/login/OAuth routes sho
 | Endpoint | Auth | Notes |
 |---|---|---|
 | `POST /api-key/{credentialId}` | System Admin | Create API key |
-| `GET /api-key/{credentialId}` | System Admin | List API keys |
+| `GET /api-key/{credentialId}` | System Admin |  |
 | `DELETE /api-key/{keyId}` | System Admin | Revoke API key |
 
 ### Notifications
