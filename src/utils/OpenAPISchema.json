@@ -115,7 +115,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -263,7 +264,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -330,7 +332,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -478,7 +481,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -626,7 +630,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -693,7 +698,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -990,7 +996,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -1057,7 +1064,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -1214,7 +1222,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -1547,7 +1556,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -1614,7 +1624,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -1771,7 +1782,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -1927,7 +1939,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -1994,7 +2007,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -2151,7 +2165,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -2307,7 +2322,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -2374,7 +2390,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -2531,7 +2548,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -2687,7 +2705,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -2754,7 +2773,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -3237,7 +3257,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -3439,7 +3460,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -3798,7 +3820,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -3954,7 +3977,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -4041,7 +4065,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -4116,7 +4141,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -4362,7 +4388,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -4518,7 +4545,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -4605,7 +4633,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -4680,7 +4709,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -4926,7 +4956,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -5082,7 +5113,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -5169,7 +5201,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -5244,7 +5277,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -5490,7 +5524,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -5646,7 +5681,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -5733,7 +5769,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -5808,7 +5845,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -6054,7 +6092,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -6210,7 +6249,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -6297,7 +6337,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -6372,7 +6413,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
