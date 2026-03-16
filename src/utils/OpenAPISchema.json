@@ -1412,6 +1412,104 @@
         ]
       }
     },
+    "/researcher/{id}/sensor_event": {
+      "get": {
+        "operationId": "Researcher.query_sensor_events",
+        "summary": "Query SensorEvents for a Researcher.",
+        "description": "List SensorEvents produced across all of a Researcher's Studies.",
+        "tags": [
+          "Researcher"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "origin",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "description": "The UNIX Epoch date-time representation: number of milliseconds since 1/1/1970 12:00 AM.",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "description": "The UNIX Epoch date-time representation: number of milliseconds since 1/1/1970 12:00 AM.",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "default": 1000,
+              "description": "The maximum number of events to return in the query. Positive values like +1000 return latest events first, while negative values like -1000 return earliest events first.",
+              "example": "-10"
+            }
+          },
+          {
+            "name": "transform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SensorEvent"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
     "/study/{id}": {
       "put": {
         "operationId": "Study.update",
