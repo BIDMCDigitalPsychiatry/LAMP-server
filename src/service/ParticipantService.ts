@@ -10,22 +10,16 @@ export class ParticipantService {
   public static _name = "Participant"
   public static Router = Router()
 
-  public static async list(actingUserContext: ActingUserContext, study_id: string, sibling = false) {
+  public static async list(actingUserContext: ActingUserContext, study_id: string) {
     const ParticipantRepository = new Repository().getParticipantRepository()
-    const TypeRepository = new Repository().getTypeRepository()
-    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], study_id, ApiKeyAccessLevels.STANDARD)
-    if (sibling) {
-      const parent_id = await TypeRepository._owner(study_id)
-      if (parent_id === null) throw new Error("403.invalid-sibling-ownership")
-      else study_id = parent_id
-    }
+    const response: any = await _authorize(actingUserContext, ["self", "parent"], study_id, ApiKeyAccessLevels.STANDARD)
     return await ParticipantRepository._select(study_id, true)
   }
 
   // TODO: activity/* and sensor/* entry
   public static async create(actingUserContext: ActingUserContext, study_id: string, participant: any) {
     const ParticipantRepository = new Repository().getParticipantRepository()
-    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], study_id, ApiKeyAccessLevels.RESEARCHER)
+    const response: any = await _authorize(actingUserContext, ["self", "parent"], study_id, ApiKeyAccessLevels.RESEARCHER)
     const data = await ParticipantRepository._insert(study_id, participant)
 
     //publishing data for participant add api with token = study.{study_id}.participant.{_id}
@@ -53,7 +47,7 @@ export class ParticipantService {
 
   public static async get(actingUserContext: ActingUserContext, participant_id: string) {
     const ParticipantRepository = new Repository().getParticipantRepository()
-    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], participant_id, ApiKeyAccessLevels.STANDARD)
+    const response: any = await _authorize(actingUserContext, ["self", "parent"], participant_id, ApiKeyAccessLevels.STANDARD)
     if (participant_id !== "me") {
       return await ParticipantRepository._select(participant_id)
     }
@@ -63,7 +57,7 @@ export class ParticipantService {
   public static async set(actingUserContext: ActingUserContext, participant_id: string, participant: any | null) {
     const ParticipantRepository = new Repository().getParticipantRepository()
     const TypeRepository = new Repository().getTypeRepository()
-    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], participant_id, ApiKeyAccessLevels.RESEARCHER)
+    const response: any = await _authorize(actingUserContext, ["self", "parent"], participant_id, ApiKeyAccessLevels.RESEARCHER)
     if (participant === null) {
       //find the study id before delete, as it cannot be fetched after delete
       const parent = (await TypeRepository._parent(participant_id)) as any

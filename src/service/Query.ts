@@ -52,9 +52,9 @@ const METHOD_LIST = (actingUserContext: ActingUserContext) => ({
       },
     },
     Activity: {
-      list: async (study_id: string, ignore_binary: boolean = false, sibling: boolean = false) => {
+      list: async (study_id: string, ignore_binary: boolean = false) => {
         const _start = Date.now()
-        const x = await ActivityService.list(actingUserContext, study_id, ignore_binary, sibling)
+        const x = await ActivityService.list(actingUserContext, study_id, ignore_binary)
         console.log(` -- LAMP.Activity.list: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
@@ -136,9 +136,9 @@ const METHOD_LIST = (actingUserContext: ActingUserContext) => ({
       },
     },
     Participant: {
-      list: async (study_id: string, sibling: boolean = false) => {
+      list: async (study_id: string) => {
         const _start = Date.now()
-        const x = await ParticipantService.list(actingUserContext, study_id, sibling)
+        const x = await ParticipantService.list(actingUserContext, study_id)
         console.log(` -- LAMP.Participant.list: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
@@ -221,9 +221,9 @@ const METHOD_LIST = (actingUserContext: ActingUserContext) => ({
       },
     },
     Sensor: {
-      list: async (study_id: string, ignore_binary: boolean = false, sibling: boolean = false) => {
+      list: async (study_id: string, ignore_binary: boolean = false) => {
         const _start = Date.now()
-        const x = await SensorService.list(actingUserContext, study_id, ignore_binary, sibling)
+        const x = await SensorService.list(actingUserContext, study_id, ignore_binary)
         console.log(` -- LAMP.Sensor.list: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },

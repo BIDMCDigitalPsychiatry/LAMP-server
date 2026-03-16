@@ -13,7 +13,7 @@ export class ActivitySpecService {
 
   public static async list(actingUserContext: ActingUserContext, parent_id: null, ignore_binary?: boolean) {
     const ActivitySpecRepository = new Repository().getActivitySpecRepository()
-    const _ = await _authorize(actingUserContext, ["self", "sibling", "parent"], null, ApiKeyAccessLevels.RESEARCHER)
+    const _ = await _authorize(actingUserContext, ["self", "parent"], null, ApiKeyAccessLevels.RESEARCHER)
     return await ActivitySpecRepository._select(parent_id, ignore_binary)
   }
 
@@ -25,7 +25,7 @@ export class ActivitySpecService {
 
   public static async get(actingUserContext: ActingUserContext, activity_spec_id: string) {
     const ActivitySpecRepository = new Repository().getActivitySpecRepository()
-    const _ = await _authorize(actingUserContext, ["self", "sibling", "parent"], null, ApiKeyAccessLevels.RESEARCHER)
+    const _ = await _authorize(actingUserContext, ["self", "parent"], null, ApiKeyAccessLevels.RESEARCHER)
     return await ActivitySpecRepository._select(activity_spec_id)
   }
 

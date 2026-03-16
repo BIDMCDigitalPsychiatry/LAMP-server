@@ -14,7 +14,7 @@ export class SensorSpecService {
 
   public static async list(actingUserContext: ActingUserContext, parent_id: null, ignore_binary?: boolean) {
     const SensorSpecRepository = new Repository().getSensorSpecRepository()
-    const _ = await _authorize(actingUserContext, ["self", "sibling", "parent"], undefined, ApiKeyAccessLevels.RESEARCHER)
+    const _ = await _authorize(actingUserContext, ["self", "parent"], undefined, ApiKeyAccessLevels.RESEARCHER)
     return await SensorSpecRepository._select(parent_id, ignore_binary)
   }
 
@@ -26,7 +26,7 @@ export class SensorSpecService {
 
   public static async get(actingUserContext: ActingUserContext, sensor_spec_id: string) {
     const SensorSpecRepository = new Repository().getSensorSpecRepository()
-    const _ = await _authorize(actingUserContext, ["self", "sibling", "parent"], undefined, ApiKeyAccessLevels.RESEARCHER)
+    const _ = await _authorize(actingUserContext, ["self", "parent"], undefined, ApiKeyAccessLevels.RESEARCHER)
     return await SensorSpecRepository._select(sensor_spec_id)
   }
 

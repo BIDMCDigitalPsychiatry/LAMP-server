@@ -12,21 +12,15 @@ export class ActivityService {
   public static _name = "Activity"
   public static Router = Router()
 
-  public static async list(actingUserContext: ActingUserContext, study_id: string, ignore_binary: boolean, sibling = false) {
+  public static async list(actingUserContext: ActingUserContext, study_id: string, ignore_binary: boolean) {
     const ActivityRepository = new Repository().getActivityRepository()
-    const TypeRepository = new Repository().getTypeRepository()
-    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], study_id, ApiKeyAccessLevels.STANDARD)
-    if (sibling) {
-      const parent_id = await TypeRepository._owner(study_id)
-      if (parent_id === null) throw new Error("403.invalid-sibling-ownership")
-      else study_id = parent_id
-    }
+    const response: any = await _authorize(actingUserContext, ["self", "parent"], study_id, ApiKeyAccessLevels.STANDARD)
     return await ActivityRepository._select(study_id, true, ignore_binary)
   }
 
   public static async create(actingUserContext: ActingUserContext, study_id: string, activity: any) {
     const ActivityRepository = new Repository().getActivityRepository()
-    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], study_id, ApiKeyAccessLevels.SYSTEM_ADMIN)
+    const response: any = await _authorize(actingUserContext, ["self", "parent"], study_id, ApiKeyAccessLevels.SYSTEM_ADMIN)
     const data = await ActivityRepository._insert(study_id, activity)
 
     //publishing data for activity add api with token = study.{study_id}.activity.{_id}
@@ -66,14 +60,14 @@ export class ActivityService {
 
   public static async get(actingUserContext: ActingUserContext, activity_id: string) {
     const ActivityRepository = new Repository().getActivityRepository()
-    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], activity_id, ApiKeyAccessLevels.STANDARD)
+    const response: any = await _authorize(actingUserContext, ["self", "parent"], activity_id, ApiKeyAccessLevels.STANDARD)
     return await ActivityRepository._select(activity_id, false)
   }
 
   public static async set(actingUserContext: ActingUserContext, activity_id: string, activity: any | null) {
     const ActivityRepository = new Repository().getActivityRepository()
     const TypeRepository = new Repository().getTypeRepository()
-    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], activity_id, ApiKeyAccessLevels.SYSTEM_ADMIN)
+    const response: any = await _authorize(actingUserContext, ["self", "parent"], activity_id, ApiKeyAccessLevels.SYSTEM_ADMIN)
 
     if (activity === null) {
       const parent = (await TypeRepository._parent(activity_id)) as any

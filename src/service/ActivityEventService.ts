@@ -25,13 +25,13 @@ export class ActivityEventService {
   ) {
     const ActivityEventRepository = new Repository().getActivityEventRepository()
     limit = Math.min(Math.max(limit ?? LIMIT_NAN, -LIMIT_MAX), LIMIT_MAX)
-    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], participant_id, ApiKeyAccessLevels.STANDARD)
+    const response: any = await _authorize(actingUserContext, ["self", "parent"], participant_id, ApiKeyAccessLevels.STANDARD)
     return await ActivityEventRepository._select(participant_id, ignore_binary, origin, from, to, limit)
   }
 
   public static async create(actingUserContext: ActingUserContext, participant_id: string, activity_events: any[]) {
     const ActivityEventRepository = new Repository().getActivityEventRepository()
-    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], participant_id, ApiKeyAccessLevels.SYSTEM_ADMIN)
+    const response: any = await _authorize(actingUserContext, ["self", "parent"], participant_id, ApiKeyAccessLevels.SYSTEM_ADMIN)
     let data = await ActivityEventRepository._insert(participant_id, activity_events)
 
     //publishing data for activity_event add api((Token will be created in PubSubAPIListenerQueue consumer, as request is assumed as array and token should be created individually)

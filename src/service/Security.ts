@@ -37,7 +37,7 @@ async function checkApiKeyAccessLevel(user:Session["user"], accessLevel:ApiKeyAc
 //   Use [] (empty array) to indicate that ONLY root credentials are allowed to (verb).
 export async function _authorize(
   authSubject: ActingUserContext, 
-  authType: Array<"self" | "sibling" | "parent"> /* 'root' = [] */, 
+  authType: Array<"self" | "parent"> /* 'root' = [] */,
   authObject?: string | null,
   apiKeyAccessLevel = ApiKeyAccessLevels.NONE,
 ):Promise<string|null|undefined> {
@@ -53,7 +53,7 @@ export async function _authorize(
 
   const TypeRepository = new Repository().getTypeRepository()
   
-  function authMatches(testAuthType: Array<"self" | "sibling" | "parent">): boolean {
+  function authMatches(testAuthType: Array<"self" | "parent">): boolean {
     // Returns true if the the provided authType matches the one passed into the function and false otherwise
     if (testAuthType.length !== authType.length) {
       return false
@@ -66,7 +66,7 @@ export async function _authorize(
     return true
   }
   
-  function authContains(permission: "self" | "sibling" | "parent"): boolean {
+  function authContains(permission: "self" | "parent"): boolean {
     // Returns true if the provided permission is included in the authType passed to _authorize
     return authType.includes(permission)
   }
@@ -86,22 +86,16 @@ export async function _authorize(
   }
 
   // Check if self permissions apply
-  if (authType.includes("self") && actingUser.origin === authObject || 
-  authMatches(["self", "sibling", "parent"]) && authObject === undefined) {
+  if (authType.includes("self") && actingUser.origin === authObject ||
+  authMatches(["self", "parent"]) && authObject === undefined) {
     return actingUser.origin
   }
-  
-  if (authContains("parent") || authContains("sibling")) {
+
+  if (authContains("parent")) {
     let objectOwner = await TypeRepository._owner(authObject ?? "")
-    let subjectOwner = await TypeRepository._owner(actingUser.origin ?? "")
-    
-    // Check if sibling permissions apply 
-    if (authContains("sibling") && objectOwner === subjectOwner) {
-      return actingUser.origin
-    }
-    
+
     let currentOwner = objectOwner
-    // Check if parent or sibling permissions apply
+    // Check if parent permissions apply
     while (currentOwner !== null) {
       if (currentOwner === actingUser.origin) {
         return actingUser.origin
