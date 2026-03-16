@@ -1401,6 +1401,85 @@
         ]
       }
     },
+    "/researcher/{id}/study/clone": {
+      "post": {
+        "operationId": "Researcher.clone_study",
+        "summary": "Clone a Study for a Researcher.",
+        "description": "Create a new Study under the specified Researcher by cloning an existing Study. Copies activities (including group activities), sensors, and optionally creates a participant with temporary credentials.",
+        "tags": [
+          "Researcher"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The Researcher ID to create the cloned Study under."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "The name for the new Study."
+                  },
+                  "study_id": {
+                    "type": "string",
+                    "description": "The ID of the source Study to clone activities and sensors from. If empty or omitted, creates an empty Study."
+                  },
+                  "should_add_participant": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "If true, creates a Participant with temporary credentials in the new Study."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "string",
+                      "description": "The ID of the newly created Study."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
     "/study/{id}": {
       "put": {
         "operationId": "Study.update",
