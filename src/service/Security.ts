@@ -43,14 +43,11 @@ export async function _authorize(
 ):Promise<string|null|undefined> {
   const actingUser = authSubject.user
   const authenticatedApiKey = authSubject.apiKey
-  console.log("> Checking api access level for: ", authSubject)
   
   if (!!authenticatedApiKey && !(await checkApiKeyAccessLevel(actingUser, apiKeyAccessLevel))) {
     throw new Error("403.security-context-out-of-scope")
   }
   
-  console.log("> Checked api key access level")
-
   const TypeRepository = new Repository().getTypeRepository()
   
   function authMatches(testAuthType: Array<"self" | "sibling" | "parent">): boolean {

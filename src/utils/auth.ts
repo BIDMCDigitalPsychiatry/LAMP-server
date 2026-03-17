@@ -1,4 +1,4 @@
-import { betterAuth, BetterAuthPlugin, GenericEndpointContext } from "better-auth";
+import { betterAuth, BetterAuthPlugin, GenericEndpointContext, Where } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { createAuthEndpoint, createAuthMiddleware, sessionMiddleware } from "better-auth/api"
 import { setSessionCookie } from "better-auth/cookies"
@@ -326,6 +326,7 @@ const accountSetupPlugin = () => {
               } else {
                 sendResult = await sendCodeToPhone(contact.phone as string)
               }
+              
               if (sendResult !== "ok") {
                 throw new Error("500.failed-to-send")
               }
@@ -631,6 +632,38 @@ const apiKeyImprovementsPlugin = () => {
             }
           })
           return ctx.json(result)
+        }
+      ),
+      adminDeleteApiKey: createAuthEndpoint(
+        "/api-key/admin-delete-api-key",
+        {
+          method: "POST",
+          body: z4.object({keyId: z.string().nonempty()}),
+          use: [sessionMiddleware]
+        },
+        async (ctx) => {
+          if (!ctx.context.session) {return}
+
+          if (ctx.context.session.user.userType !== "admin") {
+            return ctx.error("UNAUTHORIZED")
+          }
+          
+          const where = [{field: "_id", value: ctx.body.keyId}]
+          const result = await ctx.context.adapter.findOne({
+            model: "apikey",
+            where: where
+          })
+          
+          if (!result) {
+            return ctx.error("NOT_FOUND")
+          }
+          
+          await ctx.context.adapter.delete({
+            model: "apikey",
+            where: where
+          })
+
+          return ctx.json({success: true})
         }
       )
     }

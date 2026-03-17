@@ -33,8 +33,7 @@ export class CredentialRepository implements CredentialInterface {
       .toArray()
     return res.map((x: any) => ({
       ...x,
-      secret_key: null,
-      _id: undefined,
+      secret_key: undefined,
       _deleted: undefined,
     }))
   }

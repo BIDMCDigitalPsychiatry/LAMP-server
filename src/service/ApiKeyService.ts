@@ -1,20 +1,28 @@
-import { Router } from "express"
+import { Request, Response, Router } from "express"
 import { authenticateSession } from "../middlewares/authenticateSession"
 import { auth, formatPrimaryKey } from "../utils/auth"
 import { _authorize, ApiKeyAccessLevels } from "./Security"
+import { body, checkSchema, validationResult } from "express-validator"
 
 export class ApiKeyService {
   public static _name = "ApiKey"
   public static Router = Router()
 
-  public static async create(actingUserContext:any, credentialId:string, expiresOn:any, name: string) {
-    // TODO: Implement names and expiry dates...
+  public static async create(actingUserContext:any, credentialId:string, expiresIn: number | null, name: string) {
     await _authorize(actingUserContext, [], credentialId, ApiKeyAccessLevels.NONE)
+
+    const createBody: any = {
+        userId: formatPrimaryKey(credentialId),
+        rateLimitMax: 1000,
+        name: name,
+    }
+
+    if (!!expiresIn) {
+        createBody.expiresIn = expiresIn
+    }
+
     const apiKey = await auth.api.createApiKey({
-        body: {
-            userId: formatPrimaryKey(credentialId),
-            rateLimitMax: 1000,
-        }
+        body: createBody
     })
     return apiKey
   }
@@ -33,13 +41,18 @@ export class ApiKeyService {
   public static async delete(actingUserContext:any, apiKeyId: string) {
     // Todo: Pass the credential associated with apikeyId
     await _authorize(actingUserContext, [], null, ApiKeyAccessLevels.NONE)
-    const data = await auth.api.deleteApiKey({
-        body: {
-            keyId: apiKeyId
-        },
-        headers: actingUserContext.requestHeaders,
-    })
-    return !!data?.success
+
+    try {
+        const result:any = await auth.api.adminDeleteApiKey({
+            body: {
+                keyId: apiKeyId
+            },
+            headers: actingUserContext.requestHeaders,
+        })
+        return !!result?.success
+    } catch(e) {
+        return false
+    }
   }
 
 }
@@ -50,23 +63,35 @@ export class ApiKeyService {
 ApiKeyService.Router.post(
     "/api-key/:credentialId",
     authenticateSession,
-    async (req, res) => {
-        /**
-         * body should have: 
-         *    userId
-         *    api key name
-         *    expiration date/leese time
-         *    
-         */
+    body("name").trim().notEmpty(),
+    body("expiresOn").isISO8601().toDate().optional(),
+    async (req: Request, res: Response) => {
+
+        // Validate post data
         try {
-            const apiKey = await ApiKeyService.create(res.locals.actingUserContext, req.params.credentialId, "", "")
+            validationResult(req).throw()
+            if (req.body.expiresOn?.valueOf() <= Date.now()) {
+                throw "400.invalid-parameters"
+            }
+        } catch (e: any) {
+            res.status(400)
+            res.json({error: "400.invalid-parameters"})
+            return
+        }
+
+        try {
+            const apiKey = await ApiKeyService.create(
+                res.locals.actingUserContext,
+                req.params.credentialId,
+                !!req.body.expiresOn ? (req.body.expiresOn.valueOf() - Date.now()) / 1000 : null,
+                req.body.name,
+            )
             res.json({
                 key: apiKey.key
             })
         } catch(e) {
-            console.log("EEEEE", e)
             res.status(500)
-            res.json({error: "500.not-implemented"})
+            res.json({error: "500.ApiKey-creation-failed"})
         }
     }
 )
@@ -79,12 +104,15 @@ ApiKeyService.Router.delete(
     authenticateSession,
     async (req, res) => {
         try {
-            // TODO: authObject should be owner of the api key
             const data = await ApiKeyService.delete(res.locals.actingUserContext, req.params.keyId)
-            res.json({message: "ok"})
+            if (data) {
+                res.json({message: "ok"})
+            } else {
+                throw "500.deletion-failed"
+            }
         } catch(e) {
             res.status(500)
-            res.json({error: "500.not-implemented"})
+            res.json({error: "500.deletion-failed"})
         }
     }
 )
@@ -99,7 +127,7 @@ ApiKeyService.Router.get(
             res.json(apiKeys)
         } catch (e) {
             res.status(500)
-            res.json({error: "500.not-implemented"})
+            res.json({error: "500.list-failed"})
         }
     }
 )
