@@ -23,13 +23,13 @@ export class ActivityEventService {
   ) {
     const ActivityEventRepository = new Repository().getActivityEventRepository()
     limit = Math.min(Math.max(limit ?? LIMIT_NAN, -LIMIT_MAX), LIMIT_MAX)
-    participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
+    participant_id = await _verify(auth, ["self", "parent"], participant_id)
     return await ActivityEventRepository._select(participant_id, ignore_binary, origin, from, to, limit)
   }
 
   public static async create(auth: any, participant_id: string, activity_events: any[]) {
     const ActivityEventRepository = new Repository().getActivityEventRepository()
-    participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
+    participant_id = await _verify(auth, ["self", "parent"], participant_id)
     let data = await ActivityEventRepository._insert(participant_id, activity_events)
 
     //publishing data for activity_event add api((Token will be created in PubSubAPIListenerQueue consumer, as request is assumed as array and token should be created individually)
