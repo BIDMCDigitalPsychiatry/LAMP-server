@@ -31,6 +31,10 @@ export async function _verify(
   authType: Array<"self" | "sibling" | "parent"> /* 'root' = [] */,
   authObject?: string | null
 ): Promise<string> {
+  function authTypeMatches(targetAuthType: Array<"self" | "sibling" | "parent">) {
+    return (targetAuthType.length === authType.length && 
+            authType.every((v: "self" | "sibling" | "parent") => targetAuthType.includes(v)))
+  }
   const TypeRepository = new Repository().getTypeRepository()
 
   // If an actual AuthSubject was not provided, create one first.
@@ -53,7 +57,7 @@ export async function _verify(
   
   // Check if `authObject` and `authSubject` are the same || authenticated for  resource * 
   if ((!isRoot && authType.includes("self") && (authSubject.origin === authObject))
-      || (JSON.stringify(authType) === JSON.stringify(["self", "sibling", "parent"]) && authObject === undefined))
+      || (authTypeMatches(["parent", "self"]) && authObject === undefined))
     return authObject as any 
   
   // Optimization.

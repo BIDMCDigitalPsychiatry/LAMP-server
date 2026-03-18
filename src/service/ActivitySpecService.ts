@@ -9,7 +9,7 @@ export class ActivitySpecService {
 
   public static async list(auth: any, parent_id: null, ignore_binary?: boolean) {
     const ActivitySpecRepository = new Repository().getActivitySpecRepository()
-    const _ = await _verify(auth, ["self", "sibling", "parent"])
+    const _ = await _verify(auth, ["self", "parent"])
     return await ActivitySpecRepository._select(parent_id, ignore_binary)
   }
 
@@ -21,7 +21,7 @@ export class ActivitySpecService {
 
   public static async get(auth: any, activity_spec_id: string) {
     const ActivitySpecRepository = new Repository().getActivitySpecRepository()
-    const _ = await _verify(auth, ["self", "sibling", "parent"])
+    const _ = await _verify(auth, ["self", "parent"])
     return await ActivitySpecRepository._select(activity_spec_id)
   }
 

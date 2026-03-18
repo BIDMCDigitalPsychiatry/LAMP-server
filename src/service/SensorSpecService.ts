@@ -9,7 +9,7 @@ export class SensorSpecService {
 
   public static async list(auth: any, parent_id: null, ignore_binary?: boolean) {
     const SensorSpecRepository = new Repository().getSensorSpecRepository()
-    const _ = await _verify(auth, ["self", "sibling", "parent"])
+    const _ = await _verify(auth, ["self", "parent"])
     return await SensorSpecRepository._select(parent_id, ignore_binary)
   }
 
@@ -21,7 +21,7 @@ export class SensorSpecService {
 
   public static async get(auth: any, sensor_spec_id: string) {
     const SensorSpecRepository = new Repository().getSensorSpecRepository()
-    const _ = await _verify(auth, ["self", "sibling", "parent"])
+    const _ = await _verify(auth, ["self", "parent"])
     return await SensorSpecRepository._select(sensor_spec_id)
   }
 
