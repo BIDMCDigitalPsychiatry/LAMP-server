@@ -147,13 +147,13 @@ CredentialService.Router.post(
       })
       res.json(clearSetupResult)
     } catch (e:any) {
-      const message = e?.message || "500.clear-account-setup-failed"
-      if (message) {
-        res.status(404)
+      if (e?.message) {
+        res.status(401)
+        res.json({error: e.message})
       } else {
         res.status(500)
+        res.json({error: "500.clear-account-setup-failed"})
       }
-      res.json({error: message})
     }
   }
 )
@@ -206,7 +206,6 @@ CredentialService.Router.put(
     (type) => `/${type}/:type_id/credential/:access_key`
   ),
   authenticateSession,
-  credentialValidationRules(),
   validateRequest,
   async (req: Request, res: Response) => {
 
@@ -414,8 +413,8 @@ CredentialService.Router.get(
       res.json(await CredentialService.getLoginResponse(session))
       return
     }
-    res.status(404)
-    res.json({error: "404.no-such-credentials"})
+    res.status(403)
+    res.json({error: "403.no-such-credentials"})
   }
 )
 

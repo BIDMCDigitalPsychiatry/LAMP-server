@@ -123,7 +123,7 @@ export class CredentialRepository implements CredentialInterface {
         const user = await MongoClientDB.collection("credential").findOne({access_key: userEmail})
         if (user._deleted) {
           await this._logout(res.response.token)
-          throw new Error("404.no-such-credentials-deleted")
+          throw new Error("403.no-such-credentials-deleted")
         }
       }
 

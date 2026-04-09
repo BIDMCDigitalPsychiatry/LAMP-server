@@ -422,7 +422,7 @@ const accountSetupPlugin = () => {
           const userToReset = (await internalAdapter.findUserByEmail(ctx.body.accessKey))?.user
           
           if (!userToReset) {
-            return ctx.error("BAD_REQUEST", {"message": "user does not exist"})
+            return ctx.error("BAD_REQUEST", {"message": "401.no-such-account"})
           }
 
           // Delete all current accounts
