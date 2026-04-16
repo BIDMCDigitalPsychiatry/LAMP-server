@@ -1,4 +1,4 @@
-import { betterAuth, BetterAuthPlugin, GenericEndpointContext, Where } from "better-auth";
+import { betterAuth, BetterAuthPlugin } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { createAuthEndpoint, createAuthMiddleware, sessionMiddleware } from "better-auth/api"
 import { setSessionCookie } from "better-auth/cookies"
@@ -6,7 +6,7 @@ import { apiKey, oneTimeToken, username } from "better-auth/plugins"
 import { parseSetCookie, stringifyCookie } from "cookie";
 import crypto from "crypto";
 import { ObjectId } from "mongodb";
-import { MongoClientDB, Repository } from "../repository/Bootstrap";
+import { MongoClientDB } from "../repository/Bootstrap";
 import { body, oneOf } from "express-validator";
 import { getConfiguredOAuthOptions } from "./oauthConfiguration";
 import z4, { z } from "zod/v4";
