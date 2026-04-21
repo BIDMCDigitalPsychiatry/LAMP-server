@@ -23,14 +23,14 @@ export class SensorEventService {
     limit: number | undefined
   ) {
     const SensorEventRepository = new Repository().getSensorEventRepository()
-    participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
+    participant_id = await _verify(auth, ["self", "parent"], participant_id)
     limit = Math.min(Math.max(limit ?? LIMIT_NAN, -LIMIT_MAX), LIMIT_MAX)
     return await SensorEventRepository._select(participant_id, ignore_binary,origin, from, to, limit)
   }
 
   public static async create(auth: any, participant_id: string, sensor_events: any[]) {
     const SensorEventRepository = new Repository().getSensorEventRepository()
-    participant_id = await _verify(auth, ["self", "sibling", "parent"], participant_id)
+    participant_id = await _verify(auth, ["self", "parent"], participant_id)
     let data = {}
     //check for the existance of cache size and redis host
     if (!!process.env.REDIS_HOST) {
