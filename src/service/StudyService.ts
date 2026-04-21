@@ -13,14 +13,14 @@ export class StudyService {
 
   public static async list(auth: any, researcher_id: string) {
     const StudyRepository = new Repository().getStudyRepository()
-    await _verify(auth, ["self", "parent"], researcher_id)
+    const response: any = await _verify(auth, ["self", "parent"], researcher_id)
     return await StudyRepository._select(researcher_id, true)
   }
 
   public static async create(auth: any, researcher_id: string, study: any) {
     const StudyRepository = new Repository().getStudyRepository()
 
-    await _verify(auth, ["self", "parent"], researcher_id)
+    const response: any = await _verify(auth, ["self", "parent"], researcher_id)
     const data = await StudyRepository._insert(researcher_id, study)
 
     //publishing data for study add api with token = researcher.{researcher_id}.study.{_id}
@@ -61,9 +61,9 @@ export class StudyService {
   public static async set(auth: any, study_id: string, study: any | null) {
     const StudyRepository = new Repository().getStudyRepository()
     const TypeRepository = new Repository().getTypeRepository()
-    await _verify(auth, ["self", "parent"], study_id)
+    const response: any = await _verify(auth, ["self", "parent"], study_id)
     if (study === null) {
-      const parent = (await TypeRepository._parent(study_id)) as any
+      let parent = (await TypeRepository._parent(study_id)) as any
       const data = await StudyRepository._delete(study_id)
 
       //publishing data for study delete api with Token researcher.{researcher_id}.study.{study_id}
@@ -203,28 +203,27 @@ StudyService.Router.post(
       const TypeRepository = new Repository().getTypeRepository()
       const SensorRepository = new Repository().getSensorRepository()
       const ParticipantRepository = new Repository().getParticipantRepository()
-      const researcher_id = req.params.researcher_id
+      let researcher_id = req.params.researcher_id
       const study = req.body
-      await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
+      const response: any = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
       const output = { data: await StudyRepository._insert(researcher_id, study) }
-      const should_add_participant: boolean = req.body.should_add_participant ?? false
-      const StudyID: string | undefined =
+      let should_add_participant: boolean = req.body.should_add_participant ?? false
+      let StudyID: string | undefined =
         req.body.study_id === "" || req.body.study_id === "null" ? undefined : req.body.study_id
       if (!!StudyID) {
-        const activitiesResult = await ActivityRepository._select(StudyID, true)
-        const activities = Array.isArray(activitiesResult) ? activitiesResult : activitiesResult.data
-        const sensors = await SensorRepository._lookup(StudyID, true)
-        const GrpActivities = new Array()
-        const ClonedActivities = new Array()
+        let activities = await ActivityRepository._select(StudyID, true)
+        let sensors = await SensorRepository._lookup(StudyID, true)
+        let GrpActivities = new Array()
+        let ClonedActivities = new Array()
 
-        for (const activity of activities) {
+        for (let activity of activities) {
           //process group activities later
           if (activity.spec === "lamp.group") {
             GrpActivities.push(activity)
             continue
           }
           try {
-            const object: any = {
+            let object: any = {
               name: activity.name,
               spec: activity.spec,
               settings: activity.settings,
@@ -252,10 +251,10 @@ StudyService.Router.post(
             console.log("error clone1", error)
           }
         }
-        const NewGroupActivities = new Array()
+        let NewGroupActivities = new Array()
         if (GrpActivities.length) {
           for (const GrpActivity of GrpActivities) {
-            const settings = new Array()
+            let settings = new Array()
             for (const ClonedActivity of ClonedActivities) {
               for (const groupMapId of GrpActivity.settings) {
                 if (groupMapId === ClonedActivity.id) {
@@ -290,7 +289,7 @@ StudyService.Router.post(
 
         //clone sensors  to new studyid
         for (const sensor of sensors) {
-          const object = { name: sensor.name, spec: sensor.spec, settings: sensor.settings }
+          let object = { name: sensor.name, spec: sensor.spec, settings: sensor.settings }
           await SensorRepository._insert(output["data"], object)
         }
       }
