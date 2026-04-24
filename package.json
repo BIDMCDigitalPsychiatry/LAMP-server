@@ -57,7 +57,8 @@
     "test": "jest --watch",
     "lint": "eslint src/**/*.ts",
     "prepare": "husky install",
-    "migrateBasicAuthServer": "docker compose up -d && dotenv ts-node ./src/migrateBasicAuthServer.ts"
+    "migrateBasicAuthServer": "docker compose up -d && dotenv ts-node ./src/migrateBasicAuthServer.ts",
+    "runBasicAuthServerReport": "docker compose up -d && dotenv ts-node ./src/utils/dataMigrations/basicAuthReportStandaloneScript.ts"
   },
   "eslintConfig": {
     "extends": [

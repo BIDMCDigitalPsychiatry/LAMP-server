@@ -1,6 +1,7 @@
 import { MongoClientDB } from "../../repository/Bootstrap";
-import z4 from "zod/v4";
 import fs from "node:fs";
+import { body } from "express-validator";
+
 
 // Data integrity check pre-migration
 /**
@@ -39,9 +40,8 @@ export async function runBasicAuthMigrationDataReport() {
     ]).toArray()
 
     const annotated = Object.fromEntries(
-        countedAccessKeys.map((doc: any) => {
-            const isEmail = z4.email().safeParse(doc._id).success
-
+        await Promise.all(countedAccessKeys.map(async (doc: any) => {
+            const isEmail = await body("access_key").isEmail().run({body: {access_key: doc._id}})
             return [
                 doc._id,
                 {
@@ -50,9 +50,8 @@ export async function runBasicAuthMigrationDataReport() {
                     fakeEmail: isEmail ? undefined : `${doc._id}@${EMAIL_DOMAIN}` 
                 }
             ]
-        })
+        }))
     )
-
 
     const duplicateKeys = Object.entries(annotated).filter(([key, data]) => data.duplicates).map(([key, data]) => key)
     for (let key of duplicateKeys) {
