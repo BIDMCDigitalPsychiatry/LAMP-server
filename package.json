@@ -8,6 +8,7 @@
     "bull": "^3.29.3",
     "cors": "^2.8.5",
     "express": "^4.17.1",
+    "express-validator": "^7.3.2",
     "ioredis": "^4.22.0",
     "mongodb": "^3.6.20",
     "morgan": "^1.9.1",
@@ -57,7 +58,8 @@
     "deploy": "rimraf bin && pkg . -t node10-alpine-x64,node10-linux-x64,node10-macos-x64 --out-path bin/",
     "start-sw": "dotenv node build/src/index.js",
     "start": "npm run build && npm run start-sw",
-    "test": "jest --watch"
+    "test": "jest --watch",
+    "runBasicAuthServerReport": "docker compose up -d && dotenv ts-node ./src/utils/dataMigrations/basicAuthReportStandaloneScript.ts"
   },
   "pkg": {
     "scripts": [

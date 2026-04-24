@@ -1,6 +1,7 @@
 
 # !!!
 .env*
+migrationDataReportLatest.json
 
 # !!
 node_modules/

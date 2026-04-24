@@ -14,5 +14,6 @@
     "resolveJsonModule": true,
     "inlineSourceMap": true,
     "allowSyntheticDefaultImports": true,
+    "lib": ["es2019"]
   }
 }
