@@ -27,7 +27,7 @@ import { body } from "express-validator";
  * This script writes a report of all conflicts to `./migrationDataReportLatest.json`
  */
 
-const EMAIL_DOMAIN = "example.com"
+const EMAIL_DOMAIN = "digitalpsych.org"
 
 export async function runBasicAuthMigrationDataReport() {
     const duplicateReportData: any = {}
@@ -41,7 +41,7 @@ export async function runBasicAuthMigrationDataReport() {
 
     const annotated = Object.fromEntries(
         await Promise.all(countedAccessKeys.map(async (doc: any) => {
-            const isEmail = await body("access_key").isEmail().run({body: {access_key: doc._id}})
+            const isEmail = ! (await body("access_key").isEmail().run({body: {access_key: doc._id}})).array().length
             return [
                 doc._id,
                 {
