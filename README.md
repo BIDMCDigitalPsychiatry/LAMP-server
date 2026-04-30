@@ -16,6 +16,7 @@
         - If you are having trouble figuring out what the mongodbuser is called try:
             - `mongodb`
             - Running the command: `docker exec -it <mongo docker container id> id -u mongodb`, and using the output as the mongodbuser in the chown command
+    - The `mongo-init` service in `docker-compose.yaml` runs `rs.initiate()` automatically on first start (and is a no-op afterward), so no manual step is required to bootstrap the replica set.
 7. Run `npm run dev`. Take note of the administrator password the command will print out the first time it is run successfully.
 8. Log into the server via the dashboard using "admin" as the e-mail, and the password from step 7.
 

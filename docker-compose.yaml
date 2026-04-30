@@ -1,4 +1,3 @@
-version: '3'
 services:
   mongo:
     image: mongo
@@ -11,6 +10,38 @@ services:
     command: ["--replSet", "rs0", "--bind_ip_all", "--keyFile", "/mongoDevKeyfile.txt"]
     ports:
       - 27017:27017
+  mongo-init:
+    image: mongo
+    depends_on:
+      - mongo
+    restart: "no"
+    environment:
+      MONGO_USER: root
+      MONGO_PASS: password
+    entrypoint:
+      - bash
+      - -c
+      - |
+        set -e
+
+        AUTH=(--host mongo:27017 -u "$$MONGO_USER" -p "$$MONGO_PASS" --authenticationDatabase admin --quiet)
+
+        echo "mongo-init: waiting for mongo..."
+        until mongosh "$${AUTH[@]}" --eval 'db.runCommand({ping:1})' >/dev/null 2>&1; do
+          sleep 1
+        done
+
+        echo "mongo-init: initializing replica set rs0..."
+        mongosh "$${AUTH[@]}" --eval '
+          try {
+            rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "localhost:27017" }] });
+            print("  -> initialized");
+          } catch (e) {
+            if (e.codeName === "AlreadyInitialized") {
+              print("  -> already initialized");
+            } else { throw e; }
+          }
+        '
   mongo-express:
     image: mongo-express
     restart: always
