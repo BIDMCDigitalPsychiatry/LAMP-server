@@ -2,7 +2,7 @@ import { betterAuth, BetterAuthPlugin } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { createAuthEndpoint, createAuthMiddleware, sessionMiddleware } from "better-auth/api"
 import { setSessionCookie } from "better-auth/cookies"
-import { apiKey, oneTimeToken, username } from "better-auth/plugins"
+import { apiKey, oneTimeToken, username, jwt, bearer } from "better-auth/plugins"
 import { parseSetCookie, stringifyCookie } from "cookie";
 import crypto from "crypto";
 import { ObjectId } from "mongodb";
@@ -12,6 +12,7 @@ import { getConfiguredOAuthOptions } from "./oauthConfiguration";
 import z4, { z } from "zod/v4";
 import { mongoClientInstance } from "./mongoClient";
 import { AccountSetupState, checkSetupType, COMPLETED_STATES, isAccountSetupStateAllowed, sendCodeToEmail, sendCodeToPhone, SetupStates, verifyCode } from "./accountSecurityUtilities";
+import { error } from "console";
 
 const db = mongoClientInstance.db(process.env.DB_NAME)
 
@@ -59,6 +60,7 @@ export function formatPrimaryKey(primaryKey:string|number|ObjectId) {
 }
 
 const customSessionLengthPlugin = () => {
+  // customSessionLength supports account types with different session lengths
   return {
     id: "participant-session-plugin",
     endpoints: {
@@ -544,7 +546,6 @@ const accountSetupPlugin = () => {
           handler: createAuthMiddleware(async (ctx) => {
             if (!ctx.context.newSession) { return }
             const {session, user} = ctx.context.newSession
-            console.log(session)
             if (session.require2FAVerification !== undefined) { return }
             const internalAdapter = ctx.context.internalAdapter
             
@@ -670,6 +671,39 @@ const apiKeyImprovementsPlugin = () => {
   }
 }
 
+const MobileAuthTokenPlugin = () => {
+  return {
+    id: "mobile-auth-token-plugin",
+    endpoints: {
+      mobileAuthGetSession: createAuthEndpoint(
+        "/mobile-auth/get-session",
+        {
+          method: "POST",
+          body: z4.object({token: z.string().nonempty()})
+        },
+        async (ctx) => {
+          // Verify that the JWT is signed and valid
+          const payload: any = (await verifyJWT(ctx.body.token))?.payload
+          if (!payload) {
+            return ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+          }
+
+          // Find the session associated with the mobile token
+          const session = await ctx.context.internalAdapter.findSession(payload.sessionToken)
+          if (session && session?.session?.expiresAt.getTime() > Date.now()) {
+            // Add the session cookie to to the response so future betterauth api calls can use it
+            ctx.context.setNewSession(session)
+            setSessionCookie(ctx, session)
+            return ctx.json(session)
+          }
+
+          return ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+        }
+      )
+    }
+  } satisfies BetterAuthPlugin
+}
+
 export const auth = betterAuth({
     database: mongodbAdapter(db, {client: mongoClientInstance}),
     basePath: "/api/auth",
@@ -759,6 +793,20 @@ export const auth = betterAuth({
         enableMetadata: true,
       }),
       apiKeyImprovementsPlugin(),
+      jwt({
+        jwt: {
+          definePayload({user, session}) {
+            const payload = {
+              userId: user.id,
+              sessionToken: session.token,
+              dashboardUrl: process.env.DASHBOARD_URL,
+              serverUrl: process.env.BETTER_AUTH_URL,
+            }
+            return payload
+          },
+        }
+      }),
+      MobileAuthTokenPlugin(),
     ],
     socialProviders: getConfiguredOAuthOptions(),
 })
@@ -769,10 +817,15 @@ export type Session = typeof auth.$Infer.Session
 export function convertSetCookieToCookie(headers:Headers) {
   // Extract all set-cookie headers from headers and return the cookie header string
   // This is used when we need to call an authenticated better-auth api end point immediately after
-  // logging in
+  // logging in or rotating a participant session
   const allSetCookies = (headers as any).getSetCookie().map((setCookie: string) => parseSetCookie(setCookie))
   const cookieDict = Object.fromEntries(allSetCookies.map((setCookie:any) => ([setCookie.name, setCookie.value])))
   return stringifyCookie(cookieDict)
+}
+
+async function verifyJWT(jwt: string) {
+  const result = await auth.api.verifyJWT({body: {token: jwt}})
+  return result
 }
 
 // The Encrypt and Decrypt functions are used to support servers upgraded from basic auth servers

@@ -4,10 +4,11 @@ const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN TH
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 const { credentialValidationRules } = require("../validator/validationRules")
 const { validateRequest } = require("../middlewares/validateRequest")
-import { ActingUserContext, authenticateSession, skipFullSetupCheck } from "../middlewares/authenticateSession"
+import { ActingUserContext, authenticateMobileSession, authenticateSession, configureAuth, skipFullSetupCheck } from "../middlewares/authenticateSession"
 import { auth, convertSetCookieToCookie, Session } from "../utils/auth"
 import { SetupStates } from "../utils/accountSecurityUtilities"
 import { fromNodeHeaders } from "better-auth/node"
+import { body } from "express-validator"
 
 export class CredentialService {
   public static _name = "Credential"
@@ -80,7 +81,13 @@ export class CredentialService {
     // we have just created the session
     const session = await auth.api.getSession({headers: getSessionHeaders})
 
-    const responseBody = session ? await this.getLoginResponse(session) : {}
+    // Create response
+    const responseBody = session ? await this.getLoginResponse(session) : ({} as any)
+    
+    // Add mobile auth token to the response
+    const token = await auth.api.getToken({headers:getSessionHeaders})
+    responseBody.mobileAuthToken = token.token
+    
     return {headers: headers, response: responseBody}
   }
 
@@ -490,3 +497,27 @@ CredentialService.Router.post(
     }
   }
 )
+
+CredentialService.Router.get(
+  "/mobile-refresh",
+  configureAuth({allowMobileToken: true, disallowSessionCookie: true}),
+  authenticateSession,
+  async (req, res) => {
+    console.log("top of mobile refresh")
+    const token = await auth.api.generateOneTimeToken({
+      headers: fromNodeHeaders(req.headers)
+    })
+    res.json(token)
+  }
+)
+
+// TODO: REMOVE THIS IS FOR TESTING ONLY!
+CredentialService.Router.post(
+  "/mobile-token",
+  configureAuth({allowMobileToken: true, skipFullSetupCheck: true, disallowSessionCookie: true}),
+  authenticateSession,
+  async (req, res) => {
+    res.json({message: "successfully authed...", result: res.locals.actingUserContext})
+  }
+)
+
