@@ -4,11 +4,10 @@ const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN TH
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 const { credentialValidationRules } = require("../validator/validationRules")
 const { validateRequest } = require("../middlewares/validateRequest")
-import { ActingUserContext, authenticateMobileSession, authenticateSession, configureAuth, skipFullSetupCheck } from "../middlewares/authenticateSession"
+import { ActingUserContext, authenticateSession, AuthFlag, configureAuth } from "../middlewares/authenticateSession"
 import { auth, convertSetCookieToCookie, Session } from "../utils/auth"
 import { SetupStates } from "../utils/accountSecurityUtilities"
 import { fromNodeHeaders } from "better-auth/node"
-import { body } from "express-validator"
 
 export class CredentialService {
   public static _name = "Credential"
@@ -85,8 +84,13 @@ export class CredentialService {
     const responseBody = session ? await this.getLoginResponse(session) : ({} as any)
     
     // Add mobile auth token to the response
-    const token = await auth.api.getToken({headers:getSessionHeaders})
-    responseBody.mobileAuthToken = token.token
+    const mobileAuthToken = (await auth.api.getToken({headers:getSessionHeaders})).token
+    const mobileRefreshToken = (await auth.api.createRefreshToken({
+      body: {token: mobileAuthToken}, headers: getSessionHeaders})).refreshToken
+    responseBody.mobileAuth = {
+      accessToken: mobileAuthToken,
+      refreshToken: mobileRefreshToken
+    }
     
     return {headers: headers, response: responseBody}
   }
@@ -273,7 +277,7 @@ CredentialService.Router.post(`/login`, async (req: Request, res: Response) => {
 
 CredentialService.Router.post(
   "/logout", 
-  skipFullSetupCheck,
+  configureAuth([AuthFlag.skipFullSetupCheck]),
   authenticateSession,
   async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
@@ -364,7 +368,7 @@ CredentialService.Router.get(
 // OAuth Link Account
 CredentialService.Router.post(
   "/link-social/:socialProvider",
-  skipFullSetupCheck,
+  configureAuth([AuthFlag.skipFullSetupCheck]),
   authenticateSession,
   async (req, res) => {
     const result = await auth.api.linkSocialAccount({
@@ -394,7 +398,7 @@ CredentialService.Router.get(
   async (req, res) => {
     // Validates a one time token, and returns the associated session
     // information, and session login cookies
-    // Should be called by the frontend after a successful o-auth login
+    // Used after a successful o-auth login, or when opening the webview in the mobile app
     const validateResult = await auth.api.verifyOneTimeToken({
       method: "POST",
       body: {
@@ -427,7 +431,7 @@ CredentialService.Router.get(
 
 CredentialService.Router.get(
   "/session-info",
-  skipFullSetupCheck,
+  configureAuth([AuthFlag.skipFullSetupCheck]),
   authenticateSession,
   async (req, res) => {
       res.json(await CredentialService.getLoginResponse({
@@ -439,7 +443,7 @@ CredentialService.Router.get(
 
 CredentialService.Router.post(
   "/setup-2fa",
-  skipFullSetupCheck,
+  configureAuth([AuthFlag.skipFullSetupCheck]),
   authenticateSession,
   async (req, res) => {
     const r = await auth.api.configure2FA({
@@ -461,7 +465,7 @@ CredentialService.Router.post(
 
 CredentialService.Router.post(
   "/send-2fa",
-  skipFullSetupCheck,
+  configureAuth([AuthFlag.skipFullSetupCheck]),
   authenticateSession,
   async (req, res) => {
     const r = await auth.api.send2FACode({
@@ -479,7 +483,7 @@ CredentialService.Router.post(
 
 CredentialService.Router.post(
   "/verify-2fa",
-  skipFullSetupCheck,
+  configureAuth([AuthFlag.skipFullSetupCheck]),
   authenticateSession,
   async (req, res) => {
     const r = await auth.api.verify2FACode({
@@ -499,25 +503,88 @@ CredentialService.Router.post(
 )
 
 CredentialService.Router.get(
-  "/mobile-refresh",
-  configureAuth({allowMobileToken: true, disallowSessionCookie: true}),
+  "/mobile-token/one-time-login",
+  configureAuth([AuthFlag.allowMobileToken, AuthFlag.disallowCookie, AuthFlag.skipFullSetupCheck]),
   authenticateSession,
   async (req, res) => {
-    console.log("top of mobile refresh")
-    const token = await auth.api.generateOneTimeToken({
-      headers: fromNodeHeaders(req.headers)
+    // Used by the mobile app to open the webview for logged in users
+    // Creates a one time token that can be used with "GET /login/one-time-token/<token>"
+    // Also rotates participant sessions and creates new mobile auth keys
+
+    const responseBody: any = {}
+
+    // Try to rotate the session
+    const rotateSessionResult = await auth.api.tryRotateSession({
+      headers: res.locals.actingUserContext.requestHeaders,
+      returnHeaders: true
     })
-    res.json(token)
+
+    // Get new mobiles keys if the session was rotated
+    if (rotateSessionResult.response.sessionRotated) {
+      res.locals.actingUserContext.requestHeaders.set("cookie", convertSetCookieToCookie(rotateSessionResult.headers))
+      const newMobileKeys = await auth.api.createMobileTokens({headers: res.locals.actingUserContext.requestHeaders})
+      responseBody.mobileKeys = newMobileKeys
+    }
+
+    // Get the one time login token
+    const oneTimeLoginToken = await auth.api.generateOneTimeToken({
+      headers: res.locals.actingUserContext.requestHeaders
+    })
+    responseBody.webViewRefreshToken = oneTimeLoginToken.token
+
+    res.json(responseBody)
   }
 )
 
-// TODO: REMOVE THIS IS FOR TESTING ONLY!
 CredentialService.Router.post(
-  "/mobile-token",
-  configureAuth({allowMobileToken: true, skipFullSetupCheck: true, disallowSessionCookie: true}),
-  authenticateSession,
+  "/mobile-token/refresh",
   async (req, res) => {
-    res.json({message: "successfully authed...", result: res.locals.actingUserContext})
+    // Called by the mobile app to obtain new access and refesh tokens when 
+    // the previous access token expires. 
+    // Body should be of the form: {refreshToken: "<refresh token value>"}
+
+    const throwInvalidRefresh = () => {
+      res.status(400)
+      res.json({error: "400.invalid-refresh-token"})
+    }
+    
+    // Parse refresh token
+    if (!req.body.refreshToken) {
+      throwInvalidRefresh()
+      return
+    }
+    const refreshTokenPayload = (await auth.api.verifyJWT({body: {token: req.body.refreshToken}}))?.payload
+    if (!refreshTokenPayload) {
+      throwInvalidRefresh()
+      return
+    }
+
+    // Get the session
+    let getSessionResult
+    try {
+      getSessionResult = await auth.api.mobileAuthGetSession({
+        body: {token: req.body.refreshToken}, 
+        returnHeaders: true
+      })
+    } catch(err) {
+      throwInvalidRefresh()
+      return
+    }
+    const {response, headers} = getSessionResult
+    const {session, user} = response
+    
+    // Check that this is the correct refresh token for this session
+    if (refreshTokenPayload.refreshId !== session.currentRefreshToken) {
+      throwInvalidRefresh()
+      return
+    }
+    
+    // Create a new refresh token and access token
+    const newHeaders = new Headers()
+    newHeaders.set("cookie", convertSetCookieToCookie(headers))
+
+    const newTokens = await auth.api.createMobileTokens({headers: newHeaders})
+    
+    res.json(newTokens)
   }
 )
-
