@@ -53,7 +53,8 @@
     "start": "npm run build && npm run start-sw",
     "test": "jest --watch",
     "lint": "eslint src/**/*.ts",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "loadTestData": "dotenv ts-node ./src/loadTestData.ts"
   },
   "eslintConfig": {
     "extends": [
