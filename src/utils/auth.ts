@@ -11,7 +11,7 @@ import { body, oneOf } from "express-validator";
 import { getConfiguredOAuthOptions } from "./oauthConfiguration";
 import z4 from "zod/v4";
 import { mongoClientInstance } from "./mongoClient";
-import { AccountSetupState, checkSetupType, COMPLETED_STATES, isAccountSetupStateAllowed, sendCodeToEmail, sendCodeToPhone, SetupStates, verifyCode } from "./accountSecurityUtilities";
+import { AccountSetupState, checkSetupType, COMPLETED_STATES, isAccountSetupStateAllowed, OneTimeTokenRequestFlows, sendCodeToEmail, sendCodeToPhone, SetupStates, verifyCode } from "./accountSecurityUtilities";
 
 const db = mongoClientInstance.db(process.env.DB_NAME)
 
@@ -229,6 +229,7 @@ const accountSetupPlugin = () => {
           },
         }
       },
+
     },
     endpoints: {
       configure2FA: createAuthEndpoint(
@@ -749,55 +750,92 @@ const MobileAuthTokenPlugin = () => {
             const newToken: any = await signJWT(newRefreshPayload)
             return ctx.json(newToken)
           }
-        ),
-        createRefreshToken: createAuthEndpoint(
-          // Gets a mobile access token and refresh token for the logged in user
-          // This should only be called as a direct result of a successful login
-          "mobile-auth/create-refresh-token",
-          {
-            method: "POST",
-            body: z4.object({token: z4.string().nonempty()}),
-            use: [sessionMiddleware],
-          },
-          async (ctx) => {
-            const {session, user} = ctx.context.session
-            const mobileTokenPayload = (await verifyJWT(ctx.body.token))?.payload
+      ),
+      createRefreshToken: createAuthEndpoint(
+        // Gets a mobile access token and refresh token for the logged in user
+        // This should only be called as a direct result of a successful login
+        "mobile-auth/create-refresh-token",
+        {
+          method: "POST",
+          body: z4.object({token: z4.string().nonempty()}),
+          use: [sessionMiddleware],
+        },
+        async (ctx) => {
+          const {session, user} = ctx.context.session
+          const mobileTokenPayload = (await verifyJWT(ctx.body.token))?.payload
 
-            if (!mobileTokenPayload || mobileTokenPayload?.sessionToken !== session.token) {
-              throw ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+          if (!mobileTokenPayload || mobileTokenPayload?.sessionToken !== session.token) {
+            throw ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+          }
+
+          const refreshTokenPayload = createRefreshTokenPayload(ctx.context.session)
+          const refreshToken = (await signJWT(refreshTokenPayload))?.token as string
+          await ctx.context.internalAdapter.updateSession(session.token, {
+            currentRefreshToken: refreshTokenPayload.refreshId
+          })
+
+          return ctx.json({refreshToken: refreshToken})
+        }
+      ),
+      createMobileTokens: createAuthEndpoint(
+        "mobile-auth/create-access-token",
+        {
+          method: "GET",
+          use: [sessionMiddleware],
+        },
+        async (ctx) => {
+          const {session, user} = ctx.context.session
+          
+          const accessTokenPayload = createAccessTokenPayload(ctx.context.session)
+          const refreshTokenPayload = createRefreshTokenPayload(ctx.context.session)
+
+          const accessToken = (await signJWT(accessTokenPayload)).token as string
+          const refreshToken = (await signJWT(refreshTokenPayload)).token as string
+
+          await ctx.context.internalAdapter.updateSession(session.token, {
+            currentRefreshToken: refreshTokenPayload.refreshId
+          })
+
+          return ctx.json({accessToken, refreshToken})
+        }
+      )
+    },
+    hooks: {
+      after: [
+        {
+          matcher: (ctx) => {return ctx.path === "/one-time-token/generate"},
+          handler: createAuthMiddleware(
+            async (ctx) => {
+              const token = (ctx.context.returned as any)?.token
+              if (ctx.query?.oneTimeTokenRequestFlow && token) {
+                const verificationValue = await ctx.context.internalAdapter.findVerificationValue(`one-time-token:${token}`)
+                await ctx.context.internalAdapter.createVerificationValue({
+                  identifier: `one-time-token-request-flow:${token}`,
+                  value: ctx.query.oneTimeTokenRequestFlow,
+                  expiresAt: verificationValue?.expiresAt as Date,
+                })
+              }        
             }
+          )
+        },
+        {
+          matcher: (ctx) => {return ctx.path === "/one-time-token/verify"},
+          handler: createAuthMiddleware(
+            async (ctx) => {
+              const token = ctx.body.token
+              if (!token || ! ctx.context.newSession?.session) { return }
+              const identifier = `one-time-token-request-flow:${token}`
+              const verificationValue = await ctx.context.internalAdapter.findVerificationValue(`one-time-token-request-flow:${token}`)
+             
+              ctx.context.returned = {...ctx.context.returned || {}, oneTimeTokenRequestFlow: verificationValue?.value}
 
-            const refreshTokenPayload = createRefreshTokenPayload(ctx.context.session)
-            const refreshToken = (await signJWT(refreshTokenPayload))?.token as string
-            await ctx.context.internalAdapter.updateSession(session.token, {
-              currentRefreshToken: refreshTokenPayload.refreshId
-            })
-
-            return ctx.json({refreshToken: refreshToken})
-          }
-        ),
-        createMobileTokens: createAuthEndpoint(
-          "mobile-auth/create-access-token",
-          {
-            method: "GET",
-            use: [sessionMiddleware],
-          },
-          async (ctx) => {
-            const {session, user} = ctx.context.session
-            
-            const accessTokenPayload = createAccessTokenPayload(ctx.context.session)
-            const refreshTokenPayload = createRefreshTokenPayload(ctx.context.session)
-
-            const accessToken = (await signJWT(accessTokenPayload)).token as string
-            const refreshToken = (await signJWT(refreshTokenPayload)).token as string
-
-            await ctx.context.internalAdapter.updateSession(session.token, {
-              currentRefreshToken: refreshTokenPayload.refreshId
-            })
-
-            return ctx.json({accessToken, refreshToken})
-          }
-        )
+              if (verificationValue) {
+                await ctx.context.internalAdapter.deleteVerificationByIdentifier(identifier)
+              }
+            }
+          )
+        }
+      ]
     }
   } satisfies BetterAuthPlugin
 }
@@ -832,6 +870,13 @@ export const auth = betterAuth({
     secret: process.env.BETTER_AUTH_SECRET,
     emailAndPassword: emailAndPasswordOptions,
     account: {
+      accountLinking: {
+        trustedProviders: [
+          "google",
+          "microsoft",
+          "apple"
+        ]
+      },
       fields: {
         accountId: "_id",
       }
@@ -895,7 +940,8 @@ export const auth = betterAuth({
       customSessionLengthPlugin(),
       accountSetupPlugin(),
       oneTimeToken({
-        disableClientRequest: true
+        disableClientRequest: true,
+        storeToken: "plain",
       }),
       username({
         usernameValidator: async (username) => {

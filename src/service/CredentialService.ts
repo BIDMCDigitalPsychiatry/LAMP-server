@@ -1,4 +1,4 @@
-import { Request, Response, Router } from "express"
+import { Request, response, Response, Router } from "express"
 import { _authorize, ApiKeyAccessLevels } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
@@ -6,7 +6,7 @@ const { credentialValidationRules } = require("../validator/validationRules")
 const { validateRequest } = require("../middlewares/validateRequest")
 import { ActingUserContext, authenticateSession, AuthFlag, configureAuth } from "../middlewares/authenticateSession"
 import { auth, convertSetCookieToCookie, Session } from "../utils/auth"
-import { SetupStates } from "../utils/accountSecurityUtilities"
+import { OneTimeTokenRequestFlows, SetupStates } from "../utils/accountSecurityUtilities"
 import { fromNodeHeaders } from "better-auth/node"
 
 export class CredentialService {
@@ -353,7 +353,10 @@ CredentialService.Router.get(
         const finishLoginToken = await auth.api.generateOneTimeToken({
           method: "GET",
           headers: newHeaders,
-          asResponse: true
+          asResponse: true,
+          query: {
+            oneTimeTokenRequestFlow: OneTimeTokenRequestFlows.OAUTH
+          }
         })
         if (finishLoginToken.status === 200) {
           const finishLoginTokenBody = await finishLoginToken.json()
@@ -407,21 +410,29 @@ CredentialService.Router.get(
       asResponse: true
     })
     if (validateResult.status === 200) {
-      const session = await validateResult.json()
+      const validateBody = await validateResult.json()
+      const session = {session: validateBody.session, user: validateBody.user}
       
-      // Finalize oauth setup
-      // (Makes no changes if setup is already complete)
-      const newHeaders = new Headers()
-      newHeaders.set("cookie", convertSetCookieToCookie(validateResult.headers))
-      try {
-        const finalizeOauthSetupResult = await auth.api.finalizeOauthSetup({
-          headers: newHeaders,
-        })
-      } catch (e) {
+      let responseBody = {}
+      if (validateBody.oneTimeTokenRequestFlow === OneTimeTokenRequestFlows.OAUTH) {
+        // Finalize oauth setup
+        // (Makes no changes if setup is already complete)
+        const newHeaders = new Headers()
+        newHeaders.set("cookie", convertSetCookieToCookie(validateResult.headers))
+        try {
+          const finalizeOauthSetupResult = await auth.api.finalizeOauthSetup({
+            headers: newHeaders,
+          })
+        } catch (e) {
+        }
+
+        // If this login token was generated as part of an oauth flow, include mobile auth tokens
+        responseBody = {mobileAuth: await auth.api.createMobileTokens({headers: newHeaders})}
       }
 
+      responseBody = {...responseBody, ... await CredentialService.getLoginResponse(session)}
       res.setHeader("set-cookie", validateResult.headers.get("set-cookie") || "")
-      res.json(await CredentialService.getLoginResponse(session))
+      res.json(responseBody)
       return
     }
     res.status(403)
@@ -431,7 +442,7 @@ CredentialService.Router.get(
 
 CredentialService.Router.get(
   "/session-info",
-  configureAuth([AuthFlag.skipFullSetupCheck]),
+  configureAuth([AuthFlag.skipFullSetupCheck, AuthFlag.allowMobileToken]),
   authenticateSession,
   async (req, res) => {
       res.json(await CredentialService.getLoginResponse({
@@ -528,7 +539,10 @@ CredentialService.Router.get(
 
     // Get the one time login token
     const oneTimeLoginToken = await auth.api.generateOneTimeToken({
-      headers: res.locals.actingUserContext.requestHeaders
+      headers: res.locals.actingUserContext.requestHeaders,
+      query: {
+        oneTimeTokenRequestFlow: OneTimeTokenRequestFlows.MOBILE_TOKEN_REFRESH
+      }
     })
     responseBody.webViewRefreshToken = oneTimeLoginToken.token
 

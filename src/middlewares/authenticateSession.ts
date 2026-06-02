@@ -37,7 +37,7 @@ export function configureAuth(flags: AuthFlag[]) {
 // If the request comes from an authenticated user add the session to the request context
 // If the request does not come from an authenticated user, return an unauthenticated response instead
 export async function authenticateSession(req: Request, res: Response, next: NextFunction) {
-    const options = res.locals.authRouteOptions
+    const options = res.locals.authRouteOptions || {}
     let actingUserContext = undefined
     // If mobile auth is allowed, try authenticating with a mobile token
     if (options[AuthFlag.allowMobileToken]) {
