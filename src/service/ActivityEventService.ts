@@ -3,7 +3,7 @@ import { _authorize, ApiKeyAccessLevels } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
-import { ActingUserContext, authenticateSession } from "../middlewares/authenticateSession"
+import { ActingUserContext, authenticateSession, AuthFlag, configureAuth } from "../middlewares/authenticateSession"
 import { Session } from "../utils/auth"
 
 // default to LIMIT_NAN, clamped to [-LIMIT_MAX, +LIMIT_MAX]
@@ -116,6 +116,7 @@ ActivityEventService.Router.post(
 
 ActivityEventService.Router.get(
   "/participant/:participant_id/activity_event",
+  configureAuth([AuthFlag.allowMobileToken]),
   authenticateSession,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
