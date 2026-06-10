@@ -187,6 +187,9 @@
           },
           {
             "SessionLogin": []
+          },
+          {
+            "MobileToken": []
           }
         ],
         "responses": {
@@ -321,12 +324,13 @@
           "Authentication"
         ],
         "x-internal": true,
+        "description": "Consumes a one time token and responds with a valid session cookie, and the current session information. Called as the final step of the oauth login process, or when opening the web view for a logged in user in the web app.",
         "parameters": [
           {
             "name": "finishLoginToken",
             "in": "path",
             "required": true,
-            "description": "The one time token provided in the query string of `/login/<socialProviderId>/callback`",
+            "description": "The one time token provided in the query string of `/login/<socialProviderId>/callback`, or returned from a call to `/mobile-token/one-time-login`.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -338,8 +342,8 @@
         ],
         "responses": {
           "200": {
-            "description": "Current session info",
-            "content": {
+            "description": "Current session info. Only includes mobile auth tokens when the `finishLoginToken` was created as part of an oauth login flow.",
+            "content": { 
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/currentSessionInfo"
@@ -631,6 +635,72 @@
                     "error": {
                       "type": "string",
                       "example": "500.clear-account-setup-failed"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mobile-token/refresh": {
+      "parameters": [],
+      "post": {
+        "tags": ["Authentication"],
+        "x-internal": true,
+        "description": "Called to get new mobile auth tokens when the old access token expires",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["refreshToken"],
+                "properties": {
+                  "refreshToken": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully refreshed mobile tokens",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/mobileAuthTokens"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/unauthorizedResponse"
+          }
+        }
+      }
+    },
+    "/mobile-token/one-time-login": {
+      "parameters": [],
+      "post": {
+        "tags": ["Authentication"],
+        "x-internal": true,
+        "description": "Creates a one time login token that can be used to call `/login/one-time-token/{finishLoginToken}`. When called by participants, this may retire the old session.",
+        "responses": {
+          "200": {
+            "description": "Successfully created a login token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "mobileKeys": {
+                      "$ref": "#/components/schemas/mobileAuthTokens"
+                    },
+                    "webViewRefreshToken": {
+                      "type": "string"
                     }
                   }
                 }
@@ -4472,6 +4542,12 @@
         "type": "apiKey",
         "in": "cookie",
         "name": "better-auth.session_token"
+      },
+      "MobileToken": {
+        "description": "Authenticated by including a mobile auth jwt token in the header. A mobile auth token is returned after a successful credential login using the `/login` endpoint, or after a successful oauth login flow using the `/login/one-time-token/{finishLoginToken}` endpoint.",
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization"
       }
     },
     "schemas": {
@@ -4504,6 +4580,7 @@
       },
       "currentSessionInfo": {
         "type": "object",
+        "required": ["accessKey", "userType", "me", "require2FAVerification", "accountSetupState"],
         "properties": {
           "accessKey": {
             "type": "string",
@@ -4522,6 +4599,22 @@
           },
           "accountSetupState": {
             "$ref": "#/components/schemas/accountSetupState"
+          },
+          "mobileAuth": {
+            "$ref": "#/components/schemas/mobileAuthTokens"
+          },
+        }
+      },
+      "mobileAuthTokens": {
+        "type": "object",
+        "required": ["accessToken", "refreshToken"],
+        "nullable": true,
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "refreshToken": {
+            "type": "string"
           }
         }
       },
