@@ -4602,7 +4602,7 @@
           },
           "mobileAuth": {
             "$ref": "#/components/schemas/mobileAuthTokens"
-          },
+          }
         }
       },
       "mobileAuthTokens": {
