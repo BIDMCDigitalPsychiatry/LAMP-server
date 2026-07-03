@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 //-----------------------------------------------------------------------------
-// Request schemas for the video upload endpoints
+// Request schemas for the file upload endpoints (shared by audio + video)
 //-----------------------------------------------------------------------------
 //
 // Single source of truth for both runtime validation (passed to the `validate`

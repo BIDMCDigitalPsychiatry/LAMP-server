@@ -44,7 +44,7 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-describe("POST /participant/:participantId/video/upload/initiate", () => {
+describe("POST /participant/:participantId/audio/upload/initiate", () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date("2026-06-16T00:00:00.000Z"))
@@ -56,20 +56,20 @@ describe("POST /participant/:participantId/video/upload/initiate", () => {
   it("returns the upload id + merged parts and creates the multipart upload", async () => {
     s3Mock.on(CreateMultipartUploadCommand).resolves({ UploadId: "u-1" })
     // getUploadUrlParts -> getPresignedUrlInfoForParts -> ListMultipartUploads
-    s3Mock.on(ListMultipartUploadsCommand).resolves({ Uploads: [{ UploadId: "u-1", Key: "videos/x" }] })
+    s3Mock.on(ListMultipartUploadsCommand).resolves({ Uploads: [{ UploadId: "u-1", Key: "audio/x" }] })
 
     const fileSize = PART_SIZE * 2 + 10 // two full parts + a 10-byte tail => 3 parts
     const expectedExpiration = Math.floor(Date.now() / 1000) + 900
 
     const res = await request(app)
-      .post("/participant/part123/video/upload/initiate")
+      .post("/participant/part123/audio/upload/initiate")
       .send({ metadata: { size: fileSize } })
       .expect(200)
 
     // Response-shape contract: throws (failing the test) on any drift.
     initiateResponseSchema.parse(res.body)
 
-    expect(res.body.id).toMatch(/^vid-upl-/)
+    expect(res.body.id).toMatch(/^aud-upl-/)
     expect(res.body.parts).toHaveLength(3)
     expect(res.body.parts[0]).toMatchObject({
       partNumber: 1,
@@ -83,22 +83,22 @@ describe("POST /participant/:participantId/video/upload/initiate", () => {
     expect(createCalls).toHaveLength(1)
     expect(createCalls[0].args[0].input).toMatchObject({
       Bucket: "test-bucket",
-      ContentType: "video/mp4",
+      ContentType: "audio/webm",
       // S3 object metadata values are strings; the controller stringifies the size.
       Metadata: { LAMP_PARTICIPANT_ID: "part123", FILE_SIZE_BYTES: String(fileSize) },
     })
   })
 })
 
-describe("POST /participant/:participantId/video/upload/complete", () => {
+describe("POST /participant/:participantId/audio/upload/complete", () => {
   it("returns 202 and completes the multipart upload with parts sorted by part number", async () => {
-    s3Mock.on(ListMultipartUploadsCommand).resolves({ Uploads: [{ UploadId: "u-1", Key: "videos/vid-upl-9" }] })
+    s3Mock.on(ListMultipartUploadsCommand).resolves({ Uploads: [{ UploadId: "u-1", Key: "audio/aud-upl-9" }] })
     s3Mock.on(CompleteMultipartUploadCommand).resolves({})
 
     const res = await request(app)
-      .post("/participant/part123/video/upload/complete")
+      .post("/participant/part123/audio/upload/complete")
       .send({
-        id: "vid-upl-9",
+        id: "aud-upl-9",
         parts: [
           { partNumber: 2, etag: '"etag-2"' },
           { partNumber: 1, etag: '"etag-1"' },
@@ -113,7 +113,7 @@ describe("POST /participant/:participantId/video/upload/complete", () => {
     expect(completeCalls).toHaveLength(1)
     expect(completeCalls[0].args[0].input).toMatchObject({
       Bucket: "test-bucket",
-      Key: "videos/vid-upl-9",
+      Key: "audio/aud-upl-9",
       UploadId: "u-1",
       MultipartUpload: {
         Parts: [
@@ -125,17 +125,17 @@ describe("POST /participant/:participantId/video/upload/complete", () => {
   })
 })
 
-describe("POST /participant/:participantId/video/upload/refresh-urls", () => {
+describe("POST /participant/:participantId/audio/upload/refresh-urls", () => {
   it("returns 200 with refreshed presigned URLs matching the response contract", async () => {
-    s3Mock.on(ListMultipartUploadsCommand).resolves({ Uploads: [{ UploadId: "u-1", Key: "videos/vid-upl-9" }] })
+    s3Mock.on(ListMultipartUploadsCommand).resolves({ Uploads: [{ UploadId: "u-1", Key: "audio/aud-upl-9" }] })
 
     const res = await request(app)
-      .post("/participant/part123/video/upload/refresh-urls")
-      .send({ id: "vid-upl-9", partNumbers: [1, 2] })
+      .post("/participant/part123/audio/upload/refresh-urls")
+      .send({ id: "aud-upl-9", partNumbers: [1, 2] })
       .expect(200)
 
     refreshUrlsResponseSchema.parse(res.body)
-    expect(res.body.id).toBe("vid-upl-9")
+    expect(res.body.id).toBe("aud-upl-9")
     expect(res.body.parts).toHaveLength(2)
     expect(res.body.parts.map((p: { partNumber: number }) => p.partNumber)).toEqual([1, 2])
   })
@@ -144,7 +144,7 @@ describe("POST /participant/:participantId/video/upload/refresh-urls", () => {
 describe("request validation (rejects malformed input with 400)", () => {
   it("rejects initiate when metadata.size is not positive", async () => {
     const res = await request(app)
-      .post("/participant/part123/video/upload/initiate")
+      .post("/participant/part123/audio/upload/initiate")
       .send({ metadata: { size: 0 } })
       .expect(400)
 
@@ -154,8 +154,8 @@ describe("request validation (rejects malformed input with 400)", () => {
 
   it("rejects complete when an etag is not quote-wrapped", async () => {
     const res = await request(app)
-      .post("/participant/part123/video/upload/complete")
-      .send({ id: "vid-upl-9", parts: [{ partNumber: 1, etag: "no-quotes" }] })
+      .post("/participant/part123/audio/upload/complete")
+      .send({ id: "aud-upl-9", parts: [{ partNumber: 1, etag: "no-quotes" }] })
       .expect(400)
 
     expect(res.body.error).toBe("ValidationError")
@@ -164,8 +164,8 @@ describe("request validation (rejects malformed input with 400)", () => {
 
   it("rejects when participantId param is too short", async () => {
     const res = await request(app)
-      .post("/participant/x/video/upload/abort")
-      .send({ id: "vid-upl-9" })
+      .post("/participant/x/audio/upload/abort")
+      .send({ id: "aud-upl-9" })
       .expect(400)
 
     expect(res.body.error).toBe("ValidationError")

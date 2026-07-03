@@ -12,7 +12,7 @@ import {
   RefreshUrlsBody,
   refreshUrlsResponseSchema,
   RefreshUrlsResponse,
-} from "../schemas/videoUpload";
+} from "../schemas/fileUpload";
 import { sendValidatedJson } from "../utils/validatedResponse";
 
 //-----------------------------------------------------------------------------
@@ -57,9 +57,13 @@ export class VideoUploadControllerImpl implements VideoUploadController {
     const { metadata } = req.validated.body as InitiateBody
     const fileSizeBytes = metadata.size
 
+    const parent = (await req.context.repository.getTypeRepository()._parent(participantId)) as any
+    
     const id = await req.context.services.videoUploadService.initiate({
       LAMP_PARTICIPANT_ID: participantId,
-      FILE_SIZE_BYTES: String(fileSizeBytes) // S3 object metadata values must be strings
+      FILE_SIZE_BYTES: String(fileSizeBytes), // S3 object metadata values must be strings
+      LAMP_RESEARCHER_ID: parent["Researcher"],
+      LAMP_STUDY_ID: parent["Study"]
     })
 
     const partRanges : Part[] = req.context.services.videoUploadService.calculatePartRanges(fileSizeBytes)

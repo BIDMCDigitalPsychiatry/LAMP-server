@@ -9,7 +9,7 @@ import {
   initiateBodySchema,
   participantParamsSchema,
   refreshUrlsBodySchema,
-} from "../schemas/videoUpload";
+} from "../schemas/fileUpload";
 
 //-----------------------------------------------------------------------------
 // Express Router (Factory Function)
