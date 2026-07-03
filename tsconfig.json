@@ -12,5 +12,13 @@
     "inlineSourceMap": true,
     "allowSyntheticDefaultImports": true,
     "skipLibCheck": true
+  },
+  "ts-node": {
+    // ts-node only compiles files reachable from the entry point's imports, so
+    // ambient declarations like src/types.d.ts (the Express.Request `context`
+    // augmentation) are otherwise skipped under `npm run dev`. `files: true`
+    // makes ts-node load tsconfig's files/include set at startup, the same way
+    // `tsc` does, so the augmentation is applied.
+    "files": true
   }
 }

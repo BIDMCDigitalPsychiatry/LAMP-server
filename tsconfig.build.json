@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Pin the output root to the project root so production output stays at
+    // build/src/index.js (what `start-sw` runs). Without this, excluding the
+    // test/ tree would shift the inferred common root to ./src and emit to
+    // build/index.js instead, breaking `npm start`.
+    "rootDir": "."
+  },
+  "exclude": [
+    "node_modules",
+    "build",
+    "coverage",
+    "test",
+    "src/**/*.test.ts",
+    "vitest.config.ts"
+  ]
+}
