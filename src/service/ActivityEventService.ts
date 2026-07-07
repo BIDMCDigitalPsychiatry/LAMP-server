@@ -96,6 +96,7 @@ export class ActivityEventService {
 
 ActivityEventService.Router.post(
   "/participant/:participant_id/activity_event",
+  configureAuth([AuthFlag.allowMobileToken]),
   authenticateSession,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
