@@ -1,8 +1,9 @@
 import { Request, Response, Router } from "express"
 import { authenticateSession } from "../middlewares/authenticateSession"
-import { auth, formatPrimaryKey } from "../utils/auth"
+import { auth } from "../utils/auth"
 import { _authorize, ApiKeyAccessLevels } from "./Security"
 import { body, validationResult } from "express-validator"
+import { formatPrimaryKey } from "../utils/accountSecurityUtilities"
 
 export class ApiKeyService {
   public static _name = "ApiKey"
