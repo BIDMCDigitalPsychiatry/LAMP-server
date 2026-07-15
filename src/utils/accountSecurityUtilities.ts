@@ -1,5 +1,6 @@
+import { ObjectId } from "mongodb";
 import { MongoClientDB } from "../repository/Bootstrap";
-import { Session, formatPrimaryKey } from "./auth";
+import { Session } from "./auth";
 
 // ACCOUNT SETUP STATE HELPERS
 
@@ -113,4 +114,25 @@ export async function verifyCode(code:string, identifier:string) {
     {code, identifier},
   )
   return await result.text()
+}
+
+
+// MISC UTILITIES
+
+export function formatPrimaryKey(primaryKey: string | number | ObjectId) {
+  /**
+   * Converts a primary key to an ObjectId if possible. 
+   * Useful for interfacing between the actual database contents, and better-auth's 
+   * interpretation of the data.
+   */
+  if (primaryKey instanceof ObjectId || typeof primaryKey == 'number') {
+    return primaryKey;
+  }
+  try {
+    const newPrimaryKey = new ObjectId(primaryKey);
+    return newPrimaryKey;
+  }
+  catch (e) {
+    return primaryKey;
+  }
 }

@@ -1,6 +1,8 @@
 import { MongoClientDB } from "../../repository/Bootstrap";
 import { SetupStates } from "../accountSecurityUtilities";
 
+const EMAIL_DOMAIN = "digitalpsych.org"
+
 export async function runBasicAuthServerMigration() {
     console.group("Running server upgrade migration...")
       // Get Credential objects that are missing associated accounts
@@ -139,4 +141,10 @@ async function addUserType(originCollection:"participant"|"researcher", userType
   } else {
     console.log(`No ${originCollection}s require user_types`)
   }
+}
+
+async function addUsernames() {
+  // Get all non email credentials
+
+  // Create all email credentials
 }
