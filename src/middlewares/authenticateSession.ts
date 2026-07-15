@@ -1,10 +1,17 @@
 import { NextFunction, Request, Response } from "express";
-import { auth, convertSetCookieToCookie } from "../utils/auth";
+import { auth, convertSetCookieToCookie, Session } from "../utils/auth";
 import { isAccountSetupStateComplete } from "../utils/accountSecurityUtilities";
 import { AccountSetupState } from "../utils/accountSecurityUtilities";
 import { fromNodeHeaders } from "better-auth/node";
 import { MongoClientDB } from "../repository/Bootstrap";
 import { parseSetCookie } from "cookie";
+
+export type ActingUserContext = {
+  user: Session["user"];
+  session: Session["session"];
+  apiKey?: any;
+  requestHeaders: any;
+};
 
 
 // By default authentication fails if the account is not fully set up
@@ -19,6 +26,45 @@ export function skipFullSetupCheck(req: Request, res: Response, next: NextFuncti
 // If the request comes from an authenticated user add the session to the request context
 // If the request does not come from an authenticated user, return an unauthenticated response instead
 export async function authenticateSession(req: Request, res: Response, next: NextFunction) {
+    // If an api key is present in the request, use api key validation
+    const apiKey = req.headers["x-api-key"]
+    if (apiKey && typeof(apiKey) === "string") {
+        try {
+            const verifiedKey = await auth.api.verifyApiKey({
+                body: {
+                    key: apiKey
+                }
+            })
+
+            if (!verifiedKey.valid || verifiedKey.error !== null ) {
+                throw "403.no-such-credentials"
+            }
+
+            const session = await auth.api.getSession({headers: fromNodeHeaders(req.headers)})
+            if (!session) {
+                throw "403.no-such-credentials"
+            }
+
+            res.locals.user = session.user
+            res.locals.session = session.session
+            res.locals.apiKey = verifiedKey.key
+
+            res.locals.actingUserContext = {
+                user: session.user,
+                session: session.session,
+                apiKey: verifiedKey.key,
+                requestHeaders: fromNodeHeaders(req.headers),
+            } as ActingUserContext
+
+            next()
+
+        } catch(err) {
+            res.status(403)
+            res.json({message: (err as Error)?.message || "403.no-such-credentials"})
+        }
+        return
+    }
+
     try {
         // Rotate the session if nessecary
         const rotateSessionResult = await auth.api.tryRotateSession(
@@ -65,6 +111,13 @@ export async function authenticateSession(req: Request, res: Response, next: Nex
         // Add session and user to the current response's context
         res.locals.session = session
         res.locals.user = user
+        res.locals.actingUserContext = {
+            user: user,
+            session: session,
+            apiKey: undefined,
+            requestHeaders: res.locals.headersForBetterAuth
+        } as ActingUserContext
+
         next()
 
     }

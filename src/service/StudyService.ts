@@ -1,9 +1,9 @@
 import e, { Request, Response, Router } from "express"
-import { _authorize } from "./Security"
+import { _authorize, ApiKeyAccessLevels } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
-import { authenticateSession } from "../middlewares/authenticateSession"
+import { ActingUserContext, authenticateSession } from "../middlewares/authenticateSession"
 import { Session } from "../utils/auth"
 const { inputValidationRules } = require("../validator/validationRules")
 const { validateRequest } = require("../middlewares/validateRequest")
@@ -12,16 +12,16 @@ export class StudyService {
   public static _name = "Study"
   public static Router = Router()
 
-  public static async list(actingUser: Session["user"], researcher_id: string) {
+  public static async list(actingUserContext: ActingUserContext, researcher_id: string) {
     const StudyRepository = new Repository().getStudyRepository()
-    const response: any = await _authorize(actingUser, ["self", "parent"], researcher_id)
+    const response: any = await _authorize(actingUserContext, ["self", "parent"], researcher_id, ApiKeyAccessLevels.STANDARD)
     return await StudyRepository._select(researcher_id, true)
   }
 
-  public static async create(actingUser: Session["user"], researcher_id: string, study: any) {
+  public static async create(actingUserContext: ActingUserContext, researcher_id: string, study: any) {
     const StudyRepository = new Repository().getStudyRepository()
 
-    const response: any = await _authorize(actingUser, ["self", "parent"], researcher_id)
+    const response: any = await _authorize(actingUserContext, ["self", "parent"], researcher_id, ApiKeyAccessLevels.STANDARD)
     const data = await StudyRepository._insert(researcher_id, study)
 
     //publishing data for study add api with token = researcher.{researcher_id}.study.{_id}
@@ -53,16 +53,16 @@ export class StudyService {
     return data
   }
 
-  public static async get(actingUser: Session["user"], study_id: string) {
+  public static async get(actingUserContext: ActingUserContext, study_id: string) {
     const StudyRepository = new Repository().getStudyRepository()
-    const response: any = await _authorize(actingUser, ["self", "parent"], study_id)
+    const response: any = await _authorize(actingUserContext, ["self", "parent"], study_id, ApiKeyAccessLevels.STANDARD)
     return await StudyRepository._select(study_id)
   }
 
-  public static async set(actingUser: Session["user"], study_id: string, study: any | null) {
+  public static async set(actingUserContext: ActingUserContext, study_id: string, study: any | null) {
     const StudyRepository = new Repository().getStudyRepository()
     const TypeRepository = new Repository().getTypeRepository()
-    const response: any = await _authorize(actingUser, ["self", "parent"], study_id)
+    const response: any = await _authorize(actingUserContext, ["self", "parent"], study_id, ApiKeyAccessLevels.STANDARD)
     if (study === null) {
       let parent = (await TypeRepository._parent(study_id)) as any
       const data = await StudyRepository._delete(study_id)
@@ -142,7 +142,7 @@ StudyService.Router.post(
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
     try {
-      res.json({ data: await StudyService.create(res.locals.user, req.params.researcher_id, req.body) })
+      res.json({ data: await StudyService.create(res.locals.actingUserContext, req.params.researcher_id, req.body) })
     } catch (e: any) {
       if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
       res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
@@ -152,7 +152,7 @@ StudyService.Router.post(
 StudyService.Router.put("/study/:study_id", authenticateSession, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
-    res.json({ data: await StudyService.set(res.locals.user, req.params.study_id, req.body) })
+    res.json({ data: await StudyService.set(res.locals.actingUserContext, req.params.study_id, req.body) })
   } catch (e: any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
@@ -161,7 +161,7 @@ StudyService.Router.put("/study/:study_id", authenticateSession, async (req: Req
 StudyService.Router.delete("/study/:study_id", authenticateSession, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
-    res.json({ data: await StudyService.set(res.locals.user, req.params.study_id, null) })
+    res.json({ data: await StudyService.set(res.locals.actingUserContext, req.params.study_id, null) })
   } catch (e: any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
@@ -170,7 +170,7 @@ StudyService.Router.delete("/study/:study_id", authenticateSession, async (req: 
 StudyService.Router.get("/study/:study_id", authenticateSession, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
-    let output = { data: await StudyService.get(res.locals.user, req.params.study_id) }
+    let output = { data: await StudyService.get(res.locals.actingUserContext, req.params.study_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e: any) {
@@ -181,7 +181,7 @@ StudyService.Router.get("/study/:study_id", authenticateSession, async (req: Req
 StudyService.Router.get("/researcher/:researcher_id/study", authenticateSession, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
-    let output = { data: await StudyService.list(res.locals.user, req.params.researcher_id) }
+    let output = { data: await StudyService.list(res.locals.actingUserContext, req.params.researcher_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e: any) {
@@ -206,7 +206,7 @@ StudyService.Router.post(
       const ParticipantRepository = new Repository().getParticipantRepository()
       let researcher_id = req.params.researcher_id
       const study = req.body
-      const response: any = await _authorize(res.locals.user, ["self", "parent"], researcher_id)
+      const response: any = await _authorize(res.locals.actingUserContext, ["self", "parent"], researcher_id, ApiKeyAccessLevels.STANDARD)
       const output = { data: await StudyRepository._insert(researcher_id, study) }
       let should_add_participant: boolean = req.body.should_add_participant ?? false
       let StudyID: string | undefined =

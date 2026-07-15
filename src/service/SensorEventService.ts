@@ -1,10 +1,10 @@
 import { Request, Response, Router } from "express"
-import { _authorize } from "./Security"
+import { _authorize, ApiKeyAccessLevels } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 import { BulkDataWrite, publishSensorEvent } from "../utils/queue/BulkDataWrite"
-import { authenticateSession } from "../middlewares/authenticateSession"
-import { Session } from "../utils/auth"
+import { ActingUserContext, authenticateSession } from "../middlewares/authenticateSession"
+
 // default to LIMIT_NAN, clamped to [-LIMIT_MAX, +LIMIT_MAX]
 const LIMIT_NAN = 1000
 const LIMIT_MAX = 2_147_483_647
@@ -14,7 +14,7 @@ export class SensorEventService {
   public static Router = Router()
 
   public static async list(
-    actingUser: Session["user"],
+    actingUserContext: ActingUserContext,
     id: string,
     ignore_binary: boolean | undefined,
     origin: string | undefined,
@@ -23,14 +23,14 @@ export class SensorEventService {
     limit: number | undefined
   ) {
     const SensorEventRepository = new Repository().getSensorEventRepository()
-    const response: any = await _authorize(actingUser, ["self", "sibling", "parent"], id)
+    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], id, ApiKeyAccessLevels.STANDARD)
     limit = Math.min(Math.max(limit ?? LIMIT_NAN, -LIMIT_MAX), LIMIT_MAX)
     return await SensorEventRepository._select(id, ignore_binary, origin, from, to, limit)
   }
 
-  public static async create(actingUser: Session["user"], id: string, sensor_events: any[]) {
+  public static async create(actingUserContext: ActingUserContext, id: string, sensor_events: any[]) {
     const SensorEventRepository = new Repository().getSensorEventRepository()
-    const response: any = await _authorize(actingUser, ["self", "sibling", "parent"], id)
+    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], id, ApiKeyAccessLevels.SYSTEM_ADMIN)
     let data = {}
     //check for the existance of cache size and redis host
     if (!!process.env.REDIS_HOST) {
@@ -58,7 +58,7 @@ SensorEventService.Router.post(
     try {
       res.json({
         data: await SensorEventService.create(
-          res.locals.user,
+          res.locals.actingUserContext,
           req.params.participant_id,
           Array.isArray(req.body) ? req.body : [req.body]
         ),
@@ -78,7 +78,7 @@ SensorEventService.Router.get(
     try {
       let output = {
         data: await SensorEventService.list(
-          res.locals.user,
+          res.locals.actingUserContext,
           req.params.participant_id,
           (req.params as any).ignore_binary as boolean,
           req.query.origin as string,
@@ -103,7 +103,7 @@ SensorEventService.Router.post(
     try {
       res.json({
         data: await SensorEventService.create(
-          res.locals.user,
+          res.locals.actingUserContext,
           req.params.researcher_id,
           Array.isArray(req.body) ? req.body : [req.body]
         ),
@@ -124,7 +124,7 @@ SensorEventService.Router.get(
     try {
       let output = {
         data: await SensorEventService.list(
-          res.locals.user,
+          res.locals.actingUserContext,
           req.params.researcher_id,
           (req.params as any).ignore_binary as boolean,
           req.query.origin as string,

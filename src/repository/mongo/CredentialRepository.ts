@@ -39,8 +39,7 @@ export class CredentialRepository implements CredentialInterface {
 
     return res.map((x: any) => ({
       ...x,
-      secret_key: null,
-      _id: include_deleted ? x._id : undefined,
+      secret_key: undefined,
       _deleted: include_deleted ? x._deleted :  undefined,
     }))
   }
@@ -145,7 +144,7 @@ export class CredentialRepository implements CredentialInterface {
         const user = await MongoClientDB.collection("credential").findOne({access_key: userEmail})
         if (user._deleted) {
           await this._logout(res.response.token)
-          throw new Error("404.no-such-credentials-deleted")
+          throw new Error("403.no-such-credentials-deleted")
         }
       }
 
