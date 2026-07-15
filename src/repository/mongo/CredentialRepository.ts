@@ -25,16 +25,22 @@ export class CredentialRepository implements CredentialInterface {
     }
   }
 
-  public async _select(type_id: string | null): Promise<any[]> {
+  public async _select(type_id: string | null, include_deleted: boolean = false): Promise<any[]> {
+    let deletedFilter: {_deleted?: boolean} = {_deleted: false}
+    if (include_deleted) {
+      deletedFilter = {}
+    }
+
     const res = await MongoClientDB.collection("credential")
-      .find({ _deleted: false, origin: type_id })
+      .find({origin: type_id, ...deletedFilter })
       .limit(2_147_483_647)
       .maxTimeMS(60000)
       .toArray()
+
     return res.map((x: any) => ({
       ...x,
       secret_key: undefined,
-      _deleted: undefined,
+      _deleted: include_deleted ? x._deleted :  undefined,
     }))
   }
 
@@ -72,12 +78,27 @@ export class CredentialRepository implements CredentialInterface {
     if (res === null) { throw new Error("404.no-such-credentials") }
     
     const authContext = await auth.$context
-    // Update the user's description
+    
+    // Update the user's description and origin
     const oldCred = res._id as any
+    const updateValues = {} as any
+
     if (!!credential.description) {
-      const updateResult = await authContext.internalAdapter.updateUser(oldCred, {description: credential.description})
+      updateValues.description = credential.description
+    }
+
+    if (!!credential.origin || credential.origin === null) {
+      updateValues.origin = credential.origin
+    }
+
+    if (credential._deleted === false) {
+      updateValues._deleted = false
+    }
+
+    if (!!Object.keys(updateValues).length) {
+      const updateResult = await authContext.internalAdapter.updateUser(oldCred, updateValues)
       if (updateResult === null) {
-        throw new Error("Something went wrong TODO: fix this error")
+        throw new Error("500.credential-update-failed")
       }
     }
 

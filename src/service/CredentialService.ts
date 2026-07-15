@@ -55,7 +55,23 @@ export class CredentialService {
 
   public static async set(actingUserContext: ActingUserContext, type_id: string | null, access_key: string, credential: any | null) {
     const CredentialRepository = new Repository().getCredentialRepository()
-    const response = await _authorize(actingUserContext, ["self", "parent"], type_id, ApiKeyAccessLevels.SYSTEM_ADMIN)
+    
+    // Get the credential
+    let matchingCredentials = (await CredentialRepository._select(type_id)).filter(c => c.access_key === c.access_key)
+    let savedCredential = !!matchingCredentials.length ? matchingCredentials[0] : undefined
+    
+    // If origin or delete is being updated, check for admin permissons
+    // Otherwise check for regular self/parent priviledges
+    const isAdminOnlyAction = [
+      credential && credential.origin !== undefined && savedCredential.origin !== credential.origin,
+      credential && "_delete" in credential,
+    ].some((p: boolean) => !!p)
+    if (isAdminOnlyAction) {
+      await _authorize(actingUserContext, [], type_id, ApiKeyAccessLevels.SYSTEM_ADMIN)
+    } else {
+      await _authorize(actingUserContext, ["self", "parent"], type_id, ApiKeyAccessLevels.SYSTEM_ADMIN)
+    }
+    
     if (credential === null) {
       return await CredentialRepository._delete(type_id, access_key)
     } else {
@@ -119,12 +135,21 @@ export class CredentialService {
       accountSetupState: session.user.accountSetupState,
     }
   }
+
+  public static async selectDeleted(actingUserContext: ActingUserContext, type_id: string | null) {
+    await _authorize(actingUserContext, [], null)
+    const CredentialRepository = new Repository().getCredentialRepository()
+
+    return (await CredentialRepository._select(type_id, true)).filter(credential => credential._deleted)
+  }
 }
 
 CredentialService.Router.post(
   "/credential/clear-account-setup",
   authenticateSession,
   async (req, res) => {
+    res.header(ApiResponseHeaders)
+    
     try {
       const {type_id, access_key} = req.body
       if (type_id === undefined || access_key === undefined) {
@@ -147,13 +172,13 @@ CredentialService.Router.post(
       })
       res.json(clearSetupResult)
     } catch (e:any) {
-      if (e?.message) {
+      const message = e?.message 
+      if (message) {
         res.status(401)
-        res.json({error: e.message})
       } else {
         res.status(500)
-        res.json({error: "500.clear-account-setup-failed"})
       }
+      res.json({error: message || "500.clear-account-setup-failed"})
     }
   }
 )
@@ -206,7 +231,6 @@ CredentialService.Router.put(
     (type) => `/${type}/:type_id/credential/:access_key`
   ),
   authenticateSession,
-  validateRequest,
   async (req: Request, res: Response) => {
 
     res.header(ApiResponseHeaders)
@@ -246,6 +270,59 @@ CredentialService.Router.delete(
       res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
     }
   }
+)
+
+
+CredentialService.Router.get(
+  ["researcher", "study", "participant", "activity", "sensor", "type"].map((type) => `/${type}/:type_id/credential/deleted`),
+  authenticateSession,
+  async (req, res) => {
+    res.header(ApiResponseHeaders)
+    try {
+      const deleted_credentials = await CredentialService.selectDeleted(res.locals.actingUserContext, req.params.type_id)
+      res.json(deleted_credentials)
+    } catch (e: any) {
+      if (e?.message) {
+        if (e.message.startsWith("403.")) {
+          res.status(403)
+        } else {
+          res.status(500)
+        }
+        res.json({error: e.message})
+      } 
+    }
+  }
+)
+
+CredentialService.Router.put(
+    ["researcher", "study", "participant", "activity", "sensor", "type"].map((type) => `/${type}/:type_id/credential/reinstate/:access_key`),
+    authenticateSession,
+    async (req, res) => {
+      res.header(ApiResponseHeaders)
+
+      try {
+        // Undelete Credential
+        await CredentialService.set(
+          res.locals.actingUserContext,
+          req.params.type_id, 
+          req.params.access_key, 
+          {_deleted: false}
+        )
+
+        // Clear account setup
+        const clearSetupResult = await auth.api.clearAccountConfiguration({
+          body: {accessKey: req.params.access_key},
+          headers: fromNodeHeaders(req.headers),
+        })
+
+        res.json(clearSetupResult)
+      } catch (e: any) {
+        const message = e?.message
+        const statusCode = !!message ? parseInt(message.split(".")[0]) || 500 : 500
+        res.json({error: message || "500.reinstate-credential-failed"})
+        res.status(statusCode)
+      }
+    }
 )
 
 CredentialService.Router.post(`/login`, async (req: Request, res: Response) => {

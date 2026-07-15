@@ -1,6 +1,7 @@
 # !!!
 .env*
 mongoDevKeyfile.txt
+migrationDataReportLatest.json
 
 # !!
 node_modules/
