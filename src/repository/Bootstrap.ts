@@ -2,7 +2,6 @@ import nano from "nano"
 import crypto from "crypto"
 import { customAlphabet } from "nanoid"
 import { connect, Payload, Client } from "ts-nats"
-import { MongoClient, ObjectId } from "mongodb"
 import {
   ResearcherRepository,
   StudyRepository,
@@ -44,6 +43,9 @@ import {
 } from "./interface/RepositoryInterface"
 import ioredis from "ioredis"
 import { initializeQueues } from "../utils/queue/Queue"
+import { auth, Encrypt } from "../utils/auth"
+import { mongoClientInstance } from "../utils/mongoClient"
+import { SetupStates } from "../utils/accountSecurityUtilities"
 export let RedisClient: ioredis.Redis
 export let nc: Client
 export let MongoClientDB: any
@@ -85,50 +87,6 @@ export const Database: any =
 
 export const uuid = customAlphabet("1234567890abcdefghjkmnpqrstvwxyz", 20)
 export const numeric_uuid = (): string => `U${Math.random().toFixed(10).slice(2, 12)}`
-//Initialize redis client for cacheing purpose
-
-/**
- * If the data could not be encrypted or is invalid, returns `undefined`.
- */
-export const Encrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"): string | undefined => {
-  try {
-    if (mode === "Rijndael") {
-      const cipher = crypto.createCipheriv("aes-256-ecb", process.env.DB_KEY || "", "")
-      return cipher.update(data, "utf8", "base64") + cipher.final("base64")
-    } else if (mode === "AES256") {
-      const ivl = crypto.randomBytes(16)
-      const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(process.env.ROOT_KEY || "", "hex"), ivl)
-      return Buffer.concat([ivl, cipher.update(Buffer.from(data, "utf16le")), cipher.final()]).toString("base64")
-    }
-  } catch (error) {
-    console.error("Encryption error:", error)
-    return undefined
-  }
-}
-
-/**
- * If the data could not be decrypted or is invalid, returns `undefined`.
- */
-export const Decrypt = (data: string, mode: "Rijndael" | "AES256" = "Rijndael"): string | undefined => {
-  try {
-    if (mode === "Rijndael") {
-      const cipher = crypto.createDecipheriv("aes-256-ecb", process.env.DB_KEY || "", "")
-      return cipher.update(data, "base64", "utf8") + cipher.final("utf8")
-    } else if (mode === "AES256") {
-      const dat = Buffer.from(data, "base64")
-      const cipher = crypto.createDecipheriv(
-        "aes-256-cbc",
-        Buffer.from(process.env.ROOT_KEY || "", "hex"),
-        dat.slice(0, 16)
-      )
-      return Buffer.concat([cipher.update(dat.slice(16)), cipher.final()]).toString("utf16le")
-    }
-  } catch (error) {
-    console.error("Encryption error:", error)
-    return undefined
-  }
-}
-
 // Initialize the CouchDB databases if any of them do not exist.
 export async function Bootstrap(): Promise<void> {
   if (typeof process.env.REDIS_HOST === "string") {
@@ -763,6 +721,9 @@ export async function Bootstrap(): Promise<void> {
           access_key: "admin",
           secret_key: Encrypt(p, "AES256"),
           description: "System Administrator Credential",
+          user_type: "admin",
+          account_setup_state: SetupStates.NOT_REQUIRED,
+          additional_setup_exempt: true
         } as any)
       } catch (e) {
         console.dir(e)
@@ -808,7 +769,7 @@ export async function Bootstrap(): Promise<void> {
     //   useNewUrlParser: true,
     //   useUnifiedTopology: true,
     // })
-    const client = new MongoClient(`${process.env.DB}`)
+    const client = mongoClientInstance
     try {
       await client.connect()
     } catch (error) {
@@ -825,8 +786,9 @@ export async function Bootstrap(): Promise<void> {
       //   console.log("Database connection failed.")
       // }
 
-      const db = process.env.DB?.split("/").reverse()[0]?.split("?")[0]
-      MongoClientDB = await client?.db("LampV2")
+      // const db = process.env.DB?.split("/").reverse()[0]?.split("?")[0]
+      const db = process.env.DB_NAME
+      MongoClientDB = await client?.db(db)
       console.log("MongoDB is connected and responding")
     } catch (error) {
       console.log("Database connection failed.")
@@ -945,19 +907,39 @@ export async function Bootstrap(): Promise<void> {
           // Create a new password and emit it to the console while saving it (to share it with the sysadmin).
           const p = crypto.randomBytes(32).toString("hex")
           console.table({ "Administrator Password": p })
-          await database.insertOne({
-            _id: new ObjectId(),
-            origin: null,
-            access_key: "admin",
-            secret_key: Encrypt(p, "AES256"),
-            description: "System Administrator Credential",
-            _deleted: false,
-          } as any)
+          await auth.api.signUpEmail({
+            body: {
+              email: `admin@digitalpsych.org`,
+              username: "admin",
+              password: p, 
+              name: "admin",
+              description: "System Administrator Credential",
+              additionalSetupExempt: true,
+              origin: null,
+            }
+          })
         } catch (error) {
           console.log(error)
         }
       }
       console.log("Credential database online.")
+
+      if (!dbs.includes("account")) {
+        console.log("Initializing account database...")
+        await MongoClientDB.createCollection("account")
+      }
+      console.log("Account database online.")
+      if (!dbs.includes("session")) {
+        console.log("Initializing session database...")
+        await MongoClientDB.createCollection("session")
+      }
+      console.log("Session database online.")
+      
+      if (!dbs.includes("verification")) {
+        console.log("Initializing verification database...")
+        await MongoClientDB.createCollection("verification")
+      }
+      console.log("Verification database online.")
 
       console.groupEnd()
       console.groupEnd()

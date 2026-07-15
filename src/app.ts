@@ -1,24 +1,34 @@
-import express, { Application } from "express"
+import express, { Application, response } from "express"
 import cors from "cors"
 import morgan from "morgan"
 import API from "./service"
 import { applySentryForExpress } from "./utils/sentry"
+import { authenticateSession } from "./middlewares/authenticateSession"
+import { getConfiguredOAuthOptions } from "./utils/oauthConfiguration"
+
 var cookieParser = require("cookie-parser")
 
 const app: Application = express()
+
+app.use(cookieParser())
+
 app.set("json spaces", 2)
 app.use(express.json({ limit: "50mb", strict: false }))
 app.use(express.text())
 
-app.use(
-  cors({
-    origin: [
+const allowedOrigins = [
       "https://dashboard.dev.lamp.digital",
       "https://dashboard-staging.lamp.digital",
       "https://dashboard.lamp.digital",
       "https://lamp-dashboard.zcodemo.com",
       "https://lamp-secdash.zcodemo.com",
-    ],
+]
+if (process.env.DASHBOARD_URL) {
+  allowedOrigins.push(process.env.DASHBOARD_URL)
+}
+app.use(
+  cors({
+    origin: allowedOrigins,
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allowedHeaders: [
@@ -39,6 +49,7 @@ app.use(
       "Device-Type",
       "App-Type",
       "authorization",
+      "Cookie"
     ],
     preflightContinue: false,
     optionsSuccessStatus: 204,
@@ -47,7 +58,21 @@ app.use(
 )
 app.use(morgan(":method :url :status - :response-time ms"))
 app.use(express.urlencoded({ extended: true }))
-// app.use(cookieParser())
+
+// Auth utility routes
+app.get("/is-authenticated", authenticateSession, (req, res) => {res.json({message: "ok"})})
+
+app.get("/server-info", (req, res) => {
+  // Returns information about the server that should be available to unauthenticated users
+  const configuredOAuth = getConfiguredOAuthOptions()
+  const configuredProviders = Object.keys(configuredOAuth)
+  const responseBody = {
+    authScheme: "session",
+    configuredProviders: configuredProviders
+  }
+
+  res.json(responseBody)
+})
 
 // Establish the API router, as well as a few individual utility routes.
 app.use("/", API)
