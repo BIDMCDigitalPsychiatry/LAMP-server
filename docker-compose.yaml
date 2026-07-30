@@ -42,15 +42,21 @@ services:
             } else { throw e; }
           }
         '
-  mongo-express:
-    image: mongo-express
-    restart: always
-    ports:
-      - 8081:8081
-    environment:
-      ME_CONFIG_MONGODB_URL: "mongodb://root:password@mongo:27017/"
-      ME_CONFIG_MONGODB_ADMINUSERNAME: root
-      ME_CONFIG_MONGODB_ADMINPASSWORD: password
+  # mongo-express disabled 2026-07-20: v1.0.2 crash-looped against the rs0
+  # replica set, recreating its veth pair every ~30s and firing
+  # ERR_NETWORK_CHANGED in the browser (Docker interface churn read as a
+  # network change). Restart policy softened from "always" to "on-failure:5"
+  # so it can't loop forever. Before re-enabling, add ?replicaSet=rs0 to
+  # ME_CONFIG_MONGODB_URL so it can connect cleanly.
+  # mongo-express:
+  #   image: mongo-express
+  #   restart: "on-failure:5"
+  #   ports:
+  #     - 8081:8081
+  #   environment:
+  #     ME_CONFIG_MONGODB_URL: "mongodb://root:password@mongo:27017/?replicaSet=rs0"
+  #     ME_CONFIG_MONGODB_ADMINUSERNAME: root
+  #     ME_CONFIG_MONGODB_ADMINPASSWORD: password
   redis:
     image: redis
     restart: always
