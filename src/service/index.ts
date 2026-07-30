@@ -15,6 +15,8 @@ import { SensorService } from "./SensorService"
 import { SensorSpecService } from "./SensorSpecService"
 import { SensorEventService } from "./SensorEventService"
 import { SystemInfoAPI } from "../utils/SystemInfoAPI"
+import { createVideoUploadRouter } from "../routers/VideoUploadRouter"
+import { createAudioUploadRouter } from "../routers/AudioUploadRouter"
 
 export { TypeService } from "./TypeService"
 export { CredentialService } from "./CredentialService"
@@ -40,6 +42,8 @@ API.use(ActivityEventService.Router)
 API.use(SensorService.Router)
 API.use(SensorSpecService.Router)
 API.use(SensorEventService.Router)
+API.use(createAudioUploadRouter())
+API.use(createVideoUploadRouter())
 API.use(QueryAPI)
 API.use("/subscribe", ListenerAPI)
 API.use("/send", PushNotificationAPI)

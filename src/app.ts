@@ -1,10 +1,11 @@
-import express, { Application, response } from "express"
+import express, { Application } from "express"
 import cors from "cors"
 import morgan from "morgan"
 import API from "./service"
 import { applySentryForExpress } from "./utils/sentry"
 import { authenticateSession } from "./middlewares/authenticateSession"
 import { getConfiguredOAuthOptions } from "./utils/oauthConfiguration"
+import { ApplicationContext, createRequestContext } from "./context"
 
 var cookieParser = require("cookie-parser")
 
@@ -72,6 +73,12 @@ app.get("/server-info", (req, res) => {
   }
 
   res.json(responseBody)
+})
+
+const context : ApplicationContext = createRequestContext()
+app.use((req, res, next) => {
+  req.context = context
+  next()
 })
 
 // Establish the API router, as well as a few individual utility routes.
