@@ -209,8 +209,12 @@ async function clearDeletedParentCredentials() {
   console.log("Deleting the following credentials with deleted origins: ", deletedToDelete)
 
   // Delete the credentials
-  const deleteIds = missingToDelete.concat(deletedToDelete).map((c: any) => c._id)
-  const deleteResult = await credentialCollection.deleteMany({_id: {$in: deleteIds}})
-  console.log(`Deleted ${deleteResult?.deletedCount || 0} total credentials`)
+  if (process.env.RUN_DESTRUCTIVE_UPGRADE_STEPS === "true") {
+    const deleteIds = missingToDelete.concat(deletedToDelete).map((c: any) => c._id)
+    const deleteResult = await credentialCollection.deleteMany({_id: {$in: deleteIds}})
+    console.log(`Deleted ${deleteResult?.deletedCount || 0} total credentials`)
+  } else {
+    console.log(`Did not delete credentials. Set RUN_DESTRUCTIVE_UPGRADE_STEPS=true in your environment to delete credentials.`)
+  }
 }
 
