@@ -106,6 +106,10 @@ export async function runBasicAuthServerMigration() {
           console.log(`Updated account_setup_state for ${setupStateResult.modifiedCount} participants`)
         }
 
+
+        // Clear credentials with deleted parents
+        await clearDeletedParentCredentials()
+
         console.groupEnd()
       console.log("Server upgrade migration complete.")
 
@@ -148,3 +152,65 @@ async function addUsernames() {
 
   // Create all email credentials
 }
+
+
+async function clearDeletedParentCredentials() {
+  // Analysis of duplicate credentials in the production database revealed that
+  // almost all duplicate credentials were associated with deleted parent objects.
+  // Hard deleting all credentials associated with deleted researchers/participants
+  // solves almost all duplicate access_key problems.
+
+  // Get all deleted researchers/participants
+  const researcherCollection = await MongoClientDB.collection("researcher")
+  const participantCollection = await MongoClientDB.collection("participant")
+  const credentialCollection = await MongoClientDB.collection("credential")
+  
+  const allOrigins = (await credentialCollection.distinct("origin")).filter((c: string | null) => c !== null)
+  const allResearchers = researcherCollection.find().project({id: true, _deleted: true})
+  const allParticipants = participantCollection.find().project({id: true, _deleted: true})
+
+  // Sort researcher and participant ids by active vs deleted
+  let activeParents = new Set()
+  let deletedParents = new Set()
+  for await (let r of allResearchers) {
+    if (r._deleted) {
+      deletedParents.add(r._id)
+    } else {
+      activeParents.add(r._id)
+    }
+  }
+  for await (let p of allParticipants) {
+    if (p._deleted) {
+      deletedParents.add(p._id)
+    } else {
+      activeParents.add(p._id)
+    }
+  }
+
+  // Sort existing origins by active/deleted/missing
+  // Credentials with missing origins are not tied to any existing parent
+  let missingOrigins = []
+  let deletedOrigins = []
+  let activeOrigins = []
+  for (let o of allOrigins) {
+    if (activeParents.has(o)) {
+      activeOrigins.push(o)
+    } else if (deletedParents.has(o)) {
+      deletedOrigins.push(o)
+    } else {
+      missingOrigins.push(o)
+    }
+  }
+
+  // Get and log the credentials we plan to delete
+  const missingToDelete = await credentialCollection.find({origin: {$in: missingOrigins}}).project({_id: true, access_key: true, origin: true}).toArray()
+  console.log("Deleting the following credentials with missing origins: ", missingToDelete)
+  const deletedToDelete = await credentialCollection.find({origin: {$in: deletedOrigins}}).project({_id: true, access_key: true, origin: true}).toArray()
+  console.log("Deleting the following credentials with deleted origins: ", deletedToDelete)
+
+  // Delete the credentials
+  const deleteIds = missingToDelete.concat(deletedToDelete).map((c: any) => c._id)
+  const deleteResult = await credentialCollection.deleteMany({_id: {$in: deleteIds}})
+  console.log(`Deleted ${deleteResult?.deletedCount || 0} total credentials`)
+}
+
