@@ -3,7 +3,7 @@ import { _authorize, ApiKeyAccessLevels } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
-import { ActingUserContext, authenticateSession } from "../middlewares/authenticateSession"
+import { ActingUserContext, authenticateSession, AuthFlag, configureAuth } from "../middlewares/authenticateSession"
 import { Session } from "../utils/auth"
 const { sensorValidationRules } = require("../validator/validationRules")
 const { validateRequest } = require("../middlewares/validateRequest")
@@ -195,6 +195,7 @@ SensorService.Router.get("/sensor/:sensor_id", authenticateSession, async (req: 
 })
 SensorService.Router.get(
   "/participant/:participant_id/sensor",
+  configureAuth([AuthFlag.allowMobileToken]),
   authenticateSession,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
