@@ -9,7 +9,7 @@
     "bull": "^3.29.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
-    "express": "^4.17.1",
+    "express": "^5.2.1",
     "express-rate-limit": "^7.5.0",
     "express-validator": "^7.2.1",
     "ioredis": "^4.22.0",
