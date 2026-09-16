@@ -1,3 +1,4 @@
+import z4 from "zod/v4";
 import { MongoClientDB } from "../../repository/Bootstrap";
 import { SetupStates } from "../accountSecurityUtilities";
 
@@ -33,33 +34,8 @@ export async function runBasicAuthServerMigration() {
           console.log("All user's have an associated account")
         }
 
-        // Add usernames to participants where their access_key === origin
-        // This part of the migration may need to be fine tuned based on the data in a given server
-        const participantCredentials = await MongoClientDB.collection("credential").aggregate([
-            {$addFields: {sameOriginAccessKey: {$eq: ["$origin", "$access_key"]}}},
-            {$match: {sameOriginAccessKey: true, username: undefined}},
-            {$lookup: {from: "participant", localField: "origin", foreignField: "_id", as: "participant"}},
-            {$addFields: {participantCount: {$size: "$participant"}}},
-            {$match: {participantCount: {$gte: 1}}}
-        ]).toArray()
-        if (!participantCredentials.length) {
-            console.log("No users require usernames")
-        } else {
-          const credentialUpdatePromises = []
-          for (let credential of participantCredentials) {
-              credentialUpdatePromises.push(
-                  MongoClientDB.collection("credential").updateOne(
-                      {_id: credential._id},
-                      {$set: {
-                          username: credential.access_key,
-                          displayUsername: credential.access_key.toLowerCase()
-                      }}
-                  )
-              )
-          }
-          const updateResult = await Promise.all(credentialUpdatePromises)
-          console.log(`Added usernames to ${updateResult.length} participants`)
-        }
+        const addedUsernameCount = await addUsernames()
+        console.log(`Changed access_key for ${addedUsernameCount} users`)
 
         const adminUpdateResult = await MongoClientDB.collection("credential")
             .updateOne({
@@ -149,8 +125,26 @@ async function addUserType(originCollection:"participant"|"researcher", userType
 
 async function addUsernames() {
   // Get all non email credentials
+  const credentials = await MongoClientDB.collection('credential').find({}).project({_id: 1, access_key: 1, username: 1})
+  const toUpdate = []
+  for await (let cred of credentials) {
+    if (!z4.email().safeParse(cred.access_key).success) {
+      toUpdate.push(cred)
+    }
+  }
 
   // Create all email credentials
+  await Promise.all(toUpdate.map(cred => {
+    MongoClientDB.collection("credential").updateOne(
+      {_id: cred._id}, 
+      {$set: {
+        username: cred.access_key,
+        access_key: `${cred.access_key}@${EMAIL_DOMAIN}`
+      }}
+    )
+  }))
+
+  return toUpdate.length
 }
 
 
