@@ -1,3 +1,4 @@
+import z4 from "zod/v4";
 import { MongoClientDB } from "../../repository/Bootstrap";
 import { SetupStates } from "../accountSecurityUtilities";
 
@@ -33,33 +34,8 @@ export async function runBasicAuthServerMigration() {
           console.log("All user's have an associated account")
         }
 
-        // Add usernames to participants where their access_key === origin
-        // This part of the migration may need to be fine tuned based on the data in a given server
-        const participantCredentials = await MongoClientDB.collection("credential").aggregate([
-            {$addFields: {sameOriginAccessKey: {$eq: ["$origin", "$access_key"]}}},
-            {$match: {sameOriginAccessKey: true, username: undefined}},
-            {$lookup: {from: "participant", localField: "origin", foreignField: "_id", as: "participant"}},
-            {$addFields: {participantCount: {$size: "$participant"}}},
-            {$match: {participantCount: {$gte: 1}}}
-        ]).toArray()
-        if (!participantCredentials.length) {
-            console.log("No users require usernames")
-        } else {
-          const credentialUpdatePromises = []
-          for (let credential of participantCredentials) {
-              credentialUpdatePromises.push(
-                  MongoClientDB.collection("credential").updateOne(
-                      {_id: credential._id},
-                      {$set: {
-                          username: credential.access_key,
-                          displayUsername: credential.access_key.toLowerCase()
-                      }}
-                  )
-              )
-          }
-          const updateResult = await Promise.all(credentialUpdatePromises)
-          console.log(`Added usernames to ${updateResult.length} participants`)
-        }
+        const addedUsernameCount = await addUsernames()
+        console.log(`Changed access_key for ${addedUsernameCount} users`)
 
         const adminUpdateResult = await MongoClientDB.collection("credential")
             .updateOne({
@@ -106,6 +82,10 @@ export async function runBasicAuthServerMigration() {
           console.log(`Updated account_setup_state for ${setupStateResult.modifiedCount} participants`)
         }
 
+
+        // Clear credentials with deleted parents
+        await clearDeletedParentCredentials()
+
         console.groupEnd()
       console.log("Server upgrade migration complete.")
 
@@ -145,6 +125,90 @@ async function addUserType(originCollection:"participant"|"researcher", userType
 
 async function addUsernames() {
   // Get all non email credentials
+  const credentials = await MongoClientDB.collection('credential').find({}).project({_id: 1, access_key: 1, username: 1})
+  const toUpdate = []
+  for await (let cred of credentials) {
+    if (!z4.email().safeParse(cred.access_key).success) {
+      toUpdate.push(cred)
+    }
+  }
 
   // Create all email credentials
+  await Promise.all(toUpdate.map(cred => {
+    MongoClientDB.collection("credential").updateOne(
+      {_id: cred._id}, 
+      {$set: {
+        username: cred.access_key,
+        access_key: `${cred.access_key}@${EMAIL_DOMAIN}`
+      }}
+    )
+  }))
+
+  return toUpdate.length
 }
+
+
+async function clearDeletedParentCredentials() {
+  // Analysis of duplicate credentials in the production database revealed that
+  // almost all duplicate credentials were associated with deleted parent objects.
+  // Hard deleting all credentials associated with deleted researchers/participants
+  // solves almost all duplicate access_key problems.
+
+  // Get all deleted researchers/participants
+  const researcherCollection = await MongoClientDB.collection("researcher")
+  const participantCollection = await MongoClientDB.collection("participant")
+  const credentialCollection = await MongoClientDB.collection("credential")
+  
+  const allOrigins = (await credentialCollection.distinct("origin")).filter((c: string | null) => c !== null)
+  const allResearchers = researcherCollection.find().project({id: true, _deleted: true})
+  const allParticipants = participantCollection.find().project({id: true, _deleted: true})
+
+  // Sort researcher and participant ids by active vs deleted
+  let activeParents = new Set()
+  let deletedParents = new Set()
+  for await (let r of allResearchers) {
+    if (r._deleted) {
+      deletedParents.add(r._id)
+    } else {
+      activeParents.add(r._id)
+    }
+  }
+  for await (let p of allParticipants) {
+    if (p._deleted) {
+      deletedParents.add(p._id)
+    } else {
+      activeParents.add(p._id)
+    }
+  }
+
+  // Sort existing origins by active/deleted/missing
+  // Credentials with missing origins are not tied to any existing parent
+  let missingOrigins = []
+  let deletedOrigins = []
+  let activeOrigins = []
+  for (let o of allOrigins) {
+    if (activeParents.has(o)) {
+      activeOrigins.push(o)
+    } else if (deletedParents.has(o)) {
+      deletedOrigins.push(o)
+    } else {
+      missingOrigins.push(o)
+    }
+  }
+
+  // Get and log the credentials we plan to delete
+  const missingToDelete = await credentialCollection.find({origin: {$in: missingOrigins}}).project({_id: true, access_key: true, origin: true}).toArray()
+  console.log("Deleting the following credentials with missing origins: ", missingToDelete)
+  const deletedToDelete = await credentialCollection.find({origin: {$in: deletedOrigins}}).project({_id: true, access_key: true, origin: true}).toArray()
+  console.log("Deleting the following credentials with deleted origins: ", deletedToDelete)
+
+  // Delete the credentials
+  if (process.env.RUN_DESTRUCTIVE_UPGRADE_STEPS === "true") {
+    const deleteIds = missingToDelete.concat(deletedToDelete).map((c: any) => c._id)
+    const deleteResult = await credentialCollection.deleteMany({_id: {$in: deleteIds}})
+    console.log(`Deleted ${deleteResult?.deletedCount || 0} total credentials`)
+  } else {
+    console.log(`Did not delete credentials. Set RUN_DESTRUCTIVE_UPGRADE_STEPS=true in your environment to delete credentials.`)
+  }
+}
+

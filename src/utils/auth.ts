@@ -2,16 +2,16 @@ import { betterAuth, BetterAuthPlugin } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { createAuthEndpoint, createAuthMiddleware, sessionMiddleware } from "better-auth/api"
 import { setSessionCookie } from "better-auth/cookies"
-import { apiKey, oneTimeToken, username } from "better-auth/plugins"
+import { apiKey, oneTimeToken, username, jwt } from "better-auth/plugins"
 import { parseSetCookie, stringifyCookie } from "cookie";
-import crypto from "crypto";
+import crypto, { randomUUID } from "crypto";
 import { ObjectId } from "mongodb";
 import { MongoClientDB } from "../repository/Bootstrap";
 import { body, oneOf } from "express-validator";
 import { getConfiguredOAuthOptions } from "./oauthConfiguration";
-import z4, { z } from "zod/v4";
+import z4 from "zod/v4";
 import { mongoClientInstance } from "./mongoClient";
-import { AccountSetupState, checkSetupType, COMPLETED_STATES, formatPrimaryKey, isAccountSetupStateAllowed, sendCodeToEmail, sendCodeToPhone, SetupStates, verifyCode } from "./accountSecurityUtilities";
+import { AccountSetupState, checkSetupType, COMPLETED_STATES, isAccountSetupStateAllowed, formatPrimaryKey, sendCodeToEmail, sendCodeToPhone, SetupStates, verifyCode } from "./accountSecurityUtilities";
 
 const db = mongoClientInstance.db(process.env.DB_NAME)
 
@@ -47,6 +47,7 @@ const STAFF_SESSION_UPDATE_AGE = process.env.STAFF_SESSION_UPDATE_AGE ? parseInt
 
 
 const customSessionLengthPlugin = () => {
+  // customSessionLength supports account types with different session lengths
   return {
     id: "participant-session-plugin",
     endpoints: {
@@ -77,8 +78,9 @@ const customSessionLengthPlugin = () => {
           ctx.context.setNewSession(newSession)
           await setSessionCookie(ctx, newSession)
 
+          // TODO: Add this back if the mobile app background tasks can recover from the session being switched
           // Delete the old session
-          await internalAdapter.deleteSession(currentSession.session.token)
+          // await internalAdapter.deleteSession(currentSession.session.token)
 
           // Return the new session
           return ctx.json({ sessionRotated: true })
@@ -215,6 +217,7 @@ const accountSetupPlugin = () => {
           },
         }
       },
+
     },
     endpoints: {
       configure2FA: createAuthEndpoint(
@@ -532,7 +535,6 @@ const accountSetupPlugin = () => {
           handler: createAuthMiddleware(async (ctx) => {
             if (!ctx.context.newSession) { return }
             const {session, user} = ctx.context.newSession
-            console.log(session)
             if (session.require2FAVerification !== undefined) { return }
             const internalAdapter = ctx.context.internalAdapter
             
@@ -603,7 +605,7 @@ const apiKeyImprovementsPlugin = () => {
         "/api-key/api-key-by-user",
         {
           method: "GET",
-          query: z4.object({userId: z.string().nonempty()}),
+          query: z4.object({userId: z4.string().nonempty()}),
           use: [sessionMiddleware]
         },
         async (ctx) => {
@@ -626,7 +628,7 @@ const apiKeyImprovementsPlugin = () => {
         "/api-key/admin-delete-api-key",
         {
           method: "POST",
-          body: z4.object({keyId: z.string().nonempty()}),
+          body: z4.object({keyId: z4.string().nonempty()}),
           use: [sessionMiddleware]
         },
         async (ctx) => {
@@ -658,12 +660,211 @@ const apiKeyImprovementsPlugin = () => {
   }
 }
 
+const MobileAuthTokenPlugin = () => {
+  return {
+    id: "mobile-auth-token-plugin",
+    schema: {
+      session: {
+        fields: {
+          currentRefreshToken: {
+            type: "string",
+            required: false,
+            returned: true,
+          }
+        }
+      }
+    },
+    endpoints: {
+      mobileAuthGetSession: createAuthEndpoint(
+        "/mobile-auth/get-session",
+        {
+          method: "POST",
+          body: z4.object({token: z4.string().nonempty()})
+        },
+        async (ctx) => {
+          // Verify that the JWT is signed and valid
+          const payload: any = (await verifyJWT(ctx.body.token))?.payload
+          if (!payload) {
+            throw ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+          }
+
+          // Find the session associated with the mobile token
+          const session = await ctx.context.internalAdapter.findSession(payload.sessionToken)
+          if (!!session && session?.session?.expiresAt.getTime() > Date.now()) {
+            // Add the session cookie to to the response so future betterauth api calls can use it
+            ctx.context.setNewSession(session)
+            await setSessionCookie(ctx, session)
+            return ctx.json(session)
+          }
+
+          throw ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+        }
+      ),
+      refreshMobileToken: createAuthEndpoint(
+          "mobile-auth/refresh-token",
+          {
+            method: "POST",
+            body: z4.object({refresh: z4.string().nonempty()})
+          },
+          async (ctx) => {
+            const internalAdapter = ctx.context.internalAdapter
+            // Read the JWT
+            const payload: any = (await verifyJWT(ctx.body.refresh))?.payload
+            console.log("Given refresh token payload: ", payload)
+            if (!payload) {
+              return ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+            }
+
+            // Get session
+            const session = await internalAdapter.findSession(payload.sessionToken)
+            console.log("Associated session: ", session)
+            if (!session || session?.session?.expiresAt.getTime() <= Date.now()) {
+              return ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+            }
+
+            // Check that this is the correct refresh token
+            if (payload.refreshId !== session.session.currentRefreshToken) {
+              return ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+            }
+
+            const newRefreshPayload = createRefreshTokenPayload(session)
+            console.log("newRefreshPayload", newRefreshPayload)
+            // Delete the old refresh entry
+            await internalAdapter.updateSession(session.session.token, {
+              currentRefreshToken: newRefreshPayload.refreshId
+            })
+
+            // Create a new refresh token jwt
+            const newToken: any = await signJWT(newRefreshPayload)
+            return ctx.json(newToken)
+          }
+      ),
+      createRefreshToken: createAuthEndpoint(
+        // Gets a mobile access token and refresh token for the logged in user
+        // This should only be called as a direct result of a successful login
+        "mobile-auth/create-refresh-token",
+        {
+          method: "POST",
+          body: z4.object({token: z4.string().nonempty()}),
+          use: [sessionMiddleware],
+        },
+        async (ctx) => {
+          const {session, user} = ctx.context.session
+          const mobileTokenPayload = (await verifyJWT(ctx.body.token))?.payload
+
+          if (!mobileTokenPayload || mobileTokenPayload?.sessionToken !== session.token) {
+            throw ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+          }
+
+          const refreshTokenPayload = createRefreshTokenPayload(ctx.context.session)
+          const refreshToken = (await signJWT(refreshTokenPayload))?.token as string
+          await ctx.context.internalAdapter.updateSession(session.token, {
+            currentRefreshToken: refreshTokenPayload.refreshId
+          })
+
+          return ctx.json({refreshToken: refreshToken})
+        }
+      ),
+      createMobileTokens: createAuthEndpoint(
+        "mobile-auth/create-access-token",
+        {
+          method: "GET",
+          use: [sessionMiddleware],
+        },
+        async (ctx) => {
+          const {session, user} = ctx.context.session
+          
+          const accessTokenPayload = createAccessTokenPayload(ctx.context.session)
+          const refreshTokenPayload = createRefreshTokenPayload(ctx.context.session)
+
+          const accessToken = (await signJWT(accessTokenPayload)).token as string
+          const refreshToken = (await signJWT(refreshTokenPayload)).token as string
+
+          await ctx.context.internalAdapter.updateSession(session.token, {
+            currentRefreshToken: refreshTokenPayload.refreshId
+          })
+
+          return ctx.json({accessToken, refreshToken})
+        }
+      )
+    },
+    hooks: {
+      after: [
+        {
+          matcher: (ctx) => {return ctx.path === "/one-time-token/generate"},
+          handler: createAuthMiddleware(
+            async (ctx) => {
+              const token = (ctx.context.returned as any)?.token
+              if (ctx.query?.oneTimeTokenRequestFlow && token) {
+                const verificationValue = await ctx.context.internalAdapter.findVerificationValue(`one-time-token:${token}`)
+                await ctx.context.internalAdapter.createVerificationValue({
+                  identifier: `one-time-token-request-flow:${token}`,
+                  value: ctx.query.oneTimeTokenRequestFlow,
+                  expiresAt: verificationValue?.expiresAt as Date,
+                })
+              }        
+            }
+          )
+        },
+        {
+          matcher: (ctx) => {return ctx.path === "/one-time-token/verify"},
+          handler: createAuthMiddleware(
+            async (ctx) => {
+              const token = ctx.body.token
+              if (!token || ! ctx.context.newSession?.session) { return }
+              const identifier = `one-time-token-request-flow:${token}`
+              const verificationValue = await ctx.context.internalAdapter.findVerificationValue(`one-time-token-request-flow:${token}`)
+             
+              ctx.context.returned = {...ctx.context.returned || {}, oneTimeTokenRequestFlow: verificationValue?.value}
+
+              if (verificationValue) {
+                await ctx.context.internalAdapter.deleteVerificationByIdentifier(identifier)
+              }
+            }
+          )
+        }
+      ]
+    }
+  } satisfies BetterAuthPlugin
+}
+
+function createRefreshTokenPayload(session: any) {
+  return {
+    aud: process.env.BETTER_AUTH_URL,
+    iss: process.env.BETTER_AUTH_URL,
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60,
+    sub: session.user.id,
+    sessionToken: session.session.token,
+    refreshId: randomUUID(),
+    type: "refresh"
+  }
+}
+function createAccessTokenPayload(session: any) {
+  return {
+    aud: process.env.BETTER_AUTH_URL,
+    iss: process.env.BETTER_AUTH_URL,
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + 15 * 60,
+    sub: session.user.id,
+    sessionToken: session.session.token,
+    type: "access"
+  }
+}
+
 export const auth = betterAuth({
     database: mongodbAdapter(db, {client: mongoClientInstance}),
     basePath: "/api/auth",
     secret: process.env.BETTER_AUTH_SECRET,
     emailAndPassword: emailAndPasswordOptions,
     account: {
+      accountLinking: {
+        trustedProviders: [
+          "google",
+          "microsoft",
+          "apple"
+        ]
+      },
       fields: {
         accountId: "_id",
       }
@@ -727,7 +928,8 @@ export const auth = betterAuth({
       customSessionLengthPlugin(),
       accountSetupPlugin(),
       oneTimeToken({
-        disableClientRequest: true
+        disableClientRequest: true,
+        storeToken: "plain",
       }),
       username({
         usernameValidator: async (username) => {
@@ -747,20 +949,46 @@ export const auth = betterAuth({
         enableMetadata: true,
       }),
       apiKeyImprovementsPlugin(),
+      jwt({
+        jwt: {
+          definePayload({user, session}) {
+            const payload = {
+              userId: user.id,
+              sessionToken: session.token,
+              dashboardUrl: process.env.DASHBOARD_URL,
+              serverUrl: process.env.BETTER_AUTH_URL,
+            }
+            return payload
+          },
+        }
+      }),
+      MobileAuthTokenPlugin(),
     ],
     socialProviders: getConfiguredOAuthOptions(),
 })
-
 
 export type Session = typeof auth.$Infer.Session
 
 export function convertSetCookieToCookie(headers:Headers) {
   // Extract all set-cookie headers from headers and return the cookie header string
   // This is used when we need to call an authenticated better-auth api end point immediately after
-  // logging in
+  // logging in or rotating a participant session
   const allSetCookies = (headers as any).getSetCookie().map((setCookie: string) => parseSetCookie(setCookie))
   const cookieDict = Object.fromEntries(allSetCookies.map((setCookie:any) => ([setCookie.name, setCookie.value])))
   return stringifyCookie(cookieDict)
+}
+
+
+// Wrappers around betterAuth api functions required in plugins
+// Use these with caution as they cause a circular dependency
+async function verifyJWT(jwt: string) {
+  const result = await auth.api.verifyJWT({body: {token: jwt}})
+  return result
+}
+
+async function signJWT(payload: any) {
+  const result = await auth.api.signJWT({body: {payload: payload}})
+  return result
 }
 
 // The Encrypt and Decrypt functions are used to support servers upgraded from basic auth servers

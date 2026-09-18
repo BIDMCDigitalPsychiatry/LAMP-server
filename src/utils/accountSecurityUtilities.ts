@@ -19,6 +19,13 @@ export const COMPLETED_STATES = [
     SetupStates.NOT_REQUIRED
 ]
 
+// Used to tag one time token verification values with how they were requested
+export type OneTimeTokenRequestFlow = "OAUTH" | "MOBILE_TOKEN_REFRESH"
+export const OneTimeTokenRequestFlows:{[index: string]: OneTimeTokenRequestFlow} = {
+  OAUTH: "OAUTH",
+  MOBILE_TOKEN_REFRESH: "MOBILE_TOKEN_REFRESH"
+} as const
+
 /** Returns true if the current state is in the allowed list of states */
 export function isAccountSetupStateAllowed(currentState: AccountSetupState | undefined, allowedStates: AccountSetupState[]): boolean {
   return allowedStates.some((allowedState) => currentState === allowedState);
