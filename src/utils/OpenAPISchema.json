@@ -856,7 +856,7 @@
         }
       }
     },
-    "/participant/{id}": {
+    "/participant/{participant_id}": {
       "put": {
         "tags": [
           "Participant"
@@ -871,13 +871,14 @@
         ],
         "operationId": "Participant.update",
         "x-python-settings": {
-          "name": "update"
+          "name": "update",
+          "anyJsonRequestBody": true
         },
         "summary": "Update a Participant.",
         "description": "Update a Participant.",
         "parameters": [
           {
-            "name": "id",
+            "name": "participant_id",
             "in": "path",
             "required": true,
             "schema": {
@@ -943,7 +944,7 @@
         "description": "All owned data or event streams will be permanently deleted.",
         "parameters": [
           {
-            "name": "id",
+            "name": "participant_id",
             "in": "path",
             "required": true,
             "schema": {
@@ -993,13 +994,16 @@
         ],
         "operationId": "Participant.view",
         "x-python-settings": {
-          "name": "view"
+          "name": "view",
+          "replaceResponseContent": {
+            "200": "anyData"
+          }
         },
         "summary": "View a Participant.",
         "description": "Get a single participant, by identifier.",
         "parameters": [
           {
-            "name": "id",
+            "name": "participant_id",
             "in": "path",
             "required": true,
             "schema": {
@@ -1050,7 +1054,8 @@
       "post": {
         "operationId": "Researcher.create",
         "x-python-settings": {
-          "name": "create"
+          "name": "create",
+          "anyJsonRequestBody": true
         },
         "summary": "Create a Researcher.",
         "description": "This action requires system administrator privileges.",
@@ -1108,7 +1113,10 @@
       "get": {
         "operationId": "Researcher.list",
         "x-python-settings": {
-          "name": "all"
+          "name": "all",
+          "replaceResponseContent": {
+            "200": "anyDataList"
+          }
         },
         "summary": "List all Researchers.",
         "description": "This action requires system administrator privileges.",
@@ -1168,7 +1176,8 @@
       "put": {
         "operationId": "Researcher.update",
         "x-python-settings": {
-          "name": "update"
+          "name": "update",
+          "anyJsonRequestBody": true
         },
         "summary": "Update a Researcher.",
         "description": "Update a Researcher's settings.",
@@ -1292,7 +1301,10 @@
       "get": {
         "operationId": "Researcher.view",
         "x-python-settings": {
-          "name": "view"
+          "name": "view",
+          "replaceResponseContent": {
+            "200": "anyDataList"
+          }
         },
         "summary": "View a Researcher.",
         "description": "View a Researcher.",
@@ -1358,11 +1370,12 @@
         }
       }
     }, 
-    "/researcher/{id}/study": {
+    "/researcher/{researcher_id}/study": {
       "post": {
         "operationId": "Researcher.create_study",
         "x-python-settings": {
-          "name": "create"
+          "name": "create",
+          "anyJsonRequestBody": true
         },
         "summary": "Create a Study for a Researcher.",
         "description": "Create a Study for a Researcher.",
@@ -1371,7 +1384,7 @@
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "researcher_id",
             "in": "path",
             "required": true,
             "schema": {
@@ -1429,7 +1442,10 @@
       "get": {
         "operationId": "Researcher.list_studies",
         "x-python-settings": {
-          "name": "all_by_researcher"
+          "name": "all_by_researcher",
+          "replaceResponseContent": {
+            "200": "anyDataList"
+          }
         },
         "summary": "List all Studies for a Researcher.",
         "description": "List all studies for a Researcher.",
@@ -1446,7 +1462,7 @@
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "researcher_id",
             "in": "path",
             "required": true,
             "schema": {
@@ -1493,11 +1509,12 @@
         }
       }
     },
-    "/study/{id}": {
+    "/study/{study_id}": {
       "put": {
         "operationId": "Study.update",
         "x-python-settings": {
-          "name": "update"
+          "name": "update",
+          "anyJsonRequestBody": true
         },
         "summary": "Update a Study.",
         "description": "Update a Study.",
@@ -1514,7 +1531,7 @@
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "study_id",
             "in": "path",
             "required": true,
             "schema": {
@@ -1572,7 +1589,7 @@
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "study_id",
             "in": "path",
             "required": true,
             "schema": {
@@ -1619,7 +1636,10 @@
       "get": {
         "operationId": "Study.view",
         "x-python-settings": {
-          "name": "view"
+          "name": "view",
+          "replaceResponseContent": {
+            "200": "anyDataList"
+          }
         },
         "summary": "View a Study.",
         "description": "View a Study.",
@@ -1628,7 +1648,7 @@
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "study_id",
             "in": "path",
             "required": true,
             "schema": {
@@ -1684,7 +1704,7 @@
         }
       }
     },
-    "/study/{id}/participant": {
+    "/study/{study_id}/participant": {
       "post": {
         "operationId": "Study.create_participant",
         "summary": "Create a Participant for a Study.",
@@ -1701,7 +1721,7 @@
         },
         "parameters": [
           {
-            "name": "id",
+            "name": "study_id",
             "in": "path",
             "required": true,
             "schema": {
@@ -1759,11 +1779,14 @@
           {"SessionLogin": []}
         ],
         "x-python-settings": {
-          "name": "all_by_study"
+          "name": "all_by_study",
+          "replaceResponseContent": {
+            "200": "anyDataList"
+          }
         },
         "parameters": [
           {
-            "name": "id",
+            "name": "study_id",
             "in": "path",
             "required": true,
             "schema": {
@@ -2115,7 +2138,10 @@
           "ActivitySpec"
         ],
         "x-python-settings": {
-          "name": "view"
+          "name": "view",
+          "replaceResponseContent": {
+            "200": "anyDataList"
+          }
         },
         "parameters": [
           {
@@ -2233,7 +2259,10 @@
           "SensorSpec"
         ],
         "x-python-settings": {
-          "name": "all"
+          "name": "all",
+          "replaceResponseContent": {
+            "200": "anyDataList"
+          }
         },
         "parameters": [
           {
@@ -2403,7 +2432,10 @@
           "SensorSpec"
         ],
         "x-python-settings": {
-          "name": "view"
+          "name": "view",
+          "replaceResponseContent": {
+            "200": "anyDataList"
+          }
         },
         "parameters": [
           {
@@ -2582,7 +2614,10 @@
           "Activity"
         ],
         "x-python-settings": {
-          "name": "view"
+          "name": "view",
+          "replaceResponseContent": {
+            "200": "anyDataList"
+          }
         },
         "parameters": [
           {
@@ -2709,7 +2744,10 @@
           "Activity"
         ],
         "x-python-settings": {
-          "name": "all_by_study"
+          "name": "all_by_study",
+          "replaceResponseContent": {
+            "200": "anyDataList"
+          }
         },
         "parameters": [
           {
@@ -2807,7 +2845,8 @@
                     "data": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/Activity"
+                        "type": "object",
+                        "additionalProperties": true
                       }
                     }
                   }
@@ -2951,7 +2990,10 @@
           "Sensor"
         ],
         "x-python-settings": {
-          "name": "view"
+          "name": "view",
+          "replaceResponseContent": {
+            "200": "anyDataList"
+          }
         },
         "security": [
           {"ApiKeyAuth": []},
@@ -3079,7 +3121,10 @@
           "Sensor"
         ],
         "x-python-settings": {
-          "name": "all_by_study"
+          "name": "all_by_study",
+          "replaceResponseContent": {
+            "200": "anyDataList"
+          }
         },
         "security": [
           {"ApiKeyAuth": []},
@@ -3143,7 +3188,10 @@
           "Sensor"
         ],
         "x-python-settings": {
-          "name": "all_by_participant"
+          "name": "all_by_participant",
+          "replaceResponseContent": {
+            "200": "anyDataList"
+          }
         },
         "security": [
           {"ApiKeyAuth": []},
@@ -3280,7 +3328,10 @@
           "ActivityEvent"
         ],
         "x-python-settings": {
-          "name": "all_by_participant"
+          "name": "all_by_participant",
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "security": [
           {"ApiKeyAuth": []},
@@ -3453,7 +3504,10 @@
           "SensorEvent"
         ],
         "x-python-settings": {
-          "name": "all_by_participant"
+          "name": "all_by_participant",
+          "replaceResponseContent": {
+            "200": "anyDataList"
+          }
         },
         "security": [
           {"ApiKeyAuth": []},
@@ -3476,7 +3530,7 @@
             }
           },
           {
-            "name": "from",
+            "name": "_from",
             "in": "query",
             "schema": {
               "type": "integer",
@@ -3552,7 +3606,10 @@
           "SensorEvent"
         ],
         "x-python-settings": {
-          "name": "all_by_researcher"
+          "name": "all_by_researcher",
+          "replaceResponseContent": {
+            "200": "anyDataList"
+          }
         },
         "security": [
           {"ApiKeyAuth": []},
@@ -3710,7 +3767,7 @@
         }
       }
     },
-    "/{type}/{id}/parent": {
+    "/{type}/{type_id}/parent": {
       "get": {
         "operationId": "Type.parent",
         "summary": "Find the Parent of the Object.",
@@ -3738,7 +3795,7 @@
             }
           },
           {
-            "name": "id",
+            "name": "type_id",
             "in": "path",
             "required": true,
             "schema": {
@@ -3902,10 +3959,7 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "data": {
-                      "type": "object",
-                      "additionalProperties": true
-                    }
+                    "data": {}
                   }
                 }
               }
@@ -3924,7 +3978,7 @@
         }
       }
     },
-    "/{type}/{id}/attachment/{key}": {
+    "/{type}/{type_id}/attachment/{attachment_key}": {
       "get": {
         "operationId": "Type.get_attachment_value",
         "summary": "Get the value of an attachment",
@@ -3951,7 +4005,7 @@
             }
           },
           {
-            "name": "id",
+            "name": "type_id",
             "in": "path",
             "required": true,
             "schema": {
@@ -3959,7 +4013,7 @@
             }
           },
           {
-            "name": "key",
+            "name": "attachment_key",
             "in": "path",
             "required": true,
             "schema": {
@@ -3975,10 +4029,7 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "data": {
-                      "type": "object",
-                      "additionalProperties": true
-                    }
+                    "data": {}
                   }
                 }
               }
@@ -3997,7 +4048,7 @@
         }
       }
     },
-    "/{type}/{id}/attachment": {
+    "/{type}/{type_id}/attachment": {
       "get": {
         "operationId": "Type.get_attachment_list",
         "summary": "Get a list of attachment names",
@@ -4025,7 +4076,7 @@
             }
           },
           {
-            "name": "id",
+            "name": "type_id",
             "in": "path",
             "required": true,
             "schema": {
@@ -4146,7 +4197,7 @@
         }
       }
     },
-    "/{type}/{id}/attachment/{key}/{target}": {
+    "/{type}/{type_id}/attachment/{attachment_key}/{target}": {
       "put": {
         "operationId": "Type.set_attachment",
         "summary": "Set or delete an attachment",
@@ -4165,23 +4216,7 @@
         ],
         "parameters": [
           {
-            "name": "type",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/TypeOptions"
-            }
-          },
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "key",
+            "name": "type_id",
             "in": "path",
             "required": true,
             "schema": {
@@ -4195,8 +4230,32 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "attachment_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TypeOptions"
+            }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Success",
@@ -4317,6 +4376,9 @@
           "name": "list",
           "pathParameterDefaults": {
             "type": "type"
+          },
+          "replaceResponseContent": {
+            "200": "anyDataList"
           }
         },
         "parameters": [
