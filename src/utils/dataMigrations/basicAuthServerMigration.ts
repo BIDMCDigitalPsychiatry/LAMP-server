@@ -62,7 +62,7 @@ export async function runBasicAuthServerMigration() {
         
         // Add account set up states to admin/researcher credentials
         let setupStateResult = await MongoClientDB.collection("credential").updateMany(
-          {user_type: {$in: ["admin", "researcher"]}, accountSetupState: {$exists: false}},
+          {user_type: {$in: ["admin", "researcher"]}, account_setup_state: {$exists: false}},
           {$set: {account_setup_state: SetupStates.INCOMPLETE}}
         )
         if (!setupStateResult.modifiedCount) {

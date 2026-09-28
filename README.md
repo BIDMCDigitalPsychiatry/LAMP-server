@@ -58,3 +58,7 @@ MindLAMP uses the better-auth library to handle authentication for all users. It
     -  *Session cookie*: An HTTP only cookie added sent to the client after a successful call to a login end point.
     -  *Api key*: Key created by an administrator and tied to a user that allows them to make calls to certain endpoints without first obtaining a session cookie via successful login. 
     - *Mobile Auth Token*: A JWT token sent to the client as part of a successful credential or oauth login. It can be used to call a heavily restricted set of endpoints needed by the native mobile app, and to aquire a new session cookie. Mobile auth tokens must be periodically refreshed using the refresh token sent allow with the access token.
+
+### Updating the Open API Spec
+
+LAMP-server includes an Open API document that describes the behavior of the server. When making changes to the server, make sure to update `src/utils/OpenAPISchema.json`. This is important because the schema document is directly used to generate API documentation, and the python API client. The open api adds a handful of optional custom parameters to the endpoints. These customizations are used when creating the python API client. The available customizations are documented in the LAMP-py repository. 
