@@ -3,7 +3,7 @@ import { _authorize, ApiKeyAccessLevels } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 import { BulkDataWrite, publishSensorEvent } from "../utils/queue/BulkDataWrite"
-import { ActingUserContext, authenticateSession } from "../middlewares/authenticateSession"
+import { ActingUserContext, authenticateSession, AuthFlag, configureAuth } from "../middlewares/authenticateSession"
 
 // default to LIMIT_NAN, clamped to [-LIMIT_MAX, +LIMIT_MAX]
 const LIMIT_NAN = 1000
@@ -52,6 +52,7 @@ export class SensorEventService {
 
 SensorEventService.Router.post(
   "/participant/:participant_id/sensor_event",
+  configureAuth([AuthFlag.allowMobileToken]),
   authenticateSession,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
@@ -72,6 +73,7 @@ SensorEventService.Router.post(
 )
 SensorEventService.Router.get(
   "/participant/:participant_id/sensor_event",
+  configureAuth([AuthFlag.allowMobileToken]),
   authenticateSession,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)

@@ -3,7 +3,7 @@ import { _authorize, ApiKeyAccessLevels } from "./Security"
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
-import { ActingUserContext, authenticateSession } from "../middlewares/authenticateSession"
+import { ActingUserContext, authenticateSession, AuthFlag, configureAuth } from "../middlewares/authenticateSession"
 import { Session } from "../utils/auth"
 const { activityValidationRules } = require("../validator/validationRules")
 const { validateRequest } = require("../middlewares/validateRequest")
@@ -188,6 +188,7 @@ ActivityService.Router.get("/activity/:activity_id", authenticateSession, async 
 })
 ActivityService.Router.get(
   "/participant/:participant_id/activity",
+  configureAuth([AuthFlag.allowMobileToken]),
   authenticateSession,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
