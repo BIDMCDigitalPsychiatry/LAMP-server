@@ -11,7 +11,7 @@
     "cookie": "^1.1.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
-    "express": "^4.17.1",
+    "express": "^4.22.3",
     "express-rate-limit": "^7.5.0",
     "express-validator": "^7.2.1",
     "ioredis": "^4.22.0",
