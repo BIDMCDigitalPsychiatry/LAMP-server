@@ -14,10 +14,9 @@ import {
   StudyService,
   TypeService,
 } from "."
-import { authenticateSession } from "../middlewares/authenticateSession"
-import { Session } from "../utils/auth"
+import { ActingUserContext, authenticateSession } from "../middlewares/authenticateSession"
 
-const METHOD_LIST = (user: Session["user"], session: Session["session"]) => ({
+const METHOD_LIST = (actingUserContext: ActingUserContext) => ({
   LAMP: {
     ActivityEvent: {
       list: async (
@@ -30,7 +29,7 @@ const METHOD_LIST = (user: Session["user"], session: Session["session"]) => ({
         const _start = Date.now()
         // Use ?? operator to convert null values to undefined as the service and repository layers require that.
         const x = await ActivityEventService.list(
-          user,
+          actingUserContext,
           participant_id,
           false,
           origin ?? undefined,
@@ -44,7 +43,7 @@ const METHOD_LIST = (user: Session["user"], session: Session["session"]) => ({
       create: async (participant_id: string, activity_events: any | any[]) => {
         const _start = Date.now()
         const x = await ActivityEventService.create(
-          user,
+          actingUserContext,
           participant_id,
           Array.isArray(activity_events) ? activity_events : [activity_events]
         )
@@ -55,25 +54,25 @@ const METHOD_LIST = (user: Session["user"], session: Session["session"]) => ({
     Activity: {
       list: async (study_id: string, ignore_binary: boolean = false, sibling: boolean = false) => {
         const _start = Date.now()
-        const x = await ActivityService.list(user, study_id, ignore_binary, sibling)
+        const x = await ActivityService.list(actingUserContext, study_id, ignore_binary, sibling)
         console.log(` -- LAMP.Activity.list: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
       create: async (activity_id: string, activity: any) => {
         const _start = Date.now()
-        const x = await ActivityService.create(user, activity_id, activity)
+        const x = await ActivityService.create(actingUserContext, activity_id, activity)
         console.log(` -- LAMP.Activity.create: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
       get: async (activity_id: string) => {
         const _start = Date.now()
-        const x = await ActivityService.get(user, activity_id)
+        const x = await ActivityService.get(actingUserContext, activity_id)
         console.log(` -- LAMP.Activity.get: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
       set: async (activity_id: string, activity: any | null) => {
         const _start = Date.now()
-        const x = await ActivityService.set(user, activity_id, activity)
+        const x = await ActivityService.set(actingUserContext, activity_id, activity)
         console.log(` -- LAMP.Activity.set: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
@@ -81,25 +80,25 @@ const METHOD_LIST = (user: Session["user"], session: Session["session"]) => ({
     ActivitySpec: {
       list: async () => {
         const _start = Date.now()
-        const x = await ActivitySpecService.list(user, null)
+        const x = await ActivitySpecService.list(actingUserContext, null)
         console.log(` -- LAMP.ActivitySpec.list: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
       create: async (activity_spec: any) => {
         const _start = Date.now()
-        const x = await ActivitySpecService.create(user, null, activity_spec)
+        const x = await ActivitySpecService.create(actingUserContext, null, activity_spec)
         console.log(` -- LAMP.ActivitySpec.create: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
       get: async (activity_spec_id: string) => {
         const _start = Date.now()
-        const x = await ActivitySpecService.get(user, activity_spec_id)
+        const x = await ActivitySpecService.get(actingUserContext, activity_spec_id)
         console.log(` -- LAMP.ActivitySpec.get: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
       set: async (activity_spec_id: string, activity_spec: any | null) => {
         const _start = Date.now()
-        const x = await ActivitySpecService.set(user, activity_spec_id, activity_spec)
+        const x = await ActivitySpecService.set(actingUserContext, activity_spec_id, activity_spec)
         console.log(` -- LAMP.ActivitySpec.set: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
@@ -107,25 +106,25 @@ const METHOD_LIST = (user: Session["user"], session: Session["session"]) => ({
     Credential: {
       list: async (type_id: string | null) => {
         const _start = Date.now()
-        const x = await CredentialService.list(user, type_id)
+        const x = await CredentialService.list(actingUserContext, type_id)
         console.log(` -- LAMP.Credential.list: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
       create: async (type_id: string | null, credential: any) => {
         const _start = Date.now()
-        const x = await CredentialService.create(user, type_id, credential)
+        const x = await CredentialService.create(actingUserContext, type_id, credential)
         console.log(` -- LAMP.Credential.create: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
       get: async (type_id: string | null, access_key: string) => {
         const _start = Date.now()
-        const x = await CredentialService.get(user, type_id, access_key)
+        const x = await CredentialService.get(actingUserContext, type_id, access_key)
         console.log(` -- LAMP.Credential.get: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
       set: async (type_id: string | null, access_key: string, credential: any | null) => {
         const _start = Date.now()
-        const x = await CredentialService.set(user, type_id, access_key, credential)
+        const x = await CredentialService.set(actingUserContext, type_id, access_key, credential)
         console.log(` -- LAMP.Credential.set: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
@@ -139,25 +138,25 @@ const METHOD_LIST = (user: Session["user"], session: Session["session"]) => ({
     Participant: {
       list: async (study_id: string, sibling: boolean = false) => {
         const _start = Date.now()
-        const x = await ParticipantService.list(user, study_id, sibling)
+        const x = await ParticipantService.list(actingUserContext, study_id, sibling)
         console.log(` -- LAMP.Participant.list: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
       create: async (study_id: string, participant: any) => {
         const _start = Date.now()
-        const x = await ParticipantService.create(user, study_id, participant)
+        const x = await ParticipantService.create(actingUserContext, study_id, participant)
         console.log(` -- LAMP.Participant.create: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
       get: async (participant_id: string) => {
         const _start = Date.now()
-        const x = await ParticipantService.get(user, participant_id)
+        const x = await ParticipantService.get(actingUserContext, participant_id)
         console.log(` -- LAMP.Participant.get: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
       set: async (participant_id: string, participant: any) => {
         const _start = Date.now()
-        const x = await ParticipantService.set(user, participant_id, participant)
+        const x = await ParticipantService.set(actingUserContext, participant_id, participant)
         console.log(` -- LAMP.Participant.set: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
@@ -165,25 +164,25 @@ const METHOD_LIST = (user: Session["user"], session: Session["session"]) => ({
     Researcher: {
       list: async () => {
         const _start = Date.now()
-        const x = await ResearcherService.list(user, null)
+        const x = await ResearcherService.list(actingUserContext, null)
         console.log(` -- LAMP.Researcher.list: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
       create: async (researcher: any) => {
         const _start = Date.now()
-        const x = await ResearcherService.create(user, null, researcher)
+        const x = await ResearcherService.create(actingUserContext, null, researcher)
         console.log(` -- LAMP.Researcher.create: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
       get: async (researcher_id: string) => {
         const _start = Date.now()
-        const x = await ResearcherService.get(user, researcher_id)
+        const x = await ResearcherService.get(actingUserContext, researcher_id)
         console.log(` -- LAMP.Researcher.get: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
       set: async (researcher_id: string, researcher: any | null) => {
         const _start = Date.now()
-        const x = await ResearcherService.set(user, researcher_id, researcher)
+        const x = await ResearcherService.set(actingUserContext, researcher_id, researcher)
         console.log(` -- LAMP.Researcher.set: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
@@ -199,7 +198,7 @@ const METHOD_LIST = (user: Session["user"], session: Session["session"]) => ({
         const _start = Date.now()
         // Use ?? operator to convert null values to undefined as the service and repository layers require that.
         const x = await SensorEventService.list(
-          user,
+          actingUserContext,
           participant_id,
           false,
           origin ?? undefined,
@@ -213,7 +212,7 @@ const METHOD_LIST = (user: Session["user"], session: Session["session"]) => ({
       create: async (participant_id: string, sensor_events: any | any[]) => {
         const _start = Date.now()
         const x = await SensorEventService.create(
-          user,
+          actingUserContext,
           participant_id,
           Array.isArray(sensor_events) ? sensor_events : [sensor_events]
         )
@@ -224,25 +223,25 @@ const METHOD_LIST = (user: Session["user"], session: Session["session"]) => ({
     Sensor: {
       list: async (study_id: string, ignore_binary: boolean = false, sibling: boolean = false) => {
         const _start = Date.now()
-        const x = await SensorService.list(user, study_id, ignore_binary, sibling)
+        const x = await SensorService.list(actingUserContext, study_id, ignore_binary, sibling)
         console.log(` -- LAMP.Sensor.list: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
       create: async (study_id: string, sensor: any) => {
         const _start = Date.now()
-        const x = await SensorService.create(user, study_id, sensor)
+        const x = await SensorService.create(actingUserContext, study_id, sensor)
         console.log(` -- LAMP.Sensor.create: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
       get: async (sensor_id: string) => {
         const _start = Date.now()
-        const x = await SensorService.get(user, sensor_id)
+        const x = await SensorService.get(actingUserContext, sensor_id)
         console.log(` -- LAMP.Sensor.get: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
       set: async (sensor_id: string, sensor: any | null) => {
         const _start = Date.now()
-        const x = await SensorService.set(user, sensor_id, sensor)
+        const x = await SensorService.set(actingUserContext, sensor_id, sensor)
         console.log(` -- LAMP.Sensor.set: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
@@ -250,25 +249,25 @@ const METHOD_LIST = (user: Session["user"], session: Session["session"]) => ({
     SensorSpec: {
       list: async () => {
         const _start = Date.now()
-        const x = await SensorSpecService.list(user, null)
+        const x = await SensorSpecService.list(actingUserContext, null)
         console.log(` -- LAMP.SensorSpec.list: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
       create: async (sensor_spec: any) => {
         const _start = Date.now()
-        const x = await SensorSpecService.create(user, null, sensor_spec)
+        const x = await SensorSpecService.create(actingUserContext, null, sensor_spec)
         console.log(` -- LAMP.SensorSpec.create: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
       get: async (sensor_spec_id: string) => {
         const _start = Date.now()
-        const x = await SensorSpecService.get(user, sensor_spec_id)
+        const x = await SensorSpecService.get(actingUserContext, sensor_spec_id)
         console.log(` -- LAMP.SensorSpec.get: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
       set: async (sensor_spec_id: string, sensor_spec: any | null) => {
         const _start = Date.now()
-        const x = await SensorSpecService.set(user, sensor_spec_id, sensor_spec)
+        const x = await SensorSpecService.set(actingUserContext, sensor_spec_id, sensor_spec)
         console.log(` -- LAMP.SensorSpec.set: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
@@ -276,25 +275,25 @@ const METHOD_LIST = (user: Session["user"], session: Session["session"]) => ({
     Study: {
       list: async (researcher_id: string) => {
         const _start = Date.now()
-        const x = await StudyService.list(user, researcher_id)
+        const x = await StudyService.list(actingUserContext, researcher_id)
         console.log(` -- LAMP.Study.list: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
       create: async (researcher_id: string, study: any) => {
         const _start = Date.now()
-        const x = await StudyService.create(user, researcher_id, study)
+        const x = await StudyService.create(actingUserContext, researcher_id, study)
         console.log(` -- LAMP.Study.create: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
       get: async (study_id: string) => {
         const _start = Date.now()
-        const x = await StudyService.get(user, study_id)
+        const x = await StudyService.get(actingUserContext, study_id)
         console.log(` -- LAMP.Study.get: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
       set: async (study_id: string, study: any | null) => {
         const _start = Date.now()
-        const x = await StudyService.set(user, study_id, study)
+        const x = await StudyService.set(actingUserContext, study_id, study)
         console.log(` -- LAMP.Study.set: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
@@ -302,7 +301,7 @@ const METHOD_LIST = (user: Session["user"], session: Session["session"]) => ({
     Type: {
       parent: async (type_id: string) => {
         const _start = Date.now()
-        const x = await TypeService.parent(user, type_id)
+        const x = await TypeService.parent(actingUserContext, type_id)
         console.log(` -- LAMP.Type.parent: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
@@ -310,7 +309,7 @@ const METHOD_LIST = (user: Session["user"], session: Session["session"]) => ({
     Tag: {
       list: async (type_id: string) => {
         const _start = Date.now()
-        const x = await TypeService.list(user, type_id)
+        const x = await TypeService.list(actingUserContext, type_id)
         console.log(` -- LAMP.Tag.list: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
       },
@@ -318,7 +317,7 @@ const METHOD_LIST = (user: Session["user"], session: Session["session"]) => ({
         const _start = Date.now()
         let x = null // error
         try {
-          x = await TypeService.get(user, type_id, attachment_key)
+          x = await TypeService.get(actingUserContext, type_id, attachment_key)
         } catch (e: any) {}
         console.log(` -- LAMP.Tag.get: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
@@ -327,7 +326,7 @@ const METHOD_LIST = (user: Session["user"], session: Session["session"]) => ({
         const _start = Date.now()
         let x = {} // error
         try {
-          x = await TypeService.set(user, type_id, target, attachment_key, attachment_value)
+          x = await TypeService.set(actingUserContext, type_id, target, attachment_key, attachment_value)
         } catch (e: any) {}
         console.log(` -- LAMP.Tag.set: ${(Date.now() - _start).toFixed(2)} ms`)
         return x
@@ -345,7 +344,7 @@ QueryAPI.post("/",
     const _start = Date.now()
 
     // Make sure to cache the AuthSubject so we don't keep calling into CredentialRepository._find().
-    const data = await jsonata(req.body ?? "null").evaluate({}, METHOD_LIST(res.locals.user, res.locals.session))
+    const data = await jsonata(req.body ?? "null").evaluate({}, METHOD_LIST(res.locals.actingUserContext))
     
     // Log the query itself like an HTTP request with how long it took.
     res.status(200).json(data)

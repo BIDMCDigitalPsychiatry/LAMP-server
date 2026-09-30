@@ -1,9 +1,9 @@
 import { Request, Response, Router } from "express"
-import { _authorize } from "./Security"
+import { _authorize, ApiKeyAccessLevels } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
-import { authenticateSession } from "../middlewares/authenticateSession"
+import { ActingUserContext, authenticateSession, AuthFlag, configureAuth } from "../middlewares/authenticateSession"
 import { Session } from "../utils/auth"
 
 // default to LIMIT_NAN, clamped to [-LIMIT_MAX, +LIMIT_MAX]
@@ -15,7 +15,7 @@ export class ActivityEventService {
   public static Router = Router()
 
   public static async list(
-    actingUser: Session["user"],
+    actingUserContext: ActingUserContext,
     participant_id: string,
     ignore_binary: boolean | undefined,
     origin: string | undefined,
@@ -25,13 +25,13 @@ export class ActivityEventService {
   ) {
     const ActivityEventRepository = new Repository().getActivityEventRepository()
     limit = Math.min(Math.max(limit ?? LIMIT_NAN, -LIMIT_MAX), LIMIT_MAX)
-    const response: any = await _authorize(actingUser, ["self", "sibling", "parent"], participant_id)
+    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], participant_id, ApiKeyAccessLevels.STANDARD)
     return await ActivityEventRepository._select(participant_id, ignore_binary, origin, from, to, limit)
   }
 
-  public static async create(actingUser: Session["user"], participant_id: string, activity_events: any[]) {
+  public static async create(actingUserContext: ActingUserContext, participant_id: string, activity_events: any[]) {
     const ActivityEventRepository = new Repository().getActivityEventRepository()
-    const response: any = await _authorize(actingUser, ["self", "sibling", "parent"], participant_id)
+    const response: any = await _authorize(actingUserContext, ["self", "sibling", "parent"], participant_id, ApiKeyAccessLevels.SYSTEM_ADMIN)
     let data = await ActivityEventRepository._insert(participant_id, activity_events)
 
     //publishing data for activity_event add api((Token will be created in PubSubAPIListenerQueue consumer, as request is assumed as array and token should be created individually)
@@ -96,13 +96,14 @@ export class ActivityEventService {
 
 ActivityEventService.Router.post(
   "/participant/:participant_id/activity_event",
+  configureAuth([AuthFlag.allowMobileToken]),
   authenticateSession,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
     try {
       res.json({
         data: await ActivityEventService.create(
-          res.locals.user,
+          res.locals.actingUserContext,
           req.params.participant_id,
           Array.isArray(req.body) ? req.body : [req.body]
         ),
@@ -113,15 +114,17 @@ ActivityEventService.Router.post(
     }
   }
 )
+
 ActivityEventService.Router.get(
   "/participant/:participant_id/activity_event",
+  configureAuth([AuthFlag.allowMobileToken]),
   authenticateSession,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
     try {
       let output = {
         data: await ActivityEventService.list(
-          res.locals.user,
+          res.locals.actingUserContext,
           req.params.participant_id,
           (req.params as any).ignore_binary as boolean,
           req.query.origin as string,

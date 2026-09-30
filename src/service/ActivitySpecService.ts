@@ -1,8 +1,8 @@
 import { Request, Response, Router } from "express"
-import { _authorize } from "./Security"
+import { _authorize, ApiKeyAccessLevels } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
-import { authenticateSession } from "../middlewares/authenticateSession"
+import { ActingUserContext, authenticateSession } from "../middlewares/authenticateSession"
 import { Session } from "../utils/auth"
 const { activitySpecValidationRules } = require("../validator/validationRules")
 const { validateRequest } = require("../middlewares/validateRequest")
@@ -11,27 +11,27 @@ export class ActivitySpecService {
   public static _name = "ActivitySpec"
   public static Router = Router()
 
-  public static async list(actingUser: Session["user"], parent_id: null, ignore_binary?: boolean) {
+  public static async list(actingUserContext: ActingUserContext, parent_id: null, ignore_binary?: boolean) {
     const ActivitySpecRepository = new Repository().getActivitySpecRepository()
-    const _ = await _authorize(actingUser, ["self", "sibling", "parent"])
+    const _ = await _authorize(actingUserContext, ["self", "sibling", "parent"], null, ApiKeyAccessLevels.RESEARCHER)
     return await ActivitySpecRepository._select(parent_id, ignore_binary)
   }
 
-  public static async create(actingUser: Session["user"], parent_id: null, activity_spec: any) {
+  public static async create(actingUserContext: ActingUserContext, parent_id: null, activity_spec: any) {
     const ActivitySpecRepository = new Repository().getActivitySpecRepository()
-    const _ = await _authorize(actingUser, [])
+    const _ = await _authorize(actingUserContext, [], null, ApiKeyAccessLevels.SYSTEM_ADMIN)
     return await ActivitySpecRepository._insert(activity_spec)
   }
 
-  public static async get(actingUser: Session["user"], activity_spec_id: string) {
+  public static async get(actingUserContext: ActingUserContext, activity_spec_id: string) {
     const ActivitySpecRepository = new Repository().getActivitySpecRepository()
-    const _ = await _authorize(actingUser, ["self", "sibling", "parent"])
+    const _ = await _authorize(actingUserContext, ["self", "sibling", "parent"], null, ApiKeyAccessLevels.RESEARCHER)
     return await ActivitySpecRepository._select(activity_spec_id)
   }
 
-  public static async set(actingUser: Session["user"], activity_spec_id: string, activity_spec: any | null) {
+  public static async set(actingUserContext: ActingUserContext, activity_spec_id: string, activity_spec: any | null) {
     const ActivitySpecRepository = new Repository().getActivitySpecRepository()
-    const _ = await _authorize(actingUser, [])
+    const _ = await _authorize(actingUserContext, [], null, ApiKeyAccessLevels.SYSTEM_ADMIN)
     if (activity_spec === null) {
       return await ActivitySpecRepository._delete(activity_spec_id)
     } else {
@@ -47,7 +47,7 @@ ActivitySpecService.Router.post(
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
     try {
-      res.json({ data: await ActivitySpecService.create(res.locals.user, null, req.body) })
+      res.json({ data: await ActivitySpecService.create(res.locals.actingUserContext, null, req.body) })
     } catch (e: any) {
       if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
       res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
@@ -62,7 +62,7 @@ ActivitySpecService.Router.put(
     res.header(ApiResponseHeaders)
     try {
       res.json({
-        data: await ActivitySpecService.set(res.locals.user, req.params.activity_spec_name, req.body),
+        data: await ActivitySpecService.set(res.locals.actingUserContext, req.params.activity_spec_name, req.body),
       })
     } catch (e: any) {
       if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -76,7 +76,7 @@ ActivitySpecService.Router.delete(
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
     try {
-      res.json({ data: await ActivitySpecService.set(res.locals.user, req.params.activity_spec_name, null) })
+      res.json({ data: await ActivitySpecService.set(res.locals.actingUserContext, req.params.activity_spec_name, null) })
     } catch (e: any) {
       if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
       res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
@@ -89,7 +89,7 @@ ActivitySpecService.Router.get(
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
     try {
-      let output = { data: await ActivitySpecService.get(res.locals.user, req.params.activity_spec_name) }
+      let output = { data: await ActivitySpecService.get(res.locals.actingUserContext, req.params.activity_spec_name) }
       output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
       res.json(output)
     } catch (e: any) {
@@ -101,7 +101,7 @@ ActivitySpecService.Router.get(
 ActivitySpecService.Router.get("/activity_spec", authenticateSession, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
-    let output = { data: await ActivitySpecService.list(res.locals.user, null) }
+    let output = { data: await ActivitySpecService.list(res.locals.actingUserContext, null) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e: any) {

@@ -1,29 +1,29 @@
-import { Request, Response, Router } from "express"
-import { _authorize } from "./Security"
+import { Request, response, Response, Router } from "express"
+import { _authorize, ApiKeyAccessLevels } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 const { credentialValidationRules } = require("../validator/validationRules")
 const { validateRequest } = require("../middlewares/validateRequest")
-import { authenticateSession, skipFullSetupCheck } from "../middlewares/authenticateSession"
+import { ActingUserContext, authenticateSession, AuthFlag, configureAuth } from "../middlewares/authenticateSession"
 import { auth, convertSetCookieToCookie, Session } from "../utils/auth"
-import { SetupStates } from "../utils/accountSecurityUtilities"
+import { OneTimeTokenRequestFlows, SetupStates } from "../utils/accountSecurityUtilities"
 import { fromNodeHeaders } from "better-auth/node"
 
 export class CredentialService {
   public static _name = "Credential"
   public static Router = Router()
 
-  public static async list(actingUser: Session["user"], type_id: string | null) {
+  public static async list(actingUserContext: ActingUserContext, type_id: string | null) {
     const CredentialRepository = new Repository().getCredentialRepository()
-    const response: any = await _authorize(actingUser, ["self", "parent"], type_id)
+    const response: any = await _authorize(actingUserContext, ["self", "parent"], type_id, ApiKeyAccessLevels.STANDARD)
     return await CredentialRepository._select(type_id)
   }
 
-  public static async create(actingUser: Session["user"], type_id: string | null, credential: any) {
+  public static async create(actingUserContext: ActingUserContext, type_id: string | null, credential: any) {
     const CredentialRepository = new Repository().getCredentialRepository()
     const TypeRepository = new Repository().getTypeRepository()
 
-    await _authorize(actingUser, ["self", "parent"], type_id)
+    await _authorize(actingUserContext, ["self", "parent"], type_id, ApiKeyAccessLevels.SYSTEM_ADMIN)
     
     let newUserType
     if (credential.origin === null) {
@@ -46,14 +46,14 @@ export class CredentialService {
        account_setup_state: newAccountSetupState})
   }
 
-  public static async get(actingUser: Session["user"], type_id: string | null, access_key: string) {
+  public static async get(actingUserContext: ActingUserContext, type_id: string | null, access_key: string) {
     const CredentialRepository = new Repository().getCredentialRepository()
-    const response: any = await _authorize(actingUser, ["self", "parent"], type_id)
+    const response: any = await _authorize(actingUserContext, ["self", "parent"], type_id, ApiKeyAccessLevels.STANDARD)
     let all = await CredentialRepository._select(type_id)
     return all.filter((x) => x.access_key === access_key)
   }
 
-  public static async set(actingUser: Session["user"], type_id: string | null, access_key: string, credential: any | null) {
+  public static async set(actingUserContext: ActingUserContext, type_id: string | null, access_key: string, credential: any | null) {
     const CredentialRepository = new Repository().getCredentialRepository()
     
     // Get the credential
@@ -67,9 +67,9 @@ export class CredentialService {
       credential && "_delete" in credential,
     ].some((p: boolean) => !!p)
     if (isAdminOnlyAction) {
-      await _authorize(actingUser, [], type_id)
+      await _authorize(actingUserContext, [], type_id, ApiKeyAccessLevels.SYSTEM_ADMIN)
     } else {
-      await _authorize(actingUser, ["self", "parent"], type_id)
+      await _authorize(actingUserContext, ["self", "parent"], type_id, ApiKeyAccessLevels.SYSTEM_ADMIN)
     }
     
     if (credential === null) {
@@ -96,7 +96,18 @@ export class CredentialService {
     // we have just created the session
     const session = await auth.api.getSession({headers: getSessionHeaders})
 
-    const responseBody = session ? await this.getLoginResponse(session) : {}
+    // Create response
+    const responseBody = session ? await this.getLoginResponse(session) : ({} as any)
+    
+    // Add mobile auth token to the response
+    const mobileAuthToken = (await auth.api.getToken({headers:getSessionHeaders})).token
+    const mobileRefreshToken = (await auth.api.createRefreshToken({
+      body: {token: mobileAuthToken}, headers: getSessionHeaders})).refreshToken
+    responseBody.mobileAuth = {
+      accessToken: mobileAuthToken,
+      refreshToken: mobileRefreshToken
+    }
+    
     return {headers: headers, response: responseBody}
   }
 
@@ -136,8 +147,8 @@ export class CredentialService {
     }
   }
 
-  public static async selectDeleted(actingUser: Session["user"], type_id: string | null) {
-    await _authorize(actingUser, [], null)
+  public static async selectDeleted(actingUserContext: ActingUserContext, type_id: string | null) {
+    await _authorize(actingUserContext, [], null)
     const CredentialRepository = new Repository().getCredentialRepository()
 
     return (await CredentialRepository._select(type_id, true)).filter(credential => credential._deleted)
@@ -158,7 +169,7 @@ CredentialService.Router.post(
         return
       }
       const CredentialRepository = new Repository().getCredentialRepository()
-      await _authorize(res.locals.user, ["self", "parent"], req.body.type_id)
+      await _authorize(res.locals.actingUserContext, ["self", "parent"], req.body.type_id, ApiKeyAccessLevels.NONE)
       
       const matchingCredentials = (await CredentialRepository._select(req.body.type_id)).filter((credential) => credential.access_key === req.body.access_key)
       if (matchingCredentials.length !== 1) {
@@ -174,7 +185,7 @@ CredentialService.Router.post(
     } catch (e:any) {
       const message = e?.message 
       if (message) {
-        res.status(404)
+        res.status(401)
       } else {
         res.status(500)
       }
@@ -191,7 +202,7 @@ CredentialService.Router.get(
     try {
       let output = {
         data: await CredentialService.list(
-          res.locals.user,
+          res.locals.actingUserContext,
           req.params.type_id === "null" ? null : req.params.type_id
         ),
       }
@@ -215,7 +226,7 @@ CredentialService.Router.post(
     try {
       res.json({
         data: await CredentialService.create(
-          res.locals.user,
+          res.locals.actingUserContext,
           req.params.type_id === "null" ? null : req.params.type_id,
           req.body
         ),
@@ -237,7 +248,7 @@ CredentialService.Router.put(
     try {
       res.json({
         data: await CredentialService.set(
-          res.locals.user,
+          res.locals.actingUserContext,
           req.params.type_id === "null" ? null : req.params.type_id,
           req.params.access_key,
           req.body
@@ -259,7 +270,7 @@ CredentialService.Router.delete(
     try {
       res.json({
         data: await CredentialService.set(
-          res.locals.user,
+          res.locals.actingUserContext,
           req.params.type_id === "null" ? null : req.params.type_id,
           req.params.access_key,
           null
@@ -279,7 +290,7 @@ CredentialService.Router.get(
   async (req, res) => {
     res.header(ApiResponseHeaders)
     try {
-      const deleted_credentials = await CredentialService.selectDeleted(res.locals.user, req.params.type_id)
+      const deleted_credentials = await CredentialService.selectDeleted(res.locals.actingUserContext, req.params.type_id)
       res.json(deleted_credentials)
     } catch (e: any) {
       if (e?.message) {
@@ -303,7 +314,7 @@ CredentialService.Router.put(
       try {
         // Undelete Credential
         await CredentialService.set(
-          res.locals.user,
+          res.locals.actingUserContext,
           req.params.type_id, 
           req.params.access_key, 
           {_deleted: false}
@@ -343,13 +354,13 @@ CredentialService.Router.post(`/login`, async (req: Request, res: Response) => {
 
 CredentialService.Router.post(
   "/logout", 
-  skipFullSetupCheck,
+  configureAuth([AuthFlag.skipFullSetupCheck]),
   authenticateSession,
   async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
     res.json({
-      data: await CredentialService.logOut(res.locals.session),
+      data: await CredentialService.logOut(res.locals.actingUserContext.session),
     })
   } catch (e: any) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
@@ -419,7 +430,10 @@ CredentialService.Router.get(
         const finishLoginToken = await auth.api.generateOneTimeToken({
           method: "GET",
           headers: newHeaders,
-          asResponse: true
+          asResponse: true,
+          query: {
+            oneTimeTokenRequestFlow: OneTimeTokenRequestFlows.OAUTH
+          }
         })
         if (finishLoginToken.status === 200) {
           const finishLoginTokenBody = await finishLoginToken.json()
@@ -434,7 +448,7 @@ CredentialService.Router.get(
 // OAuth Link Account
 CredentialService.Router.post(
   "/link-social/:socialProvider",
-  skipFullSetupCheck,
+  configureAuth([AuthFlag.skipFullSetupCheck]),
   authenticateSession,
   async (req, res) => {
     const result = await auth.api.linkSocialAccount({
@@ -464,7 +478,7 @@ CredentialService.Router.get(
   async (req, res) => {
     // Validates a one time token, and returns the associated session
     // information, and session login cookies
-    // Should be called by the frontend after a successful o-auth login
+    // Used after a successful o-auth login, or when opening the webview in the mobile app
     const validateResult = await auth.api.verifyOneTimeToken({
       method: "POST",
       body: {
@@ -473,43 +487,51 @@ CredentialService.Router.get(
       asResponse: true
     })
     if (validateResult.status === 200) {
-      const session = await validateResult.json()
+      const validateBody = await validateResult.json()
+      const session = {session: validateBody.session, user: validateBody.user}
       
-      // Finalize oauth setup
-      // (Makes no changes if setup is already complete)
-      const newHeaders = new Headers()
-      newHeaders.set("cookie", convertSetCookieToCookie(validateResult.headers))
-      try {
-        const finalizeOauthSetupResult = await auth.api.finalizeOauthSetup({
-          headers: newHeaders,
-        })
-      } catch (e) {
+      let responseBody = {}
+      if (validateBody.oneTimeTokenRequestFlow === OneTimeTokenRequestFlows.OAUTH) {
+        // Finalize oauth setup
+        // (Makes no changes if setup is already complete)
+        const newHeaders = new Headers()
+        newHeaders.set("cookie", convertSetCookieToCookie(validateResult.headers))
+        try {
+          const finalizeOauthSetupResult = await auth.api.finalizeOauthSetup({
+            headers: newHeaders,
+          })
+        } catch (e) {
+        }
+
+        // If this login token was generated as part of an oauth flow, include mobile auth tokens
+        responseBody = {mobileAuth: await auth.api.createMobileTokens({headers: newHeaders})}
       }
 
+      responseBody = {...responseBody, ... await CredentialService.getLoginResponse(session)}
       res.setHeader("set-cookie", validateResult.headers.get("set-cookie") || "")
-      res.json(await CredentialService.getLoginResponse(session))
+      res.json(responseBody)
       return
     }
-    res.status(404)
-    res.json({error: "404.no-such-credentials"})
+    res.status(403)
+    res.json({error: "403.no-such-credentials"})
   }
 )
 
 CredentialService.Router.get(
   "/session-info",
-  skipFullSetupCheck,
+  configureAuth([AuthFlag.skipFullSetupCheck, AuthFlag.allowMobileToken]),
   authenticateSession,
   async (req, res) => {
       res.json(await CredentialService.getLoginResponse({
-        session: res.locals.session,
-        user: res.locals.user
+        session: res.locals.actingUserContext.session,
+        user: res.locals.actingUserContext.user
       }))
   }
 )
 
 CredentialService.Router.post(
   "/setup-2fa",
-  skipFullSetupCheck,
+  configureAuth([AuthFlag.skipFullSetupCheck]),
   authenticateSession,
   async (req, res) => {
     const r = await auth.api.configure2FA({
@@ -531,7 +553,7 @@ CredentialService.Router.post(
 
 CredentialService.Router.post(
   "/send-2fa",
-  skipFullSetupCheck,
+  configureAuth([AuthFlag.skipFullSetupCheck]),
   authenticateSession,
   async (req, res) => {
     const r = await auth.api.send2FACode({
@@ -549,7 +571,7 @@ CredentialService.Router.post(
 
 CredentialService.Router.post(
   "/verify-2fa",
-  skipFullSetupCheck,
+  configureAuth([AuthFlag.skipFullSetupCheck]),
   authenticateSession,
   async (req, res) => {
     const r = await auth.api.verify2FACode({
@@ -565,5 +587,95 @@ CredentialService.Router.post(
       res.status(500)
       res.json({error: "500.verify-two-factor-code-failed"})
     }
+  }
+)
+
+CredentialService.Router.get(
+  "/mobile-token/one-time-login",
+  configureAuth([AuthFlag.allowMobileToken, AuthFlag.disallowCookie, AuthFlag.skipFullSetupCheck]),
+  authenticateSession,
+  async (req, res) => {
+    // Used by the mobile app to open the webview for logged in users
+    // Creates a one time token that can be used with "GET /login/one-time-token/<token>"
+    // Also rotates participant sessions and creates new mobile auth keys
+
+    const responseBody: any = {}
+
+    // Try to rotate the session
+    const rotateSessionResult = await auth.api.tryRotateSession({
+      headers: res.locals.actingUserContext.requestHeaders,
+      returnHeaders: true
+    })
+
+    // Get new mobiles keys if the session was rotated
+    if (rotateSessionResult.response.sessionRotated) {
+      res.locals.actingUserContext.requestHeaders.set("cookie", convertSetCookieToCookie(rotateSessionResult.headers))
+      const newMobileKeys = await auth.api.createMobileTokens({headers: res.locals.actingUserContext.requestHeaders})
+      responseBody.mobileKeys = newMobileKeys
+    }
+
+    // Get the one time login token
+    const oneTimeLoginToken = await auth.api.generateOneTimeToken({
+      headers: res.locals.actingUserContext.requestHeaders,
+      query: {
+        oneTimeTokenRequestFlow: OneTimeTokenRequestFlows.MOBILE_TOKEN_REFRESH
+      }
+    })
+    responseBody.webViewRefreshToken = oneTimeLoginToken.token
+
+    res.json(responseBody)
+  }
+)
+
+CredentialService.Router.post(
+  "/mobile-token/refresh",
+  async (req, res) => {
+    // Called by the mobile app to obtain new access and refesh tokens when 
+    // the previous access token expires. 
+    // Body should be of the form: {refreshToken: "<refresh token value>"}
+
+    const throwInvalidRefresh = () => {
+      res.status(400)
+      res.json({error: "400.invalid-refresh-token"})
+    }
+    
+    // Parse refresh token
+    if (!req.body.refreshToken) {
+      throwInvalidRefresh()
+      return
+    }
+    const refreshTokenPayload = (await auth.api.verifyJWT({body: {token: req.body.refreshToken}}))?.payload
+    if (!refreshTokenPayload) {
+      throwInvalidRefresh()
+      return
+    }
+
+    // Get the session
+    let getSessionResult
+    try {
+      getSessionResult = await auth.api.mobileAuthGetSession({
+        body: {token: req.body.refreshToken}, 
+        returnHeaders: true
+      })
+    } catch(err) {
+      throwInvalidRefresh()
+      return
+    }
+    const {response, headers} = getSessionResult
+    const {session, user} = response
+    
+    // Check that this is the correct refresh token for this session
+    if (refreshTokenPayload.refreshId !== session.currentRefreshToken) {
+      throwInvalidRefresh()
+      return
+    }
+    
+    // Create a new refresh token and access token
+    const newHeaders = new Headers()
+    newHeaders.set("cookie", convertSetCookieToCookie(headers))
+
+    const newTokens = await auth.api.createMobileTokens({headers: newHeaders})
+    
+    res.json(newTokens)
   }
 )
