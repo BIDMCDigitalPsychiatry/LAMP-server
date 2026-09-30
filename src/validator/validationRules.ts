@@ -66,6 +66,7 @@ const activitySpecValidationRules = () => [
   body("description").trim().isLength({ max: 50 }).withMessage("decription must be less than 50 characters"),
   body("executable").trim().isLength({ max: 50 }).withMessage("executable must be less than 50 characters"),
 ]
+
 module.exports = {
   credentialValidationRules,
   inputValidationRules,

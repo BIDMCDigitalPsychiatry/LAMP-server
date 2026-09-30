@@ -110,11 +110,10 @@ export interface TypeInterface {
 //Interface for Credential Repository
 export interface CredentialInterface {
   _find(access_key: string, secret_key?: string): Promise<string>
-  _select(type_id: string | null): Promise<any[]>
+  _select(type_id: string | null, include_deleted?: boolean): Promise<any[]>
   _insert(type_id: string | null, credential: any): Promise<{}>
   _update(type_id: string | null, access_key: string, credential: any): Promise<{}>
   _delete(type_id: string | null, access_key: string): Promise<{}>
   _login(accessKey: string | null, secretKey: string): Promise<any>
-  _renewToken(refreshToken: string | null): Promise<any>
   _logout(token: string | undefined): Promise<any>
 }

@@ -16,6 +16,8 @@ import "./utils/sentry";
 import http from "http";
 import { Bootstrap } from "./repository/Bootstrap";
 import app from "./app";
+import { runBasicAuthServerMigration } from "./utils/dataMigrations/basicAuthServerMigration";
+import { runBasicAuthMigrationDataReport } from "./utils/dataMigrations/basicAuthMigrationDataReport";
 
 // ---------------------
 // Shutdown Grace Period
@@ -43,6 +45,18 @@ async function main(): Promise<void> {
   console.log("Server routing initialized.")
   console.groupEnd()
   console.log("Initialization complete.")
+
+  if (process.env.RUN_DATA_CONFLICT_REPORT === "true") {
+    console.group("> Running data conflict report")
+    await runBasicAuthMigrationDataReport()
+    console.groupEnd()
+  }
+  
+  if(process.env.DO_UPGRADE_FROM_BASIC_AUTH === "true") {
+    console.group("> Running data migration")
+    await runBasicAuthServerMigration()
+    console.groupEnd()
+  }
 
   const server = http.createServer(app)
   server.listen(PORT, "0.0.0.0", () => {

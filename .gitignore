@@ -1,5 +1,7 @@
 # !!!
 .env*
+mongoDevKeyfile.txt
+migrationDataReportLatest.json
 
 # !!
 node_modules/
@@ -11,3 +13,4 @@ coverage/
 *.sublime-project
 *.sublime-workspace
 .ipynb_checkpoints
+.idea/

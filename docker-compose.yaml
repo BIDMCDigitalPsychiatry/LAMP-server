@@ -6,6 +6,9 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: password
+    volumes:
+      - ./mongoDevKeyfile.txt:/mongoDevKeyfile.txt
+    command: ["--replSet", "rs0", "--bind_ip_all", "--keyFile", "/mongoDevKeyfile.txt"]
     ports:
       - 27017:27017
   mongo-express:
@@ -28,3 +31,5 @@ services:
     ports:
       - 4222:4222
       - 8222:8222
+volumes:
+  mongo:

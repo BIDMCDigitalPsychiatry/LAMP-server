@@ -10,6 +10,7 @@
     "strict": true,
     "resolveJsonModule": true,
     "inlineSourceMap": true,
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true
   }
 }

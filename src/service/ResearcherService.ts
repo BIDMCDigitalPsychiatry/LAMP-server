@@ -1,28 +1,25 @@
 import { Request, Response, Router } from "express"
-import { _verify } from "./Security"
+import { _authorize, ApiKeyAccessLevels } from "./Security"
 const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
 import { PubSubAPIListenerQueue } from "../utils/queue/Queue"
 import { Repository, ApiResponseHeaders, MongoClientDB } from "../repository/Bootstrap"
-import { findPermission } from "./Security"
-import { ObjectId } from "bson"
 const { inputValidationRules } = require("../validator/validationRules")
 const { validateRequest } = require("../middlewares/validateRequest")
-import { authenticateToken } from "../middlewares/authenticateToken"
-var cookieParser = require("cookie-parser")
+import { ActingUserContext, authenticateSession } from "../middlewares/authenticateSession"
 
 export class ResearcherService {
   public static _name = "Researcher"
   public static Router = Router()
 
-  public static async list(auth: any, parent_id: null) {
+  public static async list(actingUserContext: ActingUserContext, parent_id: null) {
     const ResearcherRepository = new Repository().getResearcherRepository()
-    const _ = await _verify(auth, [])
+    const _ = await _authorize(actingUserContext, [], undefined, ApiKeyAccessLevels.STANDARD)
     return await ResearcherRepository._select()
   }
 
-  public static async create(auth: any, parent_id: null, researcher: any) {
+  public static async create(actingUserContext: ActingUserContext, parent_id: null, researcher: any) {
     const ResearcherRepository = new Repository().getResearcherRepository()
-    const _ = await _verify(auth, [])
+    const _ = await _authorize(actingUserContext, [], undefined, ApiKeyAccessLevels.STANDARD)
     const data = await ResearcherRepository._insert(researcher)
 
     //publishing data for researcher add api with token = researcher.{_id}
@@ -38,84 +35,74 @@ export class ResearcherService {
     return data
   }
 
-  public static async get(auth: any, researcher_id: string) {
+  public static async get(actingUserContext: ActingUserContext, researcher_id: string) {
     const ResearcherRepository = new Repository().getResearcherRepository()
-    const response: any = await _verify(auth, ["self", "parent"], researcher_id)
-    if (response.id === null) {
+    const response: any = await _authorize(actingUserContext, ["self", "parent"], researcher_id, ApiKeyAccessLevels.STANDARD)
+    if (response === null) {
       return await ResearcherRepository._select(researcher_id)
     }
-    return await ResearcherRepository._select(response.id)
+    return await ResearcherRepository._select(response)
   }
 
-  public static async set(auth: any, researcher_id: string, researcher: any | null) {
+  public static async set(actingUserContext: ActingUserContext, researcher_id: string, researcher: any | null) {
     const ResearcherRepository = new Repository().getResearcherRepository()
-    const response: any = await _verify(auth, ["self", "parent"], researcher_id)
+    const response: any = await _authorize(actingUserContext, ["self", "parent"], researcher_id, ApiKeyAccessLevels.STANDARD)
 
-    const credentialData = await MongoClientDB.collection("credential").findOne({
-      _deleted: false,
-      _id: new ObjectId(response.user_id),
-    })
-    const permissionValue = await findPermission(credentialData.access_key)
+    if (researcher === null) {
+      const data = await ResearcherRepository._delete(researcher_id)
 
-    if (permissionValue === "admin" || credentialData.access_key === "admin") {
-      if (researcher === null) {
-        const data = await ResearcherRepository._delete(researcher_id)
-
-        //publishing data for researcher delete api with token = researcher.{researcher_id}
-        PubSubAPIListenerQueue?.add({
-          topic: `researcher.*`,
+      //publishing data for researcher delete api with token = researcher.{researcher_id}
+      PubSubAPIListenerQueue?.add({
+        topic: `researcher.*`,
+        token: `researcher.${researcher_id}`,
+        payload: { action: "delete", researcher_id: researcher_id },
+      })
+      PubSubAPIListenerQueue?.add(
+        {
+          topic: `researcher`,
           token: `researcher.${researcher_id}`,
           payload: { action: "delete", researcher_id: researcher_id },
-        })
-        PubSubAPIListenerQueue?.add(
-          {
-            topic: `researcher`,
-            token: `researcher.${researcher_id}`,
-            payload: { action: "delete", researcher_id: researcher_id },
-          },
-          {
-            removeOnComplete: true,
-            removeOnFail: true,
-          }
-        )
-        return data
-      } else {
-        const data = await ResearcherRepository._update(researcher_id, researcher)
-
-        //publishing data for researcher update api with token = researcher.{researcher_id}
-        researcher.action = "update"
-        researcher.researcher_id = researcher_id
-        PubSubAPIListenerQueue?.add(
-          { topic: `researcher.*`, token: `researcher.${researcher_id}`, payload: researcher },
-          {
-            removeOnComplete: true,
-            removeOnFail: true,
-          }
-        )
-        PubSubAPIListenerQueue?.add(
-          { topic: `researcher`, token: `researcher.${researcher_id}`, payload: researcher },
-          {
-            removeOnComplete: true,
-            removeOnFail: true,
-          }
-        )
-        return data
-      }
+        },
+        {
+          removeOnComplete: true,
+          removeOnFail: true,
+        }
+      )
+      return data
     } else {
-      throw new Error("403.security-context-out-of-scope")
+      const data = await ResearcherRepository._update(researcher_id, researcher)
+
+      //publishing data for researcher update api with token = researcher.{researcher_id}
+      researcher.action = "update"
+      researcher.researcher_id = researcher_id
+      PubSubAPIListenerQueue?.add(
+        { topic: `researcher.*`, token: `researcher.${researcher_id}`, payload: researcher },
+        {
+          removeOnComplete: true,
+          removeOnFail: true,
+        }
+      )
+      PubSubAPIListenerQueue?.add(
+        { topic: `researcher`, token: `researcher.${researcher_id}`, payload: researcher },
+        {
+          removeOnComplete: true,
+          removeOnFail: true,
+        }
+      )
+      return data
     }
-  }
+    }
 }
 
 ResearcherService.Router.post(
   "/researcher",
-  authenticateToken,
+  authenticateSession,
   inputValidationRules(),
   validateRequest,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
     try {
-      res.json({ data: await ResearcherService.create(req.get("Authorization"), null, req.body) })
+      res.json({ data: await ResearcherService.create(res.locals.actingUserContext, null, req.body) })
     } catch (e: any) {
       if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
       res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
@@ -125,13 +112,13 @@ ResearcherService.Router.post(
 
 ResearcherService.Router.put(
   "/researcher/:researcher_id",
-  authenticateToken,
+  authenticateSession,
   inputValidationRules(),
   validateRequest,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
     try {
-      res.json({ data: await ResearcherService.set(req.get("Authorization"), req.params.researcher_id, req.body) })
+      res.json({ data: await ResearcherService.set(res.locals.actingUserContext, req.params.researcher_id, req.body) })
     } catch (e: any) {
       if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
       res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
@@ -140,21 +127,21 @@ ResearcherService.Router.put(
 )
 ResearcherService.Router.delete(
   "/researcher/:researcher_id",
-  authenticateToken,
+  authenticateSession,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
     try {
-      res.json({ data: await ResearcherService.set(req.get("Authorization"), req.params.researcher_id, null) })
+      res.json({ data: await ResearcherService.set(res.locals.actingUserContext, req.params.researcher_id, null) })
     } catch (e: any) {
       if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
       res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
     }
   }
 )
-ResearcherService.Router.get("/researcher/:researcher_id", authenticateToken, async (req: Request, res: Response) => {
+ResearcherService.Router.get("/researcher/:researcher_id", authenticateSession, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
-    let output = { data: await ResearcherService.get(req.get("Authorization"), req.params.researcher_id) }
+    let output = { data: await ResearcherService.get(res.locals.actingUserContext, req.params.researcher_id) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e: any) {
@@ -162,10 +149,10 @@ ResearcherService.Router.get("/researcher/:researcher_id", authenticateToken, as
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-ResearcherService.Router.get("/researcher", authenticateToken, async (req: Request, res: Response) => {
+ResearcherService.Router.get("/researcher", authenticateSession, async (req: Request, res: Response) => {
   res.header(ApiResponseHeaders)
   try {
-    let output = { data: await ResearcherService.list(req.get("Authorization"), null) }
+    let output = { data: await ResearcherService.list(res.locals.actingUserContext, null) }
 
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
@@ -184,14 +171,14 @@ ResearcherService.Router.get("/researcher", authenticateToken, async (req: Reque
  */
 ResearcherService.Router.get(
   "/researcher/:researcher_id/_lookup/:lookup",
-  authenticateToken,
+  authenticateSession,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
     try {
       const _lookup: string = req.params.lookup
       const studyID: string = (!!req.query.study_id ? req.query.study_id : undefined) as any
       let researcher_id: string = req.params.researcher_id
-      const _ = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
+      const _ = await _authorize(res.locals.actingUserContext, ["self", "parent"], researcher_id, ApiKeyAccessLevels.STANDARD)
       //PREPARE DATA FROM DATABASE
       let activities: object[] = []
       let sensors: object[] = []
@@ -268,7 +255,7 @@ ResearcherService.Router.get(
  */
 ResearcherService.Router.get(
   "/study/:study_id/_lookup/:lookup/mode/:mode",
-  authenticateToken,
+  authenticateSession,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
     try {
@@ -278,7 +265,7 @@ ResearcherService.Router.get(
       const SensorEventRepository = repo.getSensorEventRepository()
       const ActivityEventRepository = repo.getActivityEventRepository()
       let studyID: string = req.params.study_id
-      const _ = await _verify(req.get("Authorization"), ["self", "parent"], studyID)
+      const _ = await _authorize(res.locals.actingUserContext, ["self", "parent"], studyID, ApiKeyAccessLevels.STANDARD)
       let lookup: string = req.params.lookup
       let mode: number | undefined = Number.parse(req.params.mode)
       //IF THE LOOK UP IS PARTICIPANT
