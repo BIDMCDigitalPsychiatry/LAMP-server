@@ -1,4 +1,4 @@
-import { betterAuth, BetterAuthPlugin } from "better-auth";
+import { betterAuth, BetterAuthPlugin, User } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { createAuthEndpoint, createAuthMiddleware, sessionMiddleware } from "better-auth/api"
 import { setSessionCookie } from "better-auth/cookies"
@@ -12,6 +12,7 @@ import { getConfiguredOAuthOptions } from "./oauthConfiguration";
 import z4 from "zod/v4";
 import { mongoClientInstance } from "./mongoClient";
 import { AccountSetupState, checkSetupType, COMPLETED_STATES, isAccountSetupStateAllowed, formatPrimaryKey, sendCodeToEmail, sendCodeToPhone, SetupStates, verifyCode } from "./accountSecurityUtilities";
+import { contextLinesIntegration } from "@sentry/node";
 
 const db = mongoClientInstance.db(process.env.DB_NAME)
 
@@ -698,6 +699,61 @@ const MobileAuthTokenPlugin = () => {
           }
 
           throw ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+        }
+      ),
+      legacyMobileAuthGetSession: createAuthEndpoint(
+        "mobile-auth/legacy-get-session",
+        {
+          method: "POST",
+          body: z4.object(
+           {
+            username: z4.string(), // Username may be an actual username or an access key
+            secretKey: z4.string(),
+           }
+          )
+        },
+        async (ctx) => {
+          // Check username and password
+          const internalAdapter = ctx.context.internalAdapter
+          const user: User | null = await ctx.context.adapter.findOne({
+            model: "user", 
+            where: [
+              {
+                field: "username",
+                value: ctx.body.username || "",
+                operator: "eq",
+                connector: "OR"
+              },
+              {
+                field: "email",
+                value: ctx.body.username || "",
+                operator: "eq",
+                connector: "OR"
+              }
+            ]})
+
+            if (!user) {
+            return ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+          }
+          
+          const account = (await internalAdapter.findAccountByUserId(user.id)).filter(account => account.providerId === "credential").at(0)
+
+          if (!account || !account.password) {
+            return ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+          }
+
+          if (! await ctx.context.password.verify({password: ctx.body.secretKey, hash: account.password})) {
+            return ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+          }
+
+          let session = (await internalAdapter.listSessions(user.id)).filter(session => session.expiresAt.getTime() > Date.now()).at(0)
+          if (!session) {
+            session = await internalAdapter.createSession(user.id)
+          }
+          ctx.context.setNewSession({session: session, user: user})
+          await setSessionCookie(ctx, {session: session, user: user})
+          
+          return ctx.json({session: session, user: user})
         }
       ),
       refreshMobileToken: createAuthEndpoint(

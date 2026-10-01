@@ -46,7 +46,7 @@
 | `STAFF_SESSION_EXPIRES_IN` || Time in seconds after which to expire a staff user's session
 | `STAFF_SESSION_UPDATE_AGE` || Time in seconds after which to refresh a staff user's session
 | `SYSTEM_STATUS_API_KEY`   |   | If set, some of the system info endpoints (such as `/system/metrics` or `/system/version`) will require a `key` query parameter equal to this env var in order to access. |
-
+| `ALLOW_LEGACY_MOBILE_TOKENS` | | If true, allow basic auth to be used in place of mobile tokens. This is only to support legacy mobile app users and should be disabled as sooon as possible
 ### Authentication with Better-Auth
 
 MindLAMP uses the better-auth library to handle authentication for all users. It provides a lot of functionality surrounding login using o-auth, and server side sessions, but requires several customizations to work with the existing structure of mindLAMP's data. Below is a breif overview of some of the less intuitive customizations.
