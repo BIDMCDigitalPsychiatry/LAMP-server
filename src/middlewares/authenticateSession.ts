@@ -92,32 +92,51 @@ export async function authenticateSession(req: Request, res: Response, next: Nex
 }
 
 export async function authenticateMobileSession(req: Request, res: Response) {
-    // Returns an ActingUserContext if a valid mobile auth access key is included in the request, or null if not
-    const mobileToken = req.headers["authorization"]?.replace("Bearer ", "")
-    if (!mobileToken) {
+    const authorizationHeader = req.headers["authorization"]
+    if (!authorizationHeader) {
         return null
     }
 
-    try {
-        const {response, headers} = await auth.api.mobileAuthGetSession({
-            body: {token: mobileToken},
-            returnHeaders: true
-        }) as any
+    let result: any
 
-        // Save the session token for use by future betterauth calls
-        const newHeaders = new Headers(headers)
-        newHeaders.set("cookie", convertSetCookieToCookie(headers))
+    if (authorizationHeader.startsWith("Bearer")) {
+        //  Validate the mobile token
+        const mobileToken = authorizationHeader.replace("Bearer ", "")
+        try {
+            result = await auth.api.mobileAuthGetSession({
+                body: {token: mobileToken},
+                returnHeaders: true
+            }) as any
+        } catch(err) {
+            return null
+        }
+    } else if (["true", true].includes(process.env.ALLOW_LEGACY_MOBILE_TOKENS || "") && authorizationHeader.startsWith("Basic")) {
+        // If enabled in settings, basic auth can be used as a mobile token
+        // This setting should only be enabled in order to support legacy mobile app users
+        try {
+            const authString = atob(authorizationHeader.replace("Basic ", "")).split(":")
+            result = await auth.api.legacyMobileAuthGetSession({
+                body: {username: authString[0], secretKey: authString[1]},
+                returnHeaders: true,
+            }) as any
+        } catch(err) {
+            return null
+        }
+    }
+
+    // Return an acting user context if verification of the mobile token worked
+    if (result?.response && result.headers) {
+        const newHeaders = new Headers(result.headers)
+        newHeaders.set("cookie", convertSetCookieToCookie(result.headers))
 
         return {
-            user: response?.user,
-            session: response?.session,
+            user: result.response?.user,
+            session: result.response?.session,
             apiKey: undefined,
             requestHeaders: newHeaders
         } as ActingUserContext
-
-    } catch(err) {
-        return null
     }
+    return null
 }
 
 
