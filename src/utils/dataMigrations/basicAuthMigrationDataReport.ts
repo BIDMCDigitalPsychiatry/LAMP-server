@@ -36,6 +36,7 @@ export async function runBasicAuthMigrationDataReport() {
     // Check for credentials with duplicate access keys
     const Credential = MongoClientDB.collection("credential")
     const countedAccessKeys = await Credential.aggregate([
+        {$project: {access_key: {$toLower: ["$access_key"]}}},
         {$group: {_id: "$access_key", count: {$sum: 1}}}
     ]).toArray()
 
@@ -55,7 +56,8 @@ export async function runBasicAuthMigrationDataReport() {
 
     const duplicateKeys = Object.entries(annotated).filter(([key, data]) => data.duplicates).map(([key, data]) => key)
     for (let key of duplicateKeys) {
-        const duplicateCredentials = await Credential.find({access_key: key}).project({_id: true, access_key: true, _deleted: true, origin: true}).toArray()
+        let search = new RegExp(`^${key}$`, "i")
+        const duplicateCredentials = await Credential.find({access_key: search}).project({_id: true, access_key: true, _deleted: true, origin: true}).toArray()
         const inactive = duplicateCredentials.filter((doc:any) => doc._deleted)
         if (duplicateCredentials.length - inactive.length > 1) {
             duplicateReportData[key] = {
