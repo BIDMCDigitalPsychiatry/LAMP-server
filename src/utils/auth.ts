@@ -680,12 +680,25 @@ const MobileAuthTokenPlugin = () => {
         "/mobile-auth/get-session",
         {
           method: "POST",
-          body: z4.object({token: z4.string().nonempty()})
+          body: z4.object({
+            token: z4.string().nonempty(),
+            // Access and refresh tokens are signed with the same key, so the
+            // token type must be checked to keep them from being interchangeable
+            tokenType: z4.enum(["access", "refresh"]).optional(),
+          })
         },
         async (ctx) => {
           // Verify that the JWT is signed and valid
           const payload: any = (await verifyJWT(ctx.body.token))?.payload
           if (!payload) {
+            throw ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+          }
+
+          // Access tokens from password login (jwt plugin getToken) carry no `type`
+          // claim, so reject refresh tokens rather than requiring type "access"
+          const expectedType = ctx.body.tokenType ?? "access"
+          const isRefreshToken = payload.type === "refresh"
+          if (isRefreshToken !== (expectedType === "refresh")) {
             throw ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
           }
 
