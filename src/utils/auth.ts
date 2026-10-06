@@ -769,45 +769,6 @@ const MobileAuthTokenPlugin = () => {
           return ctx.json({session: session, user: user})
         }
       ),
-      refreshMobileToken: createAuthEndpoint(
-          "mobile-auth/refresh-token",
-          {
-            method: "POST",
-            body: z4.object({refresh: z4.string().nonempty()})
-          },
-          async (ctx) => {
-            const internalAdapter = ctx.context.internalAdapter
-            // Read the JWT
-            const payload: any = (await verifyJWT(ctx.body.refresh))?.payload
-            console.log("Given refresh token payload: ", payload)
-            if (!payload) {
-              return ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
-            }
-
-            // Get session
-            const session = await internalAdapter.findSession(payload.sessionToken)
-            console.log("Associated session: ", session)
-            if (!session || session?.session?.expiresAt.getTime() <= Date.now()) {
-              return ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
-            }
-
-            // Check that this is the correct refresh token
-            if (payload.refreshId !== session.session.currentRefreshToken) {
-              return ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
-            }
-
-            const newRefreshPayload = createRefreshTokenPayload(session)
-            console.log("newRefreshPayload", newRefreshPayload)
-            // Delete the old refresh entry
-            await internalAdapter.updateSession(session.session.token, {
-              currentRefreshToken: newRefreshPayload.refreshId
-            })
-
-            // Create a new refresh token jwt
-            const newToken: any = await signJWT(newRefreshPayload)
-            return ctx.json(newToken)
-          }
-      ),
       createRefreshToken: createAuthEndpoint(
         // Gets a mobile access token and refresh token for the logged in user
         // This should only be called as a direct result of a successful login
