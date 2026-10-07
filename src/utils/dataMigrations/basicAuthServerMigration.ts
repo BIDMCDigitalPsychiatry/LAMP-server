@@ -34,8 +34,12 @@ export async function runBasicAuthServerMigration() {
           console.log("All user's have an associated account")
         }
 
+        // Add usernames and fake emails for users without emails
         const addedUsernameCount = await addUsernames()
         console.log(`Changed access_key for ${addedUsernameCount} users`)
+
+        // Make all access_keys lowercase (Run after addUsernames so that capitalization can be preserved in displayUsername)
+        await makeIdentifiersLowercase()
 
         const adminUpdateResult = await MongoClientDB.collection("credential")
             .updateOne({
@@ -138,8 +142,9 @@ async function addUsernames() {
     MongoClientDB.collection("credential").updateOne(
       {_id: cred._id}, 
       {$set: {
-        username: cred.access_key,
-        access_key: `${cred.access_key}@${EMAIL_DOMAIN}`
+        displayUsername: cred.access_key,
+        username: cred.access_key.toLowerCase(),
+        access_key: `${cred.access_key}@${EMAIL_DOMAIN}`.toLowerCase()
       }}
     )
   }))
@@ -212,3 +217,22 @@ async function clearDeletedParentCredentials() {
   }
 }
 
+async function makeIdentifiersLowercase() {
+  if (process.env.RUN_DESTRUCTIVE_UPGRADE_STEPS === "true") {
+    const emailResult = await MongoClientDB.collection("credential").updateMany(
+      {}, 
+      [{$set: {access_key: {$toLower: "$access_key"}}}]
+    )
+    console.log(`Made ${emailResult.modifiedCount} emails lowercase.`)
+    
+    const usernameResult =await MongoClientDB.collection("credential").updateMany(
+      {username: {$exists: 1}}, 
+      [{$set: {username: {$toLower: "$username"}}}]
+    )
+    console.log(`Made ${usernameResult.modifiedCount} usernames lowercase.`)
+
+
+  } else {
+    console.log("Did not convert emails and usernames to lowercase.  Set RUN_DESTRUCTIVE_UPGRADE_STEPS=true in your environment to normalize email and username values.")
+  }
+}
