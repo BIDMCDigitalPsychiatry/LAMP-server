@@ -56,17 +56,8 @@ export async function authenticateSession(req: Request, res: Response, next: Nex
 
     // If we have not found an ActingUserContext, throw
     if (!actingUserContext) {
-        // A Bearer token was sent on a mobile route but failed verification
-        // (expired, invalid, or its session ended). Respond 401 per RFC 6750 so
-        // the mobile apps refresh their access token. If the refresh also fails,
-        // the apps send the user back to login.
-        if (options[AuthFlag.allowMobileToken] && req.headers["authorization"]?.startsWith("Bearer ")) {
-            res.status(401)
-            res.json({message: "401.invalid-mobile-token"})
-            return
-        }
-        res.status(403)
-        res.json({message: "403.no-such-credentials"})
+        res.status(401)
+        res.json({message: "401.no-such-credentials"})
         return 
     }
 
@@ -75,8 +66,8 @@ export async function authenticateSession(req: Request, res: Response, next: Nex
     if (user._deleted) {
         const deleteResult = await MongoClientDB.collection("session")
                                                 .deleteOne({token: session.token})
-        res.status(403)
-        res.json({message: "403.no-such-credentials"})
+        res.status(401)
+        res.json({message: "401.no-such-credentials"})
         return
     }
 

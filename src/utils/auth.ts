@@ -689,11 +689,11 @@ const MobileAuthTokenPlugin = () => {
           // Verify that the JWT is signed and valid
           const payload: any = (await verifyJWT(ctx.body.token))?.payload
           if (!payload) {
-            throw ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+            throw ctx.error("UNAUTHORIZED", {message: "401.no-such-credentials"})
           }
 
           if (ctx.body.expectedTokenType !== payload.type) {
-            throw ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+            throw ctx.error("UNAUTHORIZED", {message: "401.no-such-credentials"})
           }
 
           // Find the session associated with the mobile token
@@ -705,7 +705,7 @@ const MobileAuthTokenPlugin = () => {
             return ctx.json(session)
           }
 
-          throw ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+          throw ctx.error("UNAUTHORIZED", {message: "401.no-such-credentials"})
         }
       ),
       legacyMobileAuthGetSession: createAuthEndpoint(
@@ -740,17 +740,17 @@ const MobileAuthTokenPlugin = () => {
             ]})
 
             if (!user) {
-            return ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+            return ctx.error("UNAUTHORIZED", {message: "401.no-such-credentials"})
           }
           
           const account = (await internalAdapter.findAccountByUserId(user.id)).filter(account => account.providerId === "credential").at(0)
 
           if (!account || !account.password) {
-            return ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+            return ctx.error("UNAUTHORIZED", {message: "401.no-such-credentials"})
           }
 
           if (! await ctx.context.password.verify({password: ctx.body.secretKey, hash: account.password})) {
-            return ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+            return ctx.error("UNAUTHORIZED", {message: "401.no-such-credentials"})
           }
 
           let session = (await internalAdapter.listSessions(user.id)).filter(session => session.expiresAt.getTime() > Date.now()).at(0)
@@ -777,7 +777,7 @@ const MobileAuthTokenPlugin = () => {
           const mobileTokenPayload = (await verifyJWT(ctx.body.token))?.payload
 
           if (!mobileTokenPayload || mobileTokenPayload?.sessionToken !== session.token) {
-            throw ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+            throw ctx.error("UNAUTHORIZED", {message: "401.no-such-credentials"})
           }
 
           const refreshTokenPayload = createRefreshTokenPayload(ctx.context.session)
