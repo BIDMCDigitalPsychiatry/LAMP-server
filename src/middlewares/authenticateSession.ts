@@ -114,9 +114,8 @@ export async function authenticateMobileSession(req: Request, res: Response) {
         // If enabled in settings, basic auth can be used as a mobile token
         // This setting should only be enabled in order to support legacy mobile app users
         try {
-            // Decode as UTF-8 (matching the legacy server) and split on the first
-            // colon only, since passwords may contain colons
             const authString = Buffer.from(authorizationHeader.replace("Basic ", ""), "base64").toString("utf8")
+            // Split on the first colon only, since passwords may contain colons
             const separatorIndex = authString.indexOf(":")
             if (separatorIndex === -1) {
                 return null
