@@ -654,7 +654,7 @@ CredentialService.Router.post(
     let getSessionResult
     try {
       getSessionResult = await auth.api.mobileAuthGetSession({
-        body: {token: req.body.refreshToken, tokenType: "refresh"},
+        body: {token: req.body.refreshToken, expectedTokenType: "refresh"},
         returnHeaders: true
       })
     } catch(err) {

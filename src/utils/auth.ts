@@ -682,9 +682,7 @@ const MobileAuthTokenPlugin = () => {
           method: "POST",
           body: z4.object({
             token: z4.string().nonempty(),
-            // Access and refresh tokens are signed with the same key, so the
-            // token type must be checked to keep them from being interchangeable
-            tokenType: z4.enum(["access", "refresh"]).optional(),
+            expectedTokenType: z4.enum(["access", "refresh"]).default("access"),
           })
         },
         async (ctx) => {
@@ -694,11 +692,7 @@ const MobileAuthTokenPlugin = () => {
             throw ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
           }
 
-          // Access tokens from password login (jwt plugin getToken) carry no `type`
-          // claim, so reject refresh tokens rather than requiring type "access"
-          const expectedType = ctx.body.tokenType ?? "access"
-          const isRefreshToken = payload.type === "refresh"
-          if (isRefreshToken !== (expectedType === "refresh")) {
+          if (ctx.body.expectedTokenType !== payload.type) {
             throw ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
           }
 
@@ -987,6 +981,7 @@ export const auth = betterAuth({
               sessionToken: session.token,
               dashboardUrl: process.env.DASHBOARD_URL,
               serverUrl: process.env.BETTER_AUTH_URL,
+              type: "access",
             }
             return payload
           },
