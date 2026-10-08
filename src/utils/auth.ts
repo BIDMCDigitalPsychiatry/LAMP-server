@@ -680,13 +680,20 @@ const MobileAuthTokenPlugin = () => {
         "/mobile-auth/get-session",
         {
           method: "POST",
-          body: z4.object({token: z4.string().nonempty()})
+          body: z4.object({
+            token: z4.string().nonempty(),
+            expectedTokenType: z4.enum(["access", "refresh"]).default("access"),
+          })
         },
         async (ctx) => {
           // Verify that the JWT is signed and valid
           const payload: any = (await verifyJWT(ctx.body.token))?.payload
           if (!payload) {
-            throw ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+            throw ctx.error("UNAUTHORIZED", {message: "401.no-such-credentials"})
+          }
+
+          if (ctx.body.expectedTokenType !== payload.type) {
+            throw ctx.error("UNAUTHORIZED", {message: "401.no-such-credentials"})
           }
 
           // Find the session associated with the mobile token
@@ -698,7 +705,7 @@ const MobileAuthTokenPlugin = () => {
             return ctx.json(session)
           }
 
-          throw ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+          throw ctx.error("UNAUTHORIZED", {message: "401.no-such-credentials"})
         }
       ),
       legacyMobileAuthGetSession: createAuthEndpoint(
@@ -733,17 +740,17 @@ const MobileAuthTokenPlugin = () => {
             ]})
 
             if (!user) {
-            return ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+            return ctx.error("UNAUTHORIZED", {message: "401.no-such-credentials"})
           }
           
           const account = (await internalAdapter.findAccountByUserId(user.id)).filter(account => account.providerId === "credential").at(0)
 
           if (!account || !account.password) {
-            return ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+            return ctx.error("UNAUTHORIZED", {message: "401.no-such-credentials"})
           }
 
           if (! await ctx.context.password.verify({password: ctx.body.secretKey, hash: account.password})) {
-            return ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+            return ctx.error("UNAUTHORIZED", {message: "401.no-such-credentials"})
           }
 
           let session = (await internalAdapter.listSessions(user.id)).filter(session => session.expiresAt.getTime() > Date.now()).at(0)
@@ -755,45 +762,6 @@ const MobileAuthTokenPlugin = () => {
           
           return ctx.json({session: session, user: user})
         }
-      ),
-      refreshMobileToken: createAuthEndpoint(
-          "mobile-auth/refresh-token",
-          {
-            method: "POST",
-            body: z4.object({refresh: z4.string().nonempty()})
-          },
-          async (ctx) => {
-            const internalAdapter = ctx.context.internalAdapter
-            // Read the JWT
-            const payload: any = (await verifyJWT(ctx.body.refresh))?.payload
-            console.log("Given refresh token payload: ", payload)
-            if (!payload) {
-              return ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
-            }
-
-            // Get session
-            const session = await internalAdapter.findSession(payload.sessionToken)
-            console.log("Associated session: ", session)
-            if (!session || session?.session?.expiresAt.getTime() <= Date.now()) {
-              return ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
-            }
-
-            // Check that this is the correct refresh token
-            if (payload.refreshId !== session.session.currentRefreshToken) {
-              return ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
-            }
-
-            const newRefreshPayload = createRefreshTokenPayload(session)
-            console.log("newRefreshPayload", newRefreshPayload)
-            // Delete the old refresh entry
-            await internalAdapter.updateSession(session.session.token, {
-              currentRefreshToken: newRefreshPayload.refreshId
-            })
-
-            // Create a new refresh token jwt
-            const newToken: any = await signJWT(newRefreshPayload)
-            return ctx.json(newToken)
-          }
       ),
       createRefreshToken: createAuthEndpoint(
         // Gets a mobile access token and refresh token for the logged in user
@@ -809,7 +777,7 @@ const MobileAuthTokenPlugin = () => {
           const mobileTokenPayload = (await verifyJWT(ctx.body.token))?.payload
 
           if (!mobileTokenPayload || mobileTokenPayload?.sessionToken !== session.token) {
-            throw ctx.error("FORBIDDEN", {message: "403.no-such-credentials"})
+            throw ctx.error("UNAUTHORIZED", {message: "401.no-such-credentials"})
           }
 
           const refreshTokenPayload = createRefreshTokenPayload(ctx.context.session)
@@ -1013,6 +981,7 @@ export const auth = betterAuth({
               sessionToken: session.token,
               dashboardUrl: process.env.DASHBOARD_URL,
               serverUrl: process.env.BETTER_AUTH_URL,
+              type: "access",
             }
             return payload
           },
