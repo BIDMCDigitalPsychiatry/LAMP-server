@@ -101,9 +101,11 @@ function readUpload(req: Request): Promise<{ fields: UploadFields; frame: Buffer
   return new Promise((resolve, reject) => {
     let parser: busboy.Busboy
     try {
+      // busboy emits `limit` once a file reaches `fileSize` bytes, even when nothing follows, so allow
+      // one extra byte: `limit` then means the frame is over 4 MiB.
       parser = busboy({
         headers: req.headers,
-        limits: { files: 1, fields: 12, fileSize: MAX_FRAME_BYTES },
+        limits: { files: 1, fields: 12, fileSize: MAX_FRAME_BYTES + 1 },
       })
     } catch (e: any) {
       drain(req).then(() => reject(new HttpError("400.expected-multipart-form-data", e?.message)))
