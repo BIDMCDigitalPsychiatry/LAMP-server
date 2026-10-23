@@ -400,6 +400,20 @@ describe("upload validation", () => {
     expect(res.status).toBe(400)
   })
 
+  it("accepts a frame of exactly 4 MiB", async () => {
+    const frame = syntheticFrame("openzl", MAX_FRAME_BYTES)
+    const start = 1_790_002_700_000
+    const res = await upload(
+      f.participant,
+      syntheticFields(frame, "lamp.accelerometer100hz", start, start + 9_990),
+      frame,
+      { auth: f.participantBearer }
+    )
+    expect(res.status).toBe(200)
+    const doc = await filesCollection().findOne({ _id: new ObjectId(res.body.data.id) })
+    expect(doc!.length).toBe(MAX_FRAME_BYTES)
+  })
+
   it("rejects a frame over 4 MiB with 413, drains the request, and keeps the connection usable", async () => {
     const frame = syntheticFrame("openzl", MAX_FRAME_BYTES + 1)
     const fields = syntheticFields(frame, "lamp.accelerometer100hz", 1_790_002_400_000, 1_790_002_409_990)
@@ -508,6 +522,71 @@ describe("authentication and authorization", () => {
     expect((await download(f.participant, id, f.researcherAKey)).status).toBe(200)
     expect((await download(f.participant, id, f.researcherBKey)).status).toBe(403)
     expect((await download(f.participant, id)).status).toBe(403)
+  })
+
+  it("refuses a participant's Bearer token on another participant's list and download with 403", async () => {
+    const spec = META["frame.zstd"].sensor_spec
+    const owner = await request(app)
+      .get(`/participant/${f.sibling}/sensor-stream?sensor_spec=${spec}`)
+      .set("x-api-key", f.researcherAKey)
+    expect(owner.status).toBe(200)
+    expect(owner.body.data.length).toBeGreaterThan(0)
+    const id = owner.body.data[0].id
+
+    const list = await request(app)
+      .get(`/participant/${f.sibling}/sensor-stream?sensor_spec=${spec}`)
+      .set("Authorization", f.participantBearer)
+    expect(list.status).toBe(403)
+    const got = await download(f.sibling, id).set("Authorization", f.participantBearer)
+    expect(got.status).toBe(403)
+  })
+
+  it("refuses a participant's Bearer token uploading into another participant's stream with 403", async () => {
+    const start = 1_790_003_400_000
+    const res = await upload(
+      f.sibling,
+      fieldsFor("frame.openzl", { start_timestamp: start, end_timestamp: start + 9_980 }),
+      FRAME_OPENZL,
+      {
+        auth: f.participantBearer,
+      }
+    )
+    expect(res.status).toBe(403)
+    expect(await filesAt(f.sibling, META["frame.openzl"].sensor_spec, start)).toHaveLength(0)
+  })
+
+  it("refuses a mobile Bearer token on the read routes, even for the participant's own frames", async () => {
+    const spec = "lamp.accelerometer50hz"
+    const owner = await request(app)
+      .get(`/participant/${f.participant}/sensor-stream?sensor_spec=${spec}`)
+      .set("x-api-key", f.researcherAKey)
+    expect(owner.status).toBe(200)
+    const id = owner.body.data[0].id
+
+    for (const participant of [f.participant, "me"]) {
+      const list = await request(app)
+        .get(`/participant/${participant}/sensor-stream?sensor_spec=${spec}`)
+        .set("Authorization", f.participantBearer)
+      expect(list.status).toBe(403)
+      const got = await download(participant, id).set("Authorization", f.participantBearer)
+      expect(got.status).toBe(403)
+    }
+  })
+
+  it("answers authentication failures with an {error} body", async () => {
+    const post = await upload(f.participant, fields(), FRAME_OPENZL)
+    expect(post.status).toBe(403)
+    expect(post.body).toEqual({ error: "403.no-such-credentials" })
+
+    const list = await request(app).get(
+      `/participant/${f.participant}/sensor-stream?sensor_spec=lamp.accelerometer50hz`
+    )
+    expect(list.status).toBe(403)
+    expect(list.body).toEqual({ error: "403.no-such-credentials" })
+
+    const got = await request(app).get(`/participant/${f.participant}/sensor-stream/${new ObjectId().toHexString()}`)
+    expect(got.status).toBe(403)
+    expect(got.body).toEqual({ error: "403.no-such-credentials" })
   })
 
   it("returns 404 for a frame that belongs to another participant, or doesn't exist", async () => {
@@ -629,6 +708,78 @@ describe("GET /participant/:id/sensor-stream", () => {
   ])("rejects %s with 400", async (_name, query) => {
     const res = await list(query)
     expect(res.status).toBe(400)
+  })
+})
+
+describe("GET /participant/:id/sensor-stream query cost", () => {
+  const spec = "lamp.accelerometer10hz"
+  const base = 1_700_000_000_000 - (1_700_000_000_000 % WINDOW_MS)
+  const WINDOWS = 300
+  // One frame per window, spanning most of it, inserted straight into GridFS's files collection
+  // (listing never reads chunks).
+  const docs = Array.from({ length: WINDOWS }, (_, k) => {
+    const start = base + k * WINDOW_MS + 500
+    return {
+      _id: new ObjectId(),
+      length: 100,
+      chunkSize: SENSOR_STREAM_CHUNK_SIZE_BYTES,
+      uploadDate: new Date(),
+      filename: `query-cost/${spec}/${start}`,
+      metadata: {
+        participant_id: "",
+        sensor_spec: spec,
+        start_timestamp: start,
+        end_timestamp: start + 299_000,
+        sample_count: 500,
+        codec: "openzl",
+        codec_format_version: 24,
+        platform: "android",
+        unit: "m/s^2",
+        byte_length: 100,
+        sha256: sha256(Buffer.from(String(k))),
+      },
+    }
+  })
+
+  beforeAll(async () => {
+    for (const doc of docs) doc.metadata.participant_id = f.participant
+    await filesCollection().insertMany(docs as any[])
+  })
+
+  afterAll(async () => {
+    await filesCollection().deleteMany({ _id: { $in: docs.map((doc) => doc._id) } })
+  })
+
+  it("examines only the frames near [from, to), not the participant's whole history", async () => {
+    // The last two windows; `from` sits inside the second-to-last frame, so that frame overlaps.
+    const from = docs[WINDOWS - 2].metadata.start_timestamp + 1_000
+    const to = docs[WINDOWS - 1].metadata.end_timestamp + 1
+    const expected = docs
+      .filter((doc) => doc.metadata.end_timestamp >= from && doc.metadata.start_timestamp < to)
+      .map((doc) => doc._id.toHexString())
+    expect(expected).toHaveLength(2)
+
+    await db.command({ profile: 2 })
+    let res: request.Response
+    try {
+      res = await request(app)
+        .get(`/participant/${f.participant}/sensor-stream?sensor_spec=${spec}&from=${from}&to=${to}`)
+        .set("x-api-key", f.researcherAKey)
+    } finally {
+      await db.command({ profile: 0 })
+    }
+    expect(res.status).toBe(200)
+    expect(res.body.data.map((d: any) => d.id)).toEqual(expected)
+
+    const [profile] = await db
+      .collection("system.profile")
+      .find({ ns: `${db.databaseName}.${SENSOR_STREAM_BUCKET}.files`, op: "query" })
+      .sort({ ts: -1 })
+      .limit(1)
+      .toArray()
+    expect(profile).toBeDefined()
+    expect(profile.docsExamined).toBeLessThanOrEqual(expected.length + 2)
+    expect(profile.keysExamined).toBeLessThanOrEqual(expected.length + 3)
   })
 })
 
