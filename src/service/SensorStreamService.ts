@@ -298,10 +298,13 @@ export class SensorStreamService {
     if (!parsed.success) throw new HttpError("400.invalid-query", describeIssues(parsed.error))
     const { sensor_spec, from = 0, to = Date.now(), limit = LIST_LIMIT_MAX, cursor } = parsed.data
 
+    // A frame's start and end share a 5-minute window, so a frame that ends at or after `from` starts
+    // no earlier than the start of `from`'s window. That lower bound keeps the index scan to the
+    // requested range instead of the participant's whole history.
     const filter: any = {
       "metadata.participant_id": participant_id,
       "metadata.sensor_spec": sensor_spec,
-      "metadata.start_timestamp": { $lt: to },
+      "metadata.start_timestamp": { $gte: Math.floor(from / WINDOW_MS) * WINDOW_MS, $lt: to },
       "metadata.end_timestamp": { $gte: from },
     }
     if (cursor !== undefined) {
