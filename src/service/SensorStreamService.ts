@@ -218,12 +218,14 @@ export class SensorStreamService {
   public static Router = Router()
 
   // Authorizes the acting user for a participant and returns the participant ID, with `me` resolved.
+  // Only the participant and the researchers above them qualify: unlike `sensor_event`, there's no
+  // `sibling` rule, because two participants of one study are siblings and must not see each other.
   public static async authorize(
     actingUserContext: ActingUserContext,
     participant_id: string,
     apiKeyAccessLevel: ApiKeyAccessLevels
   ): Promise<string> {
-    await _authorize(actingUserContext, ["self", "sibling", "parent"], participant_id, apiKeyAccessLevel)
+    await _authorize(actingUserContext, ["self", "parent"], participant_id, apiKeyAccessLevel)
     return participant_id === "me" ? (actingUserContext.user.origin as string) : participant_id
   }
 
@@ -364,7 +366,7 @@ SensorStreamService.Router.post(
 
 SensorStreamService.Router.get(
   "/participant/:participant_id/sensor-stream",
-  configureAuth([AuthFlag.allowMobileToken]),
+  // Reads take an `x-api-key` (or a dashboard session), never a mobile token.
   authenticateSession,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
@@ -383,7 +385,7 @@ SensorStreamService.Router.get(
 
 SensorStreamService.Router.get(
   "/participant/:participant_id/sensor-stream/:file_id",
-  configureAuth([AuthFlag.allowMobileToken]),
+  // Reads take an `x-api-key` (or a dashboard session), never a mobile token.
   authenticateSession,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
