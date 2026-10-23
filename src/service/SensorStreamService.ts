@@ -1,4 +1,4 @@
-import { Request, Response, Router } from "express"
+import { NextFunction, Request, Response, Router } from "express"
 import busboy from "busboy"
 import { createHash } from "crypto"
 import { finished, pipeline } from "stream/promises"
@@ -348,9 +348,23 @@ function sendError(res: Response, e: any) {
     .json(e instanceof HttpError && e.detail ? { error: message, detail: e.detail } : { error: message })
 }
 
+// `authenticateSession` answers failures with `{"message": "403.…"}`. Rewrites those bodies to the
+// contract's `{"error": "<status>.<slug>"}` form.
+function errorBody(req: Request, res: Response, next: NextFunction) {
+  const json = res.json.bind(res)
+  res.json = (body?: any) =>
+    json(
+      res.statusCode >= 400 && typeof body?.message === "string" && body.error === undefined
+        ? { error: body.message }
+        : body
+    )
+  next()
+}
+
 SensorStreamService.Router.post(
   "/participant/:participant_id/sensor-stream",
   configureAuth([AuthFlag.allowMobileToken]),
+  errorBody,
   authenticateSession,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
@@ -372,6 +386,7 @@ SensorStreamService.Router.post(
 SensorStreamService.Router.get(
   "/participant/:participant_id/sensor-stream",
   // Reads take an `x-api-key` (or a dashboard session), never a mobile token.
+  errorBody,
   authenticateSession,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
@@ -391,6 +406,7 @@ SensorStreamService.Router.get(
 SensorStreamService.Router.get(
   "/participant/:participant_id/sensor-stream/:file_id",
   // Reads take an `x-api-key` (or a dashboard session), never a mobile token.
+  errorBody,
   authenticateSession,
   async (req: Request, res: Response) => {
     res.header(ApiResponseHeaders)
