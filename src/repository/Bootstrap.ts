@@ -46,6 +46,7 @@ import { initializeQueues } from "../utils/queue/Queue"
 import { auth, Encrypt } from "../utils/auth"
 import { mongoClientInstance } from "../utils/mongoClient"
 import { SetupStates } from "../utils/accountSecurityUtilities"
+import { ensureSensorStreamIndexes, seedSensorSpecs } from "./mongo/SensorStreamStorage"
 export let RedisClient: ioredis.Redis
 export let nc: Client
 export let MongoClientDB: any
@@ -954,6 +955,12 @@ async function InitializeDatabase(): Promise<void> {
         await MongoClientDB.createCollection("verification")
       }
       console.log("Verification database online.")
+
+      // Runs on every start: both calls are idempotent and never overwrite existing data.
+      await ensureSensorStreamIndexes(MongoClientDB)
+      console.log("SensorStream storage online.")
+      await seedSensorSpecs(MongoClientDB)
+      console.log("SensorStream specs online.")
 
       console.groupEnd()
       console.groupEnd()

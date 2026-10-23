@@ -221,8 +221,10 @@ describe("POST /participant/:id/sensor-stream", () => {
     expect(sha256(got.body)).toBe(META["frame.openzl"].sha256)
   })
 
+  // The tier tests above already stored frame.openzl for `participant` at this start_timestamp,
+  // so the next two golden vectors go to `sibling` (the same start would be a 409 conflict).
   it("stores the golden zstd frame", async () => {
-    const res = await upload(f.participant, fieldsFor("frame.zstd"), FRAME_ZSTD, { auth: f.participantBearer })
+    const res = await upload(f.sibling, fieldsFor("frame.zstd"), FRAME_ZSTD, { auth: f.siblingBearer })
     expect(res.status).toBe(200)
     const doc = await filesCollection().findOne({ _id: new ObjectId(res.body.data.id) })
     expect(doc!.metadata.codec).toBe("zstd")
@@ -231,8 +233,8 @@ describe("POST /participant/:id/sensor-stream", () => {
   })
 
   it("stores the golden one-record frame from iOS", async () => {
-    const res = await upload(f.participant, fieldsFor("frame_single.openzl"), FRAME_SINGLE, {
-      auth: f.participantBearer,
+    const res = await upload(f.sibling, fieldsFor("frame_single.openzl"), FRAME_SINGLE, {
+      auth: f.siblingBearer,
     })
     expect(res.status).toBe(200)
     const doc = await filesCollection().findOne({ _id: new ObjectId(res.body.data.id) })
@@ -546,7 +548,7 @@ describe("GET /participant/:id/sensor-stream", () => {
     request(app).get(`/participant/${f.sibling}/sensor-stream?${query}`).set("x-api-key", f.researcherAKey)
 
   it("returns every frame of the spec in ascending start order with the contract fields", async () => {
-    const res = await list(`sensor_spec=${spec}&from=0&to=${base + 10 * WINDOW_MS}`)
+    const res = await list(`sensor_spec=${spec}&from=${base}&to=${base + 10 * WINDOW_MS}`)
     expect(res.status).toBe(200)
     expect(res.body.next).toBeNull()
     expect(res.body.data.map((d: any) => d.start_timestamp)).toEqual(ordered.map((fr) => fr.start))
@@ -603,7 +605,7 @@ describe("GET /participant/:id/sensor-stream", () => {
     let cursor: string | null = null
     let pages = 0
     do {
-      const query: string = `sensor_spec=${spec}&from=0&to=${base + 10 * WINDOW_MS}&limit=2${
+      const query: string = `sensor_spec=${spec}&from=${base}&to=${base + 10 * WINDOW_MS}&limit=2${
         cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""
       }`
       const res = await list(query)
