@@ -67,6 +67,12 @@ compressed binary frames to `POST /participant/{id}/sensor-stream`. The server s
 GridFS bucket `accelerometer_telemetry` and creates its indexes on every start. The wire format is
 defined in LAMP-protocol `docs/sensor-stream.md`.
 
+A participant can upload only to their own stream, and the read routes (`GET .../sensor-stream`
+and `GET .../sensor-stream/{file_id}`) take an `x-api-key` or a dashboard session, not a mobile
+token. Unlike `sensor_event`, these routes have no sibling rule, so one participant of a study
+can't reach another's frames. Errors, including authentication failures, have the form
+`{"error": "<status>.<slug>"}`.
+
 On Amazon DocumentDB:
 
 - Use an instance-based cluster. Elastic clusters don't support GridFS.

@@ -3606,7 +3606,7 @@
       "post": {
         "operationId": "SensorStream.create",
         "summary": "Upload a binary sensor-stream frame for a Participant.",
-        "description": "Upload one compressed accelerometer frame. A frame holds the 20-byte little-endian records (`int64` timestamp in Unix epoch milliseconds, then `float32` x, y, and z in m/s^2) of one participant, one sensor spec, and one 5-minute window. Send every text field before the `frame` file part. Retrying an identical frame returns `duplicate: true`; different bytes for the same `start_timestamp` return 409. API keys need the system administrator access level. See LAMP-protocol `docs/sensor-stream.md`.",
+        "description": "Upload one compressed accelerometer frame. A frame holds the 20-byte little-endian records (`int64` timestamp in Unix epoch milliseconds, then `float32` x, y, and z in m/s^2) of one participant, one sensor spec, and one 5-minute window. Send every text field before the `frame` file part. Retrying an identical frame returns `duplicate: true`; different bytes for the same `start_timestamp` return 409. A participant can upload only to their own stream; researchers can upload for the participants of their studies. API keys need the system administrator access level. See LAMP-protocol `docs/sensor-stream.md`.",
         "tags": [
           "SensorStream"
         ],
@@ -3734,7 +3734,7 @@
       "get": {
         "operationId": "SensorStream.list",
         "summary": "List sensor-stream frames for a Participant.",
-        "description": "List the metadata of frames that overlap `[from, to)` (`end_timestamp >= from` and `start_timestamp < to`), sorted by `start_timestamp`, then `id`. Pass `next` as `cursor` to get the next page; `next` is `null` on the last page.",
+        "description": "List the metadata of frames that overlap `[from, to)` (`end_timestamp >= from` and `start_timestamp < to`), sorted by `start_timestamp`, then `id`. Pass `next` as `cursor` to get the next page; `next` is `null` on the last page. Mobile tokens can't call this operation, and a participant can't read another participant's frames.",
         "tags": [
           "SensorStream"
         ],
@@ -3853,7 +3853,7 @@
       "get": {
         "operationId": "SensorStream.view",
         "summary": "Download a sensor-stream frame.",
-        "description": "Download the compressed bytes of one frame, exactly as uploaded. The `ETag` header holds the frame's `sha256`. Returns 404 when the frame doesn't belong to the Participant.",
+        "description": "Download the compressed bytes of one frame, exactly as uploaded. The `ETag` header holds the frame's `sha256`, quoted. Mobile tokens can't call this operation. Returns 404 when the frame doesn't belong to the Participant.",
         "tags": [
           "SensorStream"
         ],
