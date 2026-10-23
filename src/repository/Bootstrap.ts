@@ -46,6 +46,7 @@ import { initializeQueues } from "../utils/queue/Queue"
 import { auth, Encrypt } from "../utils/auth"
 import { mongoClientInstance } from "../utils/mongoClient"
 import { SetupStates } from "../utils/accountSecurityUtilities"
+import { ensureSensorStreamIndexes, seedSensorSpecs } from "./mongo/SensorStreamStorage"
 export let RedisClient: ioredis.Redis
 export let nc: Client
 export let MongoClientDB: any
@@ -87,8 +88,20 @@ export const Database: any =
 
 export const uuid = customAlphabet("1234567890abcdefghjkmnpqrstvwxyz", 20)
 export const numeric_uuid = (): string => `U${Math.random().toFixed(10).slice(2, 12)}`
+export type BootstrapOptions = {
+  // Connect to Redis and NATS. Tests set this to `false` to initialize only the database.
+  connectMessaging?: boolean
+}
+
 // Initialize the CouchDB databases if any of them do not exist.
-export async function Bootstrap(): Promise<void> {
+export async function Bootstrap({ connectMessaging = true }: BootstrapOptions = {}): Promise<void> {
+  if (connectMessaging) {
+    await ConnectMessaging()
+  }
+  await InitializeDatabase()
+}
+
+async function ConnectMessaging(): Promise<void> {
   if (typeof process.env.REDIS_HOST === "string") {
     try {
       RedisClient = RedisFactory.getInstance()
@@ -110,7 +123,9 @@ export async function Bootstrap(): Promise<void> {
     }
   }
   await NatsConnect()
+}
 
+async function InitializeDatabase(): Promise<void> {
   if (DB_DRIVER === "couchdb") {
     console.group("Initializing database connection...")
     const _db_list = await Database.db.list()
@@ -940,6 +955,12 @@ export async function Bootstrap(): Promise<void> {
         await MongoClientDB.createCollection("verification")
       }
       console.log("Verification database online.")
+
+      // Runs on every start: both calls are idempotent and never overwrite existing data.
+      await ensureSensorStreamIndexes(MongoClientDB)
+      console.log("SensorStream storage online.")
+      await seedSensorSpecs(MongoClientDB)
+      console.log("SensorStream specs online.")
 
       console.groupEnd()
       console.groupEnd()

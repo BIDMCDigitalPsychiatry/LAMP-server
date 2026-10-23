@@ -14,6 +14,7 @@ import { ActivityEventService } from "./ActivityEventService"
 import { SensorService } from "./SensorService"
 import { SensorSpecService } from "./SensorSpecService"
 import { SensorEventService } from "./SensorEventService"
+import { SensorStreamService } from "./SensorStreamService"
 import { SystemInfoAPI } from "../utils/SystemInfoAPI"
 import { ApiKeyService } from "./ApiKeyService"
 
@@ -28,6 +29,7 @@ export { ActivityEventService } from "./ActivityEventService"
 export { SensorService } from "./SensorService"
 export { SensorSpecService } from "./SensorSpecService"
 export { SensorEventService } from "./SensorEventService"
+export { SensorStreamService } from "./SensorStreamService"
 
 const API = Router()
 API.use(TypeService.Router)
@@ -41,6 +43,7 @@ API.use(ActivityEventService.Router)
 API.use(SensorService.Router)
 API.use(SensorSpecService.Router)
 API.use(SensorEventService.Router)
+API.use(SensorStreamService.Router)
 API.use(ApiKeyService.Router)
 API.use(QueryAPI)
 API.use("/subscribe", ListenerAPI)

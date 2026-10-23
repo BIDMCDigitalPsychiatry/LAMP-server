@@ -60,6 +60,10 @@
       "name": "SensorEvent"
     },
     {
+      "name": "SensorStream",
+      "description": "Binary frames from the high-rate accelerometer sensors. The wire format is defined in LAMP-protocol `docs/sensor-stream.md`."
+    },
+    {
       "name": "Type"
     }
   ],
@@ -3598,6 +3602,335 @@
         }
       }
     },
+    "/participant/{id}/sensor-stream": {
+      "post": {
+        "operationId": "SensorStream.create",
+        "summary": "Upload a binary sensor-stream frame for a Participant.",
+        "description": "Upload one compressed accelerometer frame. A frame holds the 20-byte little-endian records (`int64` timestamp in Unix epoch milliseconds, then `float32` x, y, and z in m/s^2) of one participant, one sensor spec, and one 5-minute window. Send every text field before the `frame` file part. Retrying an identical frame returns `duplicate: true`; different bytes for the same `start_timestamp` return 409. A participant can upload only to their own stream; researchers can upload for the participants of their studies. API keys need the system administrator access level. See LAMP-protocol `docs/sensor-stream.md`.",
+        "tags": [
+          "SensorStream"
+        ],
+        "x-python-settings": {
+          "name": "create"
+        },
+        "security": [
+          {
+            "MobileToken": []
+          },
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "SessionLogin": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The Participant ID, or `me` for the authenticated participant."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/SensorStreamUpload"
+              },
+              "encoding": {
+                "frame": {
+                  "contentType": "application/octet-stream"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stored, or already stored when `duplicate` is `true`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "id"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "The stored frame's ID."
+                        },
+                        "duplicate": {
+                          "type": "boolean",
+                          "description": "Present and `true` when the same frame was already stored."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A field or the frame is missing or invalid. Don't retry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not authenticated or not authorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A different frame is already stored for this participant, sensor spec, and `start_timestamp`. Don't retry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The frame is larger than 4 MiB. Don't retry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "SensorStream.list",
+        "summary": "List sensor-stream frames for a Participant.",
+        "description": "List the metadata of frames that overlap `[from, to)` (`end_timestamp >= from` and `start_timestamp < to`), sorted by `start_timestamp`, then `id`. Pass `next` as `cursor` to get the next page; `next` is `null` on the last page. Mobile tokens can't call this operation, and a participant can't read another participant's frames.",
+        "tags": [
+          "SensorStream"
+        ],
+        "x-python-settings": {
+          "name": "all_by_participant"
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "SessionLogin": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The Participant ID, or `me` for the authenticated participant."
+          },
+          {
+            "name": "sensor_spec",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "lamp.accelerometer10hz",
+                "lamp.accelerometer20hz",
+                "lamp.accelerometer50hz",
+                "lamp.accelerometer100hz"
+              ]
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "description": "Unix epoch milliseconds, inclusive.",
+              "default": 0
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "description": "Unix epoch milliseconds, exclusive. Defaults to now."
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 1000
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "description": "The `next` value from the previous page."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SensorStreamFrame"
+                      }
+                    },
+                    "next": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "The cursor for the next page, or `null` on the last page."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/participant/{id}/sensor-stream/{file_id}": {
+      "get": {
+        "operationId": "SensorStream.view",
+        "summary": "Download a sensor-stream frame.",
+        "description": "Download the compressed bytes of one frame, exactly as uploaded. The `ETag` header holds the frame's `sha256`, quoted. Mobile tokens can't call this operation. Returns 404 when the frame doesn't belong to the Participant.",
+        "tags": [
+          "SensorStream"
+        ],
+        "x-python-settings": {
+          "name": "view"
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "SessionLogin": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The Participant ID, or `me` for the authenticated participant."
+          },
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "A frame `id` from the list operation."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The compressed frame.",
+            "headers": {
+              "ETag": {
+                "description": "The frame's `sha256`, quoted.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such frame for this Participant.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/researcher/{id}/sensor_event": {
       "get": {
         "operationId": "Researcher.query_sensor_events",
@@ -5536,6 +5869,184 @@
           "timestamp",
           "sensor",
           "data"
+        ]
+      },
+      "SensorStreamFrame": {
+        "type": "object",
+        "description": "The metadata of one stored sensor-stream frame.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The frame ID; pass it to `SensorStream.view`."
+          },
+          "sensor_spec": {
+            "type": "string",
+            "enum": [
+              "lamp.accelerometer10hz",
+              "lamp.accelerometer20hz",
+              "lamp.accelerometer50hz",
+              "lamp.accelerometer100hz"
+            ],
+            "description": "The accelerometer tier."
+          },
+          "start_timestamp": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The first record's timestamp, Unix epoch milliseconds."
+          },
+          "end_timestamp": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The last record's timestamp, Unix epoch milliseconds, in the same 5-minute window as `start_timestamp`."
+          },
+          "sample_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 66000,
+            "description": "The number of 20-byte records in the frame."
+          },
+          "codec": {
+            "type": "string",
+            "enum": [
+              "openzl",
+              "zstd"
+            ]
+          },
+          "codec_format_version": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+              24,
+              0
+            ],
+            "description": "24 for `openzl`, 0 for `zstd`."
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "android",
+              "ios"
+            ]
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "m/s^2"
+            ]
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Lowercase hex SHA-256 of the compressed frame bytes."
+          },
+          "byte_length": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The size of the compressed frame in bytes."
+          },
+          "upload_date": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "sensor_spec",
+          "start_timestamp",
+          "end_timestamp",
+          "sample_count",
+          "codec",
+          "codec_format_version",
+          "platform",
+          "unit",
+          "sha256",
+          "byte_length",
+          "upload_date"
+        ]
+      },
+      "SensorStreamUpload": {
+        "type": "object",
+        "description": "The multipart body of `SensorStream.create`. Send the text fields in this order, before `frame`.",
+        "properties": {
+          "sensor_spec": {
+            "type": "string",
+            "enum": [
+              "lamp.accelerometer10hz",
+              "lamp.accelerometer20hz",
+              "lamp.accelerometer50hz",
+              "lamp.accelerometer100hz"
+            ],
+            "description": "The accelerometer tier."
+          },
+          "start_timestamp": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The first record's timestamp, Unix epoch milliseconds."
+          },
+          "end_timestamp": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The last record's timestamp, Unix epoch milliseconds, in the same 5-minute window as `start_timestamp`."
+          },
+          "sample_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 66000,
+            "description": "The number of 20-byte records in the frame."
+          },
+          "codec": {
+            "type": "string",
+            "enum": [
+              "openzl",
+              "zstd"
+            ]
+          },
+          "codec_format_version": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+              24,
+              0
+            ],
+            "description": "24 for `openzl`, 0 for `zstd`."
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "android",
+              "ios"
+            ]
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "m/s^2"
+            ]
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Lowercase hex SHA-256 of the compressed frame bytes."
+          },
+          "frame": {
+            "type": "string",
+            "format": "binary",
+            "description": "The compressed frame, at most 4 MiB."
+          }
+        },
+        "required": [
+          "sensor_spec",
+          "start_timestamp",
+          "end_timestamp",
+          "sample_count",
+          "codec",
+          "codec_format_version",
+          "platform",
+          "unit",
+          "sha256",
+          "frame"
         ]
       },
       "Credential": {

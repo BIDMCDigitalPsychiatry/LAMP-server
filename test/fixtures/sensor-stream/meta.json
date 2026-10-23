@@ -1,0 +1,50 @@
+{
+  "frame.openzl": {
+    "sensor_spec": "lamp.accelerometer50hz",
+    "start_timestamp": 1790000100000,
+    "end_timestamp": 1790000109980,
+    "sample_count": 500,
+    "codec": "openzl",
+    "codec_format_version": 24,
+    "platform": "android",
+    "unit": "m/s^2",
+    "sha256": "a8ee18c33e9953a183864eea00deacfc3bfa6a300470a05741f6ece8003c15b6",
+    "byte_length": 4188
+  },
+  "frame.zstd": {
+    "sensor_spec": "lamp.accelerometer50hz",
+    "start_timestamp": 1790000100000,
+    "end_timestamp": 1790000109980,
+    "sample_count": 500,
+    "codec": "zstd",
+    "codec_format_version": 0,
+    "platform": "android",
+    "unit": "m/s^2",
+    "sha256": "50c0b1ab305f87b3ed751754b521657c47d4d1e14f97e3195f8fd42e81512dde",
+    "byte_length": 6090
+  },
+  "frame_nosize.zstd": {
+    "sensor_spec": "lamp.accelerometer50hz",
+    "start_timestamp": 1790000100000,
+    "end_timestamp": 1790000109980,
+    "sample_count": 500,
+    "codec": "zstd",
+    "codec_format_version": 0,
+    "platform": "android",
+    "unit": "m/s^2",
+    "sha256": "8372ae9cb6dbe603f0c57d9f9c0028d11d996e58c47407fb92368129d248a995",
+    "byte_length": 6089
+  },
+  "frame_single.openzl": {
+    "sensor_spec": "lamp.accelerometer100hz",
+    "start_timestamp": 1790000100000,
+    "end_timestamp": 1790000100000,
+    "sample_count": 1,
+    "codec": "openzl",
+    "codec_format_version": 24,
+    "platform": "ios",
+    "unit": "m/s^2",
+    "sha256": "662b784a3b978435433e37b8c47130354d080c19db9d894db564762a9aae438f",
+    "byte_length": 40
+  }
+}

@@ -30,6 +30,10 @@
 | `DASHBOARD_URL`   | :heavy_check_mark:  |                                                                                                                                                                       |
 | `DB`  | :heavy_check_mark:  | Database connection string.                                                                                                                                               |
 | `DB_KEY`   |   |                                                                                                                                                                           |
+| `DB_NAME`  | :heavy_check_mark:  | Name of the MongoDB database the server uses, for example `LampV2`.                                                                                                       |
+| `DB_RETRY_WRITES` |   | `true` or `false`. Overrides retryable writes. Defaults to the driver default, or to `false` when `DB_TLS` or `DOCDB_CA_CERT_PATH` is set.                                     |
+| `DB_TLS`   |   | Set to `true` to connect to MongoDB over TLS. Also turns off retryable writes unless `DB_RETRY_WRITES` is set.                                                            |
+| `DOCDB_CA_CERT_PATH` |   | Path to a CA bundle inside the container, such as the Amazon DocumentDB `global-bundle.pem`. Turns on TLS like `DB_TLS=true` and trusts this bundle.                         |
 | `NATS_SERVER`   | :heavy_check_mark:  |                                                                                                                                                                           |
 | `NOTIFICATION_SERVICE_API_KEY`   |   | The api key to be used when addressing the designated notification service.                                                                                               |
 | `NOTIFICATION_SERVICE_URL`   |  | The protocol scheme, hostname, and optionally port that points to the desired notification service.                                                                       |
@@ -46,6 +50,36 @@
 | `STAFF_SESSION_EXPIRES_IN` || Time in seconds after which to expire a staff user's session
 | `STAFF_SESSION_UPDATE_AGE` || Time in seconds after which to refresh a staff user's session
 | `SYSTEM_STATUS_API_KEY`   |   | If set, some of the system info endpoints (such as `/system/metrics` or `/system/version`) will require a `key` query parameter equal to this env var in order to access. |
+
+### Running the tests
+
+Use Node 24. `npm test` runs the vitest suite against an in-memory MongoDB replica set; the first
+run downloads a `mongod` binary (about 80 MB) into the local cache. You don't need Docker, Redis,
+or NATS. `npm run test:watch` reruns the tests when files change.
+
+The live-database test in `test/repository/Bootstrap.test.ts` runs only when you set `DB` (and
+`DB_NAME`) in your shell before `npm test`. Every other test ignores those variables.
+
+### Sensor-stream storage
+
+The high-rate accelerometer sensors (`lamp.accelerometer10hz` to `lamp.accelerometer100hz`) upload
+compressed binary frames to `POST /participant/{id}/sensor-stream`. The server stores them in the
+GridFS bucket `accelerometer_telemetry` and creates its indexes on every start. The wire format is
+defined in LAMP-protocol `docs/sensor-stream.md`.
+
+A participant can upload only to their own stream, and the read routes (`GET .../sensor-stream`
+and `GET .../sensor-stream/{file_id}`) take an `x-api-key` or a dashboard session, not a mobile
+token. Unlike `sensor_event`, these routes have no sibling rule, so one participant of a study
+can't reach another's frames. Errors, including authentication failures, have the form
+`{"error": "<status>.<slug>"}`.
+
+On Amazon DocumentDB:
+
+- Use an instance-based cluster. Elastic clusters don't support GridFS.
+- Mount the Amazon CA bundle into the container and set `DOCDB_CA_CERT_PATH` to its path. Don't
+  bake the bundle into the image.
+- Engine versions earlier than 8.0.2 don't support retryable writes; `DOCDB_CA_CERT_PATH` turns them
+  off for you.
 
 ### Authentication with Better-Auth
 

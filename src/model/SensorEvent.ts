@@ -21,6 +21,13 @@ export enum SensorName {
   Flights = "lamp.flights",
   Segment = "lamp.segment",
   Distance = "lamp.distance",
+  // One GPS fix per minute, uploaded as JSON sensor events.
+  LocationPerMinute = "lamp.gps1m",
+  // High-rate accelerometer tiers, uploaded as binary frames to `/sensor-stream`.
+  Accelerometer10Hz = "lamp.accelerometer10hz",
+  Accelerometer20Hz = "lamp.accelerometer20hz",
+  Accelerometer50Hz = "lamp.accelerometer50hz",
+  Accelerometer100Hz = "lamp.accelerometer100hz",
 }
 export enum LocationContext {
   Home = "home",
