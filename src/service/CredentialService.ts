@@ -512,8 +512,8 @@ CredentialService.Router.get(
       res.json(responseBody)
       return
     }
-    res.status(403)
-    res.json({error: "403.no-such-credentials"})
+    res.status(401)
+    res.json({error: "401.no-such-credentials"})
   }
 )
 
@@ -654,7 +654,7 @@ CredentialService.Router.post(
     let getSessionResult
     try {
       getSessionResult = await auth.api.mobileAuthGetSession({
-        body: {token: req.body.refreshToken}, 
+        body: {token: req.body.refreshToken, expectedTokenType: "refresh"},
         returnHeaders: true
       })
     } catch(err) {
