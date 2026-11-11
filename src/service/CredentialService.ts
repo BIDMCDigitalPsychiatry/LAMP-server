@@ -440,6 +440,12 @@ CredentialService.Router.get(
           redirectUrl.searchParams.append("finishLoginToken", finishLoginTokenBody.token)
         }
       }
+    } else {
+      // Refused logins (like 403.oauth-forbidden for participants) come back as an error, not a redirect
+      const errorBody = await callbackResult.json().catch(() => null)
+      if (errorBody?.message) {
+        redirectUrl.searchParams.append("error", errorBody.message)
+      }
     }
     res.redirect(redirectUrl.toString())
   }
