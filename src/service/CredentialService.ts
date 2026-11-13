@@ -5,6 +5,7 @@ import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 const { credentialValidationRules } = require("../validator/validationRules")
 const { validateRequest } = require("../middlewares/validateRequest")
 import { ActingUserContext, authenticateSession, AuthFlag, configureAuth } from "../middlewares/authenticateSession"
+import { twoFactorSendLimit, twoFactorVerifyLimit } from "../middlewares/rateLimitTwoFactor"
 import { auth, convertSetCookieToCookie, Session } from "../utils/auth"
 import { OneTimeTokenRequestFlows, SetupStates } from "../utils/accountSecurityUtilities"
 import { fromNodeHeaders } from "better-auth/node"
@@ -440,6 +441,12 @@ CredentialService.Router.get(
           redirectUrl.searchParams.append("finishLoginToken", finishLoginTokenBody.token)
         }
       }
+    } else {
+      // Refused logins (like 403.oauth-forbidden for participants) come back as an error, not a redirect
+      const errorBody = await callbackResult.json().catch(() => null)
+      if (errorBody?.message) {
+        redirectUrl.searchParams.append("error", errorBody.message)
+      }
     }
     res.redirect(redirectUrl.toString())
   }
@@ -512,8 +519,8 @@ CredentialService.Router.get(
       res.json(responseBody)
       return
     }
-    res.status(403)
-    res.json({error: "403.no-such-credentials"})
+    res.status(401)
+    res.json({error: "401.no-such-credentials"})
   }
 )
 
@@ -533,6 +540,7 @@ CredentialService.Router.post(
   "/setup-2fa",
   configureAuth([AuthFlag.skipFullSetupCheck]),
   authenticateSession,
+  twoFactorSendLimit,
   async (req, res) => {
     const r = await auth.api.configure2FA({
       headers: fromNodeHeaders(req.headers),
@@ -555,6 +563,7 @@ CredentialService.Router.post(
   "/send-2fa",
   configureAuth([AuthFlag.skipFullSetupCheck]),
   authenticateSession,
+  twoFactorSendLimit,
   async (req, res) => {
     const r = await auth.api.send2FACode({
       headers: fromNodeHeaders(req.headers),
@@ -573,6 +582,7 @@ CredentialService.Router.post(
   "/verify-2fa",
   configureAuth([AuthFlag.skipFullSetupCheck]),
   authenticateSession,
+  twoFactorVerifyLimit,
   async (req, res) => {
     const r = await auth.api.verify2FACode({
       headers: fromNodeHeaders(req.headers),
@@ -654,7 +664,7 @@ CredentialService.Router.post(
     let getSessionResult
     try {
       getSessionResult = await auth.api.mobileAuthGetSession({
-        body: {token: req.body.refreshToken}, 
+        body: {token: req.body.refreshToken, expectedTokenType: "refresh"},
         returnHeaders: true
       })
     } catch(err) {

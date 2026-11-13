@@ -12,7 +12,7 @@ export class CredentialRepository implements CredentialInterface {
       })
     ).docs.filter((x: any) => (!!secret_key ? Decrypt(x.secret_key, "AES256") === secret_key : true))
     if (res.length !== 0) return (res[0] as any).origin
-    throw new Error("403.no-such-credentials")
+    throw new Error("401.no-such-credentials")
   }
   public async _select(type_id: string | null): Promise<any[]> {
     const res = await Database.use("credential").find({

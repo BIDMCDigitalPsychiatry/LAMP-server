@@ -56,8 +56,8 @@ export async function authenticateSession(req: Request, res: Response, next: Nex
 
     // If we have not found an ActingUserContext, throw
     if (!actingUserContext) {
-        res.status(403)
-        res.json({message: "403.no-such-credentials"})
+        res.status(401)
+        res.json({message: "401.no-such-credentials"})
         return 
     }
 
@@ -66,8 +66,8 @@ export async function authenticateSession(req: Request, res: Response, next: Nex
     if (user._deleted) {
         const deleteResult = await MongoClientDB.collection("session")
                                                 .deleteOne({token: session.token})
-        res.status(403)
-        res.json({message: "403.no-such-credentials"})
+        res.status(401)
+        res.json({message: "401.no-such-credentials"})
         return
     }
 
@@ -114,9 +114,14 @@ export async function authenticateMobileSession(req: Request, res: Response) {
         // If enabled in settings, basic auth can be used as a mobile token
         // This setting should only be enabled in order to support legacy mobile app users
         try {
-            const authString = atob(authorizationHeader.replace("Basic ", "")).split(":")
+            const authString = Buffer.from(authorizationHeader.replace("Basic ", ""), "base64").toString("utf8")
+            // Split on the first colon only, since passwords may contain colons
+            const separatorIndex = authString.indexOf(":")
+            if (separatorIndex === -1) {
+                return null
+            }
             result = await auth.api.legacyMobileAuthGetSession({
-                body: {username: authString[0], secretKey: authString[1]},
+                body: {username: authString.slice(0, separatorIndex), secretKey: authString.slice(separatorIndex + 1)},
                 returnHeaders: true,
             }) as any
         } catch(err) {

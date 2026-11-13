@@ -135,7 +135,7 @@ async function addUsernames() {
 
   // Create all email credentials
   await Promise.all(toUpdate.map(cred => {
-    MongoClientDB.collection("credential").updateOne(
+    return MongoClientDB.collection("credential").updateOne(
       {_id: cred._id}, 
       {$set: {
         username: cred.access_key,
