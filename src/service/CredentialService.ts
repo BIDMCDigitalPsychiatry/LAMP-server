@@ -5,6 +5,7 @@ import { Repository, ApiResponseHeaders } from "../repository/Bootstrap"
 const { credentialValidationRules } = require("../validator/validationRules")
 const { validateRequest } = require("../middlewares/validateRequest")
 import { ActingUserContext, authenticateSession, AuthFlag, configureAuth } from "../middlewares/authenticateSession"
+import { twoFactorSendLimit, twoFactorVerifyLimit } from "../middlewares/rateLimitTwoFactor"
 import { auth, convertSetCookieToCookie, Session } from "../utils/auth"
 import { OneTimeTokenRequestFlows, SetupStates } from "../utils/accountSecurityUtilities"
 import { fromNodeHeaders } from "better-auth/node"
@@ -539,6 +540,7 @@ CredentialService.Router.post(
   "/setup-2fa",
   configureAuth([AuthFlag.skipFullSetupCheck]),
   authenticateSession,
+  twoFactorSendLimit,
   async (req, res) => {
     const r = await auth.api.configure2FA({
       headers: fromNodeHeaders(req.headers),
@@ -561,6 +563,7 @@ CredentialService.Router.post(
   "/send-2fa",
   configureAuth([AuthFlag.skipFullSetupCheck]),
   authenticateSession,
+  twoFactorSendLimit,
   async (req, res) => {
     const r = await auth.api.send2FACode({
       headers: fromNodeHeaders(req.headers),
@@ -579,6 +582,7 @@ CredentialService.Router.post(
   "/verify-2fa",
   configureAuth([AuthFlag.skipFullSetupCheck]),
   authenticateSession,
+  twoFactorVerifyLimit,
   async (req, res) => {
     const r = await auth.api.verify2FACode({
       headers: fromNodeHeaders(req.headers),
