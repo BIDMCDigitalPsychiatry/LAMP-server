@@ -149,6 +149,11 @@
           "Authentication"
         ],
         "operationId": "server_info",
+        "x-python-settings": {
+          "replaceResponseContent": {
+            "200": "any"
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -192,6 +197,11 @@
             "MobileToken": []
           }
         ],
+        "x-python-settings": {
+          "replaceResponseContent": {
+            "200": "any"
+          }
+        },
         "responses": {
           "200": {
             "description": "Information about the currently active session",
@@ -872,7 +882,10 @@
         "operationId": "Participant.update",
         "x-python-settings": {
           "name": "update",
-          "anyJsonRequestBody": true
+          "anyJsonRequestBody": true,
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "summary": "Update a Participant.",
         "description": "Update a Participant.",
@@ -938,7 +951,10 @@
         ],
         "operationId": "Participant.delete",
         "x-python-settings": {
-          "name": "delete"
+          "name": "delete",
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "summary": "Delete a Participant.",
         "description": "All owned data or event streams will be permanently deleted.",
@@ -996,7 +1012,7 @@
         "x-python-settings": {
           "name": "view",
           "replaceResponseContent": {
-            "200": "anyData"
+            "200": "any"
           }
         },
         "summary": "View a Participant.",
@@ -1055,7 +1071,10 @@
         "operationId": "Researcher.create",
         "x-python-settings": {
           "name": "create",
-          "anyJsonRequestBody": true
+          "anyJsonRequestBody": true,
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "summary": "Create a Researcher.",
         "description": "This action requires system administrator privileges.",
@@ -1115,7 +1134,7 @@
         "x-python-settings": {
           "name": "all",
           "replaceResponseContent": {
-            "200": "anyDataList"
+            "200": "any"
           }
         },
         "summary": "List all Researchers.",
@@ -1177,7 +1196,10 @@
         "operationId": "Researcher.update",
         "x-python-settings": {
           "name": "update",
-          "anyJsonRequestBody": true
+          "anyJsonRequestBody": true,
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "summary": "Update a Researcher.",
         "description": "Update a Researcher's settings.",
@@ -1244,7 +1266,10 @@
       "delete": {
         "operationId": "Researcher.delete",
         "x-python-settings": {
-          "name": "delete"
+          "name": "delete",
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "summary": "Delete a Researcher.",
         "description": "Delete a Researcher.",
@@ -1303,7 +1328,7 @@
         "x-python-settings": {
           "name": "view",
           "replaceResponseContent": {
-            "200": "anyDataList"
+            "200": "any"
           }
         },
         "summary": "View a Researcher.",
@@ -1375,7 +1400,10 @@
         "operationId": "Researcher.create_study",
         "x-python-settings": {
           "name": "create",
-          "anyJsonRequestBody": true
+          "anyJsonRequestBody": true,
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "summary": "Create a Study for a Researcher.",
         "description": "Create a Study for a Researcher.",
@@ -1444,7 +1472,7 @@
         "x-python-settings": {
           "name": "all_by_researcher",
           "replaceResponseContent": {
-            "200": "anyDataList"
+            "200": "any"
           }
         },
         "summary": "List all Studies for a Researcher.",
@@ -1514,7 +1542,10 @@
         "operationId": "Study.update",
         "x-python-settings": {
           "name": "update",
-          "anyJsonRequestBody": true
+          "anyJsonRequestBody": true,
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "summary": "Update a Study.",
         "description": "Update a Study.",
@@ -1580,7 +1611,10 @@
       "delete": {
         "operationId": "Study.delete",
         "x-python-settings": {
-          "name": "delete"
+          "name": "delete",
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "summary": "Delete a Study.",
         "description": "Delete a Study.",
@@ -1638,7 +1672,7 @@
         "x-python-settings": {
           "name": "view",
           "replaceResponseContent": {
-            "200": "anyDataList"
+            "200": "any"
           }
         },
         "summary": "View a Study.",
@@ -1717,7 +1751,11 @@
           {"SessionLogin": []}
         ],
         "x-python-settings": {
-          "name": "create"
+          "name": "create",
+          "anyJsonRequestBody":true,
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "parameters": [
           {
@@ -1781,7 +1819,7 @@
         "x-python-settings": {
           "name": "all_by_study",
           "replaceResponseContent": {
-            "200": "anyDataList"
+            "200": "any"
           }
         },
         "parameters": [
@@ -1845,7 +1883,10 @@
           {"SessionLogin": []}
         ],
         "x-python-settings": {
-          "name": "clone"
+          "name": "clone",
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "parameters": [
           {
@@ -1915,7 +1956,10 @@
           "ActivitySpec"
         ],
         "x-python-settings": {
-          "name": "create"
+          "name": "create",
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "parameters": [],
         "security": [
@@ -1968,7 +2012,10 @@
           "ActivitySpec"
         ],
         "x-python-settings": {
-          "name": "all"
+          "name": "all",
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "parameters": [
           {
@@ -2024,7 +2071,10 @@
           "ActivitySpec"
         ],
         "x-python-settings": {
-          "name": "update"
+          "name": "update",
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "parameters": [
           {
@@ -2086,7 +2136,10 @@
           "ActivitySpec"
         ],
         "x-python-settings": {
-          "name": "delete"
+          "name": "delete",
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "parameters": [
           {
@@ -2140,7 +2193,7 @@
         "x-python-settings": {
           "name": "view",
           "replaceResponseContent": {
-            "200": "anyDataList"
+            "200": "any"
           }
         },
         "parameters": [
@@ -2206,7 +2259,10 @@
           "SensorSpec"
         ],
         "x-python-settings": {
-          "name": "create"
+          "name": "create",
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "parameters": [],
         "security": [
@@ -2261,7 +2317,7 @@
         "x-python-settings": {
           "name": "all",
           "replaceResponseContent": {
-            "200": "anyDataList"
+            "200": "any"
           }
         },
         "parameters": [
@@ -2318,7 +2374,10 @@
           "SensorSpec"
         ],
         "x-python-settings": {
-          "name": "update"
+          "name": "update",
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "parameters": [
           {
@@ -2380,7 +2439,10 @@
           "SensorSpec"
         ],
         "x-python-settings": {
-          "name": "delete"
+          "name": "delete",
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "parameters": [
           {
@@ -2434,7 +2496,7 @@
         "x-python-settings": {
           "name": "view",
           "replaceResponseContent": {
-            "200": "anyDataList"
+            "200": "any"
           }
         },
         "parameters": [
@@ -2500,7 +2562,10 @@
           "Activity"
         ],
         "x-python-settings": {
-          "name": "update"
+          "name": "update",
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "parameters": [
           {
@@ -2562,7 +2627,10 @@
           "Activity"
         ],
         "x-python-settings": {
-          "name": "delete"
+          "name": "delete",
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "parameters": [
           {
@@ -2616,7 +2684,7 @@
         "x-python-settings": {
           "name": "view",
           "replaceResponseContent": {
-            "200": "anyDataList"
+            "200": "any"
           }
         },
         "parameters": [
@@ -2682,7 +2750,10 @@
           "Activity"
         ],
         "x-python-settings": {
-          "name": "create"
+          "name": "create",
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "parameters": [
           {
@@ -2746,7 +2817,7 @@
         "x-python-settings": {
           "name": "all_by_study",
           "replaceResponseContent": {
-            "200": "anyDataList"
+            "200": "any"
           }
         },
         "parameters": [
@@ -2811,7 +2882,10 @@
           "Activity"
         ],
         "x-python-settings": {
-          "name": "all_by_participant"
+          "name": "all_by_participant",
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "security": [
           {"ApiKeyAuth": []},
@@ -2876,7 +2950,10 @@
           "Sensor"
         ],
         "x-python-settings": {
-          "name": "update"
+          "name": "update",
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "security": [
           {"ApiKeyAuth": []},
@@ -2938,7 +3015,10 @@
           "Sensor"
         ],
         "x-python-settings": {
-          "name": "delete"
+          "name": "delete",
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "security": [
           {"ApiKeyAuth": []},
@@ -2992,7 +3072,7 @@
         "x-python-settings": {
           "name": "view",
           "replaceResponseContent": {
-            "200": "anyDataList"
+            "200": "any"
           }
         },
         "security": [
@@ -3058,7 +3138,10 @@
           "Sensor"
         ],
         "x-python-settings": {
-          "name": "create"
+          "name": "create",
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "security": [
           {"ApiKeyAuth": []},
@@ -3123,7 +3206,7 @@
         "x-python-settings": {
           "name": "all_by_study",
           "replaceResponseContent": {
-            "200": "anyDataList"
+            "200": "any"
           }
         },
         "security": [
@@ -3190,7 +3273,7 @@
         "x-python-settings": {
           "name": "all_by_participant",
           "replaceResponseContent": {
-            "200": "anyDataList"
+            "200": "any"
           }
         },
         "security": [
@@ -3256,7 +3339,10 @@
         ],
         "x-python-settings": {
           "name": "create",
-          "anyJsonRequestBody": true
+          "anyJsonRequestBody": true,
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "security": [
           {"ApiKeyAuth": []},
@@ -3432,7 +3518,10 @@
         ],
         "x-python-settings": {
           "name": "create",
-          "anyJsonRequestBody": true
+          "anyJsonRequestBody": true,
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "security": [
           {"ApiKeyAuth": []},
@@ -3506,7 +3595,7 @@
         "x-python-settings": {
           "name": "all_by_participant",
           "replaceResponseContent": {
-            "200": "anyDataList"
+            "200": "any"
           }
         },
         "security": [
@@ -3608,7 +3697,7 @@
         "x-python-settings": {
           "name": "all_by_researcher",
           "replaceResponseContent": {
-            "200": "anyDataList"
+            "200": "any"
           }
         },
         "security": [
@@ -3702,7 +3791,10 @@
         ],
         "x-python-settings": {
           "name": "create_for_researcher",
-          "anyJsonRequestBody": true
+          "anyJsonRequestBody": true,
+          "replaceResponseContent": {
+            "200": "any"
+          }
         },
         "security": [
           {"ApiKeyAuth": []},
@@ -3779,6 +3871,9 @@
           "name": "parent",
           "pathParameterDefaults": {
             "type": "type"
+          },
+          "replaceResponseContent": {
+            "200": "any"
           }
         },
         "security": [
@@ -3852,6 +3947,9 @@
           "name": "list_tags",
           "pathParameterDefaults": {
             "type": "type"
+          },
+          "replaceResponseContent": {
+            "200": "any"
           }
         },
         "security": [
@@ -3919,6 +4017,9 @@
           "name": "get_tag",
           "pathParameterDefaults": {
             "type": "type"
+          },
+          "replaceResponseContent": {
+            "200": "any"
           }
         },
         "security": [
@@ -3989,6 +4090,9 @@
           "name": "get_attachment",
           "pathParameterDefaults": {
             "type": "type"
+          },
+          "replaceResponseContent": {
+            "200": "any"
           }
         },
         "security": [
@@ -4060,6 +4164,9 @@
           "name": "list_attachments",
           "pathParameterDefaults": {
             "type": "type"
+          },
+          "replaceResponseContent": {
+            "200": "any"
           }
         },
         "security": [
@@ -4127,12 +4234,23 @@
           "name": "set_tag",
           "pathParameterDefaults": {
             "type": "type"
+          },
+          "replaceResponseContent": {
+            "200": "any"
           }
         },
         "security": [
           {"ApiKeyAuth": []},
           {"SessionLogin": []}
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          }
+        },
         "parameters": [
           {
             "name": "type",
@@ -4208,6 +4326,9 @@
           "name": "set_attachment",
           "pathParameterDefaults": {
             "type": "type"
+          },
+          "replaceResponseContent": {
+            "200": "any"
           }
         },
         "security": [
@@ -4302,6 +4423,9 @@
           "name": "create",
           "pathParameterDefaults": {
             "type": "type"
+          },
+          "replaceResponseContent": {
+            "200": "any"
           }
         },
         "parameters": [
@@ -4378,7 +4502,7 @@
             "type": "type"
           },
           "replaceResponseContent": {
-            "200": "anyDataList"
+            "200": "any"
           }
         },
         "parameters": [
@@ -4447,6 +4571,9 @@
           "name": "update",
           "pathParameterDefaults": {
             "type": "type"
+          },
+          "replaceResponseContent": {
+            "200": "any"
           }
         },
         "parameters": [
@@ -4530,6 +4657,9 @@
           "name": "delete",
           "pathParameterDefaults": {
             "type": "type"
+          },
+          "replaceResponseContent": {
+            "200": "any"
           }
         },
         "parameters": [
@@ -4642,7 +4772,7 @@
       },
       "currentSessionInfo": {
         "type": "object",
-        "required": ["accessKey", "userType", "me", "require2FAVerification", "accountSetupState"],
+        "required": ["accessKey", "userType", "me", "accountSetupState"],
         "properties": {
           "accessKey": {
             "type": "string",
@@ -4653,8 +4783,7 @@
           },
           "me": {
             "type": "string",
-            "nullable": true,
-            "example": "TODO!"
+            "nullable": true
           },
           "require2FAVerification": {
             "type": "boolean"
