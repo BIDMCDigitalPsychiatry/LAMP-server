@@ -21,7 +21,7 @@ export class CredentialRepository implements CredentialInterface {
 
     if (res.length !== 0) return (res[0] as any).origin
     else {
-      throw new Error("403.no-such-credentials")
+      throw new Error("401.no-such-credentials")
     }
   }
 
